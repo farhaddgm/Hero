@@ -1,0 +1,24 @@
+{
+  "name": "hero-orchestrator",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.19.0",
+  "engines": {
+    "node": ">=22.13.0 <25",
+    "pnpm": ">=11 <12"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "start": "node apps/control-plane/src/server.mjs",
+    "dev": "node --watch apps/control-plane/src/server.mjs",
+    "doctor": "node tools/doctor.mjs",
+    "check:isolation": "node tools/check-isolation.mjs",
+    "build": "node tools/build.mjs",
+    "test": "node --test",
+    "check": "node tools/doctor.mjs && node tools/build.mjs && node --test"
+  }
+}
