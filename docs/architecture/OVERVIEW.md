@@ -36,6 +36,8 @@ Domain has no dependency on Provider CLIs, HTTP frameworks, database drivers or 
 
 HERO-005 defines PostgreSQL as the target source of truth for operational records, append-only events, authorization snapshots and durable outbox dispatch. HERO-006 adds the deterministic Run State Machine above that Event Log. HERO-007 adds the fail-closed authorization decision boundary and Global Stop. HERO-008 adds the isolated Runner boundary: a version-matched dispatch allocates a relative Worktree identity with closed-network defaults, checkpoint-before-cleanup and bounded concurrency. No independent queue is selected before its operational need is proven.
 
+HERO-014 adds shared project memory above the dispatch boundary. It is not a raw chat transcript: each record is versioned, role-filtered and bounded to the current Project or exact Task/Step/document version. Context assembly is read-only and fail-closed for stale task memory, so an Agent cannot silently receive an obsolete design or unrelated project history.
+
 ## Provider boundary
 
 Codex/ChatGPT performs primary implementation, Claude performs independent review, and Cursor receives an IDE handoff. All three are provider adapters with no live credential or CLI connection in this step.

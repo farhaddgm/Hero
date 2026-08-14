@@ -152,3 +152,16 @@ test("Cursor handoff endpoint describes a portable, human-controlled boundary", 
   assert.match(payload.cursorHandoffContract.portabilityBoundary, /relative workspace references/);
   assert.match(payload.cursorHandoffContract.safetyBoundary, /explicit human confirmation/);
 });
+
+test("project memory endpoint exposes only the versioned minimum-context contract", async t => {
+  const app = createHeroServer({ host: "127.0.0.1", port: 0 });
+  const address = await app.start();
+  t.after(() => app.stop());
+
+  const response = await fetch("http://127.0.0.1:" + address.port + "/project-memory-contract");
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.projectMemoryContract.sourceOfTruth, "versioned-append-only-memory");
+  assert.ok(payload.projectMemoryContract.recordKinds.includes("decision"));
+  assert.match(payload.projectMemoryContract.safetyBoundary, /host paths/);
+});

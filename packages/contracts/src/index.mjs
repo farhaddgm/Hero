@@ -85,6 +85,17 @@ export {
 } from "./cursor-handoff.mjs";
 
 export {
+  PROJECT_CONTEXT_STATES,
+  PROJECT_MEMORY_CONTRACT_VERSION,
+  PROJECT_MEMORY_KINDS,
+  PROJECT_MEMORY_RECIPIENT_ROLES,
+  PROJECT_MEMORY_SCOPES,
+  PROJECT_MEMORY_STATUSES,
+  getProjectMemoryContractSummary,
+  validateProjectMemoryContract
+} from "./project-memory.mjs";
+
+export {
   DASHBOARD_ACTIONS,
   DASHBOARD_CONTRACT_VERSION,
   DASHBOARD_REQUEST_STATES,
