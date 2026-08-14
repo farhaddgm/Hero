@@ -53,6 +53,16 @@ export {
 } from "./fake-agent.mjs";
 
 export {
+  PROVIDER_AGENT_CONTRACT_VERSION,
+  PROVIDER_AGENT_IDS,
+  PROVIDER_AGENT_MODES,
+  PROVIDER_EXECUTION_STATES,
+  PROVIDER_RESULT_FIELDS,
+  getProviderAgentContractSummary,
+  validateProviderAgentContract
+} from "./provider-agent.mjs";
+
+export {
   DASHBOARD_ACTIONS,
   DASHBOARD_CONTRACT_VERSION,
   DASHBOARD_REQUEST_STATES,

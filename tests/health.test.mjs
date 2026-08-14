@@ -112,3 +112,16 @@ test("fake agent endpoint exposes deterministic no-provider scenarios only", asy
   assert.ok(payload.fakeAgentContract.scenarios.includes("failure-then-retry"));
   assert.ok(payload.fakeAgentContract.scenarios.includes("pause-resume"));
 });
+
+test("provider-agent endpoint describes a disabled-by-default ChatGPT and Codex boundary", async t => {
+  const app = createHeroServer({ host: "127.0.0.1", port: 0 });
+  const address = await app.start();
+  t.after(() => app.stop());
+
+  const response = await fetch("http://127.0.0.1:" + address.port + "/provider-agent-contract");
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.deepEqual(payload.providerAgentContract.providers, ["chatgpt", "codex"]);
+  assert.deepEqual(payload.providerAgentContract.resultFields, ["files", "tests", "errors", "artifact"]);
+  assert.match(payload.providerAgentContract.safetyBoundary, /disabled by default/);
+});
