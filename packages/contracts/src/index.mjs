@@ -63,6 +63,18 @@ export {
 } from "./provider-agent.mjs";
 
 export {
+  CLAUDE_REVIEW_CONTRACT_VERSION,
+  CLAUDE_REVIEW_PROVIDER,
+  CLAUDE_REVIEW_MODES,
+  CLAUDE_REVIEW_OUTCOMES,
+  CLAUDE_REVIEW_CATEGORIES,
+  CLAUDE_REVIEW_SEVERITIES,
+  CLAUDE_REVIEW_FINDING_FIELDS,
+  getClaudeReviewContractSummary,
+  validateClaudeReviewContract
+} from "./claude-review.mjs";
+
+export {
   DASHBOARD_ACTIONS,
   DASHBOARD_CONTRACT_VERSION,
   DASHBOARD_REQUEST_STATES,

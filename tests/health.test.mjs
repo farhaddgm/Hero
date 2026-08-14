@@ -125,3 +125,16 @@ test("provider-agent endpoint describes a disabled-by-default ChatGPT and Codex 
   assert.deepEqual(payload.providerAgentContract.resultFields, ["files", "tests", "errors", "artifact"]);
   assert.match(payload.providerAgentContract.safetyBoundary, /disabled by default/);
 });
+
+test("Claude review endpoint describes an independent, no-fix review boundary", async t => {
+  const app = createHeroServer({ host: "127.0.0.1", port: 0 });
+  const address = await app.start();
+  t.after(() => app.stop());
+
+  const response = await fetch("http://127.0.0.1:" + address.port + "/claude-review-contract");
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.claudeReviewContract.provider, "claude");
+  assert.deepEqual(payload.claudeReviewContract.categories, ["architecture", "security", "edge-case", "tests"]);
+  assert.match(payload.claudeReviewContract.correctionBoundary, /separately authorized task/);
+});
