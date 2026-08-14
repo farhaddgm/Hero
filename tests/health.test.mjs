@@ -47,3 +47,16 @@ test("architecture endpoint exposes only the approved public architecture summar
   );
   assert.ok(payload.architecture.providers.every(provider => provider.connectionStatus === "not-connected"));
 });
+
+test("data-contract endpoint exposes the safe operational data summary", async t => {
+  const app = createHeroServer({ host: "127.0.0.1", port: 0 });
+  const address = await app.start();
+  t.after(() => app.stop());
+
+  const response = await fetch("http://127.0.0.1:" + address.port + "/data-contract");
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.dataContract.appendOnly, true);
+  assert.equal(payload.dataContract.secretSafe, true);
+  assert.equal(payload.dataContract.durableDispatch, "postgresql-outbox");
+});

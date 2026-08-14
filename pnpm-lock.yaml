@@ -11,3 +11,5 @@ importers:
   apps/control-plane: {}
 
   packages/contracts: {}
+
+  packages/domain: {}

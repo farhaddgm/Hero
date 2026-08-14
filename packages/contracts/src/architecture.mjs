@@ -56,7 +56,7 @@ export const ARCHITECTURE_RUNTIME = Object.freeze({
   persistence: Object.freeze({
     target: "PostgreSQL",
     purpose: "وضعیت عملیاتی، Event Log append-only، Snapshotهای مجوز و Outbox",
-    implementationStatus: "planned-for-HERO-005"
+    implementationStatus: "contract-defined-in-HERO-005"
   }),
   queue: Object.freeze({
     target: "PostgreSQL-backed durable dispatch and outbox",
@@ -143,8 +143,8 @@ export function validateArchitectureContract() {
   if (PROVIDER_ARCHITECTURE.some(provider => provider.connectionStatus !== "not-connected")) {
     errors.push("Architecture design must not imply a live provider connection.");
   }
-  if (ARCHITECTURE_RUNTIME.persistence.implementationStatus !== "planned-for-HERO-005") {
-    errors.push("Persistence implementation boundary must remain assigned to HERO-005.");
+  if (ARCHITECTURE_RUNTIME.persistence.implementationStatus !== "contract-defined-in-HERO-005") {
+    errors.push("Persistence contract boundary must remain assigned to HERO-005.");
   }
   if (!ARCHITECTURE_GUARDRAILS.some(rule => rule.includes("fail-closed"))) {
     errors.push("Architecture must fail closed when a required dependency is unavailable.");

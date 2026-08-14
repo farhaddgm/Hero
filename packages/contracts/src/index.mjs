@@ -3,6 +3,18 @@ export const HERO_VERSION = "0.1.0";
 export const HERO_BOUNDARY = "clean-room";
 
 export {
+  ACTOR_KINDS,
+  AGGREGATE_TYPES,
+  EVENT_TYPES,
+  OPERATIONAL_DATA_CONTRACT_VERSION,
+  OPERATIONAL_ENTITY_MODEL,
+  SENSITIVE_ACTIONS,
+  createOperationalEvent,
+  getOperationalDataSummary,
+  validateOperationalEvent
+} from "./operational-data.mjs";
+
+export {
   ARCHITECTURE_CONTRACT_VERSION,
   ARCHITECTURE_FLOW,
   ARCHITECTURE_GUARDRAILS,

@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import {
   HERO_SERVICE,
   HERO_VERSION,
+  getOperationalDataSummary,
   getPublicArchitectureSummary
 } from "../../../packages/contracts/src/index.mjs";
 
@@ -53,6 +54,13 @@ export function createHeroServer(options = {}) {
       return json(response, 200, {
         service: HERO_SERVICE,
         architecture: getPublicArchitectureSummary()
+      });
+    }
+
+    if (request.method === "GET" && url.pathname === "/data-contract") {
+      return json(response, 200, {
+        service: HERO_SERVICE,
+        dataContract: getOperationalDataSummary()
       });
     }
 
