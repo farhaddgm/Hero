@@ -106,6 +106,15 @@ export {
 } from "./planner.mjs";
 
 export {
+  DEFAULT_QUALITY_GATE_POLICY,
+  QUALITY_GATE_CONTRACT_VERSION,
+  QUALITY_GATE_DECISION_CODES,
+  QUALITY_GATE_STATES,
+  getQualityGateContractSummary,
+  validateQualityGateContract
+} from "./quality-gate.mjs";
+
+export {
   DASHBOARD_ACTIONS,
   DASHBOARD_CONTRACT_VERSION,
   DASHBOARD_REQUEST_STATES,

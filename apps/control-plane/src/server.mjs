@@ -11,6 +11,7 @@ import {
   getFakeAgentContractSummary,
   getOperationalDataSummary,
   getPlannerContractSummary,
+  getQualityGateContractSummary,
   getProjectMemoryContractSummary,
   getProviderAgentContractSummary,
   getPublicArchitectureSummary,
@@ -206,6 +207,13 @@ export function createHeroServer(options = {}) {
       return json(response, 200, {
         service: HERO_SERVICE,
         plannerContract: getPlannerContractSummary()
+      });
+    }
+
+    if (request.method === "GET" && url.pathname === "/quality-gate-contract") {
+      return json(response, 200, {
+        service: HERO_SERVICE,
+        qualityGateContract: getQualityGateContractSummary()
       });
     }
 
