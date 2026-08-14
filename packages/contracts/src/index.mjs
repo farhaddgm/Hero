@@ -135,6 +135,15 @@ export {
 } from "./mobile-factory.mjs";
 
 export {
+  ASSURANCE_GATE_CONTRACT_VERSION,
+  ASSURANCE_GATE_DECISION_CODES,
+  ASSURANCE_GATE_STATES,
+  DEFAULT_ASSURANCE_POLICY,
+  getAssuranceGateContractSummary,
+  validateAssuranceGateContract
+} from "./assurance-gate.mjs";
+
+export {
   DASHBOARD_ACTIONS,
   DASHBOARD_CONTRACT_VERSION,
   DASHBOARD_REQUEST_STATES,

@@ -46,6 +46,8 @@ HERO-017 adds the Web Factory. A ready planning record and exact `develop` autho
 
 HERO-018 adds the Mobile Factory alongside the Web Factory, with a separate native UI contract instead of reusing web UI. A ready plan and exact `develop` authorization create an Expo/React Native/TypeScript Blueprint and Recipe for Android and iOS, reusing only the versioned API and data boundaries. It records Android Preview as a separate Preview gate and iOS EAS/cloud build as a separately authorized external-spend gate. Neither Expo installation, mobile build, Preview nor cloud call happens in this step.
 
+HERO-019 adds the Assurance Gate after Quality Gate and before any future delivery or release adapter. It records only local CI evidence, secret-safe closed-network security evidence, local append-only observability coverage and bounded cost units. Its output is `ASSURANCE_APPROVED` or a safe block. It neither dispatches CI nor exports telemetry; release, deploy and any external spend remain separate authorizations.
+
 ## Provider boundary
 
 Codex/ChatGPT performs primary implementation, Claude performs independent review, and Cursor receives an IDE handoff. All three are provider adapters with no live credential or CLI connection in this step.

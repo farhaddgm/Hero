@@ -6,6 +6,7 @@ import {
   HERO_SERVICE,
   HERO_VERSION,
   getAuthorizationContractSummary,
+  getAssuranceGateContractSummary,
   getClaudeReviewContractSummary,
   getCursorHandoffContractSummary,
   getFakeAgentContractSummary,
@@ -230,6 +231,13 @@ export function createHeroServer(options = {}) {
       return json(response, 200, {
         service: HERO_SERVICE,
         mobileFactoryContract: getMobileFactoryContractSummary()
+      });
+    }
+
+    if (request.method === "GET" && url.pathname === "/assurance-gate-contract") {
+      return json(response, 200, {
+        service: HERO_SERVICE,
+        assuranceGateContract: getAssuranceGateContractSummary()
       });
     }
 

@@ -219,3 +219,16 @@ test("Mobile Factory endpoint exposes the portable Expo preset and separate buil
   assert.ok(payload.mobileFactoryContract.decisionCodes.includes("IOS_CLOUD_BUILD_REQUIRES_SEPARATE_AUTHORIZATION"));
   assert.match(payload.mobileFactoryContract.safetyBoundary, /does not install Expo/);
 });
+
+test("Assurance Gate endpoint exposes local CI, security, observability and cost controls", async t => {
+  const app = createHeroServer({ host: "127.0.0.1", port: 0 });
+  const address = await app.start();
+  t.after(() => app.stop());
+
+  const response = await fetch("http://127.0.0.1:" + address.port + "/assurance-gate-contract");
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.ok(payload.assuranceGateContract.checks.includes("CI evidence"));
+  assert.ok(payload.assuranceGateContract.decisionCodes.includes("RELEASE_REQUIRES_SEPARATE_AUTHORIZATION"));
+  assert.match(payload.assuranceGateContract.safetyBoundary, /does not dispatch CI/);
+});
