@@ -15,7 +15,8 @@ export const AGGREGATE_TYPES = Object.freeze([
   "quality-gate",
   "web-factory",
   "mobile-factory",
-  "assurance-gate"
+  "assurance-gate",
+  "portability-gate"
 ]);
 
 export const EVENT_TYPES = Object.freeze([
@@ -77,6 +78,9 @@ export const EVENT_TYPES = Object.freeze([
   "assurance-gate.assessment-started",
   "assurance-gate.assessment-approved",
   "assurance-gate.assessment-blocked",
+  "portability-gate.assessment-started",
+  "portability-gate.assessment-approved",
+  "portability-gate.assessment-blocked",
   "artifact.delivered",
   "outbox.dispatch-requested"
 ]);
@@ -112,6 +116,7 @@ export const OPERATIONAL_ENTITY_MODEL = Object.freeze([
   Object.freeze({ id: "web-factory", sourceOfTruth: "web_factory_records", purpose: "Versioned web blueprint, feature recipe and quality evidence" }),
   Object.freeze({ id: "mobile-factory", sourceOfTruth: "mobile_factory_records", purpose: "Versioned mobile blueprint, feature recipe and quality evidence" }),
   Object.freeze({ id: "assurance-gate", sourceOfTruth: "assurance_gate_records", purpose: "Versioned local CI, security, observability and cost assessment" }),
+  Object.freeze({ id: "portability-gate", sourceOfTruth: "portability_gate_records", purpose: "Versioned source, runtime, backup, restore and clean Linux evidence" }),
   Object.freeze({ id: "outbox", sourceOfTruth: "outbox", purpose: "Dispatch پایدار پس از commit تراکنش" })
 ]);
 

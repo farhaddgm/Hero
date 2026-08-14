@@ -48,6 +48,8 @@ HERO-018 adds the Mobile Factory alongside the Web Factory, with a separate nati
 
 HERO-019 adds the Assurance Gate after Quality Gate and before any future delivery or release adapter. It records only local CI evidence, secret-safe closed-network security evidence, local append-only observability coverage and bounded cost units. Its output is `ASSURANCE_APPROVED` or a safe block. It neither dispatches CI nor exports telemetry; release, deploy and any external spend remain separate authorizations.
 
+HERO-020 adds a deterministic Portability Gate for a future server move. It requires evidence for the independent source boundary, the Linux/Compose contract, a project-scoped secret-free backup checksum, a matching restore checksum and a clean Linux verification. It emits `PORTABILITY_VERIFIED` only as a readiness record; repository copying, backup operations, secret access, host provisioning, container start and production operation remain separately authorized.
+
 ## Provider boundary
 
 Codex/ChatGPT performs primary implementation, Claude performs independent review, and Cursor receives an IDE handoff. All three are provider adapters with no live credential or CLI connection in this step.

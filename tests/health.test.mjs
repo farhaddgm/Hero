@@ -232,3 +232,16 @@ test("Assurance Gate endpoint exposes local CI, security, observability and cost
   assert.ok(payload.assuranceGateContract.decisionCodes.includes("RELEASE_REQUIRES_SEPARATE_AUTHORIZATION"));
   assert.match(payload.assuranceGateContract.safetyBoundary, /does not dispatch CI/);
 });
+
+test("Portability Gate endpoint exposes transfer readiness without host operations", async t => {
+  const app = createHeroServer({ host: "127.0.0.1", port: 0 });
+  const address = await app.start();
+  t.after(() => app.stop());
+
+  const response = await fetch("http://127.0.0.1:" + address.port + "/portability-gate-contract");
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.ok(payload.portabilityGateContract.checks.includes("checksum-bound backup evidence"));
+  assert.ok(payload.portabilityGateContract.decisionCodes.includes("TRANSFER_REQUIRES_SEPARATE_AUTHORIZATION"));
+  assert.match(payload.portabilityGateContract.safetyBoundary, /never copies a repository/);
+});

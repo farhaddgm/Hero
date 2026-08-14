@@ -27,3 +27,10 @@ test("runtime image is pinned, non-root, and health checked", () => {
   assert.match(dockerfile, /USER hero/);
   assert.match(dockerfile, /HEALTHCHECK/);
 });
+
+test("transfer runbook keeps source, backup and restore evidence explicitly separate", () => {
+  const runbook = fs.readFileSync(path.join(REPO_ROOT, "docs", "operations", "MOVE-TO-ANOTHER-SERVER.md"), "utf8");
+  assert.match(runbook, /PORTABILITY_VERIFIED/);
+  assert.match(runbook, /checksum/);
+  assert.match(runbook, /separate authorization/);
+});

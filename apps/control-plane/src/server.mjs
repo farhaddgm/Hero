@@ -12,6 +12,7 @@ import {
   getFakeAgentContractSummary,
   getMobileFactoryContractSummary,
   getOperationalDataSummary,
+  getPortabilityGateContractSummary,
   getPlannerContractSummary,
   getQualityGateContractSummary,
   getProjectMemoryContractSummary,
@@ -238,6 +239,13 @@ export function createHeroServer(options = {}) {
       return json(response, 200, {
         service: HERO_SERVICE,
         assuranceGateContract: getAssuranceGateContractSummary()
+      });
+    }
+
+    if (request.method === "GET" && url.pathname === "/portability-gate-contract") {
+      return json(response, 200, {
+        service: HERO_SERVICE,
+        portabilityGateContract: getPortabilityGateContractSummary()
       });
     }
 

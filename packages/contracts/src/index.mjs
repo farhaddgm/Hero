@@ -144,6 +144,15 @@ export {
 } from "./assurance-gate.mjs";
 
 export {
+  DEFAULT_PORTABILITY_POLICY,
+  PORTABILITY_GATE_CONTRACT_VERSION,
+  PORTABILITY_GATE_DECISION_CODES,
+  PORTABILITY_GATE_STATES,
+  getPortabilityGateContractSummary,
+  validatePortabilityGateContract
+} from "./portability-gate.mjs";
+
+export {
   DASHBOARD_ACTIONS,
   DASHBOARD_CONTRACT_VERSION,
   DASHBOARD_REQUEST_STATES,
