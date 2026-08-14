@@ -45,6 +45,14 @@ export {
 } from "./runner.mjs";
 
 export {
+  FAKE_AGENT_CONTRACT_VERSION,
+  FAKE_AGENT_OUTCOMES,
+  FAKE_AGENT_SCENARIOS,
+  getFakeAgentContractSummary,
+  validateFakeAgentContract
+} from "./fake-agent.mjs";
+
+export {
   ARCHITECTURE_CONTRACT_VERSION,
   ARCHITECTURE_FLOW,
   ARCHITECTURE_GUARDRAILS,

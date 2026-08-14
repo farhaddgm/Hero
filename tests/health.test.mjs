@@ -99,3 +99,16 @@ test("runner endpoint exposes only the isolated execution contract", async t => 
   assert.equal(payload.runnerContract.defaultLimits.maxConcurrentRunners, 1);
   assert.ok(payload.runnerContract.states.includes("checkpointed"));
 });
+
+test("fake agent endpoint exposes deterministic no-provider scenarios only", async t => {
+  const app = createHeroServer({ host: "127.0.0.1", port: 0 });
+  const address = await app.start();
+  t.after(() => app.stop());
+
+  const response = await fetch("http://127.0.0.1:" + address.port + "/fake-agent-contract");
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.fakeAgentContract.providerBoundary.includes("no network"), true);
+  assert.ok(payload.fakeAgentContract.scenarios.includes("failure-then-retry"));
+  assert.ok(payload.fakeAgentContract.scenarios.includes("pause-resume"));
+});

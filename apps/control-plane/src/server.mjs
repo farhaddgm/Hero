@@ -6,6 +6,7 @@ import {
   HERO_SERVICE,
   HERO_VERSION,
   getAuthorizationContractSummary,
+  getFakeAgentContractSummary,
   getOperationalDataSummary,
   getPublicArchitectureSummary,
   getRunnerContractSummary,
@@ -85,6 +86,13 @@ export function createHeroServer(options = {}) {
       return json(response, 200, {
         service: HERO_SERVICE,
         runnerContract: getRunnerContractSummary()
+      });
+    }
+
+    if (request.method === "GET" && url.pathname === "/fake-agent-contract") {
+      return json(response, 200, {
+        service: HERO_SERVICE,
+        fakeAgentContract: getFakeAgentContractSummary()
       });
     }
 
