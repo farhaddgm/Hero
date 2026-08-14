@@ -75,6 +75,16 @@ export {
 } from "./claude-review.mjs";
 
 export {
+  CURSOR_HANDOFF_CONTRACT_VERSION,
+  CURSOR_HANDOFF_PROVIDER,
+  CURSOR_HANDOFF_MODES,
+  CURSOR_HANDOFF_STATES,
+  CURSOR_HANDOFF_PACKAGE_FIELDS,
+  getCursorHandoffContractSummary,
+  validateCursorHandoffContract
+} from "./cursor-handoff.mjs";
+
+export {
   DASHBOARD_ACTIONS,
   DASHBOARD_CONTRACT_VERSION,
   DASHBOARD_REQUEST_STATES,

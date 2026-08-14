@@ -7,6 +7,7 @@ import {
   HERO_VERSION,
   getAuthorizationContractSummary,
   getClaudeReviewContractSummary,
+  getCursorHandoffContractSummary,
   getFakeAgentContractSummary,
   getOperationalDataSummary,
   getProviderAgentContractSummary,
@@ -182,6 +183,13 @@ export function createHeroServer(options = {}) {
       return json(response, 200, {
         service: HERO_SERVICE,
         claudeReviewContract: getClaudeReviewContractSummary()
+      });
+    }
+
+    if (request.method === "GET" && url.pathname === "/cursor-handoff-contract") {
+      return json(response, 200, {
+        service: HERO_SERVICE,
+        cursorHandoffContract: getCursorHandoffContractSummary()
       });
     }
 

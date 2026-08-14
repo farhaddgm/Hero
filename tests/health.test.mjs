@@ -138,3 +138,17 @@ test("Claude review endpoint describes an independent, no-fix review boundary", 
   assert.deepEqual(payload.claudeReviewContract.categories, ["architecture", "security", "edge-case", "tests"]);
   assert.match(payload.claudeReviewContract.correctionBoundary, /separately authorized task/);
 });
+
+test("Cursor handoff endpoint describes a portable, human-controlled boundary", async t => {
+  const app = createHeroServer({ host: "127.0.0.1", port: 0 });
+  const address = await app.start();
+  t.after(() => app.stop());
+
+  const response = await fetch("http://127.0.0.1:" + address.port + "/cursor-handoff-contract");
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.cursorHandoffContract.provider, "cursor");
+  assert.deepEqual(payload.cursorHandoffContract.states, ["ready", "blocked"]);
+  assert.match(payload.cursorHandoffContract.portabilityBoundary, /relative workspace references/);
+  assert.match(payload.cursorHandoffContract.safetyBoundary, /explicit human confirmation/);
+});
