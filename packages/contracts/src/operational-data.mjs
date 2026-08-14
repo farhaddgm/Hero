@@ -10,7 +10,8 @@ export const AGGREGATE_TYPES = Object.freeze([
   "evidence",
   "artifact",
   "decision",
-  "memory"
+  "memory",
+  "planning"
 ]);
 
 export const EVENT_TYPES = Object.freeze([
@@ -51,6 +52,10 @@ export const EVENT_TYPES = Object.freeze([
   "memory.recorded",
   "memory.superseded",
   "context.assembled",
+  "planning.created",
+  "planning.halted",
+  "task-graph.created",
+  "router.selection-recorded",
   "artifact.delivered",
   "outbox.dispatch-requested"
 ]);
@@ -81,6 +86,7 @@ export const OPERATIONAL_ENTITY_MODEL = Object.freeze([
   Object.freeze({ id: "evidence", sourceOfTruth: "evidence", purpose: "نتیجهٔ تست، review یا بررسی" }),
   Object.freeze({ id: "artifact", sourceOfTruth: "artifacts", purpose: "خروجی تحویلی، commit یا bundle" }),
   Object.freeze({ id: "memory", sourceOfTruth: "memory_records", purpose: "Versioned, minimum project context" }),
+  Object.freeze({ id: "planning", sourceOfTruth: "planning_records", purpose: "Versioned product spec, task graph and routing decision" }),
   Object.freeze({ id: "outbox", sourceOfTruth: "outbox", purpose: "Dispatch پایدار پس از commit تراکنش" })
 ]);
 

@@ -38,6 +38,8 @@ HERO-005 defines PostgreSQL as the target source of truth for operational record
 
 HERO-014 adds shared project memory above the dispatch boundary. It is not a raw chat transcript: each record is versioned, role-filtered and bounded to the current Project or exact Task/Step/document version. Context assembly is read-only and fail-closed for stale task memory, so an Agent cannot silently receive an obsolete design or unrelated project history.
 
+HERO-015 adds the Planner and Router before dispatch. It converts a simple Persian request into an explicit product Spec, assumptions, acceptance criteria and a validated Task Graph. The Router makes every choice explainable: ChatGPT analyzes and designs, Codex implements and tests, Claude reviews independently, and Cursor receives only a human-controlled handoff. It does not connect to any provider in this stage.
+
 ## Provider boundary
 
 Codex/ChatGPT performs primary implementation, Claude performs independent review, and Cursor receives an IDE handoff. All three are provider adapters with no live credential or CLI connection in this step.

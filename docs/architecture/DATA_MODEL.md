@@ -12,6 +12,7 @@ PostgreSQL is the future operational source of truth. The event log is append-on
 | Event | `events` | Unique `event_id`, global sequence and aggregate version |
 | Evidence / Artifact | `evidence`, `artifacts` | References and summaries only; no secrets in payloads |
 | Project memory | `memory_records` | Append-only versions; role-filtered, minimum Context only |
+| Planning | `planning_records` | Versioned product Spec, valid Task Graph and explained routing |
 | Outbox | `outbox` | Durable dispatch created with the source event transaction |
 
 ## Transaction rule
@@ -37,6 +38,10 @@ HERO-008 adds a `runner` aggregate. Its immutable projection binds one Runner ID
 ## Project memory projection
 
 HERO-014 adds `memory_records` as a versioned, append-only projection for approved rules, architecture, decisions, evidence and internal artifacts. A Context packet selects only the latest eligible record per key, filters it by recipient role and enforces an exact Task, Step and document version for task-scoped memory. A stale task record blocks assembly rather than being silently reused. Packets are read-only internal artifacts and reject secrets, external references and host paths.
+
+## Planning projection
+
+HERO-015 adds `planning_records` for a versioned Persian request Spec, its explicit assumptions and acceptance criteria, a validated acyclic Task Graph and the reason behind each route. Planning remains read-only: it records no live provider output and never creates a Runner. A graph can be halted before dispatch, and its later execution still requires the version-bound authorization and runner boundaries.
 
 ## Current implementation boundary
 

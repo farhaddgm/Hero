@@ -10,6 +10,7 @@ import {
   getCursorHandoffContractSummary,
   getFakeAgentContractSummary,
   getOperationalDataSummary,
+  getPlannerContractSummary,
   getProjectMemoryContractSummary,
   getProviderAgentContractSummary,
   getPublicArchitectureSummary,
@@ -198,6 +199,13 @@ export function createHeroServer(options = {}) {
       return json(response, 200, {
         service: HERO_SERVICE,
         projectMemoryContract: getProjectMemoryContractSummary()
+      });
+    }
+
+    if (request.method === "GET" && url.pathname === "/planner-contract") {
+      return json(response, 200, {
+        service: HERO_SERVICE,
+        plannerContract: getPlannerContractSummary()
       });
     }
 
