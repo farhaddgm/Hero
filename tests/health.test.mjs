@@ -205,3 +205,17 @@ test("Web Factory endpoint exposes the portable, Preview-gated application prese
   assert.ok(payload.webFactoryContract.decisionCodes.includes("PREVIEW_REQUIRES_SEPARATE_AUTHORIZATION"));
   assert.match(payload.webFactoryContract.safetyBoundary, /does not provision a database/);
 });
+
+test("Mobile Factory endpoint exposes the portable Expo preset and separate build gates", async t => {
+  const app = createHeroServer({ host: "127.0.0.1", port: 0 });
+  const address = await app.start();
+  t.after(() => app.stop());
+
+  const response = await fetch("http://127.0.0.1:" + address.port + "/mobile-factory-contract");
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.mobileFactoryContract.targetStack.mobile, "Expo + React Native + TypeScript");
+  assert.ok(payload.mobileFactoryContract.decisionCodes.includes("ANDROID_PREVIEW_REQUIRES_SEPARATE_AUTHORIZATION"));
+  assert.ok(payload.mobileFactoryContract.decisionCodes.includes("IOS_CLOUD_BUILD_REQUIRES_SEPARATE_AUTHORIZATION"));
+  assert.match(payload.mobileFactoryContract.safetyBoundary, /does not install Expo/);
+});

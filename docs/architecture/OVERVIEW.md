@@ -44,6 +44,8 @@ HERO-016 adds the bounded Quality Gate after implementation: isolated Codex test
 
 HERO-017 adds the Web Factory. A ready planning record and exact `develop` authorization produce a version-bound Blueprint and Feature Recipe for a Persian web application: Next.js/React/TypeScript, REST route handlers, a PostgreSQL adapter boundary, a separately configured authentication boundary, isolated Quality Gate evidence, and a Cursor handoff reference. It does not install a framework, invoke a provider, provision a database, configure authentication or publish a preview. Preview is visibly prepared but cannot dispatch without its own authorization; the active Snapshot for this step covers development and testing only.
 
+HERO-018 adds the Mobile Factory alongside the Web Factory, with a separate native UI contract instead of reusing web UI. A ready plan and exact `develop` authorization create an Expo/React Native/TypeScript Blueprint and Recipe for Android and iOS, reusing only the versioned API and data boundaries. It records Android Preview as a separate Preview gate and iOS EAS/cloud build as a separately authorized external-spend gate. Neither Expo installation, mobile build, Preview nor cloud call happens in this step.
+
 ## Provider boundary
 
 Codex/ChatGPT performs primary implementation, Claude performs independent review, and Cursor receives an IDE handoff. All three are provider adapters with no live credential or CLI connection in this step.

@@ -9,6 +9,7 @@ import {
   getClaudeReviewContractSummary,
   getCursorHandoffContractSummary,
   getFakeAgentContractSummary,
+  getMobileFactoryContractSummary,
   getOperationalDataSummary,
   getPlannerContractSummary,
   getQualityGateContractSummary,
@@ -222,6 +223,13 @@ export function createHeroServer(options = {}) {
       return json(response, 200, {
         service: HERO_SERVICE,
         webFactoryContract: getWebFactoryContractSummary()
+      });
+    }
+
+    if (request.method === "GET" && url.pathname === "/mobile-factory-contract") {
+      return json(response, 200, {
+        service: HERO_SERVICE,
+        mobileFactoryContract: getMobileFactoryContractSummary()
       });
     }
 

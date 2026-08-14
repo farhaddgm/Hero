@@ -125,6 +125,16 @@ export {
 } from "./web-factory.mjs";
 
 export {
+  MOBILE_FACTORY_CONTRACT_VERSION,
+  MOBILE_FACTORY_DECISION_CODES,
+  MOBILE_FACTORY_RECIPE_FIELDS,
+  MOBILE_FACTORY_STATES,
+  MOBILE_FACTORY_TARGET_STACK,
+  getMobileFactoryContractSummary,
+  validateMobileFactoryContract
+} from "./mobile-factory.mjs";
+
+export {
   DASHBOARD_ACTIONS,
   DASHBOARD_CONTRACT_VERSION,
   DASHBOARD_REQUEST_STATES,
