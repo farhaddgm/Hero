@@ -4,7 +4,7 @@ Hero پایه‌ی مستقل و قابل‌انتقال یک ارکستریتو
 
 ## وضعیت فعلی
 
-گام‌های HERO-001 تا HERO-007 این موارد را فراهم می‌کنند:
+گام‌های HERO-001 تا HERO-008 این موارد را فراهم می‌کنند:
 
 - قرارداد تجربه کاربر فارسی و ساده، با وضعیت‌های قابل‌فهم، حالت راهنما و اختیار کامل Snapshot نسخه‌دار
 
@@ -15,6 +15,8 @@ Hero پایه‌ی مستقل و قابل‌انتقال یک ارکستریتو
 - موتور گردش‌کار صریح برای Runها: Draft، Planned، Queued، Running، Review، Pause/Resume، Failure/Retry، Completed و Cancelled؛ با idempotency key و تاریخچهٔ Event
 
 - موتور تأیید fail-closed: مجوز مستقیم یا Snapshot نسخه‌دار، تطبیق دقیق Step ID/نسخه/Operation، لغو append-only، Audit Trail و توقف اضطراری برای Dispatch جدید
+
+- مرز Runner ایزوله: یک Worktree نسبی برای هر Task، شبکهٔ پیش‌فرضِ بسته، timeout، checkpoint پیش از cancel/cleanup و محدودیت هم‌زمانی بدون اجرای Agent یا Git زنده
 
 - monorepo مستقل با pnpm
 - سرویس کنترل حداقلی با مسیرهای /health و /ready

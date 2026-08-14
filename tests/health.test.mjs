@@ -86,3 +86,16 @@ test("authorization endpoint exposes only the fail-closed governance contract", 
   assert.ok(payload.authorizationContract.decisionCodes.includes("GLOBAL_STOP_ACTIVE"));
   assert.ok(payload.authorizationContract.separatelyApprovedOperations.includes("production-deploy"));
 });
+
+test("runner endpoint exposes only the isolated execution contract", async t => {
+  const app = createHeroServer({ host: "127.0.0.1", port: 0 });
+  const address = await app.start();
+  t.after(() => app.stop());
+
+  const response = await fetch("http://127.0.0.1:" + address.port + "/runner-contract");
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.runnerContract.defaultLimits.network, "disabled");
+  assert.equal(payload.runnerContract.defaultLimits.maxConcurrentRunners, 1);
+  assert.ok(payload.runnerContract.states.includes("checkpointed"));
+});

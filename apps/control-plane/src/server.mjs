@@ -8,6 +8,7 @@ import {
   getAuthorizationContractSummary,
   getOperationalDataSummary,
   getPublicArchitectureSummary,
+  getRunnerContractSummary,
   getWorkflowContractSummary
 } from "../../../packages/contracts/src/index.mjs";
 
@@ -77,6 +78,13 @@ export function createHeroServer(options = {}) {
       return json(response, 200, {
         service: HERO_SERVICE,
         authorizationContract: getAuthorizationContractSummary()
+      });
+    }
+
+    if (request.method === "GET" && url.pathname === "/runner-contract") {
+      return json(response, 200, {
+        service: HERO_SERVICE,
+        runnerContract: getRunnerContractSummary()
       });
     }
 

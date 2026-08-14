@@ -29,6 +29,10 @@ HERO-006 projects each Run as an explicit State Machine: `draft`, `planned`, `qu
 
 HERO-007 projects a direct or batch Snapshot authorization as an immutable set of `(stepId, documentVersion)` entries, explicit development operations, active/revoked status and an Event-backed audit trail. Dispatch checks use a separate decision aggregate so auditing an allow/deny result does not mutate a grant. Global Stop has its own append-only authorization aggregate and blocks every new dispatch.
 
+## Runner projection
+
+HERO-008 adds a `runner` aggregate. Its immutable projection binds one Runner ID to one Run, Task, Step/version, authorization grant ID, relative Worktree key, task branch, read-only base ref, timeout and checkpoint. `runner.prepared`, `runner.started`, checkpoint, failure, cancellation and cleanup events are append-only. The projection is not a host path and does not store a command, provider credential or secret.
+
 ## Current implementation boundary
 
 `packages/contracts` owns the stable event schema. `packages/domain` provides an in-memory append-only log with duplicate protection and optimistic concurrency for deterministic tests. A future PostgreSQL adapter must preserve these semantics.
