@@ -53,6 +53,14 @@ export {
 } from "./fake-agent.mjs";
 
 export {
+  DASHBOARD_ACTIONS,
+  DASHBOARD_CONTRACT_VERSION,
+  DASHBOARD_REQUEST_STATES,
+  getDashboardContractSummary,
+  validateDashboardContract
+} from "./dashboard.mjs";
+
+export {
   ARCHITECTURE_CONTRACT_VERSION,
   ARCHITECTURE_FLOW,
   ARCHITECTURE_GUARDRAILS,

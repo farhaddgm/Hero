@@ -12,6 +12,8 @@ import {
   getRunnerContractSummary,
   getWorkflowContractSummary
 } from "../../../packages/contracts/src/index.mjs";
+import { DashboardCommandError, createControlDashboard } from "./dashboard-service.mjs";
+import { getDashboardHtml } from "./dashboard-view.mjs";
 
 function json(response, statusCode, body) {
   const payload = JSON.stringify(body);
@@ -21,6 +23,38 @@ function json(response, statusCode, body) {
     "cache-control": "no-store"
   });
   response.end(payload);
+}
+
+function html(response, body) {
+  response.writeHead(200, {
+    "content-type": "text/html; charset=utf-8",
+    "content-security-policy": "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'",
+    "x-content-type-options": "nosniff",
+    "referrer-policy": "no-referrer",
+    "cache-control": "no-store"
+  });
+  response.end(body);
+}
+
+async function readJson(request) {
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of request) {
+    size += chunk.length;
+    if (size > 16_384) throw new DashboardCommandError("PAYLOAD_TOO_LARGE", "درخواست بیش از حد بزرگ است.");
+    chunks.push(chunk);
+  }
+  if (chunks.length === 0) return {};
+  try {
+    const value = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      throw new DashboardCommandError("INVALID_INPUT", "بدنهٔ درخواست معتبر نیست.");
+    }
+    return value;
+  } catch (error) {
+    if (error instanceof DashboardCommandError) throw error;
+    throw new DashboardCommandError("INVALID_JSON", "بدنهٔ درخواست باید JSON معتبر باشد.");
+  }
 }
 
 function parsePort(value) {
@@ -34,9 +68,48 @@ function parsePort(value) {
 export function createHeroServer(options = {}) {
   const host = options.host ?? process.env.HERO_HTTP_HOST ?? "127.0.0.1";
   const port = parsePort(options.port ?? process.env.HERO_HTTP_PORT ?? "3100");
+  const dashboard = options.dashboard ?? createControlDashboard({ now: options.now });
 
-  const server = http.createServer((request, response) => {
+  const server = http.createServer((request, response) => void handle(request, response));
+
+  async function handle(request, response) {
     const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
+
+    try {
+      if (request.method === "GET" && url.pathname === "/") {
+        return html(response, getDashboardHtml());
+      }
+
+      if (request.method === "GET" && url.pathname === "/api/dashboard") {
+        return json(response, 200, { service: HERO_SERVICE, dashboard: dashboard.snapshot() });
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/requests") {
+        return json(response, 201, { service: HERO_SERVICE, request: dashboard.createRequest(await readJson(request)) });
+      }
+
+      const actionMatch = url.pathname.match(/^\/api\/requests\/(REQ-\d{3})\/(approve|reject|stop|run)$/);
+      if (request.method === "POST" && actionMatch) {
+        await readJson(request);
+        const [, requestId, action] = actionMatch;
+        const requestByAction = {
+          approve: dashboard.approveRequest,
+          reject: dashboard.rejectRequest,
+          stop: dashboard.stopRequest,
+          run: dashboard.runFakeAgent
+        };
+        return json(response, 200, { service: HERO_SERVICE, request: requestByAction[action](requestId) });
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/authority") {
+        const input = await readJson(request);
+        return json(response, 200, { service: HERO_SERVICE, dashboard: dashboard.setFullAutonomy(input.fullAutonomy) });
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/global-stop") {
+        const input = await readJson(request);
+        return json(response, 200, { service: HERO_SERVICE, dashboard: dashboard.setGlobalStop(input.active) });
+      }
 
     if (request.method === "GET" && url.pathname === "/health") {
       return json(response, 200, {
@@ -96,11 +169,20 @@ export function createHeroServer(options = {}) {
       });
     }
 
-    return json(response, 404, {
-      service: HERO_SERVICE,
-      status: "not_found"
-    });
-  });
+      return json(response, 404, {
+        service: HERO_SERVICE,
+        status: "not_found"
+      });
+    } catch (error) {
+      const known = error instanceof DashboardCommandError;
+      return json(response, known ? 409 : 500, {
+        service: HERO_SERVICE,
+        status: known ? "command_rejected" : "internal_error",
+        code: known ? error.code : "INTERNAL_ERROR",
+        message: known ? error.message : "خطای غیرمنتظره رخ داد."
+      });
+    }
+  }
 
   return {
     server,
