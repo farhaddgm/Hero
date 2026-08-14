@@ -32,9 +32,9 @@ The system is intentionally not a microservice fleet. Ports form the extraction 
 
 Domain has no dependency on Provider CLIs, HTTP frameworks, database drivers or host paths. Execution never receives an authorization merely because a UI requested it; the Application layer validates the versioned snapshot first.
 
-## Data and dispatch
+## Data, dispatch and lifecycle
 
-HERO-005 will introduce PostgreSQL as the source of truth for operational records, append-only events, authorization snapshots and durable outbox dispatch. No independent queue is selected before its operational need is proven.
+HERO-005 defines PostgreSQL as the target source of truth for operational records, append-only events, authorization snapshots and durable outbox dispatch. HERO-006 adds the deterministic Run State Machine above that Event Log. No independent queue is selected before its operational need is proven.
 
 ## Provider boundary
 

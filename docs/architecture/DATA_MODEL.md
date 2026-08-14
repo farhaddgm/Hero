@@ -21,6 +21,10 @@ For a command that changes state, the PostgreSQL adapter will: lock or compare t
 
 An event carries a fixed identifier, timestamp, actor, correlation/causation links, typed Aggregate and versioned data. A secret-shaped field name or value is rejected before it reaches the log. Redaction is not a substitute for validation: secrets must never be accepted.
 
+## Run lifecycle projection
+
+HERO-006 projects each Run as an explicit State Machine: `draft`, `planned`, `queued`, `running`, `awaiting-review`, `paused`, `failed`, `completed` or `cancelled`. A transition appends a typed `run.*` Event, uses aggregate-version optimistic concurrency and requires an idempotency key. `paused` retains a safe `resumeState`; `failed` retries only through `queued`; completed and cancelled Runs are terminal.
+
 ## Current implementation boundary
 
 `packages/contracts` owns the stable event schema. `packages/domain` provides an in-memory append-only log with duplicate protection and optimistic concurrency for deterministic tests. A future PostgreSQL adapter must preserve these semantics.

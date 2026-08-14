@@ -60,3 +60,16 @@ test("data-contract endpoint exposes the safe operational data summary", async t
   assert.equal(payload.dataContract.secretSafe, true);
   assert.equal(payload.dataContract.durableDispatch, "postgresql-outbox");
 });
+
+test("workflow endpoint exposes the explicit lifecycle without operational records", async t => {
+  const app = createHeroServer({ host: "127.0.0.1", port: 0 });
+  const address = await app.start();
+  t.after(() => app.stop());
+
+  const response = await fetch("http://127.0.0.1:" + address.port + "/workflow-contract");
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.workflowContract.sourceOfTruth, "append-only-event-log");
+  assert.ok(payload.workflowContract.states.includes("paused"));
+  assert.ok(payload.workflowContract.actions.includes("retry"));
+});

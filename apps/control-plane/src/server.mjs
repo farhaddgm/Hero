@@ -6,7 +6,8 @@ import {
   HERO_SERVICE,
   HERO_VERSION,
   getOperationalDataSummary,
-  getPublicArchitectureSummary
+  getPublicArchitectureSummary,
+  getWorkflowContractSummary
 } from "../../../packages/contracts/src/index.mjs";
 
 function json(response, statusCode, body) {
@@ -61,6 +62,13 @@ export function createHeroServer(options = {}) {
       return json(response, 200, {
         service: HERO_SERVICE,
         dataContract: getOperationalDataSummary()
+      });
+    }
+
+    if (request.method === "GET" && url.pathname === "/workflow-contract") {
+      return json(response, 200, {
+        service: HERO_SERVICE,
+        workflowContract: getWorkflowContractSummary()
       });
     }
 

@@ -15,6 +15,16 @@ export {
 } from "./operational-data.mjs";
 
 export {
+  RUN_STATES,
+  TERMINAL_RUN_STATES,
+  WORKFLOW_ACTIONS,
+  WORKFLOW_CONTRACT_VERSION,
+  WORKFLOW_TRANSITIONS,
+  getWorkflowContractSummary,
+  validateWorkflowContract
+} from "./workflow.mjs";
+
+export {
   ARCHITECTURE_CONTRACT_VERSION,
   ARCHITECTURE_FLOW,
   ARCHITECTURE_GUARDRAILS,
