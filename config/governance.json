@@ -1,0 +1,91 @@
+{
+  "schema": "hero.governance/v1",
+  "version": "1.0.0",
+  "effectiveDate": "2026-08-14",
+  "ownerRole": "project-owner",
+  "product": {
+    "name": "Hero",
+    "purpose": "Turn a simple Persian product request into a deeply analyzed, implemented, tested and reviewable web or mobile application.",
+    "primaryUser": "non-developer project owner",
+    "interfaceLanguage": "fa",
+    "initialProviders": [
+      "codex-chatgpt",
+      "claude",
+      "cursor"
+    ]
+  },
+  "scope": {
+    "included": [
+      "product-analysis",
+      "solution-design",
+      "web-application-development",
+      "mobile-application-development",
+      "automated-testing",
+      "independent-review",
+      "versioned-delivery"
+    ],
+    "excludedUntilSeparatelyApproved": [
+      "production-deploy",
+      "destructive-data-operation",
+      "external-spend",
+      "secret-change",
+      "external-message",
+      "irreversible-operation"
+    ]
+  },
+  "authority": {
+    "defaultMode": "per-step",
+    "supportedModes": [
+      "per-step",
+      "batch-snapshot"
+    ],
+    "snapshotRequiredFields": [
+      "authorizationId",
+      "stepId",
+      "documentVersion",
+      "grantedBy",
+      "grantedAt",
+      "status",
+      "operations"
+    ],
+    "failClosed": true,
+    "globalStopRequired": true,
+    "revocationTakesEffect": "before-next-dispatch-or-at-safe-checkpoint"
+  },
+  "decisionRights": [
+    {
+      "decision": "product-intent-and-sensitive-actions",
+      "owner": "project-owner"
+    },
+    {
+      "decision": "architecture-and-implementation-within-approved-scope",
+      "owner": "orchestrator"
+    },
+    {
+      "decision": "quality-gate",
+      "owner": "automated-evidence-and-independent-review"
+    }
+  ],
+  "changeControl": {
+    "approvedRuleMutation": "new-version-required",
+    "architectureChange": "adr-required",
+    "roadmapChange": "change-log-required",
+    "authorizationChange": "append-only-record-required",
+    "silentScopeExpansionAllowed": false
+  },
+  "definitionOfDone": [
+    "acceptance-criteria-met",
+    "automated-tests-pass",
+    "clean-room-check-passes",
+    "documentation-updated",
+    "change-evidence-recorded",
+    "rollback-or-recovery-path-known",
+    "no-blocking-security-finding"
+  ],
+  "evidence": {
+    "runIdRequired": true,
+    "authorizationIdRequired": true,
+    "testResultRequired": true,
+    "artifactReferenceRequired": true
+  }
+}

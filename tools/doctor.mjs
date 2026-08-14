@@ -15,6 +15,8 @@ function check(name, passed, detail) {
 const requiredFiles = [
   ".env.example",
   "AGENTS.md",
+  "config/governance.json",
+  "config/authorizations/roadmap-20260814-001.json",
   "Dockerfile",
   "compose.yaml",
   "package.json",

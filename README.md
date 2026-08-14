@@ -38,3 +38,11 @@ Hero پایه‌ی مستقل و قابل‌انتقال یک ارکستریتو
 Doctor در صورت مشاهده‌ی symlink، Git submodule، وابستگی محلی، import خارج از ریشه، مسیر مطلق میزبان یا remote محلی شکست می‌خورد. نبود Docker در محیط توسعه فقط هشدار است؛ در CI یا سرور مرجع باید Docker جداگانه آزمایش شود.
 
 راهنمای انتقال در docs/operations/MOVE-TO-ANOTHER-SERVER.md و تصمیم مرزی در docs/decisions/ADR-0001-clean-room-boundary.md ثبت شده است.
+
+## حاکمیت پروژه
+
+منشور مصوب در docs/governance/PROJECT_CHARTER.md قرار دارد. قرارداد ماشینی حاکمیت در config/governance.json و Snapshot اختیار توسعه‌ی فعلی در config/authorizations/roadmap-20260814-001.json نگهداری می‌شود.
+
+    pnpm check:governance
+
+این کنترل تضمین می‌کند که ۲۱ گام فعلی نسخه‌دار باشند، اختیار توسعه به عملیات حساس گسترش پیدا نکند و Definition of Done ناقص نشود.

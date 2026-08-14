@@ -1,0 +1,48 @@
+{
+  "schema": "hero.authorization-snapshot/v1",
+  "authorizationId": "BATCH-ROADMAP-20260814-001",
+  "status": "active",
+  "grantedBy": "project-owner",
+  "grantedAt": "2026-08-14",
+  "validUntil": "owner-revocation",
+  "operations": [
+    "design",
+    "document",
+    "version",
+    "develop",
+    "test",
+    "review",
+    "commit"
+  ],
+  "excludedOperations": [
+    "production-deploy",
+    "destructive-data-operation",
+    "external-spend",
+    "secret-change",
+    "external-message",
+    "irreversible-operation"
+  ],
+  "steps": [
+    { "stepId": "HERO-001", "documentVersion": "v1.0" },
+    { "stepId": "HERO-002", "documentVersion": "v1.0" },
+    { "stepId": "HERO-003", "documentVersion": "v1.0" },
+    { "stepId": "HERO-004", "documentVersion": "v1.0" },
+    { "stepId": "HERO-005", "documentVersion": "v1.0" },
+    { "stepId": "HERO-006", "documentVersion": "v1.0" },
+    { "stepId": "HERO-007", "documentVersion": "v1.0" },
+    { "stepId": "HERO-008", "documentVersion": "v1.0" },
+    { "stepId": "HERO-009", "documentVersion": "v1.0" },
+    { "stepId": "HERO-010", "documentVersion": "v1.0" },
+    { "stepId": "HERO-011", "documentVersion": "v1.0" },
+    { "stepId": "HERO-012", "documentVersion": "v1.0" },
+    { "stepId": "HERO-013", "documentVersion": "v1.0" },
+    { "stepId": "HERO-014", "documentVersion": "v1.0" },
+    { "stepId": "HERO-015", "documentVersion": "v1.0" },
+    { "stepId": "HERO-016", "documentVersion": "v1.0" },
+    { "stepId": "HERO-017", "documentVersion": "v1.0" },
+    { "stepId": "HERO-018", "documentVersion": "v1.0" },
+    { "stepId": "HERO-019", "documentVersion": "v1.0" },
+    { "stepId": "HERO-020", "documentVersion": "v1.0" },
+    { "stepId": "HERO-021", "documentVersion": "v1.0" }
+  ]
+}

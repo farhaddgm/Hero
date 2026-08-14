@@ -12,3 +12,6 @@ This repository is a clean-room project. Every human and AI agent must obey thes
 8. Production deploys, destructive actions, external messages, purchases, and secret changes always require separate authorization.
 9. Run pnpm check before handing work off.
 10. Update project evidence only after tests report their real result.
+11. Before dispatch, validate the Step ID and document version against the active authorization snapshot and confirm Global Stop is off.
+12. Treat production, destructive data operations, external spend, secret changes, external messages, and irreversible actions as separately gated.
+13. When the owner revokes full authority, stop new dispatch immediately, pause at a safe checkpoint, and version the authorization record instead of silently editing history.
