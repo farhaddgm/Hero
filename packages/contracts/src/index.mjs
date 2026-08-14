@@ -25,6 +25,16 @@ export {
 } from "./workflow.mjs";
 
 export {
+  AUTHORIZATION_CONTRACT_VERSION,
+  AUTHORIZATION_DECISION_CODES,
+  AUTHORIZATION_MODES,
+  AUTHORIZATION_STATUSES,
+  DEVELOPMENT_OPERATIONS,
+  getAuthorizationContractSummary,
+  validateAuthorizationContract
+} from "./authorization.mjs";
+
+export {
   ARCHITECTURE_CONTRACT_VERSION,
   ARCHITECTURE_FLOW,
   ARCHITECTURE_GUARDRAILS,

@@ -73,3 +73,16 @@ test("workflow endpoint exposes the explicit lifecycle without operational recor
   assert.ok(payload.workflowContract.states.includes("paused"));
   assert.ok(payload.workflowContract.actions.includes("retry"));
 });
+
+test("authorization endpoint exposes only the fail-closed governance contract", async t => {
+  const app = createHeroServer({ host: "127.0.0.1", port: 0 });
+  const address = await app.start();
+  t.after(() => app.stop());
+
+  const response = await fetch("http://127.0.0.1:" + address.port + "/authorization-contract");
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.authorizationContract.matchingRule, "authorization id + exact step id + exact document version + granted operation");
+  assert.ok(payload.authorizationContract.decisionCodes.includes("GLOBAL_STOP_ACTIVE"));
+  assert.ok(payload.authorizationContract.separatelyApprovedOperations.includes("production-deploy"));
+});

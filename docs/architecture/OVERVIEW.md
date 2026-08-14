@@ -34,7 +34,7 @@ Domain has no dependency on Provider CLIs, HTTP frameworks, database drivers or 
 
 ## Data, dispatch and lifecycle
 
-HERO-005 defines PostgreSQL as the target source of truth for operational records, append-only events, authorization snapshots and durable outbox dispatch. HERO-006 adds the deterministic Run State Machine above that Event Log. No independent queue is selected before its operational need is proven.
+HERO-005 defines PostgreSQL as the target source of truth for operational records, append-only events, authorization snapshots and durable outbox dispatch. HERO-006 adds the deterministic Run State Machine above that Event Log. HERO-007 adds the fail-closed authorization decision boundary and Global Stop. No independent queue is selected before its operational need is proven.
 
 ## Provider boundary
 

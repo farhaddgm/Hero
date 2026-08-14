@@ -23,3 +23,9 @@ Production، هزینه‌کرد، حذف داده، تغییر Secret، پیا�
 ## لغو و توقف
 
 با دستور توقف مالک، Dispatch جدید فوراً ممنوع می‌شود. Run جاری فقط تا نخستین Checkpoint امن ادامه می‌یابد و سپس Pause می‌شود. عملیات اتمیک نیمه‌کاره رها نمی‌شود.
+
+## پیاده‌سازی HERO-007
+
+موتور Authorization فقط با تطبیق دقیق شناسهٔ مجوز، Step ID، نسخهٔ سند و Operation توسعه Dispatch را مجاز می‌کند. مجوز direct یک زوج Step/نسخه و Snapshot یک فهرست ثابت از همان زوج‌ها را نگه می‌دارد؛ تغییر سند یا افزودن گام هرگز مجوز قبلی را گسترش نمی‌دهد.
+
+Grant، revoke، Global Stop و تصمیم Dispatch در Event Log append-only ثبت می‌شوند. فقط `project-owner` می‌تواند مجوز یا Global Stop را تغییر دهد. Global Stop Dispatch جدید را رد و نیاز به checkpoint امن را اعلام می‌کند؛ اتصال آن به Runner در گام اجرای ایزوله می‌آید.

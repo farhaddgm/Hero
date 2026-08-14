@@ -25,6 +25,10 @@ An event carries a fixed identifier, timestamp, actor, correlation/causation lin
 
 HERO-006 projects each Run as an explicit State Machine: `draft`, `planned`, `queued`, `running`, `awaiting-review`, `paused`, `failed`, `completed` or `cancelled`. A transition appends a typed `run.*` Event, uses aggregate-version optimistic concurrency and requires an idempotency key. `paused` retains a safe `resumeState`; `failed` retries only through `queued`; completed and cancelled Runs are terminal.
 
+## Authorization projection
+
+HERO-007 projects a direct or batch Snapshot authorization as an immutable set of `(stepId, documentVersion)` entries, explicit development operations, active/revoked status and an Event-backed audit trail. Dispatch checks use a separate decision aggregate so auditing an allow/deny result does not mutate a grant. Global Stop has its own append-only authorization aggregate and blocks every new dispatch.
+
 ## Current implementation boundary
 
 `packages/contracts` owns the stable event schema. `packages/domain` provides an in-memory append-only log with duplicate protection and optimistic concurrency for deterministic tests. A future PostgreSQL adapter must preserve these semantics.

@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import {
   HERO_SERVICE,
   HERO_VERSION,
+  getAuthorizationContractSummary,
   getOperationalDataSummary,
   getPublicArchitectureSummary,
   getWorkflowContractSummary
@@ -69,6 +70,13 @@ export function createHeroServer(options = {}) {
       return json(response, 200, {
         service: HERO_SERVICE,
         workflowContract: getWorkflowContractSummary()
+      });
+    }
+
+    if (request.method === "GET" && url.pathname === "/authorization-contract") {
+      return json(response, 200, {
+        service: HERO_SERVICE,
+        authorizationContract: getAuthorizationContractSummary()
       });
     }
 
