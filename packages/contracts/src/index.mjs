@@ -115,6 +115,16 @@ export {
 } from "./quality-gate.mjs";
 
 export {
+  WEB_FACTORY_CONTRACT_VERSION,
+  WEB_FACTORY_DECISION_CODES,
+  WEB_FACTORY_RECIPE_FIELDS,
+  WEB_FACTORY_STATES,
+  WEB_FACTORY_TARGET_STACK,
+  getWebFactoryContractSummary,
+  validateWebFactoryContract
+} from "./web-factory.mjs";
+
+export {
   DASHBOARD_ACTIONS,
   DASHBOARD_CONTRACT_VERSION,
   DASHBOARD_REQUEST_STATES,

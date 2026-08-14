@@ -12,7 +12,8 @@ export const AGGREGATE_TYPES = Object.freeze([
   "decision",
   "memory",
   "planning",
-  "quality-gate"
+  "quality-gate",
+  "web-factory"
 ]);
 
 export const EVENT_TYPES = Object.freeze([
@@ -63,6 +64,10 @@ export const EVENT_TYPES = Object.freeze([
   "quality-gate.correction-authorized",
   "quality-gate.approved",
   "quality-gate.stopped",
+  "web-factory.blueprint-created",
+  "web-factory.recipe-created",
+  "web-factory.preview-gated",
+  "web-factory.quality-recorded",
   "artifact.delivered",
   "outbox.dispatch-requested"
 ]);
@@ -95,6 +100,7 @@ export const OPERATIONAL_ENTITY_MODEL = Object.freeze([
   Object.freeze({ id: "memory", sourceOfTruth: "memory_records", purpose: "Versioned, minimum project context" }),
   Object.freeze({ id: "planning", sourceOfTruth: "planning_records", purpose: "Versioned product spec, task graph and routing decision" }),
   Object.freeze({ id: "quality-gate", sourceOfTruth: "quality_gate_records", purpose: "Bounded test, review, correction and recheck evidence" }),
+  Object.freeze({ id: "web-factory", sourceOfTruth: "web_factory_records", purpose: "Versioned web blueprint, feature recipe and quality evidence" }),
   Object.freeze({ id: "outbox", sourceOfTruth: "outbox", purpose: "Dispatch پایدار پس از commit تراکنش" })
 ]);
 

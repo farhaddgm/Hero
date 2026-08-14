@@ -16,6 +16,7 @@ import {
   getProviderAgentContractSummary,
   getPublicArchitectureSummary,
   getRunnerContractSummary,
+  getWebFactoryContractSummary,
   getWorkflowContractSummary
 } from "../../../packages/contracts/src/index.mjs";
 import { DashboardCommandError, createControlDashboard } from "./dashboard-service.mjs";
@@ -214,6 +215,13 @@ export function createHeroServer(options = {}) {
       return json(response, 200, {
         service: HERO_SERVICE,
         qualityGateContract: getQualityGateContractSummary()
+      });
+    }
+
+    if (request.method === "GET" && url.pathname === "/web-factory-contract") {
+      return json(response, 200, {
+        service: HERO_SERVICE,
+        webFactoryContract: getWebFactoryContractSummary()
       });
     }
 

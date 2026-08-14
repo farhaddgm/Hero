@@ -192,3 +192,16 @@ test("Quality Gate endpoint exposes a bounded test, review and correction contra
   assert.match(payload.qualityGateContract.flow, /separately authorized correction/);
   assert.match(payload.qualityGateContract.safetyBoundary, /does not invoke a provider/);
 });
+
+test("Web Factory endpoint exposes the portable, Preview-gated application preset", async t => {
+  const app = createHeroServer({ host: "127.0.0.1", port: 0 });
+  const address = await app.start();
+  t.after(() => app.stop());
+
+  const response = await fetch("http://127.0.0.1:" + address.port + "/web-factory-contract");
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.webFactoryContract.targetStack.frontend, "Next.js + React + TypeScript");
+  assert.ok(payload.webFactoryContract.decisionCodes.includes("PREVIEW_REQUIRES_SEPARATE_AUTHORIZATION"));
+  assert.match(payload.webFactoryContract.safetyBoundary, /does not provision a database/);
+});

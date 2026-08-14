@@ -42,6 +42,8 @@ HERO-015 adds the Planner and Router before dispatch. It converts a simple Persi
 
 HERO-016 adds the bounded Quality Gate after implementation: isolated Codex test evidence is recorded, deterministic Claude review is evaluated, and a finding can unlock only a separately authorized correction followed by retest. The gate records accounted cost units, caps correction cycles, and ends in `approved` or a safe `stopped` state. It is a policy and evidence boundary, not a hidden live-provider loop.
 
+HERO-017 adds the Web Factory. A ready planning record and exact `develop` authorization produce a version-bound Blueprint and Feature Recipe for a Persian web application: Next.js/React/TypeScript, REST route handlers, a PostgreSQL adapter boundary, a separately configured authentication boundary, isolated Quality Gate evidence, and a Cursor handoff reference. It does not install a framework, invoke a provider, provision a database, configure authentication or publish a preview. Preview is visibly prepared but cannot dispatch without its own authorization; the active Snapshot for this step covers development and testing only.
+
 ## Provider boundary
 
 Codex/ChatGPT performs primary implementation, Claude performs independent review, and Cursor receives an IDE handoff. All three are provider adapters with no live credential or CLI connection in this step.
