@@ -2,7 +2,11 @@ import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { HERO_SERVICE, HERO_VERSION } from "../../../packages/contracts/src/index.mjs";
+import {
+  HERO_SERVICE,
+  HERO_VERSION,
+  getPublicArchitectureSummary
+} from "../../../packages/contracts/src/index.mjs";
 
 function json(response, statusCode, body) {
   const payload = JSON.stringify(body);
@@ -42,6 +46,13 @@ export function createHeroServer(options = {}) {
         service: HERO_SERVICE,
         status: "ready",
         boundary: "clean-room"
+      });
+    }
+
+    if (request.method === "GET" && url.pathname === "/architecture") {
+      return json(response, 200, {
+        service: HERO_SERVICE,
+        architecture: getPublicArchitectureSummary()
       });
     }
 
