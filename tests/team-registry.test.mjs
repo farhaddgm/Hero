@@ -45,6 +45,7 @@ function trainTeam(registry, teamId) {
 test("team contract contains the eleven phase-one teams from the operating-model sheet", () => {
   assert.deepEqual(validateTeamContract(), []);
   assert.equal(TEAM_CATALOG.length, 11);
+  assert.ok(TEAM_CATALOG.every(team => team.principles.length >= 5));
   assert.equal(getTeamContractSummary().catalogSize, 11);
   assert.deepEqual(TEAM_CATALOG.map(team => team.name), [
     "راهبرو", "ایده‌پردازو", "تحلیلگرو", "محصولو", "دیزاینرو", "معمارو",

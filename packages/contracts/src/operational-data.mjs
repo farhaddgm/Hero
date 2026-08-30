@@ -19,7 +19,8 @@ export const AGGREGATE_TYPES = Object.freeze([
   "web-factory",
   "mobile-factory",
   "assurance-gate",
-  "portability-gate"
+  "portability-gate",
+  "research"
 ]);
 
 export const EVENT_TYPES = Object.freeze([
@@ -62,6 +63,7 @@ export const EVENT_TYPES = Object.freeze([
   "memory.superseded",
   "context.assembled",
   "planning.created",
+  "planning.output-decision-recorded",
   "planning.halted",
   "task-graph.created",
   "router.selection-recorded",
@@ -75,6 +77,11 @@ export const EVENT_TYPES = Object.freeze([
   "team.merged",
   "team.split",
   "team.workflow-configured",
+  "team.research-requested",
+  "team.research-started",
+  "team.research-report-ready",
+  "team.research-reviewed",
+  "team.research-applied",
   "principle.defined",
   "principle.reviewed",
   "principle.rework-requested",
@@ -139,6 +146,7 @@ export const OPERATIONAL_ENTITY_MODEL = Object.freeze([
   Object.freeze({ id: "memory", sourceOfTruth: "memory_records", purpose: "Versioned, minimum project context" }),
   Object.freeze({ id: "planning", sourceOfTruth: "planning_records", purpose: "Versioned product spec, task graph and routing decision" }),
   Object.freeze({ id: "team", sourceOfTruth: "teams", purpose: "قرارداد، آموزش، اختیار و عملکرد نسخه‌دار هر تیم" }),
+  Object.freeze({ id: "research", sourceOfTruth: "team_research", purpose: "درخواست تحقیق، benchmark، گزارش و تصمیم مالک دربارهٔ دانش و اصول تیم" }),
   Object.freeze({ id: "principle", sourceOfTruth: "principles", purpose: "اصول حیاتی نسخه‌دار Hero و محصولات" }),
   Object.freeze({ id: "release", sourceOfTruth: "releases", purpose: "Artifact نسخه‌دار و عبور کنترل‌شده از test به production" }),
   Object.freeze({ id: "quality-gate", sourceOfTruth: "quality_gate_records", purpose: "Bounded test, review, correction and recheck evidence" }),

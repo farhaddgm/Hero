@@ -4,6 +4,7 @@ import { createFakeOrchestrationHarness } from "../../../packages/domain/src/fak
 import { PrincipleCommandError, createPrinciplesRegistry } from "../../../packages/domain/src/principles-registry.mjs";
 import { ReleaseCommandError, createReleasePromotion } from "../../../packages/domain/src/release-promotion.mjs";
 import { TeamCommandError, createTeamRegistry } from "../../../packages/domain/src/team-registry.mjs";
+import { TeamResearchCommandError, TeamResearchIdempotencyConflictError, createTeamResearchRegistry } from "../../../packages/domain/src/team-research-registry.mjs";
 import { getTeamTrainingPlan } from "../../../packages/contracts/src/training.mjs";
 import { PlannerIdempotencyConflictError, PlannerSafetyError, createPlanner } from "../../../packages/domain/src/planner.mjs";
 
@@ -82,11 +83,13 @@ export class DashboardCommandError extends Error {
 export function createControlDashboard(options = {}) {
   const now = options.now ?? (() => new Date().toISOString());
   const teamRegistry = options.teamRegistry ?? createTeamRegistry({ now });
+  const researchRegistry = options.researchRegistry ?? createTeamResearchRegistry({ now, teamRegistry });
   const requests = new Map();
   let sequence = 0;
   let teamCommandSequence = 0;
   let principleCommandSequence = 0;
   let releaseCommandSequence = 0;
+  let researchCommandSequence = 0;
   let fullAutonomy = options.fullAutonomy === true;
   let globalStop = false;
   const principlesRegistry = options.principlesRegistry ?? createPrinciplesRegistry({ now });
@@ -157,6 +160,20 @@ export function createControlDashboard(options = {}) {
       });
     } catch (error) {
       if (error instanceof ReleaseCommandError) throw new DashboardCommandError(error.code, error.message);
+      throw error;
+    }
+  }
+
+  function runResearchCommand(command, input = {}, actor = { kind: "project-owner", id: "hero-owner" }) {
+    researchCommandSequence += 1;
+    try {
+      return command({
+        ...input,
+        actor,
+        idempotencyKey: input.idempotencyKey ?? `dashboard-research-${researchCommandSequence}`
+      });
+    } catch (error) {
+      if (error instanceof TeamResearchCommandError || error instanceof TeamResearchIdempotencyConflictError) throw new DashboardCommandError(error.code, error.message);
       throw error;
     }
   }
@@ -293,6 +310,32 @@ export function createControlDashboard(options = {}) {
     return runTeamCommand(teamRegistry.requestRework, { ...input, teamId });
   }
 
+  function requestTeamResearch(teamId, input) {
+    return runResearchCommand(researchRegistry.request, { ...input, teamId });
+  }
+
+  function startTeamResearch(researchId, input) {
+    return runResearchCommand(researchRegistry.start, { ...input, researchId });
+  }
+
+  function submitTeamResearchReport(researchId, input) {
+    return runResearchCommand(researchRegistry.submitReport, { ...input, researchId }, { kind: "orchestrator", id: "hero-research" });
+  }
+
+  function reviewTeamResearch(researchId, input) {
+    return runResearchCommand(researchRegistry.review, { ...input, researchId });
+  }
+
+  function getTeamResearch(researchId) {
+    const result = researchRegistry.get(researchId);
+    if (!result) throw new DashboardCommandError("RESEARCH_NOT_FOUND", "تحقیق پیدا نشد.");
+    return result;
+  }
+
+  function listTeamResearch(teamId) {
+    return researchRegistry.list(teamId);
+  }
+
   function reviewTeamDeliverable(teamId, input) {
     return runTeamCommand(teamRegistry.reviewDeliverable, { ...input, teamId });
   }
@@ -416,6 +459,19 @@ export function createControlDashboard(options = {}) {
     return result;
   }
 
+  function decidePlanOutput(planningId, input) {
+    try {
+      return planner.decideOutput({
+        ...input,
+        planningId,
+        actor: { kind: "project-owner", id: "hero-owner" }
+      });
+    } catch (error) {
+      if (error instanceof PlannerSafetyError || error instanceof PlannerIdempotencyConflictError) throw new DashboardCommandError(error.code, error.message);
+      throw error;
+    }
+  }
+
   function registerRelease(input) {
     return runReleaseCommand(releasePromotion.register, input);
   }
@@ -458,9 +514,17 @@ export function createControlDashboard(options = {}) {
     setFullAutonomy,
     setGlobalStop,
     teamSnapshot: () => teamRegistry.snapshot(),
+    teamResearchContract: () => researchRegistry.contract(),
+    requestTeamResearch,
+    startTeamResearch,
+    submitTeamResearchReport,
+    reviewTeamResearch,
+    getTeamResearch,
+    listTeamResearch,
     teamTrainingPlan,
     createPlan,
     getPlan,
+    decidePlanOutput,
     reviewTeam,
     requestTeamRework,
     reviewTeamDeliverable,

@@ -9,6 +9,8 @@ import { validateReleaseContract } from "../packages/contracts/src/release.mjs";
 import { validateOwnerAuthContract } from "../packages/contracts/src/owner-auth.mjs";
 import { validatePostgresSchemaContract } from "../packages/adapters/src/postgresql-schema.mjs";
 import { validateTrainingContract } from "../packages/contracts/src/training.mjs";
+import { validateTeamResearchContract } from "../packages/contracts/src/team-research.mjs";
+import { validateOutputAdvisoryContract } from "../packages/contracts/src/output-advisory.mjs";
 
 const governanceFile = path.join(REPO_ROOT, "config", "governance.json");
 const snapshotFile = path.join(
@@ -34,6 +36,8 @@ export function validateGovernance() {
   for (const detail of validateOwnerAuthContract()) errors.push({ code: "OWNER_AUTH_CONTRACT", detail });
   for (const detail of validatePostgresSchemaContract()) errors.push({ code: "POSTGRES_SCHEMA_CONTRACT", detail });
   for (const detail of validateTrainingContract()) errors.push({ code: "TRAINING_CONTRACT", detail });
+  for (const detail of validateTeamResearchContract()) errors.push({ code: "TEAM_RESEARCH_CONTRACT", detail });
+  for (const detail of validateOutputAdvisoryContract()) errors.push({ code: "OUTPUT_ADVISORY_CONTRACT", detail });
   const governance = loadJson(governanceFile);
   const snapshot = loadJson(snapshotFile);
 

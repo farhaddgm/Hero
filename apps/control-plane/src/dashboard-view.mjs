@@ -128,6 +128,7 @@ export function getDashboardHtml() {
           targets.forEach(([value, label]) => { const option = document.createElement('option'); option.value = value; option.textContent = label; select.append(option); });
           controls.append(select);
           controls.append(actionButton('تأیید بخش', '', () => command('/api/teams/' + team.teamId + '/review', { target: select.value, decision: 'approved' }, 'بخش قرارداد تیم تأیید شد.')));
+          controls.append(actionButton('رد بخش', 'secondary', () => command('/api/teams/' + team.teamId + '/review', { target: select.value, decision: 'rejected', feedback: 'این بخش با نیاز پروژه هم‌راستا نیست و باید بازنویسی شود.' }, 'بخش قرارداد تیم رد شد.')));
           controls.append(actionButton('درخواست بازکاری', 'secondary', () => command('/api/teams/' + team.teamId + '/rework', { target: select.value, feedback: 'این بخش باید با معیار پذیرش پروژه بازنگری و کامل شود.' }, 'درخواست بازکاری تیم ثبت شد.')));
           card.append(controls);
         }

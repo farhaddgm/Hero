@@ -1,4 +1,5 @@
 import { TEAM_APPROVAL_MODES, TEAM_CATALOG } from "./team.mjs";
+import { OUTPUT_DECISIONS, OUTPUT_DECISION_STATES, OUTPUT_EVALUATION_DIMENSIONS, PRODUCT_OUTPUT_DEFINITIONS, PRODUCT_OUTPUT_TYPES } from "./output-advisory.mjs";
 
 export const PLANNER_CONTRACT_VERSION = "1.0";
 
@@ -28,7 +29,9 @@ export const PLANNER_ROUTER_PROVIDERS = Object.freeze([
 export const PLANNER_DECISION_CODES = Object.freeze([
   "PLAN_READY",
   "CONTEXT_NOT_READY",
-  "GRAPH_HALTED"
+  "GRAPH_HALTED",
+  "OUTPUT_DECISION_REQUIRED",
+  "OUTPUT_DECISION_RECORDED"
 ]);
 
 export const PLANNER_TEAM_ROUTES = Object.freeze({
@@ -60,6 +63,8 @@ export function validatePlannerContract() {
     if (!TEAM_APPROVAL_MODES.includes(route.approvalMode)) errors.push(`Planner approval mode is invalid for ${kind}.`);
   }
   for (const team of knownTeams) if (!routedTeams.has(team)) errors.push(`Planner does not route any task to ${team}.`);
+  if (OUTPUT_DECISIONS.length !== 3 || OUTPUT_DECISION_STATES[0] !== "pending-owner") errors.push("Planner output advisory decision states are incomplete.");
+  if (OUTPUT_EVALUATION_DIMENSIONS.length < 5 || PRODUCT_OUTPUT_TYPES.length !== PRODUCT_OUTPUT_DEFINITIONS.length) errors.push("Planner output advisory catalog is incomplete.");
   return errors;
 }
 
@@ -72,9 +77,10 @@ export function getPlannerContractSummary() {
     teamRoutes: PLANNER_TEAM_ROUTES,
     decisionCodes: PLANNER_DECISION_CODES,
     input: "simple Persian product request + optional read-only project context",
-    output: "versioned spec, explicit assumptions, acceptance criteria, valid Task Graph, explained provider routing and team-readiness decision",
+    output: "versioned spec, explicit assumptions, acceptance criteria, valid Task Graph, explained provider routing, team-readiness decision and owner-reviewed output advisory",
     routerRule: "ChatGPT analyzes and designs; Codex implements and tests; Claude independently reviews; Cursor receives only a human-controlled handoff. Every task also has a team owner and explicit collaborators.",
-    safetyBoundary: "planning is deterministic and read-only; it does not invoke providers, create runners, merge code, spend money, or bypass version-bound authorization. Team readiness is a dispatch gate, not an automatic assignment.",
+    outputBoundary: "the advisory compares multiple product output forms across value, speed, cost, risk, maintainability, scalability and user fit; owner approval or rejection becomes the decision basis.",
+    safetyBoundary: "planning is deterministic and read-only; it does not invoke providers, create runners, merge code, spend money, or bypass version-bound authorization. Output approval and team readiness are dispatch gates, not automatic assignment.",
     stopRule: "a planned graph can be halted before dispatch; a halted graph emits no new runnable task"
   });
 }

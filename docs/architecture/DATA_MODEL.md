@@ -12,8 +12,9 @@ PostgreSQL is the future operational source of truth. The event log is append-on
 | Event | `events` | Unique `event_id`, global sequence and aggregate version |
 | Evidence / Artifact | `evidence`, `artifacts` | References and summaries only; no secrets in payloads |
 | Project memory | `memory_records` | Append-only versions; role-filtered, minimum Context only |
-| Planning | `planning_records` | Versioned product Spec, valid Task Graph and explained routing |
+| Planning / output advisory | `planning_records` | Versioned product Spec, valid Task Graph, explained routing, multi-option output comparison and owner decision |
 | Team / review / training / assignment | `teams`, `team_reviews`, `team_training`, `team_assignments` | Versioned charter, owner decisions, readiness and project role |
+| Team research | `team_research` | Research request, benchmark report, evidence, owner decision and applied knowledge/principles |
 | Team workflow policy | `team_workflows` | Per-project stage owners and approval mode |
 | Critical principle / review | `principles`, `principle_reviews` | Hero baseline and product-specific blocking rules with owner decisions |
 | Release / environment evidence | `releases`, `release_evidence` | Exact Artifact/version/commit promotion from test to production |
@@ -46,11 +47,13 @@ HERO-014 adds `memory_records` as a versioned, append-only projection for approv
 
 ## Planning projection
 
-HERO-015 adds `planning_records` for a versioned Persian request Spec, its explicit assumptions and acceptance criteria, a validated acyclic Task Graph and the reason behind each route. Planning remains read-only: it records no live provider output and never creates a Runner. A graph can be halted before dispatch, and its later execution still requires the version-bound authorization and runner boundaries.
+HERO-015 adds `planning_records` for a versioned Persian request Spec, its explicit assumptions and acceptance criteria, a validated acyclic Task Graph and the reason behind each route. The output advisory compares product forms across value, speed, cost, risk, maintainability, scalability and user fit; the owner decision is a separate versioned event. Planning remains read-only: it records no live provider output and never creates a Runner. A graph can be halted before dispatch, and its later execution still requires the version-bound authorization, approved output decision and runner boundaries.
 
 ## Team projection
 
-The team aggregate stores the phase-one catalog definition, contract approvals, training modules, stage-specific autonomy, project assignments, deliverable reviews and rework history. A team becomes `ready` only after all seven contract sections are approved by `project-owner` and all five training modules have a passing score. Team input and output reviews retain Project ID, Artifact ID, direction and artifact version. Merge and split operations retire the old aggregate instead of deleting it, so the audit trail remains complete.
+The team aggregate stores the phase-one catalog definition, contract approvals, default principles, versioned knowledge, training modules, stage-specific autonomy, project assignments, deliverable reviews and rework history. A team becomes `ready` only after all seven contract sections are approved by `project-owner` and all five training modules have a passing score. Team input and output reviews retain Project ID, Artifact ID, direction and artifact version. Merge and split operations retire the old aggregate instead of deleting it, so the audit trail remains complete.
+
+The `team_research` record stores a research request, benchmark brief, evidence-rich report and owner decision. A report may propose knowledge, principles and training updates, but only an approved review applies those values to the team projection.
 
 The current `TeamRegistry` is an in-memory projection for deterministic tests and the control API. A future PostgreSQL adapter must preserve owner-gated commands, idempotency, optimistic concurrency, append-only events and the rule that team autonomy never grants sensitive operations.
 

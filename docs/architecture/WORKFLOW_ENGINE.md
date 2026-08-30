@@ -22,6 +22,8 @@ The Event Log remains the source of truth. The in-memory projection exists for d
 
 Every project workflow also passes through the Critical Principles check for its control point. A principle with status other than `approved` blocks the transition. Run lifecycle and Release Promotion are separate state machines: a completed Run is not automatically a production release.
 
+Before production work begins, the Planner must also expose an output advisory and receive an owner decision (`approved`, `rejected` or `rework-requested`). An approved option is still insufficient when the owner teams are not ready; the dispatch boundary remains closed until both conditions hold.
+
 ## Safe checkpoints
 
 `pause` persists the previous state as `resumeState`; it does not assume that a host process can be stopped at an arbitrary instruction. The future Runner must report a safe checkpoint before the application layer issues the pause transition. `resume` returns only to that stored state.

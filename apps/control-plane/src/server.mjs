@@ -24,6 +24,8 @@ import {
   getRunnerContractSummary,
   getTeamContractSummary,
   getTrainingContractSummary,
+  getTeamResearchContractSummary,
+  getOutputAdvisoryContractSummary,
   getWebFactoryContractSummary,
   getWorkflowContractSummary
 } from "../../../packages/contracts/src/index.mjs";
@@ -93,7 +95,7 @@ export function createHeroServer(options = {}) {
   async function executeDashboardCommand(command, input, operation) {
     const result = await operation();
     if (postgresRuntime?.audit) {
-      const projectId = input?.projectId ?? result?.projectId ?? result?.request?.projectId ?? result?.result?.projectId ?? "hero";
+      const projectId = input?.projectId ?? result?.projectId ?? result?.request?.projectId ?? result?.research?.projectId ?? result?.result?.projectId ?? "hero";
       await postgresRuntime.audit.record({
         command,
         projectId,
@@ -123,6 +125,32 @@ export function createHeroServer(options = {}) {
         return json(response, 200, { service: HERO_SERVICE, teamControl: dashboard.teamSnapshot() });
       }
 
+      if (request.method === "GET" && url.pathname === "/team-principles") {
+        const teamControl = dashboard.teamSnapshot();
+        return json(response, 200, {
+          service: HERO_SERVICE,
+          teamPrinciples: teamControl.teams.map(team => ({
+            teamId: team.teamId,
+            name: team.name,
+            responsibility: team.responsibility,
+            principles: team.principles,
+            approval: team.approvals.principles ? "approved" : "pending-owner-review",
+            knowledge: team.knowledge,
+            knowledgeVersion: team.knowledgeVersion
+          }))
+        });
+      }
+
+      const teamResearchCollectionMatch = url.pathname.match(/^\/api\/teams\/([a-z][a-z0-9-]{2,63})\/research-requests$/);
+      if (teamResearchCollectionMatch && request.method === "GET") {
+        return json(response, 200, { service: HERO_SERVICE, research: dashboard.listTeamResearch(teamResearchCollectionMatch[1]) });
+      }
+      if (teamResearchCollectionMatch && request.method === "POST") {
+        const input = await readJson(request);
+        const result = await executeDashboardCommand("team.research-request", { ...input, teamId: teamResearchCollectionMatch[1] }, () => dashboard.requestTeamResearch(teamResearchCollectionMatch[1], input));
+        return json(response, 201, { service: HERO_SERVICE, result });
+      }
+
       const teamTrainingMatch = url.pathname.match(/^\/api\/teams\/([a-z][a-z0-9-]{2,63})\/training-plan$/);
       if (request.method === "GET" && teamTrainingMatch) {
         return json(response, 200, { service: HERO_SERVICE, training: dashboard.teamTrainingPlan(teamTrainingMatch[1]) });
@@ -132,6 +160,31 @@ export function createHeroServer(options = {}) {
         const input = await readJson(request);
         const plan = await executeDashboardCommand("planning.create", input, () => dashboard.createPlan(input));
         return json(response, 201, { service: HERO_SERVICE, plan });
+      }
+
+      const outputDecisionMatch = url.pathname.match(/^\/api\/plans\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/output-decision$/);
+      if (request.method === "POST" && outputDecisionMatch) {
+        const input = await readJson(request);
+        const planningId = outputDecisionMatch[1];
+        const plan = await executeDashboardCommand("planning.output-decision", input, () => dashboard.decidePlanOutput(planningId, input));
+        return json(response, 200, { service: HERO_SERVICE, plan });
+      }
+
+      const researchActionMatch = url.pathname.match(/^\/api\/research\/([A-Z][A-Z0-9._:-]{2,127})(?:\/(start|report|review))?$/);
+      if (researchActionMatch && request.method === "GET" && !researchActionMatch[2]) {
+        return json(response, 200, { service: HERO_SERVICE, research: dashboard.getTeamResearch(researchActionMatch[1]) });
+      }
+      if (researchActionMatch && request.method === "POST" && researchActionMatch[2]) {
+        const input = await readJson(request);
+        const researchId = researchActionMatch[1];
+        const action = researchActionMatch[2];
+        const commands = {
+          start: dashboard.startTeamResearch,
+          report: dashboard.submitTeamResearchReport,
+          review: dashboard.reviewTeamResearch
+        };
+        const result = await executeDashboardCommand(`team.research-${action}`, input, () => commands[action](researchId, input));
+        return json(response, action === "report" ? 201 : 200, { service: HERO_SERVICE, result });
       }
 
       const planMatch = url.pathname.match(/^\/api\/plans\/([A-Za-z][A-Za-z0-9._:-]{2,127})$/);
@@ -422,6 +475,20 @@ export function createHeroServer(options = {}) {
       return json(response, 200, {
         service: HERO_SERVICE,
         trainingContract: getTrainingContractSummary()
+      });
+    }
+
+    if (request.method === "GET" && url.pathname === "/team-research-contract") {
+      return json(response, 200, {
+        service: HERO_SERVICE,
+        teamResearchContract: getTeamResearchContractSummary()
+      });
+    }
+
+    if (request.method === "GET" && url.pathname === "/output-advisory-contract") {
+      return json(response, 200, {
+        service: HERO_SERVICE,
+        outputAdvisoryContract: getOutputAdvisoryContractSummary()
       });
     }
 

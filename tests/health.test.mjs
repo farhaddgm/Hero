@@ -127,6 +127,20 @@ test("training contract is public while team training plans stay owner-authentic
   assert.equal(denied.status, 503);
 });
 
+test("team research, default principles and output advisory contracts are public summaries", async t => {
+  const app = createHeroServer({ host: "127.0.0.1", port: 0 });
+  const address = await app.start();
+  t.after(() => app.stop());
+
+  const principles = await fetch("http://127.0.0.1:" + address.port + "/team-principles");
+  assert.equal(principles.status, 200);
+  assert.equal((await principles.json()).teamPrinciples.length, 11);
+  const research = await fetch("http://127.0.0.1:" + address.port + "/team-research-contract");
+  assert.equal((await research.json()).teamResearchContract.requirements.minimumSources, 3);
+  const output = await fetch("http://127.0.0.1:" + address.port + "/output-advisory-contract");
+  assert.equal((await output.json()).outputAdvisoryContract.outputTypes.includes("web-app"), true);
+});
+
 test("runner endpoint exposes only the isolated execution contract", async t => {
   const app = createHeroServer({ host: "127.0.0.1", port: 0 });
   const address = await app.start();

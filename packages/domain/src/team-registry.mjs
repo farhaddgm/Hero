@@ -94,6 +94,11 @@ function normalizeList(label, values, { minimum = 1, maximum = 32 } = {}) {
   return normalized;
 }
 
+function normalizeOptionalList(label, values, maximum = 16) {
+  if (values === undefined) return [];
+  return normalizeList(label, values, { minimum: 0, maximum });
+}
+
 function normalizeDefinition(definition) {
   const value = definition ?? {};
   const teamId = assertTeamId(value.teamId);
@@ -129,6 +134,9 @@ function createTeamRecord(definition) {
     approvals: initialApprovals(),
     autonomy: { default: definition.defaultAutonomy, byStage: {} },
     training: { status: "not-started", modules: {}, latestAssessment: null },
+    knowledge: [],
+    knowledgeVersion: 0,
+    researchApplications: [],
     reviews: [],
     deliverableReviews: [],
     assignments: [],
@@ -349,6 +357,52 @@ export function createTeamRegistry(options = {}) {
     });
   }
 
+  function applyResearch(input) {
+    assertSafe(input);
+    const actor = assertActor(input?.actor, { owner: true });
+    const teamId = assertTeamId(input?.teamId);
+    const researchId = assertIdentifier("researchId", input?.researchId, 128);
+    const knowledgeEntries = normalizeOptionalList("knowledgeEntries", input.knowledgeEntries, 16);
+    const principleAdditions = normalizeOptionalList("principleAdditions", input.principleAdditions, 16);
+    const trainingUpdates = normalizeOptionalList("trainingUpdates", input.trainingUpdates, 16);
+    const idempotencyKey = assertKey(input.idempotencyKey ?? `research-apply-${researchId}`);
+    return remember(`RESEARCH-APPLY:${teamId}:${researchId}`, idempotencyKey, { teamId, researchId, knowledgeEntries, principleAdditions, trainingUpdates, actor }, () => {
+      const team = getTeamOrThrow(teamId);
+      if (team.status === "retired") throw new TeamCommandError("TEAM_RETIRED", "A retired team cannot receive research updates.");
+      const knowledge = [...team.knowledge];
+      for (const entry of knowledgeEntries) if (!knowledge.includes(entry)) knowledge.push(entry);
+      const principles = [...team.principles];
+      for (const principle of principleAdditions) if (!principles.includes(principle)) principles.push(principle);
+      const event = appendTeamEvent({
+        aggregateId: teamId,
+        type: "team.research-applied",
+        actor,
+        data: {
+          researchId,
+          knowledgeAdded: knowledge.filter(entry => !team.knowledge.includes(entry)).length,
+          principlesAdded: principles.filter(principle => !team.principles.includes(principle)).length,
+          trainingUpdates: trainingUpdates.length
+        }
+      });
+      team.knowledge = knowledge;
+      team.knowledgeVersion += 1;
+      team.principles = principles;
+      team.researchApplications.push({ researchId, appliedAt: now(), appliedBy: actor.id, trainingUpdates });
+      commitTeamEvent(team, event);
+      return {
+        team,
+        applied: {
+          researchId,
+          knowledgeEntries: Object.freeze(knowledgeEntries),
+          principleAdditions: Object.freeze(principleAdditions),
+          trainingUpdates: Object.freeze(trainingUpdates)
+        },
+        event,
+        idempotent: false
+      };
+    });
+  }
+
   function assignToProject(input) {
     assertSafe(input);
     const actor = assertActor(input?.actor, { owner: true });
@@ -541,6 +595,7 @@ export function createTeamRegistry(options = {}) {
     requestRework,
     reviewDeliverable,
     recordTraining,
+    applyResearch,
     assignToProject,
     updateAssignment,
     setAutonomy,

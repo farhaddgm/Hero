@@ -181,6 +181,30 @@ export {
 } from "./training.mjs";
 
 export {
+  TEAM_RESEARCH_CONTRACT_VERSION,
+  TEAM_RESEARCH_BENCHMARKS,
+  TEAM_RESEARCH_DECISIONS,
+  TEAM_RESEARCH_FOCUS_AREAS,
+  TEAM_RESEARCH_OUTPUT_TYPES,
+  TEAM_RESEARCH_REPORT_REQUIREMENTS,
+  TEAM_RESEARCH_STATES,
+  getTeamResearchBrief,
+  getTeamResearchContractSummary,
+  validateTeamResearchContract
+} from "./team-research.mjs";
+
+export {
+  OUTPUT_ADVISORY_CONTRACT_VERSION,
+  OUTPUT_DECISIONS,
+  OUTPUT_DECISION_STATES,
+  OUTPUT_EVALUATION_DIMENSIONS,
+  PRODUCT_OUTPUT_DEFINITIONS,
+  PRODUCT_OUTPUT_TYPES,
+  getOutputAdvisoryContractSummary,
+  validateOutputAdvisoryContract
+} from "./output-advisory.mjs";
+
+export {
   CRITICAL_PRINCIPLES_CONTRACT_VERSION,
   HERO_CRITICAL_PRINCIPLES,
   PRINCIPLE_CONTROL_POINTS,

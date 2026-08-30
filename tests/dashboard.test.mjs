@@ -133,6 +133,94 @@ test("HTTP dashboard exposes the team control surface without live providers", a
   assert.deepEqual((await releaseContract.json()).releaseContract.environments, ["test", "production"]);
 });
 
+test("owner can review team defaults, commission research and approve its knowledge and principles", async t => {
+  const auth = testOwnerAuth();
+  const app = createHeroServer({ host: "127.0.0.1", port: 0, now: () => "2026-08-14T17:00:00.000Z", ownerAuth: auth.ownerAuth });
+  const address = await app.start();
+  t.after(() => app.stop());
+  const baseUrl = "http://127.0.0.1:" + address.port;
+  const defaults = await fetch(baseUrl + "/team-principles");
+  const defaultsBody = await defaults.json();
+  assert.equal(defaults.status, 200);
+  assert.equal(defaultsBody.teamPrinciples.length, 11);
+  assert.equal(defaultsBody.teamPrinciples.find(team => team.teamId === "mahsulo").approval, "pending-owner-review");
+  const researchContract = await fetch(baseUrl + "/team-research-contract");
+  assert.equal((await researchContract.json()).teamResearchContract.benchmarkCount, 11);
+
+  const requested = await fetch(baseUrl + "/api/teams/mahsulo/research-requests", {
+    method: "POST",
+    headers: withAuth(auth, { "content-type": "application/json" }),
+    body: JSON.stringify({ question: "بهترین الگوی تصمیم محصول چیست؟", objective: "بهبود تصمیم‌های محصولو", idempotencyKey: "http-research-request" })
+  });
+  assert.equal(requested.status, 201);
+  const researchId = (await requested.json()).result.research.researchId;
+  const started = await fetch(baseUrl + "/api/research/" + researchId + "/start", {
+    method: "POST", headers: withAuth(auth, { "content-type": "application/json" }), body: "{}"
+  });
+  assert.equal(started.status, 200);
+  const report = await fetch(baseUrl + "/api/research/" + researchId + "/report", {
+    method: "POST",
+    headers: withAuth(auth, { "content-type": "application/json" }),
+    body: JSON.stringify({
+      report: {
+        summary: "این گزارش شواهد و مقایسهٔ چند گزینه را برای بهبود تصمیم محصولو ارائه می‌کند.",
+        methods: ["مرور منابع حرفه‌ای", "مقایسهٔ گزینه‌ها"],
+        sourceRefs: ["https://example.com/a", "https://example.com/b", "hero://research/product"],
+        findings: [
+          { dimension: "value", observation: "تعریف outcome تصمیم را روشن می‌کند.", evidence: "شاهد اول", confidence: 90, benchmarkScore: 88 },
+          { dimension: "quality", observation: "معیار پذیرش کیفیت را قابل بررسی می‌کند.", evidence: "شاهد دوم", confidence: 85, benchmarkScore: 84 },
+          { dimension: "risk", observation: "ثبت trade-off ریسک تغییر مسیر را کم می‌کند.", evidence: "شاهد سوم", confidence: 82, benchmarkScore: 81 }
+        ],
+        benchmarks: [
+          { compared: "روش اول و دوم", criteria: ["ارزش", "سرعت"], winner: "روش اول", rationale: "برای دامنهٔ فعلی مناسب‌تر است.", score: 87 },
+          { compared: "الگوی داخلی و حرفه‌ای", criteria: ["ریسک", "کیفیت"], winner: "الگوی ترکیبی", rationale: "قابل اجرا و قابل ممیزی است.", score: 86 }
+        ],
+        recommendations: [
+          { type: "principle-proposals", title: "تصمیم محصول باید evidence داشته باشد", rationale: "این اصل کیفیت تصمیم را افزایش می‌دهد.", tradeoffs: ["نیازمند زمان ثبت شواهد"], confidence: 89 }
+        ],
+        knowledgeEntries: ["تصمیم محصول با قالب مقایسهٔ چندمعیاره"],
+        principleProposals: ["هر تصمیم محصول باید outcome، شاهد و trade-off داشته باشد"]
+      }
+    })
+  });
+  assert.equal(report.status, 201);
+  const reviewed = await fetch(baseUrl + "/api/research/" + researchId + "/review", {
+    method: "POST",
+    headers: withAuth(auth, { "content-type": "application/json" }),
+    body: JSON.stringify({ decision: "approved", idempotencyKey: "http-research-review" })
+  });
+  assert.equal(reviewed.status, 200);
+  assert.equal((await reviewed.json()).result.research.status, "applied");
+  const teams = await fetch(baseUrl + "/api/teams", { headers: auth.headers });
+  const team = (await teams.json()).teamControl.teams.find(item => item.teamId === "mahsulo");
+  assert.ok(team.knowledge.includes("تصمیم محصول با قالب مقایسهٔ چندمعیاره"));
+  assert.ok(team.principles.includes("هر تصمیم محصول باید outcome، شاهد و trade-off داشته باشد"));
+});
+
+test("owner output decision records the selected advisory and keeps dispatch gated", async t => {
+  const auth = testOwnerAuth();
+  const app = createHeroServer({ host: "127.0.0.1", port: 0, now: () => "2026-08-14T17:00:00.000Z", ownerAuth: auth.ownerAuth });
+  const address = await app.start();
+  t.after(() => app.stop());
+  const baseUrl = "http://127.0.0.1:" + address.port;
+  const planned = await fetch(baseUrl + "/api/plans", {
+    method: "POST",
+    headers: withAuth(auth, { "content-type": "application/json" }),
+    body: JSON.stringify({ planningId: "PLAN-OUTPUT-HTTP", requestId: "REQ-OUTPUT-HTTP", projectId: "hero", requestText: "یک داشبورد وب برای پیگیری درخواست‌های کاربران بساز.", idempotencyKey: "http-output-plan" })
+  });
+  const plan = (await planned.json()).plan;
+  const decision = await fetch(baseUrl + "/api/plans/PLAN-OUTPUT-HTTP/output-decision", {
+    method: "POST",
+    headers: withAuth(auth, { "content-type": "application/json" }),
+    body: JSON.stringify({ decision: "approved", selectedOutputId: plan.outputAdvisory.recommendation.outputId, idempotencyKey: "http-output-decision" })
+  });
+  assert.equal(decision.status, 200);
+  const decided = (await decision.json()).plan;
+  assert.equal(decided.outputAdvisory.decision.state, "approved");
+  assert.equal(decided.dispatch.ready, false);
+  assert.match(decided.dispatch.reason, /آمادگی تیم/);
+});
+
 test("a simple request exposes a plan and needs approval by default", () => {
   const control = dashboard();
   const request = control.createRequest({

@@ -4,6 +4,11 @@ import {
   PLANNER_TASK_KINDS,
   getPlannerContractSummary
 } from "../../contracts/src/planner.mjs";
+import {
+  OUTPUT_DECISIONS,
+  PRODUCT_OUTPUT_DEFINITIONS,
+  PRODUCT_OUTPUT_TYPES
+} from "../../contracts/src/output-advisory.mjs";
 import { TEAM_APPROVAL_MODES, TEAM_CATALOG } from "../../contracts/src/team.mjs";
 import { createOperationalEvent } from "../../contracts/src/operational-data.mjs";
 import { createAuthorizationEngine } from "./authorization-engine.mjs";
@@ -182,6 +187,114 @@ function assessTeamReadiness(graph, teamRegistry) {
   });
 }
 
+function outputSignals(requestText) {
+  return {
+    automation: /اتوماسیون|خودکار|workflow|فرایند تکراری|یکپارچه‌سازی/i.test(requestText),
+    data: /داده|سنجه|KPI|داشبورد تحلیلی|گزارش‌گیری|هوش مصنوعی/i.test(requestText),
+    research: /تحقیق|بررسی|benchmark|بنچمارک|مطالعه|مقایسهٔ گزینه/i.test(requestText),
+    decision: /تصمیم|انتخاب بین|ارزیابی گزینه/i.test(requestText)
+  };
+}
+
+function scoreOutputOption(outputId, { platforms, signals }) {
+  const scores = {
+    value: 3,
+    deliverySpeed: 3,
+    cost: 3,
+    risk: 3,
+    maintainability: 3,
+    scalability: 3,
+    userFit: 3
+  };
+  const fitReasons = [];
+  if (outputId === "prototype") {
+    scores.deliverySpeed = 5; scores.cost = 5; scores.risk = 4; scores.userFit = 4;
+    fitReasons.push("برای کاهش ابهام و یادگیری سریع مناسب است.");
+  }
+  if (outputId === "web-app") {
+    scores.deliverySpeed = 4; scores.cost = 4; scores.maintainability = 4; scores.userFit = platforms.includes("web") ? 5 : 2;
+    if (platforms.includes("web")) fitReasons.push("با پلتفرم وب استنباط‌شده هم‌راستاست.");
+  }
+  if (outputId === "mobile-app") {
+    scores.deliverySpeed = 3; scores.cost = 3; scores.userFit = platforms.includes("mobile") ? 5 : 2;
+    if (platforms.includes("mobile")) fitReasons.push("با نیاز موبایل هم‌راستاست.");
+  }
+  if (outputId === "web-and-mobile") {
+    scores.value = platforms.length === 2 ? 5 : 2; scores.deliverySpeed = 2; scores.cost = 2; scores.risk = 2; scores.scalability = 4; scores.userFit = platforms.length === 2 ? 5 : 2;
+    if (platforms.length === 2) fitReasons.push("پوشش هم‌زمان وب و موبایل را فراهم می‌کند.");
+  }
+  if (outputId === "api-service") {
+    scores.maintainability = 4; scores.scalability = 5; scores.userFit = signals.automation || signals.data ? 4 : 3;
+    if (signals.automation || signals.data) fitReasons.push("برای اتصال چند مصرف‌کننده یا سیستم مناسب است.");
+  }
+  if (outputId === "workflow-automation") {
+    scores.value = signals.automation ? 5 : 2; scores.deliverySpeed = 4; scores.cost = 4; scores.risk = signals.automation ? 4 : 2; scores.userFit = signals.automation ? 5 : 2;
+    if (signals.automation) fitReasons.push("درخواست نشانهٔ مستقیم اتوماسیون فرایند دارد.");
+  }
+  if (outputId === "data-product") {
+    scores.value = signals.data ? 5 : 2; scores.maintainability = 4; scores.scalability = 4; scores.userFit = signals.data ? 5 : 2;
+    if (signals.data) fitReasons.push("درخواست به داده، سنجه یا گزارش‌گیری اشاره دارد.");
+  }
+  if (outputId === "research-report") {
+    scores.value = signals.research ? 5 : 2; scores.deliverySpeed = 4; scores.cost = 4; scores.risk = 5; scores.userFit = signals.research ? 5 : 2;
+    if (signals.research) fitReasons.push("پیش از ساخت، تحقیق و مقایسه را در اولویت می‌گذارد.");
+  }
+  if (outputId === "decision-brief") {
+    scores.value = signals.decision || signals.research ? 5 : 2; scores.deliverySpeed = 5; scores.cost = 5; scores.risk = 5; scores.userFit = signals.decision || signals.research ? 5 : 2;
+    if (signals.decision || signals.research) fitReasons.push("برای تصمیم‌گیری بین گزینه‌ها خروجی کم‌هزینه و شفاف می‌دهد.");
+  }
+  const totalScore = Number((Object.values(scores).reduce((sum, score) => sum + score, 0) / Object.keys(scores).length).toFixed(2));
+  return Object.freeze({ scores: Object.freeze(scores), totalScore, fitReasons: Object.freeze(fitReasons) });
+}
+
+function buildOutputAdvisory(requestText, platforms, preferredOutputType) {
+  const signals = outputSignals(requestText);
+  const scored = PRODUCT_OUTPUT_DEFINITIONS.map(definition => {
+    const score = scoreOutputOption(definition.outputId, { platforms, signals });
+    return Object.freeze({
+      ...definition,
+      scores: score.scores,
+      totalScore: score.totalScore,
+      fitReasons: score.fitReasons
+    });
+  });
+  let options = [...scored];
+  if (preferredOutputType !== undefined) {
+    if (typeof preferredOutputType !== "string" || !PRODUCT_OUTPUT_TYPES.includes(preferredOutputType)) throw new PlannerSafetyError("preferredOutputType is not supported.");
+    options = options.map(option => option.outputId === preferredOutputType ? Object.freeze({ ...option, totalScore: option.totalScore + 0.5, fitReasons: Object.freeze([...option.fitReasons, "این گزینه به‌صورت صریح توسط درخواست‌کننده ترجیح داده شده است."]) }) : option);
+  }
+  options.sort((left, right) => right.totalScore - left.totalScore || left.outputId.localeCompare(right.outputId));
+  const recommendation = options[0];
+  return Object.freeze({
+    advisoryVersion: "1.0",
+    evaluatedDimensions: Object.freeze(["value", "deliverySpeed", "cost", "risk", "maintainability", "scalability", "userFit"]),
+    options: Object.freeze(options),
+    recommendation: Object.freeze({ outputId: recommendation.outputId, label: recommendation.label, rationale: Object.freeze([...recommendation.fitReasons, "امتیاز ترکیبی ابعاد و trade-offها بالاتر است."]) }),
+    decision: Object.freeze({ state: "pending-owner", decision: null, selectedOutputId: null, feedback: "", decidedAt: null, decidedBy: null }),
+    dispatch: Object.freeze({ ready: false, reason: "ابتدا تصمیم مالک دربارهٔ گزینهٔ خروجی و سپس آمادگی تیم‌های مالک لازم است." })
+  });
+}
+
+function withOutputDecision(plan, decision, teamReadiness) {
+  const outputAdvisory = {
+    ...plan.outputAdvisory,
+    decision,
+    dispatch: {
+      ready: decision.state === "approved" && teamReadiness?.ready === true,
+      reason: decision.state !== "approved"
+        ? "تا تأیید گزینهٔ خروجی توسط مالک، تولید آغاز نمی‌شود."
+        : teamReadiness?.ready === true
+          ? "گزینهٔ خروجی تأیید و تیم‌های مالک آماده‌اند؛ dispatch طبق مجوز مستقل بعدی ممکن است."
+          : "گزینهٔ خروجی تأیید شده، اما آمادگی تیم‌های مالک هنوز کامل نیست."
+    }
+  };
+  return immutableCopy({
+    ...plan,
+    outputAdvisory,
+    dispatch: outputAdvisory.dispatch
+  });
+}
+
 export function validateTaskGraph(graph) {
   const errors = [];
   if (!graph || !Array.isArray(graph.nodes) || graph.nodes.length < 6) return ["Task Graph is incomplete."];
@@ -236,6 +349,7 @@ export class PlannerIdempotencyConflictError extends Error {
   constructor(key) {
     super(`idempotencyKey ${key} was already used with different planner input.`);
     this.name = "PlannerIdempotencyConflictError";
+    this.code = "IDEMPOTENCY_CONFLICT";
   }
 }
 
@@ -244,6 +358,7 @@ export function createPlanner(options = {}) {
   const now = options.now ?? (() => new Date().toISOString());
   const plans = new Map();
   const idempotency = new Map();
+  const outputDecisionIdempotency = new Map();
   const teamRegistry = options.teamRegistry ?? null;
   let nextEvent = 0;
   const eventIdFactory = options.eventIdFactory ?? (() => `evt_planner_${String(++nextEvent).padStart(6, "0")}`);
@@ -283,7 +398,7 @@ export function createPlanner(options = {}) {
       });
       const result = immutableCopy({
         planningId: input.planningId, requestId: input.requestId, projectId: input.projectId, documentVersion: input.documentVersion,
-        state: "blocked", code: "CONTEXT_NOT_READY", reason: context.reason, spec: null, graph: null, teamReadiness: null, idempotent: false, eventId: event.eventId
+        state: "blocked", code: "CONTEXT_NOT_READY", reason: context.reason, spec: null, graph: null, teamReadiness: null, outputAdvisory: null, dispatch: { ready: false, reason: "Context آماده نیست." }, idempotent: false, eventId: event.eventId
       });
       plans.set(input.planningId, result);
       idempotency.set(replayKey, { fingerprint: inputFingerprint, result });
@@ -316,8 +431,10 @@ export function createPlanner(options = {}) {
     const graphErrors = validateTaskGraph(graph);
     if (graphErrors.length > 0) throw new Error(`Invalid Task Graph: ${graphErrors.join(" ")}`);
     const teamReadiness = assessTeamReadiness(graph, teamRegistry);
+    const outputAdvisory = buildOutputAdvisory(input.requestText.trim(), inferred.platforms, input.preferredOutputType);
     const created = append(input.planningId, "planning.created", input.actor, {
-      requestId: input.requestId, documentVersion: input.documentVersion, state: "ready", specId: spec.specId, targetPlatforms: spec.targetPlatforms
+      requestId: input.requestId, documentVersion: input.documentVersion, state: "ready", specId: spec.specId, targetPlatforms: spec.targetPlatforms,
+      recommendedOutputId: outputAdvisory.recommendation.outputId
     });
     const graphEvent = append(input.planningId, "task-graph.created", input.actor, {
       specId: spec.specId, taskIds: graph.nodes.map(node => node.taskId)
@@ -344,6 +461,8 @@ export function createPlanner(options = {}) {
       spec,
       graph,
       teamReadiness,
+      outputAdvisory,
+      dispatch: outputAdvisory.dispatch,
       stop: { canHaltBeforeDispatch: true, nextState: "halted" },
       boundary: { providerInvocation: false, runnerCreated: false, codeMutation: false, sensitiveOperation: false },
       version: eventLog.currentVersion("planning", input.planningId),
@@ -352,6 +471,48 @@ export function createPlanner(options = {}) {
     });
     plans.set(input.planningId, result);
     idempotency.set(replayKey, { fingerprint: inputFingerprint, result });
+    return result;
+  }
+
+  function decideOutput(input = {}) {
+    assertSafeValue(input);
+    assertIdentifier("planningId", input?.planningId, 80);
+    assertIdentifier("idempotencyKey", input?.idempotencyKey);
+    assertActor(input?.actor);
+    if (input.actor.kind !== OWNER.kind) throw new PlannerSafetyError("Only project-owner may decide the product output.");
+    const existing = plans.get(input.planningId);
+    if (!existing || !existing.outputAdvisory) throw new PlannerSafetyError("A ready plan with an output advisory is required.");
+    const decision = input.decision;
+    if (!OUTPUT_DECISIONS.includes(decision)) throw new PlannerSafetyError("Output decision must be approved, rejected or rework-requested.");
+    const selectedOutputId = input.selectedOutputId ?? (decision === "approved" ? existing.outputAdvisory.recommendation.outputId : null);
+    if (selectedOutputId !== null && (!PRODUCT_OUTPUT_TYPES.includes(selectedOutputId) || !existing.outputAdvisory.options.some(option => option.outputId === selectedOutputId))) {
+      throw new PlannerSafetyError("selectedOutputId is not one of the evaluated product outputs.");
+    }
+    const feedback = input.feedback === undefined ? "" : String(input.feedback).trim();
+    if (decision !== "approved" && feedback.length < 3) throw new PlannerSafetyError("Rejecting or returning an output decision requires actionable feedback.");
+    const value = { planningId: input.planningId, decision, selectedOutputId, feedback, actor: input.actor };
+    const replayKey = `OUTPUT\u0000${input.planningId}\u0000${input.idempotencyKey}`;
+    const inputFingerprint = fingerprint(value);
+    const replayed = outputDecisionIdempotency.get(replayKey);
+    if (replayed) {
+      if (replayed.fingerprint !== inputFingerprint) throw new PlannerIdempotencyConflictError(input.idempotencyKey);
+      return immutableCopy({ ...replayed.result, idempotent: true });
+    }
+    const event = append(input.planningId, "planning.output-decision-recorded", input.actor, { decision, selectedOutputId, feedback });
+    const decisionRecord = {
+      state: decision === "approved" ? "approved" : decision,
+      decision,
+      selectedOutputId,
+      feedback,
+      decidedAt: now(),
+      decidedBy: input.actor.id
+    };
+    const result = withOutputDecision({ ...existing, version: event.aggregateVersion, eventId: event.eventId }, decisionRecord, existing.teamReadiness);
+    plans.set(input.planningId, result);
+    for (const stored of idempotency.values()) {
+      if (stored.result?.planningId === input.planningId) stored.result = result;
+    }
+    outputDecisionIdempotency.set(replayKey, { fingerprint: inputFingerprint, result });
     return result;
   }
 
@@ -388,6 +549,7 @@ export function createPlanner(options = {}) {
 
   return Object.freeze({
     plan,
+    decideOutput,
     halt,
     get: planningId => plans.has(planningId) ? immutableCopy(plans.get(planningId)) : null,
     events: () => eventLog.readAfter(),

@@ -101,6 +101,32 @@ test("planner reports team readiness and blocks dispatch planning until owner te
   assert.equal(result.teamReadiness.capacity, "not-modeled");
 });
 
+test("planner compares product output options and requires owner decision before dispatch", () => {
+  const teamRegistry = createTeamRegistry({ now: fixedNow });
+  const planner = createPlanner({ now: fixedNow, teamRegistry });
+  const first = planner.plan(planInput({
+    planningId: "PLAN-OUTPUT",
+    requestId: "REQ-OUTPUT",
+    idempotencyKey: "planner-output-once",
+    requestText: "یک داشبورد وب برای پیگیری درخواست‌های کاربران بساز."
+  }));
+  assert.equal(first.outputAdvisory.options.length, 9);
+  assert.equal(first.outputAdvisory.decision.state, "pending-owner");
+  assert.equal(first.dispatch.ready, false);
+  const approved = planner.decideOutput({
+    planningId: "PLAN-OUTPUT",
+    decision: "approved",
+    selectedOutputId: first.outputAdvisory.recommendation.outputId,
+    actor: { kind: "project-owner", id: "hero-owner" },
+    idempotencyKey: "planner-output-approve"
+  });
+  assert.equal(approved.outputAdvisory.decision.state, "approved");
+  assert.equal(approved.outputAdvisory.decision.selectedOutputId, first.outputAdvisory.recommendation.outputId);
+  assert.equal(approved.dispatch.ready, false);
+  assert.match(approved.dispatch.reason, /آمادگی تیم/);
+  assert.ok(planner.events().some(event => event.type === "planning.output-decision-recorded"));
+});
+
 test("unready project context blocks planning while sensitive values and host paths are rejected", () => {
   const planner = createPlanner({ now: fixedNow });
   const blocked = planner.plan(planInput({

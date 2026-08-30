@@ -50,6 +50,8 @@ Team = مسئولیت + اختیار + ورودی + خروجی + اصول + هم
 
 اصول هر تیم در قرارداد ثبت می‌شود و مالک پروژه می‌تواند آن را برای هر تیم جداگانه تأیید، رد یا برای بازکاری برگرداند. رد یا بازکاری بدون بازخورد اقدام‌پذیر معتبر نیست. تا وقتی همهٔ هفت بخش قرارداد (`charter`, `responsibilities`, `decision-rights`, `input`, `output`, `principles`, `workflow`) تأیید نشده‌اند، تیم آمادهٔ کار نیست.
 
+مقادیر اولیهٔ قابل بررسی در [TEAM_PRINCIPLES_DEFAULTS.md](TEAM_PRINCIPLES_DEFAULTS.md) ثبت شده‌اند. این‌ها baseline هستند، نه حقیقت غیرقابل تغییر: تحقیق تأییدشده می‌تواند دانش و اصول پیشنهادی جدید بسازد و مالک دربارهٔ افزودن آن‌ها تصمیم می‌گیرد.
+
 ## چرخهٔ عمر تیم
 
 ```text
@@ -95,6 +97,7 @@ proposed -> training -> ready -> assigned -> working -> review -> completed
 مسئله
   -> راهبرو: ثبت و تعیین اختیار
   -> ایده‌پردازو + تحلیلگرو: کشف، شواهد و گزینه‌ها
+  -> راهبرو + محصولو: مشاورهٔ خروجی و تصمیم مالک
   -> محصولو: PRD، MVP و معیار پذیرش
   -> دیزاینرو + معمارو: تجربه و معماری
   -> دولوپرو: پیاده‌سازی
@@ -118,7 +121,12 @@ proposed -> training -> ready -> assigned -> working -> review -> completed
 - `POST /api/teams/:teamId/training` نتیجهٔ یک ماژول آموزش را ثبت می‌کند.
 - `GET /api/teams/:teamId/training-plan` curriculum و benchmark نسخه‌دار تیم و moduleهای باقی‌مانده را می‌دهد.
 - `GET /training-contract` قرارداد عمومی curriculum، حدنصاب قبولی و benchmarkهای ۱۱ تیم را می‌دهد.
-- `POST /api/plans` درخواست فارسی را به Spec، Task Graph و گزارش آمادگی تیم‌های مالک تبدیل می‌کند.
+- `GET /team-principles` اصول baseline و دانش فعلی همهٔ تیم‌ها را برای مرور اولیه می‌دهد.
+- `POST /api/teams/:teamId/research-requests` درخواست تحقیق و benchmark تیم را ثبت می‌کند.
+- `POST /api/research/:researchId/start`، `/report` و `/review` چرخهٔ تحقیق، گزارش و تصمیم مالک را اجرا می‌کنند.
+- `GET /team-research-contract` روش، benchmark و حداقل evidence گزارش را اعلام می‌کند.
+- `POST /api/plans` درخواست فارسی را به Spec، Task Graph، مشاورهٔ چندگزینه‌ای خروجی و گزارش آمادگی تیم‌های مالک تبدیل می‌کند.
+- `POST /api/plans/:planningId/output-decision` تصمیم مالک دربارهٔ خروجی محصول را ثبت می‌کند.
 - `GET /api/plans/:planningId` برنامهٔ ثبت‌شده و قابل بازبینی را برمی‌گرداند.
 - `POST /api/teams/:teamId/assign` تیم آماده را به Project/Stage/Task تخصیص می‌دهد.
 - `POST /api/team-assignments/:assignmentId/update` وضعیت اجرای تخصیص را به‌روزرسانی می‌کند.
@@ -126,7 +134,7 @@ proposed -> training -> ready -> assigned -> working -> review -> completed
 - `POST /api/teams/merge` و `POST /api/teams/:teamId/split` تغییر ساختار تیمی را با حفظ تاریخچه ثبت می‌کنند.
 - `GET /team-contract` خلاصهٔ قرارداد ماشینی را می‌دهد.
 
-Registry و projection فرمان‌ها همچنان deterministic و in-memory هستند، اما در صورت تنظیم PostgreSQL، فرمان‌های پذیرفته‌شدهٔ Control Plane به‌صورت audit event پایدار ثبت و از `GET /api/audit?after=0` قابل صفحه‌بندی خواندن‌اند. Projection کامل، session revocation پایدار، صف dispatch، Provider واقعی و اجرای بیرونی هنوز آداپترهای جداگانهٔ آینده‌اند.
+Registry، گزارش تحقیق و projection فرمان‌ها همچنان deterministic و in-memory هستند، اما در صورت تنظیم PostgreSQL، فرمان‌های پذیرفته‌شدهٔ Control Plane به‌صورت audit event پایدار ثبت و از `GET /api/audit?after=0` قابل صفحه‌بندی خواندن‌اند. Projection کامل، session revocation پایدار، صف dispatch، Provider واقعی و اجرای بیرونی هنوز آداپترهای جداگانهٔ آینده‌اند.
 
 ## تیم‌های مکمل پیشنهادی
 
