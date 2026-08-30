@@ -42,6 +42,15 @@
 - انتقال و بازیابی: `docs/operations/MOVE-TO-ANOTHER-SERVER.md`, `docs/specs/HERO-020-v1.0.md`
 - پایلوت انتهابه‌انتها: `docs/specs/HERO-021-v1.0.md`
 
+## قالب اسناد Google
+
+این قانون پروژه است: تمام Google Sheetها و Google Docهای Hero، و همهٔ اسناد آینده، باید از این دو قالب به‌عنوان مرجع سبک و چیدمان استفاده کنند:
+
+- قالب Google Doc: `https://docs.google.com/document/d/1zFRyIA8wad-Vl2GgPdE9USwICHSG1zmvKi703ge1ioU/edit`
+- قالب Google Sheet: `https://docs.google.com/spreadsheets/d/1wGF_m__F9nfbVYgfsHvoLTkzAMKvh5N31RuOhwGW2Dk/edit`
+
+این لینک‌ها فقط مرجع قالب‌اند؛ Token، Password، API key یا دادهٔ محرمانه نباید در repository یا این سند ذخیره شود. هر تغییر در Sheet مدیریت پروژه باید هم‌زمان با تغییر مربوط در Git ثبت شود.
+
 تمام specهای `HERO-001` تا `HERO-021` نسخهٔ `v1.0` دارند و قرارداد/تست مربوط به آن‌ها در repository موجود است. وجود قرارداد به‌معنای اتصال live به Provider یا اجرای production نیست.
 
 ## کارهای لازم برای راه‌اندازی remote
