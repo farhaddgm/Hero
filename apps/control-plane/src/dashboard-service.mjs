@@ -4,6 +4,8 @@ import { createFakeOrchestrationHarness } from "../../../packages/domain/src/fak
 import { PrincipleCommandError, createPrinciplesRegistry } from "../../../packages/domain/src/principles-registry.mjs";
 import { ReleaseCommandError, createReleasePromotion } from "../../../packages/domain/src/release-promotion.mjs";
 import { TeamCommandError, createTeamRegistry } from "../../../packages/domain/src/team-registry.mjs";
+import { getTeamTrainingPlan } from "../../../packages/contracts/src/training.mjs";
+import { PlannerIdempotencyConflictError, PlannerSafetyError, createPlanner } from "../../../packages/domain/src/planner.mjs";
 
 const SENSITIVE_INPUT = /(?:\bsk-[A-Za-z0-9_-]{12,}\b|\bBearer\s+[A-Za-z0-9._-]{12,}\b|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|(?:api[_-]?key|access[_-]?token|refresh[_-]?token|password|credential)\s*[:=])/i;
 
@@ -93,6 +95,8 @@ export function createControlDashboard(options = {}) {
     principlesRegistry,
     authorizeProduction: options.authorizeProduction
   });
+  const planner = options.planner ?? createPlanner({ now, teamRegistry });
+  let planningSequence = 0;
 
   function getRequest(requestId) {
     const request = requests.get(requestId);
@@ -367,6 +371,51 @@ export function createControlDashboard(options = {}) {
     }
   }
 
+  function teamTrainingPlan(teamId) {
+    const plan = getTeamTrainingPlan(teamId);
+    const team = teamRegistry.get(teamId);
+    if (!plan || !team) throw new DashboardCommandError("TEAM_NOT_FOUND", "تیم پیدا نشد.");
+    const completedModules = Object.values(team.training.modules).filter(module => module.passed === true).map(module => module.module);
+    return Object.freeze({
+      plan,
+      current: Object.freeze({
+        status: team.training.status,
+        completedModules: Object.freeze(completedModules),
+        missingModules: Object.freeze(plan.modules.map(module => module.module).filter(module => !completedModules.includes(module))),
+        teamStatus: team.status,
+        ready: team.status === "ready"
+      })
+    });
+  }
+
+  function createPlan(input = {}) {
+    planningSequence += 1;
+    const planningId = input.planningId ?? `PLAN-UI-${String(planningSequence).padStart(3, "0")}`;
+    const requestId = input.requestId ?? `REQ-PLAN-${String(planningSequence).padStart(3, "0")}`;
+    try {
+      return planner.plan({
+        ...input,
+        planningId,
+        requestId,
+        projectId: input.projectId ?? "hero",
+        documentVersion: input.documentVersion ?? "v1.0",
+        idempotencyKey: input.idempotencyKey ?? `dashboard-plan-${planningSequence}`,
+        actor: { kind: "orchestrator", id: "hero-control-plane" }
+      });
+    } catch (error) {
+      if (error instanceof PlannerSafetyError || error instanceof PlannerIdempotencyConflictError) {
+        throw new DashboardCommandError(error.code, error.message);
+      }
+      throw error;
+    }
+  }
+
+  function getPlan(planningId) {
+    const result = planner.get(planningId);
+    if (!result) throw new DashboardCommandError("PLAN_NOT_FOUND", "برنامه پیدا نشد.");
+    return result;
+  }
+
   function registerRelease(input) {
     return runReleaseCommand(releasePromotion.register, input);
   }
@@ -409,6 +458,9 @@ export function createControlDashboard(options = {}) {
     setFullAutonomy,
     setGlobalStop,
     teamSnapshot: () => teamRegistry.snapshot(),
+    teamTrainingPlan,
+    createPlan,
+    getPlan,
     reviewTeam,
     requestTeamRework,
     reviewTeamDeliverable,

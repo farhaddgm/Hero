@@ -18,6 +18,7 @@ PostgreSQL is the future operational source of truth. The event log is append-on
 | Critical principle / review | `principles`, `principle_reviews` | Hero baseline and product-specific blocking rules with owner decisions |
 | Release / environment evidence | `releases`, `release_evidence` | Exact Artifact/version/commit promotion from test to production |
 | Outbox | `outbox` | Durable dispatch created with the source event transaction |
+| Control command audit | `events` (`control.command-recorded`) | Safe, paginatable owner timeline; raw command input and secrets are excluded |
 
 ## Transaction rule
 
@@ -65,4 +66,4 @@ The current `TeamRegistry` is an in-memory projection for deterministic tests an
 
 `packages/contracts` owns the stable event schema. `packages/domain` provides an in-memory append-only log with duplicate protection and optimistic concurrency for deterministic tests. A future PostgreSQL adapter must preserve these semantics.
 
-The first PostgreSQL boundary is checked in at `packages/adapters/migrations/001_principles_release_audit.sql`. Its injected migration runner is `packages/adapters/src/postgresql-schema.mjs`, and `packages/adapters/src/postgresql-operational-store.mjs` provides the transaction-bound append/read Event Store with advisory aggregate locking and optional Outbox insertion. `postgresql-runtime.mjs` can create a bounded `pg` pool from the runtime-only `HERO_POSTGRES_URL`, apply the migration and expose a ping/readiness result; the Control Plane uses this path only when that URL is configured. Domain command projections remain deterministic in-memory until their async persistence port is separately integrated. Durable owner-session revocation and production deployment remain separately authorized work.
+The first PostgreSQL boundary is checked in at `packages/adapters/migrations/001_principles_release_audit.sql`. Its injected migration runner is `packages/adapters/src/postgresql-schema.mjs`, and `packages/adapters/src/postgresql-operational-store.mjs` provides the transaction-bound append/read Event Store with advisory aggregate locking and optional Outbox insertion. `postgresql-runtime.mjs` can create a bounded `pg` pool from the runtime-only `HERO_POSTGRES_URL`, apply the migration and expose a ping/readiness result; the Control Plane uses this path only when that URL is configured. `postgresql-command-audit.mjs` records accepted Control Plane commands as safe `control.command-recorded` events, and the authenticated audit endpoint reads them by global sequence. Domain command projections remain deterministic in-memory until their async persistence port is separately integrated. Durable owner-session revocation and production deployment remain separately authorized work.

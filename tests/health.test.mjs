@@ -114,6 +114,19 @@ test("readiness reports the configured persistence boundary", async t => {
   assert.equal((await response.json()).persistence, "postgresql");
 });
 
+test("training contract is public while team training plans stay owner-authenticated", async t => {
+  const app = createHeroServer({ host: "127.0.0.1", port: 0 });
+  const address = await app.start();
+  t.after(() => app.stop());
+
+  const contract = await fetch("http://127.0.0.1:" + address.port + "/training-contract");
+  assert.equal(contract.status, 200);
+  assert.equal((await contract.json()).trainingContract.benchmarkCount, 11);
+
+  const denied = await fetch("http://127.0.0.1:" + address.port + "/api/teams/mahsulo/training-plan");
+  assert.equal(denied.status, 503);
+});
+
 test("runner endpoint exposes only the isolated execution contract", async t => {
   const app = createHeroServer({ host: "127.0.0.1", port: 0 });
   const address = await app.start();

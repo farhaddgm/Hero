@@ -170,6 +170,17 @@ export {
 } from "./team.mjs";
 
 export {
+  TEAM_TRAINING_CONTRACT_VERSION,
+  TEAM_TRAINING_BENCHMARKS,
+  TRAINING_MODULE_DEFINITIONS,
+  TRAINING_PASS_SCORE,
+  TRAINING_PROGRAM_STATUSES,
+  getTeamTrainingPlan,
+  getTrainingContractSummary,
+  validateTrainingContract
+} from "./training.mjs";
+
+export {
   CRITICAL_PRINCIPLES_CONTRACT_VERSION,
   HERO_CRITICAL_PRINCIPLES,
   PRINCIPLE_CONTROL_POINTS,

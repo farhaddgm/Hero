@@ -1,5 +1,6 @@
 import { createPostgresMigrationRunner } from "./postgresql-schema.mjs";
 import { createPostgresOperationalStore } from "./postgresql-operational-store.mjs";
+import { createPostgresCommandAudit } from "./postgresql-command-audit.mjs";
 
 export class PostgresRuntimeError extends Error {
   constructor(code, message) {
@@ -50,6 +51,7 @@ export async function createPostgresRuntime({ connectionString = process.env.HER
         configured: true,
         migration,
         store,
+        audit: createPostgresCommandAudit({ store }),
         async ping() {
           await target.query("SELECT 1");
           return Object.freeze({ status: "ok", persistence: "postgresql" });

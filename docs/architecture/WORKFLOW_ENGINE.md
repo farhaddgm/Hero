@@ -18,7 +18,7 @@ Immutable Run projection
 Future transactional Outbox dispatch
 ```
 
-The Event Log remains the source of truth. The in-memory projection exists only for deterministic tests; PostgreSQL will later hold the durable projection and Event/Outbox transaction.
+The Event Log remains the source of truth. The in-memory projection exists for deterministic tests and current control commands; when configured, PostgreSQL also receives safe Control Plane command-audit events. Durable projection of every domain command and the full Event/Outbox transaction remain future integration boundaries.
 
 Every project workflow also passes through the Critical Principles check for its control point. A principle with status other than `approved` blocks the transition. Run lifecycle and Release Promotion are separate state machines: a completed Run is not automatically a production release.
 

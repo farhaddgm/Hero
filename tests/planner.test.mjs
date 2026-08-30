@@ -14,6 +14,7 @@ import {
   createPlannerHarness,
   validateTaskGraph
 } from "../packages/domain/src/planner.mjs";
+import { createTeamRegistry } from "../packages/domain/src/team-registry.mjs";
 import { REPO_ROOT } from "../tools/fs-policy.mjs";
 
 const fixedNow = () => "2026-08-14T21:00:00.000Z";
@@ -83,6 +84,21 @@ test("planner adds an explicit fast-path assumption when the request does not na
   }));
   assert.deepEqual(result.spec.targetPlatforms, ["web"]);
   assert.ok(result.spec.assumptions.some(assumption => assumption.includes("وب به‌عنوان پیش‌فرض")));
+});
+
+test("planner reports team readiness and blocks dispatch planning until owner teams are trained", () => {
+  const teamRegistry = createTeamRegistry({ now: fixedNow });
+  const result = createPlanner({ now: fixedNow, teamRegistry }).plan(planInput({
+    planningId: "PLAN-READINESS",
+    requestId: "REQ-READINESS",
+    idempotencyKey: "planner-readiness-once",
+    requestText: "یک داشبورد وب برای پیگیری وضعیت درخواست‌های کاربران بساز."
+  }));
+  assert.equal(result.state, "ready");
+  assert.equal(result.teamReadiness.source, "team-registry");
+  assert.equal(result.teamReadiness.ready, false);
+  assert.ok(result.teamReadiness.blockers.some(blocker => blocker.teamId === "developero"));
+  assert.equal(result.teamReadiness.capacity, "not-modeled");
 });
 
 test("unready project context blocks planning while sensitive values and host paths are rejected", () => {

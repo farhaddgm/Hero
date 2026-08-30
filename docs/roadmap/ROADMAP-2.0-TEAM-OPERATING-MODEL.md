@@ -19,10 +19,10 @@
 
 ## وضعیت خط مبنا
 
-- قراردادهای HERO-001 تا HERO-019 و Harnessهای deterministic موجودند و آخرین اجرای محلی 143 تست موفق داشته است.
+- قراردادهای HERO-001 تا HERO-019 و Harnessهای deterministic موجودند و آخرین اجرای محلی پس از این گام 163 تست موفق داشته است.
 - HERO-020 هنوز به شواهد واقعی Clean Linux، Compose و Restore نیاز دارد.
 - HERO-021 هنوز پایلوت واقعی Provider/اپلیکیشن نیست و به‌صورت پیش‌نویس طراحی باقی مانده است.
-- در این بازنگری، کاتالوگ ۱۱ تیم شیت، قرارداد تیم، Registry، Eventهای تیم و API/نمایش اولیهٔ کنترل تیم اضافه شده‌اند.
+- در این بازنگری، کاتالوگ ۱۱ تیم شیت، قرارداد تیم، curriculum و benchmark آموزش، Registry، Eventهای تیم و API/نمایش اولیهٔ کنترل تیم اضافه شده‌اند.
 - اصول حیاتی Hero/محصول و Release Promotion از Git تا test و تأیید production نیز به‌صورت قرارداد و گیت deterministic اضافه شده‌اند.
 - این پیاده‌سازی هنوز in-memory است؛ هیچ Provider زنده، هزینه، Secret، deploy یا پیام خارجی فعال نشده است.
 
@@ -57,8 +57,8 @@ HERO-001 تا HERO-021، منشور، Authorization Snapshot، Global Stop، Cle
 - idempotency و جلوگیری از ثبت تکراری فرمان؛
 - ثبت فلو پروژه و وضعیت کار تیم.
 
-انجام‌شده در این گام: مرز احراز هویت signed-session مالک برای `/api/*`، تست fail-closed، migration اولیهٔ PostgreSQL، Runner migration و Event Store تراکنشی تزریق‌پذیر.
-باقی‌مانده: اتصال پایدار به PostgreSQL، session revocation، pagination/audit view، ثبت diff قرارداد و نمایش timeline کامل.
+انجام‌شده در این گام: مرز احراز هویت signed-session مالک برای `/api/*`، تست fail-closed، migration اولیهٔ PostgreSQL، Runner migration، Event Store تراکنشی تزریق‌پذیر، audit امن فرمان‌ها، pagination timeline و مسیر مشاهدهٔ training plan.
+باقی‌مانده: projection پایدار تمام commandها، session revocation، ثبت diff قرارداد و timeline کامل رویدادهای domain.
 
 ### مرحلهٔ ۲.۵ — اصول حیاتی و گیت انتشار
 
@@ -75,7 +75,7 @@ HERO-001 تا HERO-021، منشور، Authorization Snapshot، Global Stop، Cle
 
 ### مرحلهٔ ۳ — توانمندسازی و آموزش تیم
 
-وضعیت: `بعدی`
+وضعیت: `قرارداد و benchmark انجام‌شده؛ ارزیابی واقعی تیم‌ها باقی‌مانده`
 
 - آموزش پنج‌گانهٔ mission، safety، output-contract، collaboration و quality؛
 - کتابخانهٔ درس و الگوی حل مسئله برای هر تیم؛
@@ -83,18 +83,22 @@ HERO-001 تا HERO-021، منشور، Authorization Snapshot، Global Stop، Cle
 - مقایسهٔ خروجی تیم با معیار طلایی و ثبت برنامهٔ بهبود؛
 - ارتقای نسخهٔ توانمندی بدون تغییر خاموش منشور.
 
+در این گام curriculum و یک benchmark نسخه‌دار برای هر ۱۱ تیم اضافه شده و از API قابل مشاهده است؛ ثبت امتیاز و evidence همچنان باید با ارزیابی واقعی مالک انجام شود.
+
 معیار عبور: تیم فقط پس از قبولی همهٔ ماژول‌ها و داشتن Artifact ارزیابی‌شده، `ready` شود.
 
 ### مرحلهٔ ۴ — تشکیل تیم پروژه و تخصیص هوشمند
 
-وضعیت: `قرارداد مسیر‌یابی افزوده شد؛ اتصال Registry باقی است`
+وضعیت: `Planner و readiness متصل شد؛ تخصیص عملیاتی باقی است`
 
 - Planner اکنون برای هر Task تیم مالک، تیم‌های همکار، مرحله و approval mode را پیشنهاد و در Event ثبت می‌کند؛
-- اتصال این پیشنهاد به readiness و ظرفیت TeamRegistry هنوز باید تکمیل شود؛
+- Planner اکنون readiness تیم‌های مالک را از TeamRegistry گزارش می‌کند و تیم ناآماده را dispatchable اعلام نمی‌کند؛ ظرفیت واقعی هنوز مدل نشده است؛
 - راهبرو تخصیص را با یک تیم مالک اصلی و همکاران مشخص ثبت کند؛
 - ورودی تیم از Artifact نسخه‌دار قبلی ساخته شود؛
 - تداخل فایل، منبع و ظرفیت پیش از اجرا شناسایی شود؛
 - مالک بتواند تخصیص را تأیید، رد، جابه‌جا یا برای بازکاری برگرداند.
+
+مسیر `POST /api/plans` برای ثبت intake و `GET /api/plans/:planningId` برای مشاهدهٔ Plan اضافه شده است؛ dispatch واقعی همچنان به readiness، authorization و Runner وابسته است.
 
 معیار عبور: هیچ Task بدون تیم مالک، قرارداد ورودی و سیاست approval قابل dispatch نباشد.
 
@@ -170,10 +174,10 @@ HERO-001 تا HERO-021، منشور، Authorization Snapshot، Global Stop، Cle
 
 1. اتصال واقعی ChatGPT/Codex/Claude/Cursor؛
 2. ساخت اپلیکیشن واقعی برای یک درخواست مالک؛
-3. اتصال PostgreSQL عملیاتی و queue/outbox durable؛ migration boundary فعلاً آماده و بدون اتصال زنده است؛
+3. projection پایدار همهٔ commandهای PostgreSQL، session revocation و queue/outbox durable؛ migration، readiness و audit command فعلاً عملیاتی‌اند؛
 4. Clean Linux backup/restore با checksum؛
 5. Preview، cloud build، deploy، secret management و external spend؛
-6. آموزش مبتنی بر benchmark واقعی تیم‌ها؛
+6. ارزیابی آموزش مبتنی بر اجرای واقعی benchmarkهای تیم‌ها؛ curriculum و benchmark نسخه‌دار آماده است؛
 7. داشبورد کامل چندپروژه‌ای و timeline عملیاتی.
 
 این موارد به‌ترتیب در مراحل ۳ تا ۸ می‌آیند و هر کدام باید Authorization و Evidence متناسب خود را داشته باشند.

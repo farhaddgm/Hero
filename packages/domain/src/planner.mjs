@@ -160,6 +160,28 @@ function buildGraph(planningId, platforms) {
   return Object.freeze({ nodes: Object.freeze([analysis, architecture, ...implementations, testing, review, handoff]) });
 }
 
+function assessTeamReadiness(graph, teamRegistry) {
+  if (!teamRegistry) return null;
+  const teamIds = [...new Set(graph.nodes.flatMap(node => [node.team.owner, ...node.team.collaborators]))];
+  const teams = teamIds.map(teamId => {
+    const team = teamRegistry.get(teamId);
+    const status = team?.status ?? "unknown";
+    return Object.freeze({ teamId, status, eligible: status === "ready" });
+  });
+  const ownerIds = [...new Set(graph.nodes.map(node => node.team.owner))];
+  const blockers = ownerIds
+    .map(teamId => teams.find(team => team.teamId === teamId))
+    .filter(team => !team?.eligible)
+    .map(team => ({ teamId: team.teamId, status: team.status, reason: "تیم مالک هنوز آمادهٔ تخصیص نیست." }));
+  return Object.freeze({
+    source: "team-registry",
+    ready: blockers.length === 0,
+    capacity: "not-modeled",
+    teams: Object.freeze(teams),
+    blockers: Object.freeze(blockers)
+  });
+}
+
 export function validateTaskGraph(graph) {
   const errors = [];
   if (!graph || !Array.isArray(graph.nodes) || graph.nodes.length < 6) return ["Task Graph is incomplete."];
@@ -222,6 +244,7 @@ export function createPlanner(options = {}) {
   const now = options.now ?? (() => new Date().toISOString());
   const plans = new Map();
   const idempotency = new Map();
+  const teamRegistry = options.teamRegistry ?? null;
   let nextEvent = 0;
   const eventIdFactory = options.eventIdFactory ?? (() => `evt_planner_${String(++nextEvent).padStart(6, "0")}`);
 
@@ -260,7 +283,7 @@ export function createPlanner(options = {}) {
       });
       const result = immutableCopy({
         planningId: input.planningId, requestId: input.requestId, projectId: input.projectId, documentVersion: input.documentVersion,
-        state: "blocked", code: "CONTEXT_NOT_READY", reason: context.reason, spec: null, graph: null, idempotent: false, eventId: event.eventId
+        state: "blocked", code: "CONTEXT_NOT_READY", reason: context.reason, spec: null, graph: null, teamReadiness: null, idempotent: false, eventId: event.eventId
       });
       plans.set(input.planningId, result);
       idempotency.set(replayKey, { fingerprint: inputFingerprint, result });
@@ -292,6 +315,7 @@ export function createPlanner(options = {}) {
     const graph = buildGraph(input.planningId, inferred.platforms);
     const graphErrors = validateTaskGraph(graph);
     if (graphErrors.length > 0) throw new Error(`Invalid Task Graph: ${graphErrors.join(" ")}`);
+    const teamReadiness = assessTeamReadiness(graph, teamRegistry);
     const created = append(input.planningId, "planning.created", input.actor, {
       requestId: input.requestId, documentVersion: input.documentVersion, state: "ready", specId: spec.specId, targetPlatforms: spec.targetPlatforms
     });
@@ -319,6 +343,7 @@ export function createPlanner(options = {}) {
       code: "PLAN_READY",
       spec,
       graph,
+      teamReadiness,
       stop: { canHaltBeforeDispatch: true, nextState: "halted" },
       boundary: { providerInvocation: false, runnerCreated: false, codeMutation: false, sensitiveOperation: false },
       version: eventLog.currentVersion("planning", input.planningId),

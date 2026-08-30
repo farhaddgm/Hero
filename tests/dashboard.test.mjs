@@ -51,6 +51,30 @@ test("HTTP dashboard exposes the team control surface without live providers", a
   assert.equal(teamControl.teams.length, 11);
   assert.equal(teamControl.teams[0].status, "proposed");
 
+  const trainingPlan = await fetch(baseUrl + "/api/teams/mahsulo/training-plan", { headers: auth.headers });
+  assert.equal(trainingPlan.status, 200);
+  assert.equal((await trainingPlan.json()).training.plan.benchmark.teamId, "mahsulo");
+
+  const planned = await fetch(baseUrl + "/api/plans", {
+    method: "POST",
+    headers: withAuth(auth, { "content-type": "application/json" }),
+    body: JSON.stringify({
+      planningId: "PLAN-HTTP-001",
+      requestId: "REQ-HTTP-001",
+      projectId: "hero",
+      requestText: "یک داشبورد وب برای پیگیری درخواست‌های کاربران بساز.",
+      idempotencyKey: "http-plan-1"
+    })
+  });
+  assert.equal(planned.status, 201);
+  const plan = (await planned.json()).plan;
+  assert.equal(plan.state, "ready");
+  assert.equal(plan.teamReadiness.ready, false);
+
+  const fetchedPlan = await fetch(baseUrl + "/api/plans/PLAN-HTTP-001", { headers: auth.headers });
+  assert.equal(fetchedPlan.status, 200);
+  assert.equal((await fetchedPlan.json()).plan.planningId, "PLAN-HTTP-001");
+
   const reviewed = await fetch(baseUrl + "/api/teams/mahsulo/review", {
     method: "POST",
     headers: withAuth(auth, { "content-type": "application/json" }),

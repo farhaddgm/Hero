@@ -23,6 +23,7 @@ export const AGGREGATE_TYPES = Object.freeze([
 ]);
 
 export const EVENT_TYPES = Object.freeze([
+  "control.command-recorded",
   "project.requested",
   "work-item.planned",
   "task.created",

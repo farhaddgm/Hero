@@ -18,6 +18,20 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    services:
+      hero-postgres:
+        image: postgres:16.4-alpine
+        env:
+          POSTGRES_DB: hero
+          POSTGRES_USER: hero
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U hero -d hero"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -29,4 +43,5 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
+      - run: HERO_POSTGRES_URL=postgresql://hero@127.0.0.1:5432/hero pnpm check:postgres
       - run: docker build --tag hero-ci:${{ github.sha }} .

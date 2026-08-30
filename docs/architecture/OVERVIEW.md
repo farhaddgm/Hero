@@ -24,7 +24,7 @@ PostgreSQL adapters      Provider / Git / Runner adapters
                     Evidence + independent review
 ```
 
-The Team Control boundary treats each phase-one operating-model team as a governed unit with a versioned charter, decision rights, inputs, outputs, principles, training status, project assignments and stage-specific autonomy. The owner can review or reject each contract section, request rework, review project input/output artifacts, change workflow policy, and preserve history across team merge/split operations. The current registry is deterministic and in-memory; durable PostgreSQL persistence and live execution remain separate adapters.
+The Team Control boundary treats each phase-one operating-model team as a governed unit with a versioned charter, decision rights, inputs, outputs, principles, training status, project assignments and stage-specific autonomy. The owner can review or reject each contract section, request rework, review project input/output artifacts, change workflow policy, and preserve history across team merge/split operations. The registry and projections remain deterministic and in-memory; PostgreSQL command audit/readiness and live execution remain separate boundaries.
 
 The Critical Principles boundary makes the non-negotiable rules executable. Hero's baseline principles are inherited by every product; product-specific principles are added as versioned, owner-reviewed records. A missing or rejected principle blocks the relevant control point. The Release Promotion boundary keeps test and production separate, binds both to one Artifact/version/commit, and requires test evidence, owner approval, an explicit production command and separate `production-deploy` authorization.
 
@@ -38,7 +38,7 @@ Domain has no dependency on Provider CLIs, HTTP frameworks, database drivers or 
 
 ## Data, dispatch and lifecycle
 
-HERO-005 defines PostgreSQL as the target source of truth for operational records, append-only events, authorization snapshots and durable outbox dispatch. HERO-006 adds the deterministic Run State Machine above that Event Log. HERO-007 adds the fail-closed authorization decision boundary and Global Stop. HERO-008 adds the isolated Runner boundary: a version-matched dispatch allocates a relative Worktree identity with closed-network defaults, checkpoint-before-cleanup and bounded concurrency. No independent queue is selected before its operational need is proven.
+HERO-005 defines PostgreSQL as the target source of truth for operational records, append-only events, authorization snapshots and durable outbox dispatch. The current runtime applies the initial schema and records accepted Control Plane commands as safe audit events; complete domain projections remain a separate integration. HERO-006 adds the deterministic Run State Machine above that Event Log. HERO-007 adds the fail-closed authorization decision boundary and Global Stop. HERO-008 adds the isolated Runner boundary: a version-matched dispatch allocates a relative Worktree identity with closed-network defaults, checkpoint-before-cleanup and bounded concurrency. No independent queue is selected before its operational need is proven.
 
 HERO-014 adds shared project memory above the dispatch boundary. It is not a raw chat transcript: each record is versioned, role-filtered and bounded to the current Project or exact Task/Step/document version. Context assembly is read-only and fail-closed for stale task memory, so an Agent cannot silently receive an obsolete design or unrelated project history.
 

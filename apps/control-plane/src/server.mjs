@@ -23,6 +23,7 @@ import {
   getPublicArchitectureSummary,
   getRunnerContractSummary,
   getTeamContractSummary,
+  getTrainingContractSummary,
   getWebFactoryContractSummary,
   getWorkflowContractSummary
 } from "../../../packages/contracts/src/index.mjs";
@@ -89,6 +90,19 @@ export function createHeroServer(options = {}) {
   let postgresRuntime = options.postgresRuntime ?? null;
   let ownsPostgresRuntime = false;
 
+  async function executeDashboardCommand(command, input, operation) {
+    const result = await operation();
+    if (postgresRuntime?.audit) {
+      const projectId = input?.projectId ?? result?.projectId ?? result?.request?.projectId ?? result?.result?.projectId ?? "hero";
+      await postgresRuntime.audit.record({
+        command,
+        projectId,
+        actor: { kind: "project-owner", id: "hero-owner" }
+      });
+    }
+    return result;
+  }
+
   const server = http.createServer((request, response) => void handle(request, response));
 
   async function handle(request, response) {
@@ -109,6 +123,32 @@ export function createHeroServer(options = {}) {
         return json(response, 200, { service: HERO_SERVICE, teamControl: dashboard.teamSnapshot() });
       }
 
+      const teamTrainingMatch = url.pathname.match(/^\/api\/teams\/([a-z][a-z0-9-]{2,63})\/training-plan$/);
+      if (request.method === "GET" && teamTrainingMatch) {
+        return json(response, 200, { service: HERO_SERVICE, training: dashboard.teamTrainingPlan(teamTrainingMatch[1]) });
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/plans") {
+        const input = await readJson(request);
+        const plan = await executeDashboardCommand("planning.create", input, () => dashboard.createPlan(input));
+        return json(response, 201, { service: HERO_SERVICE, plan });
+      }
+
+      const planMatch = url.pathname.match(/^\/api\/plans\/([A-Za-z][A-Za-z0-9._:-]{2,127})$/);
+      if (request.method === "GET" && planMatch) {
+        return json(response, 200, { service: HERO_SERVICE, plan: dashboard.getPlan(planMatch[1]) });
+      }
+
+      if (request.method === "GET" && url.pathname === "/api/audit") {
+        if (!postgresRuntime?.store) {
+          return json(response, 503, { service: HERO_SERVICE, status: "persistence_unavailable", code: "PERSISTENCE_NOT_CONFIGURED" });
+        }
+        const after = Number(url.searchParams.get("after") ?? "0");
+        if (!Number.isInteger(after) || after < 0) throw new DashboardCommandError("INVALID_INPUT", "مقدار after معتبر نیست.");
+        const events = await postgresRuntime.store.readAfter(after);
+        return json(response, 200, { service: HERO_SERVICE, events, nextAfter: events.at(-1)?.sequence ?? after });
+      }
+
       const projectPrinciplesMatch = url.pathname.match(/^\/api\/projects\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/principles$/);
       if (request.method === "GET" && projectPrinciplesMatch) {
         return json(response, 200, { service: HERO_SERVICE, principlesControl: dashboard.projectPrinciples(projectPrinciplesMatch[1]) });
@@ -127,12 +167,14 @@ export function createHeroServer(options = {}) {
       }
 
       if (request.method === "POST" && url.pathname === "/api/requests") {
-        return json(response, 201, { service: HERO_SERVICE, request: dashboard.createRequest(await readJson(request)) });
+        const input = await readJson(request);
+        const created = await executeDashboardCommand("request.create", input, () => dashboard.createRequest(input));
+        return json(response, 201, { service: HERO_SERVICE, request: created });
       }
 
       const actionMatch = url.pathname.match(/^\/api\/requests\/(REQ-\d{3})\/(approve|reject|stop|run)$/);
       if (request.method === "POST" && actionMatch) {
-        await readJson(request);
+        const input = await readJson(request);
         const [, requestId, action] = actionMatch;
         const requestByAction = {
           approve: dashboard.approveRequest,
@@ -140,22 +182,28 @@ export function createHeroServer(options = {}) {
           stop: dashboard.stopRequest,
           run: dashboard.runFakeAgent
         };
-        return json(response, 200, { service: HERO_SERVICE, request: requestByAction[action](requestId) });
+        const result = await executeDashboardCommand(`request.${action}`, input, () => requestByAction[action](requestId));
+        return json(response, 200, { service: HERO_SERVICE, request: result });
       }
 
       if (request.method === "POST" && url.pathname === "/api/authority") {
         const input = await readJson(request);
-        return json(response, 200, { service: HERO_SERVICE, dashboard: dashboard.setFullAutonomy(input.fullAutonomy) });
+        const result = await executeDashboardCommand("authority.update", input, () => dashboard.setFullAutonomy(input.fullAutonomy));
+        return json(response, 200, { service: HERO_SERVICE, dashboard: result });
       }
 
       if (request.method === "POST" && url.pathname === "/api/global-stop") {
         const input = await readJson(request);
-        return json(response, 200, { service: HERO_SERVICE, dashboard: dashboard.setGlobalStop(input.active) });
+        const result = await executeDashboardCommand("global-stop.update", input, () => dashboard.setGlobalStop(input.active));
+        return json(response, 200, { service: HERO_SERVICE, dashboard: result });
       }
 
       const principleDefinitionMatch = url.pathname.match(/^\/api\/projects\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/principles$/);
       if (request.method === "POST" && principleDefinitionMatch) {
-        return json(response, 201, { service: HERO_SERVICE, result: dashboard.defineProjectPrinciple(principleDefinitionMatch[1], await readJson(request)) });
+        const input = await readJson(request);
+        const projectId = principleDefinitionMatch[1];
+        const result = await executeDashboardCommand("principle.define", { ...input, projectId }, () => dashboard.defineProjectPrinciple(projectId, input));
+        return json(response, 201, { service: HERO_SERVICE, result });
       }
 
       const principleActionMatch = url.pathname.match(/^\/api\/projects\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/principles\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/(review|rework)$/);
@@ -163,7 +211,8 @@ export function createHeroServer(options = {}) {
         const input = await readJson(request);
         const [, projectId, principleId, action] = principleActionMatch;
         const command = action === "review" ? dashboard.reviewProjectPrinciple : dashboard.requestProjectPrincipleRework;
-        return json(response, 200, { service: HERO_SERVICE, result: command(projectId, principleId, input) });
+        const result = await executeDashboardCommand(`principle.${action}`, { ...input, projectId }, () => command(projectId, principleId, input));
+        return json(response, 200, { service: HERO_SERVICE, result });
       }
 
       const principleCheckMatch = url.pathname.match(/^\/api\/projects\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/principles\/check$/);
@@ -173,7 +222,9 @@ export function createHeroServer(options = {}) {
       }
 
       if (request.method === "POST" && url.pathname === "/api/releases") {
-        return json(response, 201, { service: HERO_SERVICE, result: dashboard.registerRelease(await readJson(request)) });
+        const input = await readJson(request);
+        const result = await executeDashboardCommand("release.register", input, () => dashboard.registerRelease(input));
+        return json(response, 201, { service: HERO_SERVICE, result });
       }
 
       const releaseActionMatch = url.pathname.match(/^\/api\/releases\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/(test-deployment|test-deployment-record|test-evidence|production-approval|production-approve|production-promote|rollback)$/);
@@ -189,7 +240,8 @@ export function createHeroServer(options = {}) {
           "production-promote": dashboard.requestProductionPromotion,
           rollback: dashboard.rollbackRelease
         };
-        return json(response, 200, { service: HERO_SERVICE, result: releaseByAction[action]({ ...input, releaseId }) });
+        const result = await executeDashboardCommand(`release.${action}`, input, () => releaseByAction[action]({ ...input, releaseId }));
+        return json(response, 200, { service: HERO_SERVICE, result });
       }
 
       const teamMatch = url.pathname.match(/^\/api\/teams\/([a-z][a-z0-9-]{2,63})\/(review|rework|deliverable-review|autonomy|training|assign|split)$/);
@@ -205,21 +257,29 @@ export function createHeroServer(options = {}) {
           assign: dashboard.assignTeam,
           split: dashboard.splitTeam
         };
-        return json(response, 200, { service: HERO_SERVICE, result: teamByAction[action](teamId, input) });
+        const result = await executeDashboardCommand(`team.${action}`, input, () => teamByAction[action](teamId, input));
+        return json(response, 200, { service: HERO_SERVICE, result });
       }
 
       if (request.method === "POST" && url.pathname === "/api/teams/merge") {
-        return json(response, 200, { service: HERO_SERVICE, result: dashboard.mergeTeams(await readJson(request)) });
+        const input = await readJson(request);
+        const result = await executeDashboardCommand("team.merge", input, () => dashboard.mergeTeams(input));
+        return json(response, 200, { service: HERO_SERVICE, result });
       }
 
       const assignmentMatch = url.pathname.match(/^\/api\/team-assignments\/([^/]+)\/update$/);
       if (request.method === "POST" && assignmentMatch) {
-        return json(response, 200, { service: HERO_SERVICE, result: dashboard.updateTeamAssignment(assignmentMatch[1], await readJson(request)) });
+        const input = await readJson(request);
+        const result = await executeDashboardCommand("team-assignment.update", input, () => dashboard.updateTeamAssignment(assignmentMatch[1], input));
+        return json(response, 200, { service: HERO_SERVICE, result });
       }
 
       const workflowMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/team-workflow$/);
       if (request.method === "POST" && workflowMatch) {
-        return json(response, 200, { service: HERO_SERVICE, result: dashboard.configureTeamWorkflow(workflowMatch[1], await readJson(request)) });
+        const input = await readJson(request);
+        const projectId = workflowMatch[1];
+        const result = await executeDashboardCommand("team-workflow.configure", { ...input, projectId }, () => dashboard.configureTeamWorkflow(projectId, input));
+        return json(response, 200, { service: HERO_SERVICE, result });
       }
 
     if (request.method === "GET" && url.pathname === "/health") {
@@ -355,6 +415,13 @@ export function createHeroServer(options = {}) {
       return json(response, 200, {
         service: HERO_SERVICE,
         teamContract: getTeamContractSummary()
+      });
+    }
+
+    if (request.method === "GET" && url.pathname === "/training-contract") {
+      return json(response, 200, {
+        service: HERO_SERVICE,
+        trainingContract: getTrainingContractSummary()
       });
     }
 

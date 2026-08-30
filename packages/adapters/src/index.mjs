@@ -17,3 +17,7 @@ export {
   PostgresRuntimeError,
   createPostgresRuntime
 } from "./postgresql-runtime.mjs";
+
+export {
+  createPostgresCommandAudit
+} from "./postgresql-command-audit.mjs";

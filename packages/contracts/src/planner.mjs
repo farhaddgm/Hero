@@ -72,9 +72,9 @@ export function getPlannerContractSummary() {
     teamRoutes: PLANNER_TEAM_ROUTES,
     decisionCodes: PLANNER_DECISION_CODES,
     input: "simple Persian product request + optional read-only project context",
-    output: "versioned spec, explicit assumptions, acceptance criteria, valid Task Graph and explained provider routing",
+    output: "versioned spec, explicit assumptions, acceptance criteria, valid Task Graph, explained provider routing and team-readiness decision",
     routerRule: "ChatGPT analyzes and designs; Codex implements and tests; Claude independently reviews; Cursor receives only a human-controlled handoff. Every task also has a team owner and explicit collaborators.",
-    safetyBoundary: "planning is deterministic and read-only; it does not invoke providers, create runners, merge code, spend money, or bypass version-bound authorization.",
+    safetyBoundary: "planning is deterministic and read-only; it does not invoke providers, create runners, merge code, spend money, or bypass version-bound authorization. Team readiness is a dispatch gate, not an automatic assignment.",
     stopRule: "a planned graph can be halted before dispatch; a halted graph emits no new runnable task"
   });
 }

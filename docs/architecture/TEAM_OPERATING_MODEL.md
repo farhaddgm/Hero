@@ -116,13 +116,17 @@ proposed -> training -> ready -> assigned -> working -> review -> completed
 - `POST /api/teams/:teamId/deliverable-review` ورودی/خروجی پروژه را بررسی می‌کند.
 - `POST /api/teams/:teamId/autonomy` خودکارسازی یک مرحله را تغییر می‌دهد.
 - `POST /api/teams/:teamId/training` نتیجهٔ یک ماژول آموزش را ثبت می‌کند.
+- `GET /api/teams/:teamId/training-plan` curriculum و benchmark نسخه‌دار تیم و moduleهای باقی‌مانده را می‌دهد.
+- `GET /training-contract` قرارداد عمومی curriculum، حدنصاب قبولی و benchmarkهای ۱۱ تیم را می‌دهد.
+- `POST /api/plans` درخواست فارسی را به Spec، Task Graph و گزارش آمادگی تیم‌های مالک تبدیل می‌کند.
+- `GET /api/plans/:planningId` برنامهٔ ثبت‌شده و قابل بازبینی را برمی‌گرداند.
 - `POST /api/teams/:teamId/assign` تیم آماده را به Project/Stage/Task تخصیص می‌دهد.
 - `POST /api/team-assignments/:assignmentId/update` وضعیت اجرای تخصیص را به‌روزرسانی می‌کند.
 - `POST /api/projects/:projectId/team-workflow` فلو و approval mode تیمی پروژه را ثبت می‌کند.
 - `POST /api/teams/merge` و `POST /api/teams/:teamId/split` تغییر ساختار تیمی را با حفظ تاریخچه ثبت می‌کنند.
 - `GET /team-contract` خلاصهٔ قرارداد ماشینی را می‌دهد.
 
-این API در وضعیت فعلی deterministic و in-memory است؛ PostgreSQL، صف پایدار، Provider واقعی و اجرای بیرونی هنوز آداپترهای جداگانهٔ آینده‌اند.
+Registry و projection فرمان‌ها همچنان deterministic و in-memory هستند، اما در صورت تنظیم PostgreSQL، فرمان‌های پذیرفته‌شدهٔ Control Plane به‌صورت audit event پایدار ثبت و از `GET /api/audit?after=0` قابل صفحه‌بندی خواندن‌اند. Projection کامل، session revocation پایدار، صف dispatch، Provider واقعی و اجرای بیرونی هنوز آداپترهای جداگانهٔ آینده‌اند.
 
 ## تیم‌های مکمل پیشنهادی
 

@@ -48,9 +48,15 @@ Hero پایه‌ی مستقل و قابل‌انتقال یک ارکستریتو
 
 خلاصهٔ مجوز و توقف اضطراری نیز از http://127.0.0.1:3100/authorization-contract قابل مشاهده است؛ این endpoint فقط قرارداد حاکمیت را نشان می‌دهد، نه مجوز یا اجرای زنده.
 
+برنامه‌ریزی درخواست از طریق `POST /api/plans` و مشاهدهٔ برنامهٔ ثبت‌شده از `GET /api/plans/:planningId` انجام می‌شود. Planner علاوه بر Task Graph و دلیل route، آمادگی تیم‌های مالک را گزارش می‌کند؛ تیم ناآماده هرگز به‌صورت ضمنی قابل dispatch نیست.
+
 APIهای `/api/*` فقط با نشست امضاشدهٔ مالک پروژه قابل استفاده‌اند و هدر `Authorization: Bearer hero-session...` می‌خواهند. مقدار `HERO_OWNER_AUTH_SECRET` باید فقط در secret store زمان اجرا تنظیم شود؛ اگر تنظیم نشده باشد API به‌صورت fail-closed در دسترس عملیاتی قرار نمی‌گیرد. قرارداد عمومی احراز هویت از http://127.0.0.1:3100/owner-auth-contract قابل مشاهده است. در این مرحله endpoint ورود یا session revocation پایدار ساخته نشده و این مرز باید در اتصال PostgreSQL تکمیل شود.
 
 فهرست و قرارداد تیم‌ها نیز از http://127.0.0.1:3100/api/teams و http://127.0.0.1:3100/team-contract قابل مشاهده است. مالک پروژه می‌تواند با مسیرهای `POST /api/teams/:teamId/review`، `POST /api/teams/:teamId/rework`، `POST /api/teams/:teamId/deliverable-review`، `POST /api/teams/:teamId/autonomy`، `POST /api/teams/:teamId/training` و `POST /api/teams/:teamId/assign` قرارداد، خروجی، آموزش، تخصیص و سطح خودکارسازی را کنترل کند. مسیرهای `POST /api/team-assignments/:assignmentId/update`، `POST /api/projects/:projectId/team-workflow` و `POST /api/teams/merge` نیز برای رصد اجرا، تغییر فلو و تغییر ساختار سازمانی هستند.
+
+برنامهٔ آموزش و benchmark هر تیم از `GET /training-contract` و `GET /api/teams/:teamId/training-plan` قابل مشاهده است. آمادگی تیم فقط پس از تأیید هفت بخش قرارداد و قبولی هر پنج module با امتیاز حداقل ۸۰ صادر می‌شود.
+
+آمادگی پایلوت HERO-021 با `pnpm check:pilot` بررسی می‌شود؛ این فرمان در نبود شواهد واقعی Linux/Restore، Provider و درخواست پایلوت عمداً `blocked` برمی‌گرداند.
 
 اصول حیاتی از http://127.0.0.1:3100/principles-contract و وضعیت آن‌ها از `/api/dashboard` یا `/api/projects/:projectId/principles` قابل مشاهده است. مسیرهای `POST /api/projects/:projectId/principles`، `/review`، `/rework` و `/check` برای تعریف، تأیید/رد، بازکاری و ارزیابی اصول هستند. قرارداد انتشار از http://127.0.0.1:3100/release-contract قابل مشاهده است؛ ثبت Release و گیت‌های test/production در `POST /api/releases` و `/api/releases/:releaseId/test-deployment`، `/test-deployment-record`، `/test-evidence`، `/production-approval`، `/production-approve` و `/production-promote` قرار دارند. Deployment زنده عمداً غیرفعال است.
 
@@ -73,6 +79,8 @@ Doctor در صورت مشاهده‌ی symlink، Git submodule، وابستگی 
 مرز migration PostgreSQL در [packages/adapters/migrations/001_principles_release_audit.sql](packages/adapters/migrations/001_principles_release_audit.sql)، Runner تزریق‌پذیر آن در `packages/adapters/src/postgresql-schema.mjs` و Event Store تراکنشی در `packages/adapters/src/postgresql-operational-store.mjs` ثبت شده است. runtime این adapterها در زمان راه‌اندازی به‌صورت اختیاری migration و health check را به Control Plane وصل می‌کند؛ projection فرمان‌های دامنه هنوز عمداً در حافظه است و اتصال پایدار آن گام بعدی است.
 
 برای اجرای اتصال واقعی test، `HERO_POSTGRES_URL` و `HERO_POSTGRES_PASSWORD` را فقط در secret store تنظیم کنید و سپس `pnpm check:postgres` را اجرا کنید. Compose سرویس جداگانهٔ `hero-postgres` را فقط با profile `postgres` ارائه می‌کند؛ مقدار خالی یا نبود Secret عمداً باید متوقف بماند. وقتی URL تنظیم باشد، Control Plane هنگام start migration را اجرا می‌کند و `/ready` فقط پس از ping موفق، `persistence: postgresql` گزارش می‌دهد.
+
+وقتی PostgreSQL تنظیم باشد، فرمان‌های موفق Control Plane به‌صورت audit event ایمن ثبت می‌شوند و مالک می‌تواند timeline را با `GET /api/audit?after=0` بخواند. این مسیر pagination بر اساس sequence دارد و ورودی خام، header احراز هویت یا Secret را ذخیره نمی‌کند. Projection کامل commandها، session revocation پایدار و deployment زنده هنوز مرزهای جداگانه‌اند.
 
 ## حاکمیت پروژه
 
