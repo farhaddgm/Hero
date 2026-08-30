@@ -1,0 +1,46 @@
+name: Hero Test Environment
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: "Candidate SemVer to verify in the test environment"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hero-test-${{ inputs.release_version }}
+  cancel-in-progress: false
+
+jobs:
+  verify-test:
+    runs-on: ubuntu-latest
+    environment: test
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - run: docker build --tag hero-test:${{ github.sha }} .
+      - name: Record test candidate identity
+        env:
+          RELEASE_VERSION: ${{ inputs.release_version }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          IMAGE_ID="$(docker image inspect --format='{{.Id}}' "hero-test:$COMMIT_SHA")"
+          printf 'release_version=%s\ncommit_sha=%s\nartifact=hero-test:%s\nartifact_id=%s\n' \
+            "$RELEASE_VERSION" "$COMMIT_SHA" "$COMMIT_SHA" "$IMAGE_ID" > hero-test-evidence.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hero-test-evidence-${{ github.sha }}
+          path: hero-test-evidence.txt

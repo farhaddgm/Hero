@@ -9,21 +9,27 @@ import {
   getAssuranceGateContractSummary,
   getClaudeReviewContractSummary,
   getCursorHandoffContractSummary,
+  getCriticalPrinciplesContractSummary,
   getFakeAgentContractSummary,
   getMobileFactoryContractSummary,
   getOperationalDataSummary,
+  getOwnerAuthContractSummary,
   getPortabilityGateContractSummary,
   getPlannerContractSummary,
   getQualityGateContractSummary,
+  getReleaseContractSummary,
   getProjectMemoryContractSummary,
   getProviderAgentContractSummary,
   getPublicArchitectureSummary,
   getRunnerContractSummary,
+  getTeamContractSummary,
   getWebFactoryContractSummary,
   getWorkflowContractSummary
 } from "../../../packages/contracts/src/index.mjs";
 import { DashboardCommandError, createControlDashboard } from "./dashboard-service.mjs";
 import { getDashboardHtml } from "./dashboard-view.mjs";
+import { OwnerAuthError, createOwnerAuth } from "../../../packages/domain/src/owner-auth.mjs";
+import { createPostgresRuntime } from "../../../packages/adapters/src/postgresql-runtime.mjs";
 
 function json(response, statusCode, body) {
   const payload = JSON.stringify(body);
@@ -79,6 +85,9 @@ export function createHeroServer(options = {}) {
   const host = options.host ?? process.env.HERO_HTTP_HOST ?? "127.0.0.1";
   const port = parsePort(options.port ?? process.env.HERO_HTTP_PORT ?? "3100");
   const dashboard = options.dashboard ?? createControlDashboard({ now: options.now });
+  const ownerAuth = options.ownerAuth ?? createOwnerAuth({ secret: process.env.HERO_OWNER_AUTH_SECRET, now: options.now });
+  let postgresRuntime = options.postgresRuntime ?? null;
+  let ownsPostgresRuntime = false;
 
   const server = http.createServer((request, response) => void handle(request, response));
 
@@ -86,12 +95,35 @@ export function createHeroServer(options = {}) {
     const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
 
     try {
+      if (url.pathname.startsWith("/api/")) ownerAuth.requireOwner(request.headers.authorization);
+
       if (request.method === "GET" && url.pathname === "/") {
         return html(response, getDashboardHtml());
       }
 
       if (request.method === "GET" && url.pathname === "/api/dashboard") {
         return json(response, 200, { service: HERO_SERVICE, dashboard: dashboard.snapshot() });
+      }
+
+      if (request.method === "GET" && url.pathname === "/api/teams") {
+        return json(response, 200, { service: HERO_SERVICE, teamControl: dashboard.teamSnapshot() });
+      }
+
+      const projectPrinciplesMatch = url.pathname.match(/^\/api\/projects\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/principles$/);
+      if (request.method === "GET" && projectPrinciplesMatch) {
+        return json(response, 200, { service: HERO_SERVICE, principlesControl: dashboard.projectPrinciples(projectPrinciplesMatch[1]) });
+      }
+
+      if (request.method === "GET" && url.pathname === "/principles-contract") {
+        return json(response, 200, { service: HERO_SERVICE, principlesContract: getCriticalPrinciplesContractSummary() });
+      }
+
+      if (request.method === "GET" && url.pathname === "/release-contract") {
+        return json(response, 200, { service: HERO_SERVICE, releaseContract: getReleaseContractSummary() });
+      }
+
+      if (request.method === "GET" && url.pathname === "/owner-auth-contract") {
+        return json(response, 200, { service: HERO_SERVICE, ownerAuthContract: getOwnerAuthContractSummary() });
       }
 
       if (request.method === "POST" && url.pathname === "/api/requests") {
@@ -121,6 +153,75 @@ export function createHeroServer(options = {}) {
         return json(response, 200, { service: HERO_SERVICE, dashboard: dashboard.setGlobalStop(input.active) });
       }
 
+      const principleDefinitionMatch = url.pathname.match(/^\/api\/projects\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/principles$/);
+      if (request.method === "POST" && principleDefinitionMatch) {
+        return json(response, 201, { service: HERO_SERVICE, result: dashboard.defineProjectPrinciple(principleDefinitionMatch[1], await readJson(request)) });
+      }
+
+      const principleActionMatch = url.pathname.match(/^\/api\/projects\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/principles\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/(review|rework)$/);
+      if (request.method === "POST" && principleActionMatch) {
+        const input = await readJson(request);
+        const [, projectId, principleId, action] = principleActionMatch;
+        const command = action === "review" ? dashboard.reviewProjectPrinciple : dashboard.requestProjectPrincipleRework;
+        return json(response, 200, { service: HERO_SERVICE, result: command(projectId, principleId, input) });
+      }
+
+      const principleCheckMatch = url.pathname.match(/^\/api\/projects\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/principles\/check$/);
+      if (request.method === "POST" && principleCheckMatch) {
+        const input = await readJson(request);
+        return json(response, 200, { service: HERO_SERVICE, result: dashboard.checkProjectPrinciples(principleCheckMatch[1], input.controlPoint) });
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/releases") {
+        return json(response, 201, { service: HERO_SERVICE, result: dashboard.registerRelease(await readJson(request)) });
+      }
+
+      const releaseActionMatch = url.pathname.match(/^\/api\/releases\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/(test-deployment|test-deployment-record|test-evidence|production-approval|production-approve|production-promote|rollback)$/);
+      if (request.method === "POST" && releaseActionMatch) {
+        const input = await readJson(request);
+        const [, releaseId, action] = releaseActionMatch;
+        const releaseByAction = {
+          "test-deployment": dashboard.requestTestDeployment,
+          "test-deployment-record": dashboard.recordTestDeployment,
+          "test-evidence": dashboard.recordTestEvidence,
+          "production-approval": dashboard.requestProductionApproval,
+          "production-approve": dashboard.approveProduction,
+          "production-promote": dashboard.requestProductionPromotion,
+          rollback: dashboard.rollbackRelease
+        };
+        return json(response, 200, { service: HERO_SERVICE, result: releaseByAction[action]({ ...input, releaseId }) });
+      }
+
+      const teamMatch = url.pathname.match(/^\/api\/teams\/([a-z][a-z0-9-]{2,63})\/(review|rework|deliverable-review|autonomy|training|assign|split)$/);
+      if (request.method === "POST" && teamMatch) {
+        const input = await readJson(request);
+        const [, teamId, action] = teamMatch;
+        const teamByAction = {
+          review: dashboard.reviewTeam,
+          rework: dashboard.requestTeamRework,
+          "deliverable-review": dashboard.reviewTeamDeliverable,
+          autonomy: dashboard.setTeamAutonomy,
+          training: dashboard.recordTeamTraining,
+          assign: dashboard.assignTeam,
+          split: dashboard.splitTeam
+        };
+        return json(response, 200, { service: HERO_SERVICE, result: teamByAction[action](teamId, input) });
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/teams/merge") {
+        return json(response, 200, { service: HERO_SERVICE, result: dashboard.mergeTeams(await readJson(request)) });
+      }
+
+      const assignmentMatch = url.pathname.match(/^\/api\/team-assignments\/([^/]+)\/update$/);
+      if (request.method === "POST" && assignmentMatch) {
+        return json(response, 200, { service: HERO_SERVICE, result: dashboard.updateTeamAssignment(assignmentMatch[1], await readJson(request)) });
+      }
+
+      const workflowMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/team-workflow$/);
+      if (request.method === "POST" && workflowMatch) {
+        return json(response, 200, { service: HERO_SERVICE, result: dashboard.configureTeamWorkflow(workflowMatch[1], await readJson(request)) });
+      }
+
     if (request.method === "GET" && url.pathname === "/health") {
       return json(response, 200, {
         service: HERO_SERVICE,
@@ -133,7 +234,8 @@ export function createHeroServer(options = {}) {
       return json(response, 200, {
         service: HERO_SERVICE,
         status: "ready",
-        boundary: "clean-room"
+        boundary: "clean-room",
+        persistence: postgresRuntime ? "postgresql" : "in-memory"
       });
     }
 
@@ -249,17 +351,25 @@ export function createHeroServer(options = {}) {
       });
     }
 
+    if (request.method === "GET" && url.pathname === "/team-contract") {
+      return json(response, 200, {
+        service: HERO_SERVICE,
+        teamContract: getTeamContractSummary()
+      });
+    }
+
       return json(response, 404, {
         service: HERO_SERVICE,
         status: "not_found"
       });
     } catch (error) {
       const known = error instanceof DashboardCommandError;
-      return json(response, known ? 409 : 500, {
+      const auth = error instanceof OwnerAuthError;
+      return json(response, auth ? error.statusCode : known ? 409 : 500, {
         service: HERO_SERVICE,
-        status: known ? "command_rejected" : "internal_error",
-        code: known ? error.code : "INTERNAL_ERROR",
-        message: known ? error.message : "خطای غیرمنتظره رخ داد."
+        status: auth ? "authentication_required" : known ? "command_rejected" : "internal_error",
+        code: auth || known ? error.code : "INTERNAL_ERROR",
+        message: auth || known ? error.message : "خطای غیرمنتظره رخ داد."
       });
     }
   }
@@ -267,10 +377,24 @@ export function createHeroServer(options = {}) {
   return {
     server,
     async start() {
-      await new Promise((resolve, reject) => {
-        server.once("error", reject);
-        server.listen(port, host, resolve);
-      });
+      if (!postgresRuntime && process.env.HERO_POSTGRES_URL?.trim()) {
+        postgresRuntime = await createPostgresRuntime({ connectionString: process.env.HERO_POSTGRES_URL });
+        ownsPostgresRuntime = true;
+      }
+      if (postgresRuntime) await postgresRuntime.ping();
+      try {
+        await new Promise((resolve, reject) => {
+          server.once("error", reject);
+          server.listen(port, host, resolve);
+        });
+      } catch (error) {
+        if (ownsPostgresRuntime && postgresRuntime) {
+          await postgresRuntime.close();
+          postgresRuntime = null;
+          ownsPostgresRuntime = false;
+        }
+        throw error;
+      }
       const address = server.address();
       return typeof address === "object" && address ? address : { address: host, port };
     },
@@ -279,6 +403,11 @@ export function createHeroServer(options = {}) {
       await new Promise((resolve, reject) => {
         server.close(error => error ? reject(error) : resolve());
       });
+      if (ownsPostgresRuntime && postgresRuntime) {
+        await postgresRuntime.close();
+        postgresRuntime = null;
+        ownsPostgresRuntime = false;
+      }
     }
   };
 }

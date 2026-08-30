@@ -16,7 +16,23 @@ export const DASHBOARD_ACTIONS = Object.freeze([
   "run-fake-agent",
   "stop-request",
   "set-full-autonomy",
-  "set-global-stop"
+  "set-global-stop",
+  "review-team-contract",
+  "review-team-deliverable",
+  "request-team-rework",
+  "set-team-autonomy",
+  "define-project-principle",
+  "review-project-principle",
+  "request-project-principle-rework",
+  "check-project-principles",
+  "register-release",
+  "request-test-deployment",
+  "record-test-deployment",
+  "record-test-evidence",
+  "request-production-approval",
+  "approve-production",
+  "request-production-promotion",
+  "rollback-release"
 ]);
 
 export function getDashboardContractSummary() {
@@ -27,7 +43,10 @@ export function getDashboardContractSummary() {
     actions: DASHBOARD_ACTIONS,
     dispatchBoundary: "only the deterministic fake agent may run from the initial dashboard",
     authorityBoundary: "full autonomy changes readiness only; sensitive operations and live providers remain separately gated",
-    stopBoundary: "global stop blocks a new approval or fake dispatch; queued work may be stopped before execution"
+    stopBoundary: "global stop blocks a new approval or fake dispatch; queued work may be stopped before execution",
+    teamBoundary: "team contract and deliverable decisions are owner-gated, versioned and recorded in the append-only event log",
+    principlesBoundary: "critical principles are versioned, owner-reviewed and blocking at configured control points",
+    releaseBoundary: "the exact tested commit moves from test to production only after owner approval, explicit command and separate production authorization"
   });
 }
 

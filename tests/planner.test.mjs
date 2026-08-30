@@ -49,6 +49,7 @@ test("a simple Persian request becomes an explainable, acyclic web and mobile Ta
   assert.equal(first.code, "PLAN_READY");
   assert.deepEqual(first.spec.targetPlatforms, ["web", "mobile"]);
   assert.equal(first.spec.language, "fa");
+  assert.equal(first.spec.teamRouting.implementation.owner, "developero");
   assert.equal(first.spec.assumptions.at(-1).includes("provider زنده"), true);
   assert.equal(first.spec.acceptanceCriteria.length, 4);
   assert.deepEqual(validateTaskGraph(first.graph), []);
@@ -60,6 +61,9 @@ test("a simple Persian request becomes an explainable, acyclic web and mobile Ta
   assert.equal(byKind("testing")[0].route.provider, "codex");
   assert.equal(byKind("review")[0].route.provider, "claude");
   assert.equal(byKind("handoff")[0].route.provider, "cursor");
+  assert.equal(byKind("analysis")[0].team.owner, "tahlilgoro");
+  assert.equal(byKind("testing")[0].team.owner, "testero");
+  assert.ok(new Set(first.graph.nodes.flatMap(task => [task.team.owner, ...task.team.collaborators])).size >= 11);
   assert.equal(byKind("handoff")[0].dependsOn[0], byKind("review")[0].taskId);
   assert.equal(first.boundary.providerInvocation, false);
   assert.equal(first.boundary.runnerCreated, false);

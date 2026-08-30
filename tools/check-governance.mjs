@@ -3,6 +3,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { REPO_ROOT } from "./fs-policy.mjs";
+import { validateTeamContract } from "../packages/contracts/src/team.mjs";
+import { validateCriticalPrinciplesContract } from "../packages/contracts/src/principles.mjs";
+import { validateReleaseContract } from "../packages/contracts/src/release.mjs";
+import { validateOwnerAuthContract } from "../packages/contracts/src/owner-auth.mjs";
+import { validatePostgresSchemaContract } from "../packages/adapters/src/postgresql-schema.mjs";
 
 const governanceFile = path.join(REPO_ROOT, "config", "governance.json");
 const snapshotFile = path.join(
@@ -22,6 +27,11 @@ function requireValue(errors, condition, code, detail) {
 
 export function validateGovernance() {
   const errors = [];
+  for (const detail of validateTeamContract()) errors.push({ code: "TEAM_CONTRACT", detail });
+  for (const detail of validateCriticalPrinciplesContract()) errors.push({ code: "CRITICAL_PRINCIPLES_CONTRACT", detail });
+  for (const detail of validateReleaseContract()) errors.push({ code: "RELEASE_CONTRACT", detail });
+  for (const detail of validateOwnerAuthContract()) errors.push({ code: "OWNER_AUTH_CONTRACT", detail });
+  for (const detail of validatePostgresSchemaContract()) errors.push({ code: "POSTGRES_SCHEMA_CONTRACT", detail });
   const governance = loadJson(governanceFile);
   const snapshot = loadJson(snapshotFile);
 

@@ -1,6 +1,9 @@
 import { FAKE_AGENT_SCENARIOS } from "../../../packages/contracts/src/fake-agent.mjs";
 import { getDashboardContractSummary } from "../../../packages/contracts/src/dashboard.mjs";
 import { createFakeOrchestrationHarness } from "../../../packages/domain/src/fake-agent.mjs";
+import { PrincipleCommandError, createPrinciplesRegistry } from "../../../packages/domain/src/principles-registry.mjs";
+import { ReleaseCommandError, createReleasePromotion } from "../../../packages/domain/src/release-promotion.mjs";
+import { TeamCommandError, createTeamRegistry } from "../../../packages/domain/src/team-registry.mjs";
 
 const SENSITIVE_INPUT = /(?:\bsk-[A-Za-z0-9_-]{12,}\b|\bBearer\s+[A-Za-z0-9._-]{12,}\b|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|(?:api[_-]?key|access[_-]?token|refresh[_-]?token|password|credential)\s*[:=])/i;
 
@@ -30,6 +33,13 @@ function assertScenario(value) {
     throw new DashboardCommandError("INVALID_SCENARIO", "سناریوی Fake Agent معتبر نیست.");
   }
   return scenario;
+}
+
+function assertProjectId(value) {
+  if (typeof value !== "string" || !/^[A-Za-z][A-Za-z0-9._:-]{2,127}$/.test(value.trim())) {
+    throw new DashboardCommandError("INVALID_INPUT", "شناسهٔ پروژه معتبر نیست.");
+  }
+  return value.trim();
 }
 
 function timestamp(now) {
@@ -69,10 +79,20 @@ export class DashboardCommandError extends Error {
 
 export function createControlDashboard(options = {}) {
   const now = options.now ?? (() => new Date().toISOString());
+  const teamRegistry = options.teamRegistry ?? createTeamRegistry({ now });
   const requests = new Map();
   let sequence = 0;
+  let teamCommandSequence = 0;
+  let principleCommandSequence = 0;
+  let releaseCommandSequence = 0;
   let fullAutonomy = options.fullAutonomy === true;
   let globalStop = false;
+  const principlesRegistry = options.principlesRegistry ?? createPrinciplesRegistry({ now });
+  const releasePromotion = options.releasePromotion ?? createReleasePromotion({
+    now,
+    principlesRegistry,
+    authorizeProduction: options.authorizeProduction
+  });
 
   function getRequest(requestId) {
     const request = requests.get(requestId);
@@ -86,20 +106,73 @@ export function createControlDashboard(options = {}) {
       fullAutonomy,
       globalStop,
       providerMode: "Fake Agent only",
+      teamControl: teamRegistry.snapshot(),
+      principlesControl: principlesRegistry.snapshot(),
+      releaseControl: releasePromotion.snapshot(),
       requests: [...requests.values()]
         .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
         .map(publicRequest)
     });
   }
 
+  function runTeamCommand(command, input = {}) {
+    teamCommandSequence += 1;
+    try {
+      return command({
+        ...input,
+        actor: { kind: "project-owner", id: "hero-owner" },
+        idempotencyKey: input.idempotencyKey ?? `dashboard-team-${teamCommandSequence}`
+      });
+    } catch (error) {
+      if (error instanceof TeamCommandError) throw new DashboardCommandError(error.code, error.message);
+      throw error;
+    }
+  }
+
+  function runPrincipleCommand(command, input = {}) {
+    principleCommandSequence += 1;
+    try {
+      return command({
+        ...input,
+        actor: { kind: "project-owner", id: "hero-owner" },
+        idempotencyKey: input.idempotencyKey ?? `dashboard-principle-${principleCommandSequence}`
+      });
+    } catch (error) {
+      if (error instanceof PrincipleCommandError) throw new DashboardCommandError(error.code, error.message);
+      throw error;
+    }
+  }
+
+  function runReleaseCommand(command, input = {}) {
+    releaseCommandSequence += 1;
+    try {
+      return command({
+        ...input,
+        actor: { kind: "project-owner", id: "hero-owner" },
+        idempotencyKey: input.idempotencyKey ?? `dashboard-release-${releaseCommandSequence}`
+      });
+    } catch (error) {
+      if (error instanceof ReleaseCommandError) throw new DashboardCommandError(error.code, error.message);
+      throw error;
+    }
+  }
+
   function createRequest(input) {
     const title = assertText("عنوان", input?.title, { minimum: 3, maximum: 120, required: true });
     const description = assertText("شرح", input?.description, { maximum: 1000 });
     const scenario = assertScenario(input?.scenario);
+    const projectId = assertProjectId(input?.projectId ?? "hero");
+    try {
+      principlesRegistry.assertSatisfied({ projectId, controlPoint: "project-intake" });
+    } catch (error) {
+      if (error instanceof PrincipleCommandError) throw new DashboardCommandError(error.code, error.message);
+      throw error;
+    }
     sequence += 1;
     const createdAt = timestamp(now);
     const request = {
       requestId: `REQ-${String(sequence).padStart(3, "0")}`,
+      projectId,
       title,
       description,
       scenario,
@@ -119,6 +192,12 @@ export function createControlDashboard(options = {}) {
   function approveRequest(requestId) {
     if (globalStop) throw new DashboardCommandError("GLOBAL_STOP_ACTIVE", "توقف اضطراری فعال است؛ اجرای جدید مجاز نیست.");
     const request = getRequest(requestId);
+    try {
+      principlesRegistry.assertSatisfied({ projectId: request.projectId, controlPoint: "planning" });
+    } catch (error) {
+      if (error instanceof PrincipleCommandError) throw new DashboardCommandError(error.code, error.message);
+      throw error;
+    }
     if (!["نیازمند تأیید", "متوقف"].includes(request.status)) {
       throw new DashboardCommandError("REQUEST_NOT_APPROVABLE", "این درخواست در وضعیت قابل تأیید نیست.");
     }
@@ -156,6 +235,13 @@ export function createControlDashboard(options = {}) {
     const request = getRequest(requestId);
     if (request.status !== "آماده اجرا") {
       throw new DashboardCommandError("REQUEST_NOT_READY", "پیش از اجرای Fake Agent، درخواست باید تأیید شود.");
+    }
+    try {
+      principlesRegistry.assertSatisfied({ projectId: request.projectId, controlPoint: "development" });
+      principlesRegistry.assertSatisfied({ projectId: request.projectId, controlPoint: "test" });
+    } catch (error) {
+      if (error instanceof PrincipleCommandError) throw new DashboardCommandError(error.code, error.message);
+      throw error;
     }
     request.status = "در حال اجرا";
     request.updatedAt = timestamp(now);
@@ -195,6 +281,124 @@ export function createControlDashboard(options = {}) {
     return snapshot();
   }
 
+  function reviewTeam(teamId, input) {
+    return runTeamCommand(teamRegistry.reviewContract, { ...input, teamId });
+  }
+
+  function requestTeamRework(teamId, input) {
+    return runTeamCommand(teamRegistry.requestRework, { ...input, teamId });
+  }
+
+  function reviewTeamDeliverable(teamId, input) {
+    return runTeamCommand(teamRegistry.reviewDeliverable, { ...input, teamId });
+  }
+
+  function setTeamAutonomy(teamId, input) {
+    return runTeamCommand(teamRegistry.setAutonomy, { ...input, teamId });
+  }
+
+  function recordTeamTraining(teamId, input) {
+    return runTeamCommand(teamRegistry.recordTraining, { ...input, teamId });
+  }
+
+  function updateTeamAssignment(assignmentId, input) {
+    return runTeamCommand(teamRegistry.updateAssignment, { ...input, assignmentId });
+  }
+
+  function mergeTeams(input) {
+    return runTeamCommand(teamRegistry.mergeTeams, input);
+  }
+
+  function splitTeam(teamId, input) {
+    return runTeamCommand(teamRegistry.splitTeam, { ...input, teamId });
+  }
+
+  function requirePrinciples(projectId, controlPoint) {
+    try {
+      return principlesRegistry.assertSatisfied({ projectId: assertProjectId(projectId), controlPoint });
+    } catch (error) {
+      if (error instanceof PrincipleCommandError) throw new DashboardCommandError(error.code, error.message);
+      throw error;
+    }
+  }
+
+  function assignTeam(teamId, input) {
+    requirePrinciples(input?.projectId, "team-assignment");
+    return runTeamCommand(teamRegistry.assignToProject, { ...input, teamId });
+  }
+
+  function configureTeamWorkflow(projectId, input) {
+    requirePrinciples(projectId, "team-assignment");
+    return runTeamCommand(teamRegistry.configureWorkflow, { ...input, projectId });
+  }
+
+  function defineProjectPrinciple(projectId, input) {
+    return runPrincipleCommand(principlesRegistry.define, { ...input, projectId, scope: "product" });
+  }
+
+  function reviewProjectPrinciple(projectId, principleId, input) {
+    return runPrincipleCommand(principlesRegistry.review, { ...input, projectId, principleId });
+  }
+
+  function requestProjectPrincipleRework(projectId, principleId, input) {
+    return runPrincipleCommand(principlesRegistry.requestRework, { ...input, projectId, principleId });
+  }
+
+  function checkProjectPrinciples(projectId, controlPoint) {
+    try {
+      return principlesRegistry.evaluate({ projectId, controlPoint });
+    } catch (error) {
+      if (error instanceof PrincipleCommandError) throw new DashboardCommandError(error.code, error.message);
+      throw error;
+    }
+  }
+
+  function projectPrinciples(projectId) {
+    try {
+      const normalizedProjectId = assertProjectId(projectId);
+      return Object.freeze({
+        projectId: normalizedProjectId,
+        principles: principlesRegistry.list(normalizedProjectId),
+        checks: Object.freeze(["project-intake", "planning", "team-assignment", "development", "test", "release-test", "release-production"].map(controlPoint => principlesRegistry.evaluate({ projectId: normalizedProjectId, controlPoint })))
+      });
+    } catch (error) {
+      if (error instanceof PrincipleCommandError || error instanceof DashboardCommandError) throw new DashboardCommandError(error.code, error.message);
+      throw error;
+    }
+  }
+
+  function registerRelease(input) {
+    return runReleaseCommand(releasePromotion.register, input);
+  }
+
+  function requestTestDeployment(input) {
+    return runReleaseCommand(releasePromotion.requestTestDeployment, input);
+  }
+
+  function recordTestDeployment(input) {
+    return runReleaseCommand(releasePromotion.recordTestDeployment, input);
+  }
+
+  function recordTestEvidence(input) {
+    return runReleaseCommand(releasePromotion.recordTestEvidence, input);
+  }
+
+  function requestProductionApproval(input) {
+    return runReleaseCommand(releasePromotion.requestProductionApproval, input);
+  }
+
+  function approveProduction(input) {
+    return runReleaseCommand(releasePromotion.approveProduction, input);
+  }
+
+  function requestProductionPromotion(input) {
+    return runReleaseCommand(releasePromotion.requestProductionPromotion, input);
+  }
+
+  function rollbackRelease(input) {
+    return runReleaseCommand(releasePromotion.rollback, input);
+  }
+
   return Object.freeze({
     snapshot,
     createRequest,
@@ -203,6 +407,30 @@ export function createControlDashboard(options = {}) {
     stopRequest,
     runFakeAgent,
     setFullAutonomy,
-    setGlobalStop
+    setGlobalStop,
+    teamSnapshot: () => teamRegistry.snapshot(),
+    reviewTeam,
+    requestTeamRework,
+    reviewTeamDeliverable,
+    setTeamAutonomy,
+    recordTeamTraining,
+    assignTeam,
+    updateTeamAssignment,
+    configureTeamWorkflow,
+    mergeTeams,
+    splitTeam,
+    defineProjectPrinciple,
+    reviewProjectPrinciple,
+    requestProjectPrincipleRework,
+    checkProjectPrinciples,
+    projectPrinciples,
+    registerRelease,
+    requestTestDeployment,
+    recordTestDeployment,
+    recordTestEvidence,
+    requestProductionApproval,
+    approveProduction,
+    requestProductionPromotion,
+    rollbackRelease
   });
 }

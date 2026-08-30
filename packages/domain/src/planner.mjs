@@ -1,8 +1,10 @@
 import {
   PLANNER_ROUTER_PROVIDERS,
+  PLANNER_TEAM_ROUTES,
   PLANNER_TASK_KINDS,
   getPlannerContractSummary
 } from "../../contracts/src/planner.mjs";
+import { TEAM_APPROVAL_MODES, TEAM_CATALOG } from "../../contracts/src/team.mjs";
 import { createOperationalEvent } from "../../contracts/src/operational-data.mjs";
 import { createAuthorizationEngine } from "./authorization-engine.mjs";
 import { createInMemoryEventLog } from "./event-log.mjs";
@@ -106,26 +108,33 @@ function normalizeContext(value, projectId) {
   return Object.freeze({ ok: true, artifact: context.artifact.reference });
 }
 
-function routedTask({ planningId, suffix, kind, dependsOn, provider, operation, rationale }) {
+function routedTask({ planningId, suffix, kind, dependsOn, provider, operation, rationale, teamRoute }) {
   const taskId = `TASK-${planningId}-${suffix}`;
   return Object.freeze({
     taskId,
     kind,
     dependsOn: Object.freeze([...dependsOn]),
     route: Object.freeze({ provider, operation, rationale }),
+    team: Object.freeze({
+      owner: teamRoute.owner,
+      collaborators: Object.freeze([...teamRoute.collaborators]),
+      stage: teamRoute.stage,
+      approvalMode: teamRoute.approvalMode
+    }),
     state: "planned",
     stoppableBeforeDispatch: true
   });
 }
 
 function buildGraph(planningId, platforms) {
+  const teamRoute = kind => PLANNER_TEAM_ROUTES[kind];
   const analysis = routedTask({
     planningId, suffix: "ANALYSIS", kind: "analysis", dependsOn: [], provider: "chatgpt", operation: "design",
-    rationale: "درخواست فارسی به مسئله، فرض‌ها و معیارهای پذیرش تبدیل می‌شود."
+    rationale: "درخواست فارسی به مسئله، فرض‌ها و معیارهای پذیرش تبدیل می‌شود.", teamRoute: teamRoute("analysis")
   });
   const architecture = routedTask({
     planningId, suffix: "ARCHITECTURE", kind: "architecture", dependsOn: [analysis.taskId], provider: "chatgpt", operation: "design",
-    rationale: "طرح فنی و مرزهای اجرا پیش از توسعه مشخص می‌شود."
+    rationale: "طرح فنی و مرزهای اجرا پیش از توسعه مشخص می‌شود.", teamRoute: teamRoute("architecture")
   });
   const implementations = platforms.map(platform => routedTask({
     planningId,
@@ -134,19 +143,19 @@ function buildGraph(planningId, platforms) {
     dependsOn: [architecture.taskId],
     provider: "codex",
     operation: "develop",
-    rationale: platform === "web" ? "Codex پیاده‌سازی وب را در Run ایزوله انجام می‌دهد." : "Codex پیاده‌سازی موبایل را در Run ایزوله انجام می‌دهد."
+    rationale: platform === "web" ? "Codex پیاده‌سازی وب را در Run ایزوله انجام می‌دهد." : "Codex پیاده‌سازی موبایل را در Run ایزوله انجام می‌دهد.", teamRoute: teamRoute("implementation")
   }));
   const testing = routedTask({
     planningId, suffix: "TEST", kind: "testing", dependsOn: implementations.map(task => task.taskId), provider: "codex", operation: "test",
-    rationale: "نتیجهٔ توسعه با تست ساختاریافته و شواهد قابل‌تکرار بررسی می‌شود."
+    rationale: "نتیجهٔ توسعه با تست ساختاریافته و شواهد قابل‌تکرار بررسی می‌شود.", teamRoute: teamRoute("testing")
   });
   const review = routedTask({
     planningId, suffix: "REVIEW", kind: "review", dependsOn: [testing.taskId], provider: "claude", operation: "review",
-    rationale: "Claude بازبینی مستقل معماری، امنیت، edge case و تست را انجام می‌دهد."
+    rationale: "Claude بازبینی مستقل معماری، امنیت، edge case و تست را انجام می‌دهد.", teamRoute: teamRoute("review")
   });
   const handoff = routedTask({
     planningId, suffix: "CURSOR-HANDOFF", kind: "handoff", dependsOn: [review.taskId], provider: "cursor", operation: "review",
-    rationale: "Cursor فقط بستهٔ تحویل IDE و checkpoint انسانی دریافت می‌کند."
+    rationale: "Cursor فقط بستهٔ تحویل IDE و checkpoint انسانی دریافت می‌کند.", teamRoute: teamRoute("handoff")
   });
   return Object.freeze({ nodes: Object.freeze([analysis, architecture, ...implementations, testing, review, handoff]) });
 }
@@ -156,6 +165,7 @@ export function validateTaskGraph(graph) {
   if (!graph || !Array.isArray(graph.nodes) || graph.nodes.length < 6) return ["Task Graph is incomplete."];
   const ids = new Set();
   const byId = new Map();
+  const knownTeams = new Set(TEAM_CATALOG.map(team => team.teamId));
   for (const node of graph.nodes) {
     if (ids.has(node.taskId)) errors.push(`Duplicate task ID: ${node.taskId}.`);
     ids.add(node.taskId);
@@ -163,6 +173,14 @@ export function validateTaskGraph(graph) {
     if (!PLANNER_TASK_KINDS.includes(node.kind)) errors.push(`Unsupported task kind: ${node.kind}.`);
     if (!PLANNER_ROUTER_PROVIDERS.includes(node.route?.provider)) errors.push(`Unsupported route provider: ${node.route?.provider}.`);
     if (!Array.isArray(node.dependsOn)) errors.push(`Task ${node.taskId} has invalid dependencies.`);
+    if (!knownTeams.has(node.team?.owner)) errors.push(`Task ${node.taskId} has an unknown team owner.`);
+    if (!Array.isArray(node.team?.collaborators)) errors.push(`Task ${node.taskId} has invalid team collaborators.`);
+    for (const collaborator of node.team?.collaborators ?? []) {
+      if (!knownTeams.has(collaborator)) errors.push(`Task ${node.taskId} has an unknown team collaborator.`);
+      if (collaborator === node.team?.owner) errors.push(`Task ${node.taskId} repeats its team owner as collaborator.`);
+    }
+    if (!TEAM_APPROVAL_MODES.includes(node.team?.approvalMode)) errors.push(`Task ${node.taskId} has an invalid team approval mode.`);
+    if (typeof node.team?.stage !== "string" || node.team.stage.length < 3) errors.push(`Task ${node.taskId} has an invalid team stage.`);
   }
   for (const node of graph.nodes) {
     for (const dependency of node.dependsOn ?? []) {
@@ -268,7 +286,8 @@ export function createPlanner(options = {}) {
       assumptions,
       acceptanceCriteria,
       contextArtifact: context.artifact,
-      language: "fa"
+      language: "fa",
+      teamRouting: PLANNER_TEAM_ROUTES
     });
     const graph = buildGraph(input.planningId, inferred.platforms);
     const graphErrors = validateTaskGraph(graph);
@@ -281,7 +300,14 @@ export function createPlanner(options = {}) {
     });
     for (const node of graph.nodes) {
       append(input.planningId, "router.selection-recorded", input.actor, {
-        taskId: node.taskId, kind: node.kind, provider: node.route.provider, operation: node.route.operation
+        taskId: node.taskId,
+        kind: node.kind,
+        provider: node.route.provider,
+        operation: node.route.operation,
+        teamOwner: node.team.owner,
+        teamCollaborators: node.team.collaborators,
+        teamStage: node.team.stage,
+        teamApprovalMode: node.team.approvalMode
       });
     }
     const result = immutableCopy({

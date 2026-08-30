@@ -9,7 +9,7 @@ test("environment example is scoped and secret-free", () => {
   const content = fs.readFileSync(path.join(REPO_ROOT, ".env.example"), "utf8");
   const keys = content.split(/\r?\n/).filter(Boolean).map(line => line.split("=", 1)[0]);
   assert.ok(keys.every(key => key.startsWith("HERO_")));
-  assert.doesNotMatch(content, /(?:api[_-]?key|password|secret|token)\s*=\s*\S+/i);
+  assert.doesNotMatch(content, /(?:api[_-]?key|password|secret|token)[ \t]*=[ \t]*\S+/i);
 });
 
 test("compose resources are isolated and host binding is configurable", () => {

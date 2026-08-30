@@ -8,11 +8,11 @@ Hero is a modular monolith with isolated execution runners. The Control Plane ow
 Persian Console
       |
       v
-Control Plane (HTTP API)
+Control Plane (HTTP API + Team/Principles/Release Control)
       |
 Application use cases
       |
-Domain policy + Ports
+Domain policy + Team Contracts + Ports
       |------------------------|
       v                        v
 PostgreSQL adapters      Provider / Git / Runner adapters
@@ -20,9 +20,13 @@ PostgreSQL adapters      Provider / Git / Runner adapters
                                   v
                     Isolated worktree or container Run
                                   |
-                                  v
-                       Evidence + independent review
+                    v
+                    Evidence + independent review
 ```
+
+The Team Control boundary treats each phase-one operating-model team as a governed unit with a versioned charter, decision rights, inputs, outputs, principles, training status, project assignments and stage-specific autonomy. The owner can review or reject each contract section, request rework, review project input/output artifacts, change workflow policy, and preserve history across team merge/split operations. The current registry is deterministic and in-memory; durable PostgreSQL persistence and live execution remain separate adapters.
+
+The Critical Principles boundary makes the non-negotiable rules executable. Hero's baseline principles are inherited by every product; product-specific principles are added as versioned, owner-reviewed records. A missing or rejected principle blocks the relevant control point. The Release Promotion boundary keeps test and production separate, binds both to one Artifact/version/commit, and requires test evidence, owner approval, an explicit production command and separate `production-deploy` authorization.
 
 The system is intentionally not a microservice fleet. Ports form the extraction boundary: an adapter may be replaced without changing the user flow or domain policy.
 
@@ -49,6 +53,8 @@ HERO-018 adds the Mobile Factory alongside the Web Factory, with a separate nati
 HERO-019 adds the Assurance Gate after Quality Gate and before any future delivery or release adapter. It records only local CI evidence, secret-safe closed-network security evidence, local append-only observability coverage and bounded cost units. Its output is `ASSURANCE_APPROVED` or a safe block. It neither dispatches CI nor exports telemetry; release, deploy and any external spend remain separate authorizations.
 
 HERO-020 adds a deterministic Portability Gate for a future server move. It requires evidence for the independent source boundary, the Linux/Compose contract, a project-scoped secret-free backup checksum, a matching restore checksum and a clean Linux verification. It emits `PORTABILITY_VERIFIED` only as a readiness record; repository copying, backup operations, secret access, host provisioning, container start and production operation remain separately authorized.
+
+The Critical Principles and Release Flow contracts add the missing product-wide rule layer. `CriticalPrinciplesRegistry` governs Hero and product rules with owner review, rework and blocking checks. `ReleasePromotion` governs the exact path `Git commit/tag -> test deployment -> test evidence -> owner approval -> explicit production command -> production deployment evidence`; the current implementation records the gate deterministically but leaves the live Deployment Adapter disabled.
 
 ## Provider boundary
 

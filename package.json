@@ -18,6 +18,7 @@
     "doctor": "node tools/doctor.mjs",
     "check:governance": "node tools/check-governance.mjs",
     "check:isolation": "node tools/check-isolation.mjs",
+    "check:postgres": "node tools/check-postgres.mjs",
     "build": "node tools/build.mjs",
     "test": "node --test",
     "check": "node tools/doctor.mjs && node tools/check-governance.mjs && node tools/build.mjs && node --test"

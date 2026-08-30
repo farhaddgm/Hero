@@ -87,6 +87,33 @@ test("authorization endpoint exposes only the fail-closed governance contract", 
   assert.ok(payload.authorizationContract.separatelyApprovedOperations.includes("production-deploy"));
 });
 
+test("owner auth endpoint exposes only the signed-session boundary", async t => {
+  const app = createHeroServer({ host: "127.0.0.1", port: 0 });
+  const address = await app.start();
+  t.after(() => app.stop());
+
+  const response = await fetch("http://127.0.0.1:" + address.port + "/owner-auth-contract");
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.ownerAuthContract.scheme, "signed bearer session");
+  assert.equal(payload.ownerAuthContract.failClosed, true);
+  assert.equal(payload.ownerAuthContract.secretBoundary.includes("never logged"), true);
+});
+
+test("readiness reports the configured persistence boundary", async t => {
+  const app = createHeroServer({
+    host: "127.0.0.1",
+    port: 0,
+    postgresRuntime: { ping: async () => ({ status: "ok" }) }
+  });
+  const address = await app.start();
+  t.after(() => app.stop());
+
+  const response = await fetch("http://127.0.0.1:" + address.port + "/ready");
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).persistence, "postgresql");
+});
+
 test("runner endpoint exposes only the isolated execution contract", async t => {
   const app = createHeroServer({ host: "127.0.0.1", port: 0 });
   const address = await app.start();

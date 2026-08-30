@@ -41,6 +41,8 @@
 - کارخانه‌ها: `docs/architecture/WEB_FACTORY.md`, `MOBILE_FACTORY.md`
 - انتقال و بازیابی: `docs/operations/MOVE-TO-ANOTHER-SERVER.md`, `docs/specs/HERO-020-v1.0.md`
 - پایلوت انتهابه‌انتها: `docs/specs/HERO-021-v1.0.md`
+- اصول حیاتی و فلو انتشار: `docs/architecture/CRITICAL_PRINCIPLES.md`, `docs/architecture/RELEASE_FLOW.md`
+- مرز migration PostgreSQL: `packages/adapters/migrations/001_principles_release_audit.sql` و Runner تزریق‌پذیر `packages/adapters/src/postgresql-schema.mjs`
 
 ## قالب اسناد Google
 
@@ -58,10 +60,13 @@
 1. Project مستقل Hero را روی `farhaad-ai` با مسیر `/opt/hero` ثبت کن.
 2. Repository خصوصی را در همان مسیر clone کن و شاخهٔ منتشرشده را checkout کن.
 3. `.env` را فقط از روی `.env.example` و secret store سرور بساز؛ فایل `.env` هرگز commit نشود.
-4. `pnpm check` را در محیط remote اجرا کن و نتیجهٔ واقعی را ثبت کن.
-5. Docker/Compose و restore واقعی Linux را فقط با مجوز عملیاتی مربوطه اجرا کن؛ نبود evidence باید block بماند.
-6. بعد از تأیید سلامت remote، توسعه از همان Project ادامه پیدا کند و لپ‌تاپ فقط نقش کنترل/مشاهده داشته باشد.
+4. `HERO_OWNER_AUTH_SECRET` و در صورت فعال‌سازی persistence، `HERO_POSTGRES_URL` و `HERO_POSTGRES_PASSWORD` را فقط در secret store زمان اجرا تنظیم کن؛ مقدار آن‌ها نباید در repository، Sheet، log یا Evidence بیاید. APIهای `/api/*` بدون نشست امضاشدهٔ `project-owner` و Control Plane بدون DB سالم باید fail-closed بمانند.
+5. `pnpm check` را در محیط remote اجرا کن و در صورت تنظیم DB، `pnpm check:postgres` را نیز اجرا و نتیجهٔ واقعی را ثبت کن.
+6. Docker/Compose و restore واقعی Linux را فقط با مجوز عملیاتی مربوطه اجرا کن؛ نبود evidence باید block بماند.
+7. هر Release را ابتدا با commit/Artifact در محیط test ثبت و تست کن؛ انتقال به production فقط با تأیید صریح مالک، فرمان مستقل و مجوز `production-deploy` انجام شود.
+8. بعد از تأیید سلامت remote، توسعه از همان Project ادامه پیدا کند و لپ‌تاپ فقط نقش کنترل/مشاهده داشته باشد.
 
 ## قاعدهٔ ادامهٔ کار
 
 هر Agent جدید باید پیش از اقدام این سند، `README.md`، منشور، قواعد حاکمیت، معماری مرتبط با Step و authorization فعال را بخواند. اگر Step ID، نسخهٔ سند، dependency یا Global Stop معتبر نیست، dispatch متوقف می‌شود. هیچ Agentی از پروژهٔ `ai-assistant`، مسیر خانهٔ سرور یا هر پروژهٔ دیگر داده یا کد وارد Hero نمی‌کند.
+اصول حیاتی Hero و اصول اختصاصی هر محصول باید در هر control point بررسی شوند؛ اصل تأییدنشده یا شاهد ناقص یعنی توقف، نه ادامهٔ خودکار.

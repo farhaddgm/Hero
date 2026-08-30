@@ -20,6 +20,8 @@ Future transactional Outbox dispatch
 
 The Event Log remains the source of truth. The in-memory projection exists only for deterministic tests; PostgreSQL will later hold the durable projection and Event/Outbox transaction.
 
+Every project workflow also passes through the Critical Principles check for its control point. A principle with status other than `approved` blocks the transition. Run lifecycle and Release Promotion are separate state machines: a completed Run is not automatically a production release.
+
 ## Safe checkpoints
 
 `pause` persists the previous state as `resumeState`; it does not assume that a host process can be stopped at an arbitrary instruction. The future Runner must report a safe checkpoint before the application layer issues the pause transition. `resume` returns only to that stored state.
@@ -27,6 +29,8 @@ The Event Log remains the source of truth. The in-memory projection exists only 
 ## Review and retry
 
 Review is a first-class state, so delivery cannot silently jump from Running to Completed. A reviewer can approve or request changes. A Failed Run may only return through Queued with an incremented retry counter, allowing the future quality loop to impose a retry and budget limit.
+
+Release Promotion has its own explicit sequence: `draft -> test-deployment-requested -> test-deployed -> test-passed -> awaiting-production-approval -> production-approved -> production-promotion-requested -> production`. The last transition requires a separate sensitive authorization and an explicit owner command; the current deterministic implementation does not invoke a deployment provider.
 
 ## Non-goals
 
