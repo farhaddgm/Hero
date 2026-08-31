@@ -4,8 +4,7 @@ ENV HERO_SOURCE_SNAPSHOT=1
 COPY . .
 RUN npm install --global pnpm@11.19.0 --ignore-scripts \
     && pnpm install --frozen-lockfile --ignore-scripts \
-    && node tools/doctor.mjs && node tools/build.mjs && node --test \
-    && rm -rf .github
+    && node tools/doctor.mjs && node tools/build.mjs && node --test
 
 FROM node:22.13.1-alpine AS runtime
 WORKDIR /opt/hero
@@ -16,6 +15,7 @@ ENV NODE_ENV=production \
 COPY --from=verify /opt/hero /opt/hero
 RUN addgroup -S hero && adduser -S -G hero hero \
     && mkdir -p /var/lib/hero \
+    && rm -rf /opt/hero/.github \
     && chown -R hero:hero /opt/hero /var/lib/hero
 USER hero
 EXPOSE 3100
