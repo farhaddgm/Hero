@@ -1,0 +1,130 @@
+name: Hero Release Candidate
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: "Candidate SemVer, for example 0.1.0-rc.1"
+        required: true
+        type: string
+      release_notes:
+        description: "Optional owner-facing notes for the candidate"
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: hero-release-candidate-${{ inputs.release_version }}
+  cancel-in-progress: false
+
+jobs:
+  release-candidate:
+    name: Verify, tag and publish test candidate
+    runs-on: ubuntu-latest
+    environment:
+      name: test
+    timeout-minutes: 20
+    steps:
+      - name: Checkout selected revision
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+          cache: pnpm
+
+      - name: Validate candidate version
+        env:
+          RELEASE_VERSION: ${{ inputs.release_version }}
+        run: |
+          node --input-type=module -e '
+            const version = process.env.RELEASE_VERSION ?? "";
+            const semver = /^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$/;
+            if (!semver.test(version)) {
+              console.error(`Invalid candidate SemVer: ${version}`);
+              process.exit(1);
+            }
+          '
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run Hero verification
+        run: pnpm check
+
+      - name: Build immutable test artifact
+        run: |
+          docker build --tag "$IMAGE_TAG" .
+          IMAGE_ID="$(docker image inspect --format='{{.Id}}' "$IMAGE_TAG")"
+          printf 'release_version=%s\\ncommit_sha=%s\\nartifact=%s\\nartifact_id=%s\\n' \\
+            "$RELEASE_VERSION" "$GITHUB_SHA" "$IMAGE_TAG" "$IMAGE_ID" > hero-release-evidence.txt
+        env:
+          RELEASE_VERSION: ${{ inputs.release_version }}
+          IMAGE_TAG: hero-release-${{ github.sha }}
+
+      - name: Create exact version tag
+        env:
+          RELEASE_VERSION: ${{ inputs.release_version }}
+        run: |
+          TAG="v${RELEASE_VERSION}"
+          git fetch --tags --force
+          if git rev-parse --verify --quiet "refs/tags/$TAG"; then
+            echo "Tag $TAG already exists; choose a new candidate version."
+            exit 1
+          fi
+          git tag --annotate "$TAG" "$GITHUB_SHA" --message "Hero $TAG"
+          git push origin "$TAG"
+
+      - name: Create GitHub pre-release
+        id: github-release
+        uses: actions/github-script@v7
+        env:
+          RELEASE_VERSION: ${{ inputs.release_version }}
+          RELEASE_NOTES: ${{ inputs.release_notes }}
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const version = process.env.RELEASE_VERSION;
+            const tag = `v${version}`;
+            const notes = process.env.RELEASE_NOTES?.trim() || `Test candidate for ${tag}.`;
+            const release = await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: tag,
+              target_commitish: context.sha,
+              name: `Hero ${tag} — test candidate`,
+              body: `${notes}\n\nCommit: ${context.sha}\nEnvironment: test\nProduction deploy: not performed`,
+              draft: false,
+              prerelease: true,
+              generate_release_notes: false
+            });
+            core.setOutput("url", release.data.html_url);
+
+      - name: Complete release evidence
+        env:
+          RELEASE_URL: ${{ steps.github-release.outputs.url }}
+        run: |
+          printf 'release_url=%s\\n' "$RELEASE_URL" >> hero-release-evidence.txt
+          {
+            echo "### Hero test candidate"
+            echo "- Version: \`${{ inputs.release_version }}\`"
+            echo "- Commit: \`${GITHUB_SHA}\`"
+            echo "- Release: ${RELEASE_URL}"
+            echo "- Production deploy: not performed"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload immutable evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: hero-release-evidence-${{ inputs.release_version }}-${{ github.sha }}
+          path: hero-release-evidence.txt
+          if-no-files-found: error

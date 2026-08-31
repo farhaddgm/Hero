@@ -1,0 +1,18 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+
+const WORKFLOW = new URL("../.github/workflows/release-candidate.yml", import.meta.url);
+
+test("release candidate workflow is test-gated, version-bound and production-free", async () => {
+  const source = await readFile(WORKFLOW, "utf8");
+  assert.match(source, /workflow_dispatch:/);
+  assert.match(source, /environment:\s*\n\s+name: test/);
+  assert.match(source, /contents: write/);
+  assert.match(source, /pnpm check/);
+  assert.match(source, /git tag --annotate/);
+  assert.match(source, /actions\/github-script@v7/);
+  assert.match(source, /prerelease: true/);
+  assert.match(source, /Production deploy: not performed/);
+  assert.doesNotMatch(source, /production-promote|docker compose.*production|secrets\.(OPENAI|ANTHROPIC|GOOGLE)/i);
+});

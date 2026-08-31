@@ -1,5 +1,12 @@
 # تغییرات رودمپ شرکت
 
+## 2026-08-31 — خودکارسازی release candidate و نسخه‌گذاری test
+
+- افزوده‌شده: workflow دستی و Environment-gated برای اعتبارسنجی SemVer، اجرای `pnpm check`، ساخت image، tag دقیق و GitHub pre-release؛
+- افزوده‌شده: artifact شواهد شامل نسخه، commit SHA، image ID و URL release؛
+- تثبیت‌شده: `GITHUB_TOKEN` فقط برای tag و pre-release همین repository استفاده می‌شود و production deploy همچنان خارج از workflow است؛
+- شواهد: `pnpm check` پس از تغییرات با Doctor/Governance/Build موفق و `۲۰۳/۲۰۳` تست پاس شد؛ Compose config و `git diff --check` نیز موفق‌اند.
+
 ## 2026-08-31 — سیاست عدم کشف عمومی سرویس
 
 - افزوده‌شده: سیاست یکنواخت `X-Robots-Tag` با `noindex`، `nofollow`، `nosnippet` و `noimageindex` برای همهٔ پاسخ‌ها؛

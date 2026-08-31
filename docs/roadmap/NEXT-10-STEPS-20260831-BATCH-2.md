@@ -41,7 +41,7 @@
 
 ## شواهد نهایی
 
-- `pnpm check` در Linux verify image: Doctor موفق با یک هشدار مورد انتظارِ نبود Docker تو‌در‌تو، Governance موفق، Build با ۱۱۶ ماژول و `۲۰۲/۲۰۲` تست موفق؛
+- `pnpm check` در Linux verify image: Doctor موفق با یک هشدار مورد انتظارِ نبود Docker تو‌در‌تو، Governance موفق، Build با ۱۱۷ ماژول و `۲۰۳/۲۰۳` تست موفق؛
 - Compose runtime: سرویس `hero-control-plane` و PostgreSQL healthy؛
 - smoke-test واقعی: `/health`، `/ready`، `/backoffice`، `/backoffice-data`، `/backoffice-events?after=0&limit=2` و `/pilot-contract` همگی HTTP 200؛ projection شامل ۱۱ Team و Pilot contract نسخهٔ ۱.۰؛
 - `git diff --check`: موفق.
