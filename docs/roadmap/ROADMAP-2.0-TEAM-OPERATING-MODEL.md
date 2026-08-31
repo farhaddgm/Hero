@@ -1,6 +1,6 @@
 # رودمپ ۲.۰ Hero — شرکت نرم‌افزاری چندتیمی
 
-وضعیت: `در حال بازطراحی` — مبنا: 2026-08-30
+وضعیت: `در حال بازطراحی` — مبنا: 2026-08-31
 
 ## نتیجهٔ مورد نظر
 
@@ -19,12 +19,28 @@
 
 ## وضعیت خط مبنا
 
-- قراردادهای HERO-001 تا HERO-019 و Harnessهای deterministic موجودند و آخرین اجرای محلی پس از این گام 170 تست موفق داشته است.
+- قراردادهای HERO-001 تا HERO-019 و Harnessهای deterministic موجودند و آخرین اجرای کامل محلی پس از این گام 197 تست موفق داشته است.
 - HERO-020 هنوز به شواهد واقعی Clean Linux، Compose و Restore نیاز دارد.
 - HERO-021 هنوز پایلوت واقعی Provider/اپلیکیشن نیست و به‌صورت پیش‌نویس طراحی باقی مانده است.
 - در این بازنگری، کاتالوگ ۱۱ تیم شیت، قرارداد تیم، curriculum و benchmark آموزش، Registry، Eventهای تیم و API/نمایش اولیهٔ کنترل تیم اضافه شده‌اند.
 - اصول حیاتی Hero/محصول و Release Promotion از Git تا test و تأیید production نیز به‌صورت قرارداد و گیت deterministic اضافه شده‌اند.
-- این پیاده‌سازی هنوز in-memory است؛ هیچ Provider زنده، هزینه، Secret، deploy یا پیام خارجی فعال نشده است.
+- Projectionهای runtime در حافظه هستند و اکنون Snapshot append-only و Event Store اختیاری PostgreSQL برای بازسازی آن‌ها وجود دارد؛ هیچ Provider زنده، Secret، deploy یا پیام خارجی فعال نشده است.
+- بستهٔ بعدی مشاهده‌پذیری، revocation، Outbox primitive، Pilot Dry-Run و benchmark تکرارپذیر نیز در `2026-08-31` با ۱۹۷/۱۹۷ تست و smoke-test runtime تأیید شد.
+
+## بستهٔ ۱۰ گام اجرایی این بازنگری
+
+| گام | خروجی | وضعیت و معیار |
+| --- | --- | --- |
+| ۱ | baseline و معیار benchmark | انجام‌شده؛ `pnpm check` پایه و مرزهای fail-closed ثبت شد |
+| ۲ | قرارداد workflow و Role | انجام‌شده؛ هر stage schema و mutation policy دارد |
+| ۳ | Evaluation و Quality Gate | انجام‌شده؛ async review به revision loop وصل شد، بدون اعطای مجوز |
+| ۴ | Planner routing | انجام‌شده؛ هر Task نقش AI دارد و implementation پیش‌فرض `executor/Codex` است |
+| ۵ | ارزیابی سازمان | انجام‌شده؛ پوشش اجباری دقیقاً ۱۱ تیم و پنج metric |
+| ۶ | persistence/projection | انجام‌شده؛ migration 004، Snapshot Store و startup hydration برای هشت Registry دامنه و وضعیت dashboard |
+| ۷ | reliability | انجام‌شده؛ timeout، retry، health، cost، attempt و latency |
+| ۸ | API و audit | انجام‌شده؛ endpointهای owner-gated و pagination event |
+| ۹ | benchmark harness | انجام‌شده؛ synthetic/deterministic و advisory-only |
+| ۱۰ | تست، اصلاح، مستندات | انجام‌شده؛ 197/197 تست و Build/Governance موفق |
 
 ## نقشهٔ مرحله‌ای
 
@@ -58,7 +74,7 @@ HERO-001 تا HERO-021، منشور، Authorization Snapshot، Global Stop، Cle
 - ثبت فلو پروژه و وضعیت کار تیم.
 
 انجام‌شده در این گام: مرز احراز هویت signed-session مالک برای `/api/*`، تست fail-closed، migration اولیهٔ PostgreSQL، Runner migration، Event Store تراکنشی تزریق‌پذیر، audit امن فرمان‌ها، pagination timeline و مسیر مشاهدهٔ training plan.
-باقی‌مانده: projection پایدار تمام commandها، session revocation، ثبت diff قرارداد و timeline کامل رویدادهای domain.
+باقی‌مانده: projection پایدار تمام commandها، ثبت diff قرارداد و timeline کامل رویدادهای domain؛ session revocation durable در مرحلهٔ ۴.۶ انجام شده است.
 
 ### مرحلهٔ ۲.۵ — اصول حیاتی و گیت انتشار
 
@@ -102,11 +118,49 @@ HERO-001 تا HERO-021، منشور، Authorization Snapshot، Global Stop، Cle
 
 معیار عبور: هیچ Task بدون تیم مالک، قرارداد ورودی و سیاست approval قابل dispatch نباشد.
 
+### مرحلهٔ ۴.۵ — معماری Multi-AI قابل‌تعویض
+
+وضعیت: `قرارداد، Context، API deterministic، Quality Gate، reliability، ارزیابی ۱۱ تیم، transport adapter واقعی و hydration durable انجام‌شده؛ اجرای live و pilot واقعی باقی‌مانده`
+
+- Hero به‌عنوان پلتفرم حاکمیت و Wepod/`ai-assistant` به‌عنوان Project تحت مدیریت آن تثبیت می‌شوند؛
+- Roleهای AI از Teamهای سازمانی جدا می‌مانند؛
+- Provider، Model، Agent Profile، Role Binding، Invocation، Evaluation و Decision Proposal قرارداد مستقل دارند؛
+- پیش‌فرض اجرایی فعلی Codex در Profile/Policy ثبت می‌شود و به Business Logic قفل نمی‌شود؛
+- Evaluation فقط Evidence است و Decision Proposal بدون تأیید مالک Authorization ایجاد نمی‌کند؛
+- Context هر Invocation از Project Memory با Role mapping و نسخهٔ دقیق Task/Step/Document ساخته می‌شود؛
+- Control Plane مسیرهای owner-authenticated برای حافظه، Profile، Binding، Invocation، Evaluation و Decision دارد؛
+- migration امن Projectionهای AI را تعریف می‌کند و raw Credential را نمی‌پذیرد؛
+- workflowهای چندنقشی و role routing را به Planner وصل می‌کند؛ implementation به‌صورت policy-default از executor/Codex استفاده می‌کند؛
+- Evaluation را از طریق Quality Gate async به revision loop متصل می‌کند؛
+- Performance Review سازمانی با پوشش اجباری ۱۱ تیم و benchmark مصنوعی بدون شبکه اضافه می‌کند؛
+- timeout، retry، health، cost cap و event/audit pagination را اضافه می‌کند؛
+- Adapterهای OpenAI Responses، Anthropic Messages، Google Gemini و OpenAI-compatible با credential resolver و cost accounting اضافه شده‌اند؛
+- migration 004 و Snapshot Store append-only، hydration startup برای Registryهای Domain و Control Dashboard را فراهم می‌کنند؛
+- Provider زنده، External Spend، Secret Store، Connector خارجی و Deploy همچنان گیت جدا دارند.
+
+معیار عبور: یک Invocation deterministic بتواند Profile و Context Snapshot را ثبت کند، خروجی ساختاریافته و امن تولید کند، Evaluation قابل Audit بسازد و Decision Proposal را تا تأیید مالک در وضعیت `draft` نگه دارد.
+
+جزئیات در [AI_ORCHESTRATION.md](../architecture/AI_ORCHESTRATION.md) و ADR-0009 ثبت شده است.
+
+### مرحلهٔ ۴.۶ — مشاهده‌پذیری، امنیت نشست و آماده‌سازی پایلوت
+
+وضعیت: `هستهٔ توسعه انجام‌شده؛ worker و اجرای live باقی‌مانده`
+
+- قرارداد `observability-v1` برای trace/span correlation، نام‌گذاری event و redaction allow-list اضافه شد؛
+- Back Office اکنون Timeline امن و خلاصهٔ Performance Review را نمایش می‌دهد؛
+- revocation نشست مالک به‌صورت fail-closed در هر authenticate و به‌صورت durable در PostgreSQL پیاده‌سازی شد؛
+- Outbox primitiveهای `claim/ack/fail` با lease، retry محدود و `FOR UPDATE SKIP LOCKED` دارد؛ worker خارجی هنوز فعال نیست؛
+- Pilot Dry-Run از intake تا acceptance بدون شبکه evidence تولید می‌کند؛
+- benchmark synthetic اکنون dataset version، timing تزریق‌پذیر و digest قابل‌تکرار دارد؛
+- مرز Provider زنده، external spend، Secret، پیام خارجی، deploy و Production بدون تغییر باقی مانده است.
+
+معیار عبور: Timeline بدون دادهٔ حساس، token revocation قابل‌بازسازی، claim هم‌زمان بدون double-dispatch، dry-run قابل‌تکرار و benchmark با digest ثابت.
+
 ### مرحلهٔ ۵ — اجرای واقعی در مرز تیم
 
 وضعیت: `بعدی و وابسته به HERO-020`
 
-- اتصال Adapterهای Provider پشت قرارداد تیم/Task؛
+- اتصال Adapterهای Provider پشت قرارداد تیم/Task؛ transport آماده است، اما controlled pilot و active authorization verifier واقعی باقی است؛
 - اجرای هر تیم در Worktree/Runner ایزوله؛
 - context حداقلی و متناسب با نقش تیم؛
 - ثبت start، checkpoint، evidence، handoff و stop در Event Log؛
@@ -116,7 +170,7 @@ HERO-001 تا HERO-021، منشور، Authorization Snapshot، Global Stop، Cle
 
 ### مرحلهٔ ۶ — حلقهٔ کیفیت، رد/بازکاری و تحویل
 
-وضعیت: `قرارداد پایه موجود؛ اتصال تیمی باقی‌مانده`
+وضعیت: `Quality Gate و revision policy موجود؛ اتصال کامل تیمی و اجرای واقعی باقی‌مانده`
 
 - تسترو و امینتو به‌عنوان گیت‌های مستقل کیفیت و امنیت؛
 - خروجی ردشده به همان تیم یا تیم مسئول برگردد، همراه با feedback و نسخهٔ جدید؛
@@ -172,12 +226,12 @@ HERO-001 تا HERO-021، منشور، Authorization Snapshot، Global Stop، Cle
 
 ## مواردی که هنوز نباید Done اعلام شوند
 
-1. اتصال واقعی ChatGPT/Codex/Claude/Cursor؛
+1. فعال‌سازی controlled اتصال ChatGPT/Codex/Claude/Cursor و Providerهای قابل‌تعویض با مجوز جداگانه؛ transport adapter و hydration اکنون آماده‌اند؛
 2. ساخت اپلیکیشن واقعی برای یک درخواست مالک؛
-3. projection پایدار همهٔ commandهای PostgreSQL، session revocation و queue/outbox durable؛ migration، readiness و audit command فعلاً عملیاتی‌اند؛
-4. Clean Linux backup/restore با checksum؛
+3. projection کامل Eventهای تمام commandها، worker queue/outbox و audit دسترسی؛ Snapshot hydration Registryهای اصلی و session revocation durable اکنون پیاده‌سازی شده‌اند؛
+4. Clean Linux و backup/restore روی مقصد عملیاتی با checksum؛ آزمون disposable محلی به‌تنهایی کافی نیست؛
 5. Preview، cloud build، deploy، secret management و external spend؛
-6. ارزیابی آموزش مبتنی بر اجرای واقعی benchmarkهای تیم‌ها؛ curriculum و benchmark نسخه‌دار آماده است؛
+6. ارزیابی آموزش مبتنی بر اجرای واقعی benchmarkهای تیم‌ها؛ benchmark فعلی AI و تیم synthetic/deterministic است؛
 7. داشبورد کامل چندپروژه‌ای و timeline عملیاتی.
 
 این موارد به‌ترتیب در مراحل ۳ تا ۸ می‌آیند و هر کدام باید Authorization و Evidence متناسب خود را داشته باشند.

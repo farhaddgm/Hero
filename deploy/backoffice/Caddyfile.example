@@ -1,0 +1,24 @@
+# Copy/apply this file only in the server's approved Caddy configuration.
+# Do not commit the rendered file or any password/hash.
+
+hero.beeproject.ir {
+    encode gzip
+
+    header {
+        X-Robots-Tag "noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate"
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "no-referrer"
+        X-DNS-Prefetch-Control "off"
+        -Server
+    }
+
+    @backoffice path /backoffice /backoffice-data /backoffice-events /robots.txt
+    handle @backoffice {
+        basic_auth {
+            {$HERO_BACKOFFICE_USER} {$HERO_BACKOFFICE_PASSWORD_HASH}
+        }
+        reverse_proxy 127.0.0.1:43100
+    }
+
+    respond 404 "not found" 404
+}

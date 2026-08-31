@@ -18,13 +18,47 @@ test("PostgreSQL schema contract covers append-only audit and release boundaries
     "principle_reviews",
     "releases",
     "release_evidence",
-    "outbox"
+    "outbox",
+    "ai_providers",
+    "ai_credentials",
+    "ai_models",
+    "prompt_versions",
+    "agent_profiles",
+    "project_agent_bindings",
+    "context_snapshots",
+    "ai_invocations",
+    "evaluations",
+    "evaluation_findings",
+    "decision_proposals",
+    "provider_health_checks",
+    "organization_performance_reviews",
+    "organization_performance_metrics",
+    "ai_benchmark_runs",
+    "ai_benchmark_results",
+    "domain_registry_snapshots",
+    "owner_session_revocations"
   ]);
   const sql = readPostgresMigration("001");
   assert.match(sql, /sequence bigint GENERATED ALWAYS AS IDENTITY/);
   assert.match(sql, /UNIQUE \(aggregate_type, aggregate_id, aggregate_version\)/);
   assert.match(sql, /hero_reject_append_only_mutation/);
   assert.match(sql, /production_authorization_reference/);
+  const aiSql = readPostgresMigration("002");
+  assert.match(aiSql, /CREATE TABLE IF NOT EXISTS agent_profiles/);
+  assert.match(aiSql, /credential_ref text NOT NULL CHECK/);
+  assert.match(aiSql, /authorization_created boolean NOT NULL DEFAULT false CHECK \(authorization_created = false\)/);
+  assert.match(aiSql, /context_snapshots_append_only_guard/);
+  const reliabilitySql = readPostgresMigration("003");
+  assert.match(reliabilitySql, /ADD COLUMN IF NOT EXISTS max_cost_units/);
+  assert.match(reliabilitySql, /team_count integer NOT NULL CHECK \(team_count = 11\)/);
+  assert.match(reliabilitySql, /mode text NOT NULL CHECK \(mode = 'synthetic-deterministic'\)/);
+  const snapshotSql = readPostgresMigration("004");
+  assert.match(snapshotSql, /CREATE TABLE IF NOT EXISTS domain_registry_snapshots/);
+  assert.match(snapshotSql, /domain_registry_snapshots_append_only_guard/);
+  const operationsSql = readPostgresMigration("005");
+  assert.match(operationsSql, /CREATE TABLE IF NOT EXISTS owner_session_revocations/);
+  assert.match(operationsSql, /ADD COLUMN IF NOT EXISTS attempt_count/);
+  assert.match(operationsSql, /owner_session_revocations_append_only_guard/);
 });
 
 test("PostgreSQL migration runner is transaction-bound and requires an injected client", async () => {

@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { FAKE_AGENT_SCENARIOS } from "../../../packages/contracts/src/fake-agent.mjs";
 import { getDashboardContractSummary } from "../../../packages/contracts/src/dashboard.mjs";
 import { createFakeOrchestrationHarness } from "../../../packages/domain/src/fake-agent.mjs";
@@ -7,6 +9,13 @@ import { TeamCommandError, createTeamRegistry } from "../../../packages/domain/s
 import { TeamResearchCommandError, TeamResearchIdempotencyConflictError, createTeamResearchRegistry } from "../../../packages/domain/src/team-research-registry.mjs";
 import { getTeamTrainingPlan } from "../../../packages/contracts/src/training.mjs";
 import { PlannerIdempotencyConflictError, PlannerSafetyError, createPlanner } from "../../../packages/domain/src/planner.mjs";
+import { ProjectMemoryIdempotencyConflictError, ProjectMemorySafetyError, createProjectMemory } from "../../../packages/domain/src/project-memory.mjs";
+import { AiOrchestrationError, createAiOrchestration, createDeterministicAiProviderAdapter } from "../../../packages/domain/src/ai-orchestration.mjs";
+import { OrganizationPerformanceError, createOrganizationPerformanceReview } from "../../../packages/domain/src/organization-performance.mjs";
+import { getObservabilityContractSummary, projectOperationalEvent } from "../../../packages/contracts/src/observability.mjs";
+import { getAiBenchmarkContractSummary } from "../../../packages/contracts/src/ai-benchmark.mjs";
+import { runAiBenchmark } from "../../../packages/domain/src/ai-benchmark.mjs";
+import { PilotDryRunError, runPilotDryRun } from "../../../packages/domain/src/pilot-dry-run.mjs";
 
 const SENSITIVE_INPUT = /(?:\bsk-[A-Za-z0-9_-]{12,}\b|\bBearer\s+[A-Za-z0-9._-]{12,}\b|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|(?:api[_-]?key|access[_-]?token|refresh[_-]?token|password|credential)\s*[:=])/i;
 
@@ -82,24 +91,41 @@ export class DashboardCommandError extends Error {
 
 export function createControlDashboard(options = {}) {
   const now = options.now ?? (() => new Date().toISOString());
-  const teamRegistry = options.teamRegistry ?? createTeamRegistry({ now });
-  const researchRegistry = options.researchRegistry ?? createTeamResearchRegistry({ now, teamRegistry });
+  const providerAdapters = options.providerAdapters ?? Object.freeze({});
+  const eventIdFactories = options.eventIdFactories ?? {
+    team: () => `evt_team_${randomUUID().replaceAll("-", "")}`,
+    research: () => `evt_research_${randomUUID().replaceAll("-", "")}`,
+    principle: () => `evt_principle_${randomUUID().replaceAll("-", "")}`,
+    release: () => `evt_release_${randomUUID().replaceAll("-", "")}`,
+    planner: () => `evt_planner_${randomUUID().replaceAll("-", "")}`,
+    memory: () => `evt_memory_${randomUUID().replaceAll("-", "")}`,
+    ai: () => `evt_ai_${randomUUID().replaceAll("-", "")}`
+  };
+  const teamRegistry = options.teamRegistry ?? createTeamRegistry({ now, eventIdFactory: eventIdFactories.team });
+  const researchRegistry = options.researchRegistry ?? createTeamResearchRegistry({ now, teamRegistry, eventIdFactory: eventIdFactories.research });
   const requests = new Map();
   let sequence = 0;
   let teamCommandSequence = 0;
   let principleCommandSequence = 0;
   let releaseCommandSequence = 0;
   let researchCommandSequence = 0;
+  let aiCommandSequence = 0;
   let fullAutonomy = options.fullAutonomy === true;
   let globalStop = false;
-  const principlesRegistry = options.principlesRegistry ?? createPrinciplesRegistry({ now });
+  const principlesRegistry = options.principlesRegistry ?? createPrinciplesRegistry({ now, eventIdFactory: eventIdFactories.principle });
   const releasePromotion = options.releasePromotion ?? createReleasePromotion({
     now,
     principlesRegistry,
-    authorizeProduction: options.authorizeProduction
+    authorizeProduction: options.authorizeProduction,
+    eventIdFactory: eventIdFactories.release
   });
-  const planner = options.planner ?? createPlanner({ now, teamRegistry });
+  const planner = options.planner ?? createPlanner({ now, teamRegistry, eventIdFactory: eventIdFactories.planner });
+  const projectMemory = options.projectMemory ?? createProjectMemory({ now, eventIdFactory: eventIdFactories.memory });
+  const aiOrchestration = options.aiOrchestration ?? createAiOrchestration({ now, projectMemory, providerAdapters, externalSpendAuthorizer: options.externalSpendAuthorizer, eventIdFactory: eventIdFactories.ai });
+  const organizationPerformance = options.organizationPerformance ?? createOrganizationPerformanceReview({ now, teamRegistry });
+  let hydrationState = Object.freeze({ status: "not-configured", source: null, registryCount: 0, missingRegistryIds: [] });
   let planningSequence = 0;
+  const benchmarkRuns = new Map();
 
   function getRequest(requestId) {
     const request = requests.get(requestId);
@@ -112,13 +138,176 @@ export function createControlDashboard(options = {}) {
       contract: getDashboardContractSummary(),
       fullAutonomy,
       globalStop,
-      providerMode: "Fake Agent only",
+      providerMode: Object.keys(providerAdapters).length > 0 ? "Configured adapters; external spend separately gated" : "Fake Agent only",
       teamControl: teamRegistry.snapshot(),
       principlesControl: principlesRegistry.snapshot(),
       releaseControl: releasePromotion.snapshot(),
+      aiOrchestration: aiOrchestration.snapshot(),
+      organizationPerformance: organizationPerformance.contract(),
+      persistenceHydration: hydrationState,
       requests: [...requests.values()]
         .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
         .map(publicRequest)
+    });
+  }
+
+  function backofficeSnapshot() {
+    const current = snapshot();
+    const teams = current.teamControl.teams.map(team => {
+      const approvalValues = Object.values(team.approvals);
+      const approvedSections = approvalValues.filter(Boolean).length;
+      return Object.freeze({
+        teamId: team.teamId,
+        name: team.name,
+        status: team.status,
+        responsibility: team.responsibility,
+        approvals: Object.freeze({ approved: approvedSections, total: approvalValues.length }),
+        trainingStatus: team.training.status,
+        ready: team.status === "ready"
+      });
+    });
+    const requestStatuses = current.requests.reduce((statuses, request) => {
+      statuses[request.status] = (statuses[request.status] ?? 0) + 1;
+      return statuses;
+    }, {});
+    const timeline = [...domainEvents()]
+      .sort((left, right) => Date.parse(right.occurredAt ?? 0) - Date.parse(left.occurredAt ?? 0) || String(right.eventId).localeCompare(String(left.eventId)))
+      .slice(0, 24)
+      .map(projectOperationalEvent);
+    const benchmark = benchmarkSnapshot();
+    const performanceReviews = typeof organizationPerformance.list === "function"
+      ? [...organizationPerformance.list()]
+        .sort((left, right) => String(right.recordedAt).localeCompare(String(left.recordedAt)))
+        .slice(0, 5)
+        .map(review => Object.freeze({
+          reviewId: review.reviewId,
+          organizationId: review.organizationId,
+          period: review.period,
+          average: review.average,
+          band: review.band,
+          teamCount: review.teamCount,
+          coverage: review.coverage,
+          recordedAt: review.recordedAt,
+          decisionBoundary: review.decisionBoundary
+        }))
+      : [];
+    return Object.freeze({
+      schemaVersion: "1.0",
+      generatedAt: timestamp(now),
+      scope: "read-only-development-backoffice",
+      access: Object.freeze({
+        mode: "same-host-only",
+        path: "/backoffice",
+        dataPath: "/backoffice-data",
+        bindDefault: "127.0.0.1",
+        browserRequirement: "مرورگر باید روی همان ماشینی باشد که Docker میزبان Hero است"
+      }),
+      organization: Object.freeze({ name: "Hero", teamCount: teams.length, teams: Object.freeze(teams) }),
+      ai: Object.freeze({
+        roles: Object.freeze([...(current.aiOrchestration.contract.roles ?? [])]),
+        counts: current.aiOrchestration.counts,
+        activity: current.aiOrchestration.activity,
+        providerMode: current.providerMode,
+        liveStatus: "گیت‌شده؛ بدون credential، cost policy و مجوز مستقل هیچ تماس بیرونی انجام نمی‌شود"
+      }),
+      benchmark: Object.freeze({
+        mode: getAiBenchmarkContractSummary().mode,
+        metrics: getAiBenchmarkContractSummary().metrics,
+        latest: benchmark.latest,
+        recent: benchmark.recent,
+        decisionBoundary: "advisory-only; no authorization"
+      }),
+      observability: getObservabilityContractSummary(),
+      governance: Object.freeze({
+        globalStop: current.globalStop,
+        fullAutonomy: current.fullAutonomy,
+        persistenceHydration: current.persistenceHydration
+      }),
+      requests: Object.freeze({ total: current.requests.length, byStatus: Object.freeze(requestStatuses) }),
+      performance: Object.freeze({
+        reviews: Object.freeze(performanceReviews),
+        latest: performanceReviews[0] ?? null,
+        decisionBoundary: "evidence-and-recommendation-only"
+      }),
+      timeline: Object.freeze(timeline),
+      focus: Object.freeze([
+        Object.freeze({ id: "core", title: "هستهٔ Hero و ۱۱ تیم", status: "تکمیل محلی", detail: "Team Registry، Planner، Workflow، Runner و Quality Gate", next: "ادامهٔ توسعه بر اساس Roadmap", tone: "good" }),
+        Object.freeze({ id: "multi-ai", title: "Multi-AI و Role Routing", status: "تکمیل محلی", detail: "Role، Profile، Provider/Model، Invocation، Evaluation و Decision", next: "بازبینی مرز اجرای live", tone: "good" }),
+        Object.freeze({ id: "provider", title: "Provider واقعی", status: "مسدود", detail: "Adapterها آماده‌اند؛ credential، cost و verifier مجوز لازم است", next: "HERO-024 — مجوز مستقل و Secret Store", tone: "blocked" }),
+        Object.freeze({ id: "recovery", title: "Clean Linux و Recovery", status: "شاهد محلی؛ انتقال مسدود", detail: "Build لینوکس و Backup/Restore disposable موفق است", next: "HERO-025 — مقصد پاک و artifact عملیاتی", tone: "warn" }),
+        Object.freeze({ id: "pilot", title: "پایلوت انتهابه‌انتها", status: "مسدود", detail: "Provider واقعی، مقصد و درخواست/معیار پذیرش هنوز باز نشده‌اند", next: "HERO-026 — یک Task کوچک کنترل‌شده", tone: "blocked" })
+      ]),
+      nextSteps: Object.freeze([
+        "۱) Timeline را برای یافتن آخرین تغییر و علت آن بررسی کن.",
+        "۲) یک درخواست کوچک واقعی و معیار پذیرش آن را نسخه‌دار کن.",
+        "۳) یک Provider/Model و سقف هزینهٔ هر Run را انتخاب کن.",
+        "۴) Secret را فقط در Secret Store محیط اجرا قرار بده و مجوز external-spend مستقل صادر کن.",
+        "۵) یک اجرای کنترل‌شده انجام بده؛ سپس Evaluator و مالک نتیجه را بررسی کنند."
+      ])
+    });
+  }
+
+  function benchmarkSnapshot() {
+    const recent = [...benchmarkRuns.values()]
+      .sort((left, right) => String(right.recordedAt).localeCompare(String(left.recordedAt)) || right.benchmarkId.localeCompare(left.benchmarkId))
+      .slice(0, 10)
+      .map(run => Object.freeze(copy({
+        benchmarkId: run.benchmarkId,
+        providerId: run.providerId,
+        modelId: run.modelId,
+        profileId: run.profileId,
+        datasetVersion: run.datasetVersion,
+        mode: run.mode,
+        metrics: run.metrics,
+        recommendationEligible: run.recommendationEligible,
+        authority: run.authority,
+        digest: run.digest,
+        recordedAt: run.recordedAt
+      })));
+    return Object.freeze({ latest: recent[0] ?? null, recent: Object.freeze(recent) });
+  }
+
+  async function runSyntheticBenchmark(input = {}) {
+    const benchmarkId = input.benchmarkId ?? `BENCH-UI-${String(benchmarkRuns.size + 1).padStart(3, "0")}`;
+    const providerId = input.providerId ?? "deterministic";
+    const modelId = input.modelId ?? "default";
+    const profileId = input.profileId ?? "hero-default-v1";
+    const latencyMs = input.latencyMs === undefined ? 1 : input.latencyMs;
+    if (!Number.isInteger(latencyMs) || latencyMs < 0 || latencyMs > 60_000) {
+      throw new DashboardCommandError("INVALID_INPUT", "latencyMs باید عدد صحیح بین ۰ تا ۶۰۰۰۰ باشد.");
+    }
+    const run = await runAiBenchmark({
+      benchmarkId,
+      providerId,
+      modelId,
+      profileId,
+      datasetVersion: input.datasetVersion ?? "synthetic-v1",
+      runner: async ({ benchmarkCase }) => ({
+        status: "completed",
+        schema: benchmarkCase.outputSchema,
+        safetyPass: true,
+        costUnits: 0,
+        latencyMs
+      })
+    });
+    const recorded = Object.freeze({ ...run, recordedAt: timestamp(now) });
+    benchmarkRuns.set(recorded.benchmarkId, recorded);
+    return copy(recorded);
+  }
+
+  function backofficeEvents({ after = 0, limit = 24 } = {}) {
+    if (!Number.isInteger(after) || after < 0) throw new DashboardCommandError("INVALID_INPUT", "مقدار after معتبر نیست.");
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100) throw new DashboardCommandError("INVALID_INPUT", "مقدار limit باید بین ۱ تا ۱۰۰ باشد.");
+    const ordered = [...domainEvents()]
+      .sort((left, right) => (left.occurredAt ?? "").localeCompare(right.occurredAt ?? "") || (left.eventId ?? "").localeCompare(right.eventId ?? ""));
+    const numbered = ordered.map((event, index) => ({ event, sequence: Number.isInteger(event.sequence) ? event.sequence : index + 1 }));
+    const page = numbered.filter(item => item.sequence > after).slice(0, limit);
+    const nextAfter = page.at(-1)?.sequence ?? after;
+    return Object.freeze({
+      events: Object.freeze(page.map(item => projectOperationalEvent({ ...item.event, sequence: item.sequence }))),
+      nextAfter,
+      hasMore: numbered.some(item => item.sequence > nextAfter),
+      source: "in-memory-domain-events"
     });
   }
 
@@ -175,6 +364,44 @@ export function createControlDashboard(options = {}) {
     } catch (error) {
       if (error instanceof TeamResearchCommandError || error instanceof TeamResearchIdempotencyConflictError) throw new DashboardCommandError(error.code, error.message);
       throw error;
+    }
+  }
+
+  function runAiCommand(command, input = {}, actor = { kind: "project-owner", id: "hero-owner" }) {
+    aiCommandSequence += 1;
+    try {
+      return command({
+        ...input,
+        actor,
+        idempotencyKey: input.idempotencyKey ?? `dashboard-ai-${aiCommandSequence}`
+      });
+    } catch (error) {
+      if (error instanceof AiOrchestrationError) throw new DashboardCommandError(error.code, error.message);
+      throw error;
+    }
+  }
+
+  async function runAiAsyncCommand(operation) {
+    try {
+      return await operation();
+    } catch (error) {
+      if (error instanceof AiOrchestrationError) throw new DashboardCommandError(error.code, error.message);
+      throw error;
+    }
+  }
+
+  function runMemoryCommand(command, input = {}) {
+    try {
+      return command({
+        ...input,
+        actor: { kind: "project-owner", id: "hero-owner" },
+        idempotencyKey: input.idempotencyKey ?? `dashboard-memory-${aiCommandSequence + 1}`
+      });
+    } catch (error) {
+      if (error instanceof ProjectMemorySafetyError || error instanceof ProjectMemoryIdempotencyConflictError || error?.code) {
+        throw new DashboardCommandError(error.code ?? "MEMORY_COMMAND_REJECTED", error.message);
+      }
+      throw new DashboardCommandError("MEMORY_COMMAND_REJECTED", error.message);
     }
   }
 
@@ -360,6 +587,179 @@ export function createControlDashboard(options = {}) {
     return runTeamCommand(teamRegistry.splitTeam, { ...input, teamId });
   }
 
+  function recordProjectMemory(input = {}) {
+    return runMemoryCommand(projectMemory.record, input);
+  }
+
+  function assembleAiContext(input = {}) {
+    return runAiCommand(aiOrchestration.assembleContext, input, { kind: "system", id: "hero-ai-orchestration" });
+  }
+
+  function registerAiProvider(input = {}) {
+    const { adapter: ignoredAdapter, actor: ignoredActor, ...payload } = input;
+    const adapter = payload.mode === "deterministic"
+      ? createDeterministicAiProviderAdapter(payload.providerId)
+      : payload.mode === "live"
+        ? providerAdapters[payload.providerId]
+        : undefined;
+    if (payload.mode === "live" && !adapter) {
+      throw new DashboardCommandError("LIVE_PROVIDER_REQUIRES_SEPARATE_AUTHORIZATION", "Provider زنده فقط با Adapter زمان اجرا و مجوز مستقل قابل ثبت است.");
+    }
+    return runAiCommand(aiOrchestration.registerProvider, { ...payload, ...(adapter ? { adapter } : {}) });
+  }
+
+  function registerAiModel(input = {}) {
+    const { actor: ignoredActor, ...payload } = input;
+    return runAiCommand(aiOrchestration.registerModel, payload);
+  }
+
+  function registerAiProfile(input = {}) {
+    const { actor: ignoredActor, ...payload } = input;
+    return runAiCommand(aiOrchestration.registerProfile, payload);
+  }
+
+  function bindAiRole(input = {}) {
+    const { actor: ignoredActor, ...payload } = input;
+    return runAiCommand(aiOrchestration.bindRole, payload);
+  }
+
+  function recordAiEvaluation(input = {}) {
+    const { actor: ignoredActor, ...payload } = input;
+    return runAiCommand(aiOrchestration.recordEvaluation, payload, { kind: "system", id: "hero-ai-orchestration" });
+  }
+
+  function proposeAiDecision(input = {}) {
+    const { actor: ignoredActor, ...payload } = input;
+    return runAiCommand(aiOrchestration.proposeDecision, payload, { kind: "system", id: "hero-ai-orchestration" });
+  }
+
+  function evaluateAiInvocation(input = {}) {
+    const { actor: ignoredActor, ...payload } = input;
+    return runAiCommand(aiOrchestration.evaluateInvocation, payload, { kind: "system", id: "hero-ai-orchestration" });
+  }
+
+  function resolveAiDecision(decisionId, input = {}) {
+    const { actor: ignoredActor, ...payload } = input;
+    return runAiCommand(aiOrchestration.resolveDecision, { ...payload, decisionId });
+  }
+
+  function reviewOrganizationPerformance(input = {}) {
+    try {
+      const review = organizationPerformance.review(input);
+      const verdict = review.band === "strong" ? "approved" : review.band === "watch" ? "needs_revision" : "rejected";
+      const evaluation = aiOrchestration.recordEvaluation({
+        evaluationId: input.evaluationId ?? `EVAL-${review.reviewId}`,
+        projectId: input.organizationId,
+        target: { kind: "organization-performance", reviewId: review.reviewId, organizationId: review.organizationId, period: review.period },
+        verdict,
+        score: Math.round(review.average),
+        confidence: 1,
+        findings: review.findings,
+        actor: { kind: "system", id: "hero-organization-evaluator" },
+        idempotencyKey: input.evaluationId ? `${input.evaluationId}-record` : `organization-evaluation-${review.reviewId}`
+      });
+      return Object.freeze({ review, evaluation: evaluation.evaluation });
+    } catch (error) {
+      if (error instanceof OrganizationPerformanceError || error instanceof AiOrchestrationError) throw new DashboardCommandError(error.code, error.message);
+      throw error;
+    }
+  }
+
+  function persistenceSnapshot() {
+    const registries = [
+      teamRegistry,
+      researchRegistry,
+      principlesRegistry,
+      releasePromotion,
+      planner,
+      projectMemory,
+      aiOrchestration,
+      organizationPerformance
+    ];
+    const dashboardState = Object.freeze({
+      schemaVersion: "1.0",
+      registryId: "control-dashboard",
+      requests: Object.freeze([...requests.values()].map(publicRequest)),
+      fullAutonomy,
+      globalStop,
+      sequence
+    });
+    return Object.freeze({
+      schemaVersion: "1.0",
+      source: "hero-control-plane-domain-registries",
+      registries: Object.freeze([...registries.map(registry => registry.persistenceSnapshot?.()).filter(Boolean), dashboardState])
+    });
+  }
+
+  function domainEvents() {
+    const registries = [teamRegistry, researchRegistry, principlesRegistry, releasePromotion, planner, projectMemory, aiOrchestration];
+    const seen = new Set();
+    return Object.freeze(registries.flatMap(registry => registry.events?.() ?? []).filter(event => {
+      if (seen.has(event.eventId)) return false;
+      seen.add(event.eventId);
+      return true;
+    }).sort((left, right) => (left.occurredAt ?? "").localeCompare(right.occurredAt ?? "") || (left.eventId ?? "").localeCompare(right.eventId ?? "")));
+  }
+
+  function hydrateFromPersistence(input = {}) {
+    const snapshots = Array.isArray(input.snapshots) ? input.snapshots : [];
+    const events = Array.isArray(input.events) ? input.events : [];
+    const byId = new Map(snapshots.map(snapshot => [snapshot.registryId, snapshot]));
+    const targets = [
+      ["team-registry", teamRegistry],
+      ["team-research", researchRegistry],
+      ["principles-registry", principlesRegistry],
+      ["release-promotion", releasePromotion],
+      ["planner", planner],
+      ["project-memory", projectMemory],
+      ["ai-orchestration", aiOrchestration],
+      ["organization-performance", organizationPerformance]
+    ];
+    const hydrated = [];
+    const missingRegistryIds = [];
+    const dashboardSnapshot = byId.get("control-dashboard");
+    if (dashboardSnapshot) {
+      const state = dashboardSnapshot.data;
+      if (!state || !Array.isArray(state.requests)) throw new DashboardCommandError("HYDRATION_INVALID", "Control dashboard hydration requires requests.");
+      requests.clear();
+      for (const request of state.requests) {
+        if (!request || typeof request !== "object" || typeof request.requestId !== "string") throw new DashboardCommandError("HYDRATION_INVALID", "A hydrated dashboard request is invalid.");
+        requests.set(request.requestId, structuredClone(request));
+      }
+      fullAutonomy = state.fullAutonomy === true;
+      globalStop = state.globalStop === true;
+      sequence = Number.isInteger(state.sequence) && state.sequence >= 0 ? state.sequence : requests.size;
+      hydrated.push(Object.freeze({ registryId: "control-dashboard", hydrated: true, requests: requests.size }));
+    } else {
+      missingRegistryIds.push("control-dashboard");
+    }
+    for (const [registryId, registry] of targets) {
+      const snapshot = byId.get(registryId);
+      if (!snapshot) {
+        missingRegistryIds.push(registryId);
+        continue;
+      }
+      if (typeof registry.hydrate !== "function") throw new DashboardCommandError("HYDRATION_UNSUPPORTED", `${registryId} hydration is unavailable.`);
+      hydrated.push(registry.hydrate({ data: snapshot.data, events }));
+    }
+    hydrationState = Object.freeze({
+      status: missingRegistryIds.length === 0 ? "hydrated" : hydrated.length === 0 ? "empty" : "partial",
+      source: input.source ?? "postgresql-versioned-domain-registry-snapshots",
+      registryCount: hydrated.length,
+      missingRegistryIds: Object.freeze(missingRegistryIds),
+      sourceSequence: Math.max(0, ...snapshots.map(snapshot => Number(snapshot.sourceSequence) || 0))
+    });
+    return Object.freeze({ ...hydrationState, results: Object.freeze(hydrated) });
+  }
+
+  async function invokeAi(input = {}) {
+    const { actor: ignoredActor, ...payload } = input;
+    return runAiAsyncCommand(() => aiOrchestration.invoke({
+      ...payload,
+      actor: { kind: "orchestrator", id: "hero-ai-control-plane" }
+    }));
+  }
+
   function requirePrinciples(projectId, controlPoint) {
     try {
       return principlesRegistry.assertSatisfied({ projectId: assertProjectId(projectId), controlPoint });
@@ -453,6 +853,22 @@ export function createControlDashboard(options = {}) {
     }
   }
 
+  function runPilotDryRunCommand(input = {}) {
+    try {
+      return runPilotDryRun({
+        pilotId: input.pilotId,
+        request: input,
+        createRequest,
+        approveRequest: requestId => approveRequest(requestId),
+        runFakeAgent: requestId => runFakeAgent(requestId),
+        now
+      });
+    } catch (error) {
+      if (error instanceof PilotDryRunError || error instanceof DashboardCommandError) throw new DashboardCommandError(error.code, error.message);
+      throw error;
+    }
+  }
+
   function getPlan(planningId) {
     const result = planner.get(planningId);
     if (!result) throw new DashboardCommandError("PLAN_NOT_FOUND", "برنامه پیدا نشد.");
@@ -506,6 +922,11 @@ export function createControlDashboard(options = {}) {
 
   return Object.freeze({
     snapshot,
+    backofficeSnapshot,
+    persistenceSnapshot,
+    domainEvents,
+    backofficeEvents,
+    hydrateFromPersistence,
     createRequest,
     approveRequest,
     rejectRequest,
@@ -514,6 +935,24 @@ export function createControlDashboard(options = {}) {
     setFullAutonomy,
     setGlobalStop,
     teamSnapshot: () => teamRegistry.snapshot(),
+    aiOrchestrationSnapshot: () => aiOrchestration.snapshot(),
+    aiOrchestrationEvents: after => aiOrchestration.events(after),
+    aiOrchestration,
+    recordProjectMemory,
+    assembleAiContext,
+    registerAiProvider,
+    registerAiModel,
+    registerAiProfile,
+    bindAiRole,
+    invokeAi,
+    recordAiEvaluation,
+    evaluateAiInvocation,
+    reviewOrganizationPerformance,
+    benchmarkSnapshot,
+    runSyntheticBenchmark,
+    organizationPerformanceContract: () => organizationPerformance.contract(),
+    proposeAiDecision,
+    resolveAiDecision,
     teamResearchContract: () => researchRegistry.contract(),
     requestTeamResearch,
     startTeamResearch,
@@ -523,6 +962,7 @@ export function createControlDashboard(options = {}) {
     listTeamResearch,
     teamTrainingPlan,
     createPlan,
+    runPilotDryRun: runPilotDryRunCommand,
     getPlan,
     decidePlanOutput,
     reviewTeam,

@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 export const POSTGRES_SCHEMA_CONTRACT_VERSION = "1.0";
 
-export const POSTGRES_TABLES = Object.freeze([
+const INITIAL_TABLES = Object.freeze([
   "projects",
   "events",
   "principles",
@@ -14,11 +14,69 @@ export const POSTGRES_TABLES = Object.freeze([
   "outbox"
 ]);
 
+const AI_TABLES = Object.freeze([
+  "ai_providers",
+  "ai_credentials",
+  "ai_models",
+  "prompt_versions",
+  "agent_profiles",
+  "project_agent_bindings",
+  "context_snapshots",
+  "ai_invocations",
+  "evaluations",
+  "evaluation_findings",
+  "decision_proposals",
+  "provider_health_checks"
+]);
+
+const AI_RELIABILITY_TABLES = Object.freeze([
+  "organization_performance_reviews",
+  "organization_performance_metrics",
+  "ai_benchmark_runs",
+  "ai_benchmark_results"
+]);
+
+const DOMAIN_SNAPSHOT_TABLES = Object.freeze(["domain_registry_snapshots"]);
+const OPERATIONS_TABLES = Object.freeze(["owner_session_revocations"]);
+
+export const POSTGRES_TABLES = Object.freeze([
+  ...INITIAL_TABLES,
+  ...AI_TABLES,
+  ...AI_RELIABILITY_TABLES,
+  ...DOMAIN_SNAPSHOT_TABLES,
+  ...OPERATIONS_TABLES
+]);
+
 export const POSTGRES_MIGRATIONS = Object.freeze([
   Object.freeze({
     id: "001",
     name: "principles-release-audit",
-    file: "001_principles_release_audit.sql"
+    file: "001_principles_release_audit.sql",
+    tables: INITIAL_TABLES
+  }),
+  Object.freeze({
+    id: "002",
+    name: "ai-orchestration-projections",
+    file: "002_ai_orchestration_projections.sql",
+    tables: AI_TABLES
+  }),
+  Object.freeze({
+    id: "003",
+    name: "ai-reliability-and-team-performance",
+    file: "003_ai_reliability_and_team_performance.sql",
+    tables: AI_RELIABILITY_TABLES
+  }),
+  Object.freeze({
+    id: "004",
+    name: "domain-registry-snapshots",
+    file: "004_domain_registry_snapshots.sql",
+    tables: DOMAIN_SNAPSHOT_TABLES
+  }),
+  Object.freeze({
+    id: "005",
+    name: "session-revocation-and-outbox-leasing",
+    file: "005_session_revocation_outbox_leasing.sql",
+    tables: OPERATIONS_TABLES
   })
 ]);
 
@@ -47,13 +105,15 @@ export function validatePostgresSchemaContract() {
     errors.push("table names must use safe PostgreSQL identifiers.");
   }
   if (POSTGRES_MIGRATIONS.length === 0) errors.push("at least one migration is required.");
+  const declaredTables = new Set();
   for (const migration of POSTGRES_MIGRATIONS) {
     if (!/^\d{3}$/.test(migration.id)) errors.push(`${migration.name} has an invalid migration id.`);
     if (!/^\d{3}_[a-z][a-z0-9_-]+\.sql$/.test(migration.file)) errors.push(`${migration.name} has an invalid migration file.`);
     try {
       const sql = readPostgresMigration(migration.id);
       if (!sql.includes("CREATE TABLE")) errors.push(`${migration.name} must create tables.`);
-      for (const table of POSTGRES_TABLES) {
+      for (const table of migration.tables ?? []) {
+        declaredTables.add(table);
         if (!sql.includes(`CREATE TABLE IF NOT EXISTS ${table}`)) {
           errors.push(`${migration.name} must define ${table}.`);
         }
@@ -61,6 +121,9 @@ export function validatePostgresSchemaContract() {
     } catch (error) {
       errors.push(`${migration.name} cannot be read: ${error.message}`);
     }
+  }
+  for (const table of POSTGRES_TABLES) {
+    if (!declaredTables.has(table)) errors.push(`No migration declares ${table}.`);
   }
   return errors;
 }

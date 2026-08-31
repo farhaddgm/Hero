@@ -38,6 +38,8 @@ test("planner contract keeps analysis, implementation, review, and handoff withi
   const summary = getPlannerContractSummary();
   assert.deepEqual(summary.providers, ["chatgpt", "codex", "claude", "cursor"]);
   assert.ok(summary.taskKinds.includes("review"));
+  assert.equal(summary.aiRoleRoutes.implementation.aiRole, "executor");
+  assert.equal(summary.aiRoleRoutes.implementation.modelId, "codex");
   assert.match(summary.routerRule, /Cursor receives only a human-controlled handoff/);
   assert.match(summary.stopRule, /halted before dispatch/);
 });
@@ -59,7 +61,9 @@ test("a simple Persian request becomes an explainable, acyclic web and mobile Ta
   assert.equal(byKind("analysis")[0].route.provider, "chatgpt");
   assert.equal(byKind("architecture")[0].route.provider, "chatgpt");
   assert.ok(byKind("implementation").every(task => task.route.provider === "codex"));
+  assert.ok(byKind("implementation").every(task => task.route.aiRole === "executor" && task.route.modelId === "codex"));
   assert.equal(byKind("testing")[0].route.provider, "codex");
+  assert.equal(byKind("testing")[0].route.aiRole, "verifier");
   assert.equal(byKind("review")[0].route.provider, "claude");
   assert.equal(byKind("handoff")[0].route.provider, "cursor");
   assert.equal(byKind("analysis")[0].team.owner, "tahlilgoro");

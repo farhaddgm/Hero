@@ -587,10 +587,40 @@ export function createTeamRegistry(options = {}) {
     });
   }
 
+  function persistenceSnapshot() {
+    return immutableCopy({
+      schemaVersion: "1.0",
+      registryId: "team-registry",
+      teams: list(),
+      workflows: Object.freeze([...workflows.values()].map(policy => immutableCopy(policy)))
+    });
+  }
+
+  function hydrate(input = {}) {
+    const state = input.data ?? input;
+    if (!state || !Array.isArray(state.teams) || !Array.isArray(state.workflows)) throw new TeamCommandError("HYDRATION_INVALID", "Team registry hydration requires teams and workflows.");
+    if (Array.isArray(input.events)) eventLog.load(input.events.filter(event => event.aggregateType === "team" || event.aggregateType === "project"));
+    teams.clear();
+    for (const team of state.teams) {
+      const normalized = normalizeDefinition(team);
+      const restored = immutableCopy({ ...team, ...normalized });
+      teams.set(restored.teamId, restored);
+    }
+    workflows.clear();
+    for (const workflow of state.workflows) workflows.set(workflow.projectId, immutableCopy(workflow));
+    idempotency.clear();
+    nextReview = Math.max(0, ...[...teams.values()].flatMap(team => [...team.reviews, ...team.deliverableReviews].map(review => Number(String(review.reviewId).match(/(\d+)$/)?.[1] ?? 0))));
+    nextAssignment = Math.max(0, ...[...teams.values()].flatMap(team => team.assignments.map(item => Number(String(item.assignmentId).match(/(\d+)$/)?.[1] ?? 0))));
+    nextTraining = Math.max(0, ...[...teams.values()].flatMap(team => Object.values(team.training?.modules ?? {}).map(item => Number(String(item.trainingId).match(/(\d+)$/)?.[1] ?? 0))));
+    return immutableCopy({ registryId: "team-registry", hydrated: true, teams: teams.size, workflows: workflows.size });
+  }
+
   return Object.freeze({
     list,
     get,
     snapshot,
+    persistenceSnapshot,
+    hydrate,
     reviewContract,
     requestRework,
     reviewDeliverable,

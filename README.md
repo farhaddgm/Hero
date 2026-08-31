@@ -4,7 +4,7 @@ Hero پایه‌ی مستقل و قابل‌انتقال یک ارکستریتو
 
 ## وضعیت فعلی
 
-گام‌های HERO-001 تا HERO-019 و قراردادهای طراحی HERO-020/HERO-021 این موارد را فراهم می‌کنند:
+گام‌های HERO-001 تا HERO-019، پیاده‌سازی محلی HERO-022/HERO-023 و قراردادهای HERO-020/HERO-021 این موارد را فراهم می‌کنند؛ HERO-024 تا HERO-026 همچنان گیت‌های عملیاتیِ بازنشده دارند:
 
 - قرارداد تجربه کاربر فارسی و ساده، با وضعیت‌های قابل‌فهم، حالت راهنما و اختیار کامل Snapshot نسخه‌دار
 
@@ -26,9 +26,11 @@ Hero پایه‌ی مستقل و قابل‌انتقال یک ارکستریتو
 - CI مستقل
 - مدل عملیاتی شرکت با ۱۱ تیم مرحلهٔ اول، قرارداد مسئولیت/اختیار/ورودی/خروجی/اصول، آموزش، تخصیص پروژه و کنترل بازکاری
 - اصول حیاتی نسخه‌دار برای خود Hero و هر محصول، با گیت blocking و تأیید/رد/بازکاری مالک
+- orchestration چندنقشی AI با Role/Profile/Provider/Model مستقل، route نقش‌ها در Planner و پیش‌فرض executor/Codex برای implementation
+- Quality Gate متصل به Evaluation، timeout/retry/health/cost policy، ارزیابی دوره‌ای هر ۱۱ تیم و benchmark مصنوعی Provider/Profile
 - فلو انتشار دو محیطی: Git commit/tag → test → Evidence → تأیید مالک → فرمان مستقل production؛ بدون promote خودکار
 
-اتصال واقعی Codex، Claude و Cursor عمداً در این گام انجام نشده و در گام‌های بعدی، پس از مجوز مستقل، اضافه می‌شود.
+Adapterهای واقعی OpenAI Responses، Anthropic Messages، Google Gemini و OpenAI-compatible در مرز adapter پیاده‌سازی شده‌اند؛ اما اجرای زنده همچنان به credential زمان اجرا، حساب هزینه و بررسی active authorization snapshot نیاز دارد و بدون آن fail-closed می‌ماند. Codex/Claude/Cursor داخل محصول به‌صورت پیش‌فرض فعال نیستند.
 
 ## اجرای ساده
 
@@ -41,6 +43,12 @@ Hero پایه‌ی مستقل و قابل‌انتقال یک ارکستریتو
 سپس سرویس روی http://127.0.0.1:3100/health در دسترس است. برای تغییر تنظیمات، .env.example را به .env کپی کنید؛ فایل .env هرگز وارد Git نمی‌شود.
 
 خلاصهٔ معماری تأییدشده نیز از http://127.0.0.1:3100/architecture قابل مشاهده است. این endpoint هیچ Secret یا اتصال زندهٔ Provider را نمایش نمی‌دهد.
+
+قرارداد معماری Multi-AI قابل‌تعویض نیز از http://127.0.0.1:3100/ai-orchestration-contract قابل مشاهده است. این قرارداد Role، Agent Profile، Provider، Model، Invocation، Evaluation و Decision Proposal را جدا نگه می‌دارد؛ transport Provider زنده آماده است اما بدون credential، cost policy و active authorization verifier هیچ تماس live انجام نمی‌شود.
+
+مرز عملیاتی Multi-AI از `/api/ai-orchestration` قابل مشاهده است. در محیط deterministic، مالک می‌تواند به‌ترتیب از `/api/memory`، `/api/ai/providers`، `/api/ai/models`، `/api/ai/profiles`، `/api/ai/bindings`، `/api/ai/context` و `/api/ai/invocations` استفاده کند؛ `/api/ai/evaluations/from-invocation` خروجی Evaluator را به Evidence تبدیل می‌کند و `/api/ai/decisions` و `/resolve` تصمیم مالک‌محور را ثبت می‌کنند. همهٔ این مسیرها owner-authenticated هستند و Provider زنده را فعال نمی‌کنند.
+
+برای مشاهدهٔ eventهای AI از `GET /api/ai/events?after=0` و برای ارزیابی کل سازمان از `POST /api/ai/organization-evaluations` استفاده می‌شود؛ بدنهٔ ارزیابی باید برای هر ۱۱ تیم یک `hero://` evidence و scoreهای delivery/quality/evidence/rework/reliability داشته باشد. قرارداد benchmark مصنوعی از `/ai-benchmark-contract` و قرارداد Performance Review از `/organization-performance-contract` قابل مشاهده است. هیچ‌کدام مجوز اجرا یا انتشار ایجاد نمی‌کنند.
 
 خلاصهٔ قرارداد داده نیز از http://127.0.0.1:3100/data-contract قابل مشاهده است؛ این endpoint فقط schema و اصول ایمن را نشان می‌دهد، نه داده یا Secret عملیاتی.
 
@@ -56,7 +64,7 @@ APIهای `/api/*` فقط با نشست امضاشدهٔ مالک پروژه ق�
 
 برنامهٔ آموزش و benchmark هر تیم از `GET /training-contract` و `GET /api/teams/:teamId/training-plan` قابل مشاهده است. آمادگی تیم فقط پس از تأیید هفت بخش قرارداد و قبولی هر پنج module با امتیاز حداقل ۸۰ صادر می‌شود.
 
-آمادگی پایلوت HERO-021 با `pnpm check:pilot` بررسی می‌شود؛ این فرمان در نبود شواهد واقعی Linux/Restore، Provider و درخواست پایلوت عمداً `blocked` برمی‌گرداند.
+آمادگی پایلوت HERO-021 با `pnpm check:pilot` بررسی می‌شود؛ این فرمان در نبود شواهد مقصد پاک، Provider واقعیِ دارای مجوز مستقل و درخواست/معیار پذیرش پایلوت عمداً `blocked` برمی‌گرداند. یک Backup/Restore disposable با checksum ثبت شده، اما جایگزین مقصد عملیاتی نیست.
 
 تحقیق و benchmark هر تیم از طریق `POST /api/teams/:teamId/research-requests` سفارش داده می‌شود. چرخهٔ `start`، ثبت گزارش، مشاهده و `review` در مسیرهای `/api/research/:researchId/...` قرار دارد. گزارش معتبر باید منبع، یافته، مقایسه، توصیه و پیشنهاد دانش/اصول داشته باشد؛ فقط تأیید مالک آن را به تیم اضافه می‌کند. قرارداد این چرخه از http://127.0.0.1:3100/team-research-contract و قرارداد گزینه‌های خروجی از http://127.0.0.1:3100/output-advisory-contract قابل مشاهده است.
 
@@ -68,6 +76,21 @@ APIهای `/api/*` فقط با نشست امضاشدهٔ مالک پروژه ق�
 
 پورت پیش‌فرض میزبان 43100 است تا احتمال برخورد با سرویس‌های موجود کم شود. Compose نام volume و network را با نام پروژه namespace می‌کند.
 
+### مشاهدهٔ Back Office
+
+بعد از بالا آمدن Compose، در مرورگری که روی همان ماشینِ اجرای Docker باز است، مسیر زیر را باز کنید:
+
+    http://localhost:43100/backoffice
+
+برای بررسی سریع از همان میزبان:
+
+    docker compose ps
+    curl -i http://127.0.0.1:43100/backoffice
+
+`127.0.0.1` عمداً فقط loopback است؛ بنابراین لینکی که از یک کامپیوتر دیگر، یک VM دیگر یا محیط مرورگر جدا باز شود، به این سرویس نمی‌رسد. برای دسترسی شبکه‌ای باید جداگانه bind address، firewall، احراز هویت مشاهده‌ای و ترجیحاً reverse proxy امن طراحی و مجاز شوند؛ تغییر پیش‌فرض به `0.0.0.0` انجام نشده است.
+
+اگر Back Office قرار است پشت HTTPS و یک زیردامنهٔ عمومی قرار بگیرد، `HERO_BACKOFFICE_USER` و `HERO_BACKOFFICE_PASSWORD` را فقط در Secret Store محیط اجرا تنظیم کنید؛ password حداقل ۱۶ نویسه باشد. اپلیکیشن در این حالت مسیرهای `/backoffice`، `/backoffice-data` و `/backoffice-events` را با Basic Auth محافظت می‌کند. همهٔ پاسخ‌های Hero سیاست `X-Robots-Tag: noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate` دارند و صفحه‌های HTML همین سیاست را با meta tag نیز اعلام می‌کنند؛ `robots.txt` کل مسیر را `Disallow` می‌کند و sitemap عمومی وجود ندارد. این‌ها از ایندکس‌شدن معمول جلوگیری می‌کنند، اما جایگزین احراز هویت، TLS، firewall یا reverse proxy نیستند.
+
 ## کنترل استقلال
 
     pnpm doctor
@@ -78,11 +101,13 @@ Doctor در صورت مشاهده‌ی symlink، Git submodule، وابستگی 
 
 اصول حیاتی در [docs/architecture/CRITICAL_PRINCIPLES.md](docs/architecture/CRITICAL_PRINCIPLES.md)، فلو انتشار در [docs/architecture/RELEASE_FLOW.md](docs/architecture/RELEASE_FLOW.md) و مدل کامل تیم‌ها در [docs/architecture/TEAM_OPERATING_MODEL.md](docs/architecture/TEAM_OPERATING_MODEL.md) ثبت شده‌اند.
 
-مرز migration PostgreSQL در [packages/adapters/migrations/001_principles_release_audit.sql](packages/adapters/migrations/001_principles_release_audit.sql)، Runner تزریق‌پذیر آن در `packages/adapters/src/postgresql-schema.mjs` و Event Store تراکنشی در `packages/adapters/src/postgresql-operational-store.mjs` ثبت شده است. runtime این adapterها در زمان راه‌اندازی به‌صورت اختیاری migration و health check را به Control Plane وصل می‌کند؛ projection فرمان‌های دامنه هنوز عمداً در حافظه است و اتصال پایدار آن گام بعدی است.
+مرز migration PostgreSQL در [packages/adapters/migrations/001_principles_release_audit.sql](packages/adapters/migrations/001_principles_release_audit.sql)، migrationهای AI در `002_ai_orchestration_projections.sql`، reliability/performance در `003_ai_reliability_and_team_performance.sql` و Snapshotهای versioned Registryهای Domain در `004_domain_registry_snapshots.sql` ثبت شده‌اند. Runner تزریق‌پذیر آن در `packages/adapters/src/postgresql-schema.mjs`، Event Store تراکنشی در `packages/adapters/src/postgresql-operational-store.mjs`، AI projection adapter در `packages/adapters/src/ai-projection-store.mjs` و hydration adapter در `packages/adapters/src/domain-registry-snapshot-store.mjs` قرار دارند. Control Plane هنگام start آخرین Snapshot معتبر هشت Registry دامنه و وضعیت dashboard را hydrate می‌کند و پس از هر فرمان موفق Snapshot append-only جدید ثبت می‌شود؛ Event Store همچنان منبع حقیقت و Snapshot فقط projection قابل‌بازسازی است.
 
 برای اجرای اتصال واقعی test، `HERO_POSTGRES_URL` و `HERO_POSTGRES_PASSWORD` را فقط در secret store تنظیم کنید و سپس `pnpm check:postgres` را اجرا کنید. Compose سرویس جداگانهٔ `hero-postgres` را فقط با profile `postgres` ارائه می‌کند؛ مقدار خالی یا نبود Secret عمداً باید متوقف بماند. وقتی URL تنظیم باشد، Control Plane هنگام start migration را اجرا می‌کند و `/ready` فقط پس از ping موفق، `persistence: postgresql` گزارش می‌دهد.
 
-وقتی PostgreSQL تنظیم باشد، فرمان‌های موفق Control Plane به‌صورت audit event ایمن ثبت می‌شوند و مالک می‌تواند timeline را با `GET /api/audit?after=0` بخواند. این مسیر pagination بر اساس sequence دارد و ورودی خام، header احراز هویت یا Secret را ذخیره نمی‌کند. Projection کامل commandها، session revocation پایدار و deployment زنده هنوز مرزهای جداگانه‌اند.
+وقتی PostgreSQL تنظیم باشد، فرمان‌های موفق Control Plane به‌صورت audit event ایمن ثبت می‌شوند و مالک می‌تواند timeline را با `GET /api/audit?after=0` بخواند. این مسیر pagination بر اساس sequence دارد و ورودی خام، header احراز هویت یا Secret را ذخیره نمی‌کند. برای ساخت transport adapterهای واقعی بدون برقراری اتصال در زمان start، `HERO_ENABLE_REAL_PROVIDERS=true` را تنظیم کنید؛ این پرچم به‌تنهایی مجوز external-spend نیست. مقدار cost policy باید در گزینهٔ runtime adapter یا resolver برنامه تنظیم شود و active authorization verifier نیز لازم است. Session revocation پایدار و deployment زنده هنوز مرزهای جداگانه‌اند.
+
+Back Office، timeline امن و قرارداد Pilot از مسیرهای read-only زیر در دسترس‌اند: `/backoffice`، `/backoffice-data`، `/backoffice-events?after=0&limit=24` و `/pilot-contract`. اجرای benchmark synthetic فقط از `POST /api/ai/benchmarks/synthetic` با نشست مالک ممکن است و نتیجهٔ آن صرفاً advisory است؛ هرگز مجوز Provider، هزینه، mutation یا release محسوب نمی‌شود.
 
 ## حاکمیت پروژه
 

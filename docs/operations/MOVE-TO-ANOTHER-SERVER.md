@@ -23,6 +23,8 @@ This runbook is an operator checklist, not an automatic deployment script. A suc
 7. Start the approved Compose stack and check `/health` and `/ready` from the intended private boundary.
 8. Record the outcome, rollback point and any failure. Do not expose, release or operate the destination without its own authorization.
 
-## Current limitation
+## Current evidence and limitation
 
-The current development environment has no Docker daemon, no clean Linux runtime and no persistent operational database. The codebase therefore contains the fail-closed readiness contract and tests, but no real backup or clean-Linux restore has been executed here. That missing evidence must remain `LINUX_CLEANROOM_VERIFICATION_REQUIRED`; it cannot be converted to success by a local unit test.
+On 2026-08-30, the current checkout was built and verified inside a Linux container, and an isolated disposable PostgreSQL instance completed a real `pg_dump`/`pg_restore` round trip with checksum and sentinel verification. The evidence is recorded as `hero-recovery-check` in the pilot-readiness record.
+
+This does not prove a destination transfer. A clean destination host, the approved `hero-data` backup artifact, destination-only runtime secrets, migration verification and the separate transfer authorization are still required. Until those exact records exist, `LINUX_CLEANROOM_VERIFICATION_REQUIRED` and the pilot remain blocked.

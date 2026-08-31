@@ -397,6 +397,27 @@ export function createReleasePromotion(options = {}) {
     });
   }
 
+  function persistenceSnapshot() {
+    return copy({
+      schemaVersion: "1.0",
+      registryId: "release-promotion",
+      releases: list()
+    });
+  }
+
+  function hydrate(input = {}) {
+    const state = input.data ?? input;
+    if (!state || !Array.isArray(state.releases)) throw new ReleaseCommandError("HYDRATION_INVALID", "Release registry hydration requires releases.");
+    if (Array.isArray(input.events)) eventLog.load(input.events.filter(event => event.aggregateType === "release"));
+    releases.clear();
+    for (const release of state.releases) {
+      if (!release || typeof release !== "object" || typeof release.releaseId !== "string") throw new ReleaseCommandError("HYDRATION_INVALID", "A hydrated release is invalid.");
+      releases.set(release.releaseId, copy(release));
+    }
+    idempotency.clear();
+    return copy({ registryId: "release-promotion", hydrated: true, releases: releases.size });
+  }
+
   return Object.freeze({
     register,
     requestTestDeployment,
@@ -411,6 +432,8 @@ export function createReleasePromotion(options = {}) {
     list,
     history,
     snapshot,
+    persistenceSnapshot,
+    hydrate,
     contract: () => getReleaseContractSummary()
   });
 }

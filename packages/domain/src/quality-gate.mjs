@@ -140,6 +140,10 @@ export function createQualityGate(options = {}) {
   const eventLog = options.eventLog ?? createInMemoryEventLog();
   const reviewPipeline = options.reviewPipeline ?? createClaudeReviewPipeline();
   if (typeof reviewPipeline.review !== "function") throw new Error("reviewPipeline must provide review.");
+  const asyncReviewPipeline = options.asyncReviewPipeline ?? reviewPipeline;
+  if (typeof asyncReviewPipeline.reviewAsync !== "function" && typeof asyncReviewPipeline.review !== "function") {
+    throw new Error("asyncReviewPipeline must provide reviewAsync or review.");
+  }
   const gates = new Map();
   const idempotency = new Map();
   const nextEventId = options.eventIdFactory ?? eventIdFactory("evt_quality_gate");
@@ -181,6 +185,52 @@ export function createQualityGate(options = {}) {
   function stop(gate, actor, code, reason) {
     const stopped = append(gate, "quality-gate.stopped", actor, { state: "stopped", code, stopReason: reason }, { code, reason });
     return result(stopped, "quality-gate.stopped");
+  }
+
+  function applyReview(gate, input, reviewResult) {
+    if (!reviewResult || !["approved", "changes-requested", "blocked"].includes(reviewResult.status)) {
+      throw new Error("reviewPipeline returned an invalid review result.");
+    }
+    const latestReview = immutableCopy({
+      status: reviewResult.status,
+      code: reviewResult.code,
+      findings: reviewResult.review?.findings ?? [],
+      ...(reviewResult.evaluationId ? { evaluationId: reviewResult.evaluationId } : {})
+    });
+    const basePatch = { costUnits: gate.costUnits + input.reviewCostUnits, latestReview };
+    let output;
+    if (reviewResult.status === "approved") {
+      const approved = append(gate, "quality-gate.approved", input.actor, { ...basePatch, state: "approved", code: "QUALITY_APPROVED" }, { reviewCostUnits: input.reviewCostUnits, findings: 0, ...(reviewResult.evaluationId ? { evaluationId: reviewResult.evaluationId } : {}) });
+      output = result(approved, "quality-gate.approved");
+    } else if (reviewResult.status === "blocked") {
+      const blocked = append(gate, "quality-gate.stopped", input.actor, { ...basePatch, state: "stopped", code: "REVIEW_BLOCKED", stopReason: reviewResult.code }, { code: "REVIEW_BLOCKED", reviewCostUnits: input.reviewCostUnits, ...(reviewResult.evaluationId ? { evaluationId: reviewResult.evaluationId } : {}) });
+      output = result(blocked, "quality-gate.stopped");
+    } else if (gate.correctionCycles >= gate.policy.maxCorrectionCycles) {
+      const capped = append(gate, "quality-gate.stopped", input.actor, { ...basePatch, state: "stopped", code: "CYCLE_LIMIT_REACHED", stopReason: "Independent review requested another correction after the cycle cap." }, { code: "CYCLE_LIMIT_REACHED", reviewCostUnits: input.reviewCostUnits, findings: basePatch.latestReview.findings.length, ...(reviewResult.evaluationId ? { evaluationId: reviewResult.evaluationId } : {}) });
+      output = result(capped, "quality-gate.stopped");
+    } else {
+      const changes = append(gate, "quality-gate.review-recorded", input.actor, { ...basePatch, state: "fix-required", code: "FIX_REQUIRED" }, { reviewCostUnits: input.reviewCostUnits, findings: basePatch.latestReview.findings.length, ...(reviewResult.evaluationId ? { evaluationId: reviewResult.evaluationId } : {}) });
+      output = result(changes, "quality-gate.review-recorded");
+    }
+    return output;
+  }
+
+  function reviewInput(input, scope) {
+    assertSafeInput(input);
+    assertIdentifier("gateId", input?.gateId, 80);
+    assertIdentifier("idempotencyKey", input?.idempotencyKey);
+    assertActor(input?.actor);
+    assertCost("reviewCostUnits", input?.reviewCostUnits);
+    const gate = gates.get(input.gateId);
+    if (!gate) throw new Error(`Quality Gate ${input.gateId} does not exist.`);
+    const replayed = replay(`${scope}\u0000${input.gateId}`, input.idempotencyKey, input);
+    if (replayed) return { gate, replayed };
+    if (gate.state !== "review-ready") throw new QualityGateTransitionError({ gateId: gate.gateId, state: gate.state, action: "run review" });
+    const authorization = assertDecision(input.reviewDecision, gate, "review");
+    if (authorization === "GLOBAL_STOP_ACTIVE") return { gate, stopped: stop(gate, input.actor, "GLOBAL_STOP_ACTIVE", "Global Stop was active before independent review.") };
+    if (authorization) throw new Error("Quality Gate review requires exact review authorization.");
+    if (gate.costUnits + input.reviewCostUnits > gate.policy.maxCostUnits) return { gate, stopped: stop(gate, input.actor, "BUDGET_LIMIT_REACHED", "The next review would exceed the Quality Gate cost cap.") };
+    return { gate };
   }
 
   function open(input) {
@@ -254,51 +304,48 @@ export function createQualityGate(options = {}) {
   }
 
   function review(input) {
-    assertSafeInput(input);
-    assertIdentifier("gateId", input?.gateId, 80);
-    assertIdentifier("idempotencyKey", input?.idempotencyKey);
-    assertActor(input?.actor);
-    assertCost("reviewCostUnits", input?.reviewCostUnits);
-    const gate = gates.get(input.gateId);
-    if (!gate) throw new Error(`Quality Gate ${input.gateId} does not exist.`);
-    const replayed = replay(`REVIEW\u0000${input.gateId}`, input.idempotencyKey, input);
-    if (replayed) return replayed;
-    if (gate.state !== "review-ready") throw new QualityGateTransitionError({ gateId: gate.gateId, state: gate.state, action: "run review" });
-    const authorization = assertDecision(input.reviewDecision, gate, "review");
-    let output;
-    if (authorization === "GLOBAL_STOP_ACTIVE") {
-      output = stop(gate, input.actor, "GLOBAL_STOP_ACTIVE", "Global Stop was active before independent review.");
-    } else if (authorization) {
-      throw new Error("Quality Gate review requires exact review authorization.");
-    } else if (gate.costUnits + input.reviewCostUnits > gate.policy.maxCostUnits) {
-      output = stop(gate, input.actor, "BUDGET_LIMIT_REACHED", "The next review would exceed the Quality Gate cost cap.");
-    } else {
-      const reviewResult = reviewPipeline.review({
-        runId: gate.runId,
-        taskId: gate.taskId,
-        stepId: gate.stepId,
-        documentVersion: gate.documentVersion,
-        executionEvidence: gate.latestEvidence,
-        idempotencyKey: `quality-gate-${gate.gateId}-review-${gate.correctionCycles}`
-      });
-      if (!reviewResult || !["approved", "changes-requested", "blocked"].includes(reviewResult.status)) {
-        throw new Error("reviewPipeline returned an invalid review result.");
-      }
-      const basePatch = { costUnits: gate.costUnits + input.reviewCostUnits, latestReview: immutableCopy({ status: reviewResult.status, code: reviewResult.code, findings: reviewResult.review?.findings ?? [] }) };
-      if (reviewResult.status === "approved") {
-        const approved = append(gate, "quality-gate.approved", input.actor, { ...basePatch, state: "approved", code: "QUALITY_APPROVED" }, { reviewCostUnits: input.reviewCostUnits, findings: 0 });
-        output = result(approved, "quality-gate.approved");
-      } else if (reviewResult.status === "blocked") {
-        const blocked = append(gate, "quality-gate.stopped", input.actor, { ...basePatch, state: "stopped", code: "REVIEW_BLOCKED", stopReason: reviewResult.code }, { code: "REVIEW_BLOCKED", reviewCostUnits: input.reviewCostUnits });
-        output = result(blocked, "quality-gate.stopped");
-      } else if (gate.correctionCycles >= gate.policy.maxCorrectionCycles) {
-        const capped = append(gate, "quality-gate.stopped", input.actor, { ...basePatch, state: "stopped", code: "CYCLE_LIMIT_REACHED", stopReason: "Independent review requested another correction after the cycle cap." }, { code: "CYCLE_LIMIT_REACHED", reviewCostUnits: input.reviewCostUnits, findings: basePatch.latestReview.findings.length });
-        output = result(capped, "quality-gate.stopped");
-      } else {
-        const changes = append(gate, "quality-gate.review-recorded", input.actor, { ...basePatch, state: "fix-required", code: "FIX_REQUIRED" }, { reviewCostUnits: input.reviewCostUnits, findings: basePatch.latestReview.findings.length });
-        output = result(changes, "quality-gate.review-recorded");
-      }
+    const prepared = reviewInput(input, "REVIEW");
+    if (prepared.replayed) return prepared.replayed;
+    if (prepared.stopped) {
+      remember(`REVIEW\u0000${input.gateId}`, input.idempotencyKey, input, prepared.stopped);
+      return prepared.stopped;
     }
+    const { gate } = prepared;
+    const reviewResult = reviewPipeline.review({
+      gateId: gate.gateId,
+      correctionCycles: gate.correctionCycles,
+      runId: gate.runId,
+      taskId: gate.taskId,
+      stepId: gate.stepId,
+      documentVersion: gate.documentVersion,
+      executionEvidence: gate.latestEvidence,
+      idempotencyKey: `quality-gate-${gate.gateId}-review-${gate.correctionCycles}`
+    });
+    const output = applyReview(gate, input, reviewResult);
+    remember(`REVIEW\u0000${input.gateId}`, input.idempotencyKey, input, output);
+    return output;
+  }
+
+  async function reviewAsync(input) {
+    const prepared = reviewInput(input, "REVIEW");
+    if (prepared.replayed) return prepared.replayed;
+    if (prepared.stopped) {
+      remember(`REVIEW\u0000${input.gateId}`, input.idempotencyKey, input, prepared.stopped);
+      return prepared.stopped;
+    }
+    const { gate } = prepared;
+    const reviewMethod = asyncReviewPipeline.reviewAsync ?? asyncReviewPipeline.review;
+    const reviewResult = await reviewMethod({
+      gateId: gate.gateId,
+      correctionCycles: gate.correctionCycles,
+      runId: gate.runId,
+      taskId: gate.taskId,
+      stepId: gate.stepId,
+      documentVersion: gate.documentVersion,
+      executionEvidence: gate.latestEvidence,
+      idempotencyKey: `quality-gate-${gate.gateId}-review-${gate.correctionCycles}`
+    });
+    const output = applyReview(gate, input, reviewResult);
     remember(`REVIEW\u0000${input.gateId}`, input.idempotencyKey, input, output);
     return output;
   }
@@ -337,7 +384,7 @@ export function createQualityGate(options = {}) {
     return gate ? publicGate(gate) : null;
   }
 
-  return Object.freeze({ open, recordTest, review, authorizeFix, get, events: () => eventLog.readAfter(), contract: () => getQualityGateContractSummary() });
+  return Object.freeze({ open, recordTest, review, reviewAsync, authorizeFix, get, events: () => eventLog.readAfter(), contract: () => getQualityGateContractSummary() });
 }
 
 export function createQualityGateHarness(options = {}) {

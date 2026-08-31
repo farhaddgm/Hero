@@ -1,5 +1,6 @@
 import { TEAM_APPROVAL_MODES, TEAM_CATALOG } from "./team.mjs";
 import { OUTPUT_DECISIONS, OUTPUT_DECISION_STATES, OUTPUT_EVALUATION_DIMENSIONS, PRODUCT_OUTPUT_DEFINITIONS, PRODUCT_OUTPUT_TYPES } from "./output-advisory.mjs";
+import { AI_ROLES, AI_ROLE_MUTATION_POLICIES, AI_ROLE_OUTPUT_SCHEMAS } from "./ai-orchestration.mjs";
 
 export const PLANNER_CONTRACT_VERSION = "1.0";
 
@@ -43,6 +44,17 @@ export const PLANNER_TEAM_ROUTES = Object.freeze({
   handoff: Object.freeze({ owner: "rahbaro", collaborators: Object.freeze(["mahsulo", "amaliyato"]), stage: "delivery", approvalMode: "gate-only" })
 });
 
+// The legacy provider router remains available for compatibility, while every
+// planned task also declares the replaceable AI role it consumes.
+export const PLANNER_AI_ROLE_ROUTES = Object.freeze({
+  analysis: Object.freeze({ aiRole: "analyst", providerId: "openai", modelId: "chatgpt", outputSchema: "analysis-v1" }),
+  architecture: Object.freeze({ aiRole: "planner", providerId: "openai", modelId: "chatgpt", outputSchema: "plan-v1" }),
+  implementation: Object.freeze({ aiRole: "executor", providerId: "openai", modelId: "codex", outputSchema: "execution-v1" }),
+  testing: Object.freeze({ aiRole: "verifier", providerId: "anthropic", modelId: "default", outputSchema: "evaluation-v1" }),
+  review: Object.freeze({ aiRole: "code-reviewer", providerId: "anthropic", modelId: "default", outputSchema: "evaluation-v1" }),
+  handoff: Object.freeze({ aiRole: "decision-maker", providerId: "openai", modelId: "chatgpt", outputSchema: "decision-proposal-v1" })
+});
+
 export function validatePlannerContract() {
   const errors = [];
   if (PLANNER_CONTRACT_VERSION !== "1.0") errors.push("Planner contract version is invalid.");
@@ -61,6 +73,10 @@ export function validatePlannerContract() {
       routedTeams.add(collaborator);
     }
     if (!TEAM_APPROVAL_MODES.includes(route.approvalMode)) errors.push(`Planner approval mode is invalid for ${kind}.`);
+    const aiRoute = PLANNER_AI_ROLE_ROUTES[kind];
+    if (!aiRoute || !AI_ROLES.includes(aiRoute.aiRole)) errors.push(`Planner AI role is invalid for ${kind}.`);
+    if (aiRoute && (AI_ROLE_OUTPUT_SCHEMAS[aiRoute.aiRole] === undefined || aiRoute.outputSchema !== AI_ROLE_OUTPUT_SCHEMAS[aiRoute.aiRole])) errors.push(`Planner AI output schema is missing for ${kind}.`);
+    if (aiRoute && !AI_ROLE_MUTATION_POLICIES[aiRoute.aiRole]) errors.push(`Planner AI mutation policy is missing for ${kind}.`);
   }
   for (const team of knownTeams) if (!routedTeams.has(team)) errors.push(`Planner does not route any task to ${team}.`);
   if (OUTPUT_DECISIONS.length !== 3 || OUTPUT_DECISION_STATES[0] !== "pending-owner") errors.push("Planner output advisory decision states are incomplete.");
@@ -75,6 +91,7 @@ export function getPlannerContractSummary() {
     taskKinds: PLANNER_TASK_KINDS,
     providers: PLANNER_ROUTER_PROVIDERS,
     teamRoutes: PLANNER_TEAM_ROUTES,
+    aiRoleRoutes: PLANNER_AI_ROLE_ROUTES,
     decisionCodes: PLANNER_DECISION_CODES,
     input: "simple Persian product request + optional read-only project context",
     output: "versioned spec, explicit assumptions, acceptance criteria, valid Task Graph, explained provider routing, team-readiness decision and owner-reviewed output advisory",

@@ -5,14 +5,21 @@
 | شرط | وضعیت فعلی | شاهد/اقدام لازم |
 | --- | --- | --- |
 | قرارداد و Task Graph نسخه‌دار | آماده | Planner، training benchmark و تست‌های قراردادی موجودند |
-| محیط Linux پاک و Compose مستقل | آمادهٔ test | Compose با منابع `hero-*` و health/readiness فعال است |
-| PostgreSQL migration و command audit | آمادهٔ test | migration `001` و `check:postgres` با محیط موقت موفق شده‌اند |
-| projection پایدار همهٔ domain commandها | مسدود | هنوز projection کامل از in-memory به PostgreSQL منتقل نشده است |
-| session revocation پایدار مالک | مسدود | مرز signed-session موجود است؛ revocation durable باقی است |
-| Provider واقعی | مسدود | Codex/ChatGPT، Claude و Cursor عمداً disabled هستند |
+| محیط Linux پاک و Compose مستقل | آمادهٔ test / انتقال مسدود | imageهای verify/runtime با Linux container ساخته و بررسی شده‌اند؛ اجرای مقصد واقعی هنوز مجوز و محیط مقصد می‌خواهد |
+| PostgreSQL migration و command audit | آمادهٔ test | migrationهای `001` تا `005` و `check:postgres` موفق‌اند |
+| Snapshot و hydration رجیستری‌های اصلی | آمادهٔ test | Snapshot Store نسخه‌دار برای ۸ Registry دامنه و Dashboard فعال است؛ دیتابیس فعلی هنوز Snapshot ثبت‌شده ندارد |
+| projection پایدار همهٔ domain commandها | مسدود | projection کامل همهٔ commandها از in-memory به PostgreSQL منتقل نشده است |
+| session revocation پایدار مالک | آمادهٔ test | revocation در authenticate fail-closed است و migration/store PostgreSQL برای بازسازی بعد از restart اضافه شده؛ اجرای مقصد عملیاتی هنوز جداست |
+| Provider واقعی | مسدود | Adapterهای OpenAI/Anthropic/Google/Compatible آماده‌اند؛ credential، cost policy و verifier مجوز فعال عمداً متصل/اجرا نشده‌اند |
 | اجرای Task واقعی در Worktree | مسدود | نیازمند HERO-020 و مجوز/دسترسی Provider مستقل است |
-| درخواست، پلتفرم و معیار پذیرش پایلوت | آمادهٔ تعریف | باید برای محصول کوچک مشخص و نسخه‌دار شود |
+| درخواست، پلتفرم و معیار پذیرش پایلوت | مسدود | باید برای محصول کوچک مشخص و نسخه‌دار شود؛ بدون mock جایگزین اجرای واقعی نمی‌شود |
 | production، deploy، spend و secret change | مسدود تا مجوز جدا | این عملیات هرگز از مجوز توسعه استنتاج نمی‌شوند |
+
+## شواهد عملیاتی ثبت‌شده در ۲۰۲۶-۰۸-۳۰
+
+- `docker build --target verify`: موفق؛ build، Doctor و تست‌های کامل داخل Linux container اجرا شدند.
+- Backup/Restore ایزولهٔ PostgreSQL با artifact موقت `hero-recovery-check`: موفق؛ checksum و sentinel پس از restore تطبیق داشتند.
+- این شواهد، آزمون portability را تقویت می‌کنند اما جایگزین restore روی مقصد پاکِ مصوب، volume عملیاتی `hero-data` و مجوز انتقال نیستند.
 
 ## فرمان بررسی
 

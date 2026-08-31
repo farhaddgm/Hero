@@ -100,6 +100,19 @@ test("owner auth endpoint exposes only the signed-session boundary", async t => 
   assert.equal(payload.ownerAuthContract.secretBoundary.includes("never logged"), true);
 });
 
+test("AI orchestration endpoint exposes replaceable roles without implying live providers", async t => {
+  const app = createHeroServer({ host: "127.0.0.1", port: 0 });
+  const address = await app.start();
+  t.after(() => app.stop());
+
+  const response = await fetch("http://127.0.0.1:" + address.port + "/ai-orchestration-contract");
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.ok(payload.aiOrchestrationContract.roles.includes("decision-maker"));
+  assert.ok(payload.aiOrchestrationContract.providers.includes("openai-compatible"));
+  assert.match(payload.aiOrchestrationContract.invariants.join(" "), /Team != AI Role/);
+});
+
 test("readiness reports the configured persistence boundary", async t => {
   const app = createHeroServer({
     host: "127.0.0.1",

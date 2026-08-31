@@ -12,7 +12,7 @@ const checks = [
   { id: "readiness-document", ready: fs.existsSync(readinessDoc), reason: "سند آمادگی پایلوت موجود نیست." },
   { id: "planner-contract", ready: validatePlannerContract().length === 0, reason: "قرارداد Planner معتبر نیست." },
   { id: "training-contract", ready: validateTrainingContract().length === 0, reason: "قرارداد آموزش معتبر نیست." },
-  { id: "linux-recovery-evidence", ready: false, reason: "شاهد واقعی Clean Linux، Backup و Restore هنوز ثبت نشده است." },
+  { id: "linux-recovery-evidence", ready: false, reason: "شاهد مقصد Clean Linux و restore روی artifact عملیاتی هنوز ثبت نشده است؛ آزمون disposable به‌تنهایی کافی نیست." },
   { id: "provider-authorization", ready: false, reason: "Provider واقعی و مجوز مستقل آن هنوز فعال نشده است." },
   { id: "pilot-request", ready: false, reason: "درخواست و معیار پذیرش محصول پایلوت هنوز ثبت نشده است." }
 ];

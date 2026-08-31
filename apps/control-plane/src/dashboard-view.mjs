@@ -4,6 +4,8 @@ export function getDashboardHtml() {
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate">
+    <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate">
     <title>Hero — اتاق کنترل</title>
     <style>
       :root { color-scheme: light; font-family: Tahoma, Arial, sans-serif; background: #f5f5f9; color: #1f2233; }
@@ -42,6 +44,10 @@ export function getDashboardHtml() {
       .team p { color: #5f6276; margin: 8px 0; line-height: 1.7; }
       .team .team-output { color: #266349; font-size: .84rem; }
       .principles, .releases { display: grid; gap: 13px; }
+      .ai-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+      .ai-metric { border: 1px solid #e7e8ef; border-radius: 11px; padding: 12px; background: #fafaff; }
+      .ai-metric strong { display: block; font-size: 1.15rem; color: #453bc8; }
+      .ai-metric span { color: #676a7d; font-size: .82rem; }
       .principle, .release { border: 1px solid #e7e8ef; border-radius: 13px; padding: 15px; }
       .principle p, .release p { color: #5f6276; margin: 8px 0; line-height: 1.7; }
       .notice { min-height: 22px; margin: 14px 0 0; color: #4d45d7; font-weight: 700; font-size: .9rem; }
@@ -78,6 +84,11 @@ export function getDashboardHtml() {
           <div id="teams" class="teams"></div>
         </section>
         <section class="card wide">
+          <h2>لایهٔ Multi-AI و تصمیم‌سازی</h2>
+          <p class="subtitle">این بخش وضعیت مشاهده‌ایِ نقش‌ها و شواهد AI را نشان می‌دهد؛ ارزیابی مجوز نیست و Provider زنده در این مرحله متصل نیست.</p>
+          <div id="ai-summary" class="ai-summary"></div>
+        </section>
+        <section class="card wide">
           <h2>اصول حیاتی و فلو انتشار</h2>
           <p class="subtitle">هر اصل نسخه‌دار و owner-gated است. مسیر انتشار فقط از همان commitِ تست‌شده عبور می‌کند: test → تست و شواهد → تأیید مالک → فرمان مستقل production.</p>
           <div id="principles" class="principles"></div>
@@ -90,7 +101,7 @@ export function getDashboardHtml() {
       </section>
     </main>
     <script>
-      const ui = { state: null, notice: document.getElementById('notice'), requests: document.getElementById('requests'), teams: document.getElementById('teams'), principles: document.getElementById('principles'), releases: document.getElementById('releases') };
+      const ui = { state: null, notice: document.getElementById('notice'), requests: document.getElementById('requests'), teams: document.getElementById('teams'), aiSummary: document.getElementById('ai-summary'), principles: document.getElementById('principles'), releases: document.getElementById('releases') };
       const requestJson = async (path, body) => {
         const response = await fetch(path, { method: body ? 'POST' : 'GET', headers: body ? { 'content-type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined });
         const payload = await response.json();
@@ -134,6 +145,19 @@ export function getDashboardHtml() {
         }
         return card;
       }
+      function renderAiSummary(ai) {
+        const contract = ai?.contract ?? {}; const counts = ai?.counts ?? {};
+        const metrics = [
+          ['نقش‌ها', (contract.roles ?? []).length],
+          ['Providerها', counts.providers ?? 0],
+          ['Profileها', counts.profiles ?? 0],
+          ['Invocationها', counts.invocations ?? 0],
+          ['Evaluationها', counts.evaluations ?? 0],
+          ['تصمیم‌ها', counts.decisions ?? 0]
+        ];
+        ui.aiSummary.replaceChildren(); metrics.forEach(([label, value]) => { const metric = element('div', '', 'ai-metric'); metric.append(element('strong', String(value)), element('span', label)); ui.aiSummary.append(metric); });
+        const details = element('p', 'نقش‌ها: ' + (contract.roles ?? []).join('، ') + ' · پیش‌فرض اجرا: Codex · Provider زنده: متصل نیست', 'subtitle'); ui.aiSummary.append(details);
+      }
       function renderPrinciple(principle) {
         const card = element('article', '', 'principle');
         const head = element('div', '', 'request-head'); head.append(element('h3', principle.title), element('span', principle.status, 'state')); card.append(head);
@@ -158,6 +182,7 @@ export function getDashboardHtml() {
         document.getElementById('autonomy').checked = state.fullAutonomy; document.getElementById('autonomy-title').textContent = state.fullAutonomy ? 'اختیار کامل فعال' : 'تأیید موردی';
         document.getElementById('global-stop').textContent = state.globalStop ? 'برداشتن توقف' : 'فعال‌سازی توقف'; document.getElementById('provider-mode').textContent = state.providerMode;
         ui.teams.replaceChildren(); const teams = state.teamControl?.teams ?? []; if (!teams.length) ui.teams.append(element('p', 'تیمی ثبت نشده است.', 'empty')); else teams.forEach(team => ui.teams.append(renderTeam(team)));
+        renderAiSummary(state.aiOrchestration);
         ui.principles.replaceChildren(); const principles = state.principlesControl?.principles ?? []; if (!principles.length) ui.principles.append(element('p', 'اصلی ثبت نشده است.', 'empty')); else principles.forEach(principle => ui.principles.append(renderPrinciple(principle)));
         ui.releases.replaceChildren(); const releases = state.releaseControl?.releases ?? []; if (releases.length) { ui.releases.append(element('h3', 'انتشارها')); releases.forEach(release => ui.releases.append(renderRelease(release))); }
         ui.requests.replaceChildren(); if (!state.requests.length) ui.requests.append(element('p', 'هنوز درخواستی ثبت نشده است.', 'empty')); else state.requests.forEach(request => ui.requests.append(renderRequest(request)));

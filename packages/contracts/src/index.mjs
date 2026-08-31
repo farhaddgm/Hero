@@ -99,6 +99,7 @@ export {
   PLANNER_CONTRACT_VERSION,
   PLANNER_DECISION_CODES,
   PLANNER_ROUTER_PROVIDERS,
+  PLANNER_AI_ROLE_ROUTES,
   PLANNER_STATES,
   PLANNER_TASK_KINDS,
   PLANNER_TEAM_ROUTES,
@@ -114,6 +115,41 @@ export {
   getQualityGateContractSummary,
   validateQualityGateContract
 } from "./quality-gate.mjs";
+
+export {
+  ORGANIZATION_PERFORMANCE_BANDS,
+  ORGANIZATION_PERFORMANCE_CONTRACT_VERSION,
+  ORGANIZATION_PERFORMANCE_METRICS,
+  getOrganizationPerformanceContractSummary,
+  validateOrganizationPerformanceContract
+} from "./organization-performance.mjs";
+
+export {
+  AI_BENCHMARK_CASES,
+  AI_BENCHMARK_CONTRACT_VERSION,
+  AI_BENCHMARK_METRICS,
+  getAiBenchmarkContractSummary,
+  validateAiBenchmarkContract
+} from "./ai-benchmark.mjs";
+
+export {
+  PILOT_ACCEPTANCE_CHECKS,
+  PILOT_CONTRACT_VERSION,
+  PILOT_STATES,
+  getPilotContractSummary,
+  validatePilotContract
+} from "./pilot.mjs";
+
+export {
+  OBSERVABILITY_CONTRACT_VERSION,
+  OBSERVABILITY_EVENT_KINDS,
+  OBSERVABILITY_SAFE_DATA_KEYS,
+  SPAN_ID_PATTERN,
+  TRACE_ID_PATTERN,
+  getObservabilityContractSummary,
+  projectOperationalEvent,
+  validateObservabilityContract
+} from "./observability.mjs";
 
 export {
   WEB_FACTORY_CONTRACT_VERSION,
@@ -203,6 +239,28 @@ export {
   getOutputAdvisoryContractSummary,
   validateOutputAdvisoryContract
 } from "./output-advisory.mjs";
+
+export {
+  AI_ORCHESTRATION_CONTRACT_VERSION,
+  AI_ROLES,
+  AI_PROVIDER_IDS,
+  AI_PROVIDER_MODES,
+  AI_PROFILE_STATUSES,
+  AI_TOOL_POLICIES,
+  AI_INVOCATION_STATUSES,
+  AI_EVALUATION_VERDICTS,
+  AI_DECISION_STATES,
+  AI_DECISION_REQUESTS,
+  AI_OUTPUT_SCHEMAS,
+  AI_CONTEXT_RECIPIENT_ROLES,
+  AI_ROLE_OUTPUT_SCHEMAS,
+  AI_ROLE_MUTATION_POLICIES,
+  AI_WORKFLOW_DEFINITIONS,
+  AI_WORKFLOW_CONTRACTS,
+  AI_DEFAULT_ROLE_POLICIES,
+  getAiOrchestrationContractSummary,
+  validateAiOrchestrationContract
+} from "./ai-orchestration.mjs";
 
 export {
   CRITICAL_PRINCIPLES_CONTRACT_VERSION,

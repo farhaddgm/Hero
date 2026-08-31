@@ -20,7 +20,14 @@ export const AGGREGATE_TYPES = Object.freeze([
   "mobile-factory",
   "assurance-gate",
   "portability-gate",
-  "research"
+  "research",
+  "ai-provider",
+  "ai-model",
+  "ai-profile",
+  "ai-binding",
+  "ai-invocation",
+  "ai-evaluation",
+  "ai-decision"
 ]);
 
 export const EVENT_TYPES = Object.freeze([
@@ -82,6 +89,19 @@ export const EVENT_TYPES = Object.freeze([
   "team.research-report-ready",
   "team.research-reviewed",
   "team.research-applied",
+  "ai.provider-registered",
+  "ai.model-registered",
+  "ai.profile-registered",
+  "ai.role-bound",
+  "ai.provider-health-checked",
+  "ai.invocation-started",
+  "ai.invocation-retry-scheduled",
+  "ai.invocation-completed",
+  "ai.invocation-blocked",
+  "ai.invocation-failed",
+  "ai.evaluation-recorded",
+  "ai.decision-proposed",
+  "ai.decision-resolved",
   "principle.defined",
   "principle.reviewed",
   "principle.rework-requested",
@@ -154,6 +174,13 @@ export const OPERATIONAL_ENTITY_MODEL = Object.freeze([
   Object.freeze({ id: "mobile-factory", sourceOfTruth: "mobile_factory_records", purpose: "Versioned mobile blueprint, feature recipe and quality evidence" }),
   Object.freeze({ id: "assurance-gate", sourceOfTruth: "assurance_gate_records", purpose: "Versioned local CI, security, observability and cost assessment" }),
   Object.freeze({ id: "portability-gate", sourceOfTruth: "portability_gate_records", purpose: "Versioned source, runtime, backup, restore and clean Linux evidence" }),
+  Object.freeze({ id: "ai-provider", sourceOfTruth: "ai_providers", purpose: "Provider adapter identity and safe runtime mode" }),
+  Object.freeze({ id: "ai-model", sourceOfTruth: "ai_models", purpose: "Provider model capability metadata" }),
+  Object.freeze({ id: "ai-profile", sourceOfTruth: "agent_profiles", purpose: "Versioned role, prompt, context, tool and output policy" }),
+  Object.freeze({ id: "ai-binding", sourceOfTruth: "project_agent_bindings", purpose: "Project and role to profile assignment" }),
+  Object.freeze({ id: "ai-invocation", sourceOfTruth: "ai_invocations", purpose: "Provider call, profile snapshot, usage and result status" }),
+  Object.freeze({ id: "ai-evaluation", sourceOfTruth: "evaluations", purpose: "Structured evaluation evidence and findings" }),
+  Object.freeze({ id: "ai-decision", sourceOfTruth: "decision_proposals", purpose: "Versioned owner-resolved decision proposals" }),
   Object.freeze({ id: "outbox", sourceOfTruth: "outbox", purpose: "Dispatch پایدار پس از commit تراکنش" })
 ]);
 

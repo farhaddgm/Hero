@@ -1,3 +1,5 @@
+import { getAiOrchestrationContractSummary, validateAiOrchestrationContract } from "./ai-orchestration.mjs";
+
 export const ARCHITECTURE_CONTRACT_VERSION = "1.0";
 
 export const ARCHITECTURE_STYLE = Object.freeze({
@@ -89,6 +91,17 @@ export const PROVIDER_ARCHITECTURE = Object.freeze([
   })
 ]);
 
+export const AI_ORCHESTRATION_ARCHITECTURE = Object.freeze({
+  boundary: "internal-domain-subsystem",
+  contractVersion: "1.0",
+  roles: getAiOrchestrationContractSummary().roles,
+  providerGateway: "adapter-boundary",
+  defaultExecutionProfile: Object.freeze({ provider: "openai", model: "codex", status: "policy-default-only" }),
+  liveConnectionStatus: "not-connected",
+  evaluationBoundary: "evidence-not-authorization",
+  teamBoundary: "AI roles are capabilities; Hero teams remain governed operating units"
+});
+
 export const ARCHITECTURE_FLOW = Object.freeze([
   "درخواست فارسی",
   "فهم و سؤال‌های ضروری",
@@ -120,7 +133,16 @@ export function getPublicArchitectureSummary() {
       connectionStatus: provider.connectionStatus
     })),
     executionBoundary: "isolated-runner",
-    dataStore: ARCHITECTURE_RUNTIME.persistence.target
+    dataStore: ARCHITECTURE_RUNTIME.persistence.target,
+    aiOrchestration: {
+      boundary: AI_ORCHESTRATION_ARCHITECTURE.boundary,
+      contractVersion: AI_ORCHESTRATION_ARCHITECTURE.contractVersion,
+      roles: AI_ORCHESTRATION_ARCHITECTURE.roles,
+      providerGateway: AI_ORCHESTRATION_ARCHITECTURE.providerGateway,
+      defaultExecutionProfile: AI_ORCHESTRATION_ARCHITECTURE.defaultExecutionProfile,
+      liveConnectionStatus: AI_ORCHESTRATION_ARCHITECTURE.liveConnectionStatus,
+      evaluationBoundary: AI_ORCHESTRATION_ARCHITECTURE.evaluationBoundary
+    }
   };
 }
 
@@ -148,6 +170,10 @@ export function validateArchitectureContract() {
   }
   if (!ARCHITECTURE_GUARDRAILS.some(rule => rule.includes("fail-closed"))) {
     errors.push("Architecture must fail closed when a required dependency is unavailable.");
+  }
+  for (const detail of validateAiOrchestrationContract()) errors.push(`AI orchestration: ${detail}`);
+  if (AI_ORCHESTRATION_ARCHITECTURE.liveConnectionStatus !== "not-connected") {
+    errors.push("AI orchestration must not imply a live provider connection in the current stage.");
   }
 
   return errors;

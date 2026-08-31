@@ -31,6 +31,8 @@ test("dashboard contract is Persian, bounded and complete", () => {
   assert.equal(state.providerMode, "Fake Agent only");
   assert.equal(state.fullAutonomy, false);
   assert.equal(state.teamControl.teams.length, 11);
+  assert.equal(state.aiOrchestration.counts.providers, 0);
+  assert.ok(state.aiOrchestration.contract.roles.includes("executor"));
   assert.equal(state.teamControl.contract.humanControl.includes("تأیید"), true);
   assert.equal(state.principlesControl.principles.length, 8);
   assert.deepEqual(state.releaseControl.environments, ["test", "production"]);
@@ -50,6 +52,80 @@ test("HTTP dashboard exposes the team control surface without live providers", a
   const teamControl = (await listed.json()).teamControl;
   assert.equal(teamControl.teams.length, 11);
   assert.equal(teamControl.teams[0].status, "proposed");
+
+  const aiOrchestration = await fetch(baseUrl + "/api/ai-orchestration", { headers: auth.headers });
+  assert.equal(aiOrchestration.status, 200);
+  assert.equal((await aiOrchestration.json()).aiOrchestration.counts.profiles, 0);
+
+  const memory = await fetch(baseUrl + "/api/memory", {
+    method: "POST",
+    headers: withAuth(auth, { "content-type": "application/json" }),
+    body: JSON.stringify({
+      memoryId: "memory-http-scope-001",
+      projectId: "hero",
+      memoryKey: "http-scope",
+      kind: "decision",
+      scope: "task",
+      status: "approved",
+      content: "نسخهٔ اول فقط شامل مسیر اصلی کاربر است.",
+      tags: ["scope", "version1"],
+      recipientRoles: ["planner"],
+      binding: { taskId: "task-http-ai-001", stepId: "HERO-015", documentVersion: "v1.0" },
+      source: { kind: "decision", reference: "hero://decisions/http-scope", documentVersion: "v1.0" },
+      idempotencyKey: "http-memory-001"
+    })
+  });
+  assert.equal(memory.status, 201);
+
+  const provider = await fetch(baseUrl + "/api/ai/providers", {
+    method: "POST",
+    headers: withAuth(auth, { "content-type": "application/json" }),
+    body: JSON.stringify({ providerId: "openai", mode: "deterministic", displayName: "OpenAI deterministic", idempotencyKey: "http-ai-provider-001" })
+  });
+  assert.equal(provider.status, 201);
+  const model = await fetch(baseUrl + "/api/ai/models", {
+    method: "POST",
+    headers: withAuth(auth, { "content-type": "application/json" }),
+    body: JSON.stringify({ providerId: "openai", modelId: "chatgpt", idempotencyKey: "http-ai-model-001" })
+  });
+  assert.equal(model.status, 201);
+  const profile = await fetch(baseUrl + "/api/ai/profiles", {
+    method: "POST",
+    headers: withAuth(auth, { "content-type": "application/json" }),
+    body: JSON.stringify({
+      profileId: "http-analyst-profile-v1", role: "analyst", providerId: "openai", modelId: "chatgpt",
+      credentialRef: "runtime:openai-primary", promptVersion: "analyst-prompt-v1", contextPolicy: "project-approved-context",
+      toolPolicy: "read-only", outputSchema: "analysis-v1", status: "active", idempotencyKey: "http-ai-profile-001"
+    })
+  });
+  assert.equal(profile.status, 201);
+  const binding = await fetch(baseUrl + "/api/ai/bindings", {
+    method: "POST",
+    headers: withAuth(auth, { "content-type": "application/json" }),
+    body: JSON.stringify({ bindingId: "http-analyst-binding-v1", projectId: "hero", role: "analyst", profileId: "http-analyst-profile-v1", idempotencyKey: "http-ai-binding-001" })
+  });
+  assert.equal(binding.status, 201);
+  const context = await fetch(baseUrl + "/api/ai/context", {
+    method: "POST",
+    headers: withAuth(auth, { "content-type": "application/json" }),
+    body: JSON.stringify({ role: "analyst", contextId: "http-ai-context-001", projectId: "hero", taskId: "task-http-ai-001", stepId: "HERO-015", documentVersion: "v1.0" })
+  });
+  assert.equal(context.status, 200);
+  assert.equal((await context.json()).result.status, "ready");
+  const invocation = await fetch(baseUrl + "/api/ai/invocations", {
+    method: "POST",
+    headers: withAuth(auth, { "content-type": "application/json" }),
+    body: JSON.stringify({ invocationId: "http-ai-invocation-001", projectId: "hero", taskId: "task-http-ai-001", stepId: "HERO-015", documentVersion: "v1.0", role: "analyst", contextSnapshotId: "http-ai-context-001", request: "این درخواست را تحلیل کن.", context: { requestClass: "analysis" }, idempotencyKey: "http-ai-invocation-001" })
+  });
+  assert.equal(invocation.status, 201);
+  assert.equal((await invocation.json()).result.invocation.status, "completed");
+  const liveProvider = await fetch(baseUrl + "/api/ai/providers", {
+    method: "POST",
+    headers: withAuth(auth, { "content-type": "application/json" }),
+    body: JSON.stringify({ providerId: "anthropic", mode: "live", displayName: "Anthropic live", idempotencyKey: "http-ai-live-provider-001" })
+  });
+  assert.equal(liveProvider.status, 409);
+  assert.equal((await liveProvider.json()).code, "LIVE_PROVIDER_REQUIRES_SEPARATE_AUTHORIZATION");
 
   const trainingPlan = await fetch(baseUrl + "/api/teams/mahsulo/training-plan", { headers: auth.headers });
   assert.equal(trainingPlan.status, 200);

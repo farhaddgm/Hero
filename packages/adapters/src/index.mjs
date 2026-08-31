@@ -19,5 +19,33 @@ export {
 } from "./postgresql-runtime.mjs";
 
 export {
+  AiProjectionStoreError,
+  createAiProjectionStore
+} from "./ai-projection-store.mjs";
+
+export {
+  DomainRegistrySnapshotError,
+  createPostgresDomainRegistrySnapshotStore
+} from "./domain-registry-snapshot-store.mjs";
+
+export {
   createPostgresCommandAudit
 } from "./postgresql-command-audit.mjs";
+
+export {
+  createPostgresOwnerSessionStore
+} from "./owner-session-store.mjs";
+
+export {
+  OutboxWorkerError,
+  createPostgresOutboxWorker
+} from "./postgresql-outbox-worker.mjs";
+
+export {
+  AiProviderAdapterError,
+  createAnthropicMessagesAdapter,
+  createConfiguredAiProviderAdapters,
+  createGoogleGeminiAdapter,
+  createOpenAiCompatibleAdapter,
+  createOpenAiResponsesAdapter
+} from "./ai-provider-http.mjs";

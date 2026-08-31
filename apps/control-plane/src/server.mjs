@@ -1,4 +1,5 @@
 import http from "node:http";
+import { timingSafeEqual } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -7,6 +8,8 @@ import {
   HERO_VERSION,
   getAuthorizationContractSummary,
   getAssuranceGateContractSummary,
+  getAiOrchestrationContractSummary,
+  getAiBenchmarkContractSummary,
   getClaudeReviewContractSummary,
   getCursorHandoffContractSummary,
   getCriticalPrinciplesContractSummary,
@@ -26,20 +29,28 @@ import {
   getTrainingContractSummary,
   getTeamResearchContractSummary,
   getOutputAdvisoryContractSummary,
+  getOrganizationPerformanceContractSummary,
+  getObservabilityContractSummary,
+  getPilotContractSummary,
+  projectOperationalEvent,
   getWebFactoryContractSummary,
   getWorkflowContractSummary
 } from "../../../packages/contracts/src/index.mjs";
 import { DashboardCommandError, createControlDashboard } from "./dashboard-service.mjs";
 import { getDashboardHtml } from "./dashboard-view.mjs";
+import { getBackofficeHtml } from "./backoffice-view.mjs";
 import { OwnerAuthError, createOwnerAuth } from "../../../packages/domain/src/owner-auth.mjs";
-import { createPostgresRuntime } from "../../../packages/adapters/src/postgresql-runtime.mjs";
+import { createConfiguredAiProviderAdapters, createPostgresRuntime } from "../../../packages/adapters/src/index.mjs";
+
+const PRIVATE_ROBOTS_POLICY = "noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate";
 
 function json(response, statusCode, body) {
   const payload = JSON.stringify(body);
   response.writeHead(statusCode, {
     "content-type": "application/json; charset=utf-8",
     "content-length": Buffer.byteLength(payload),
-    "cache-control": "no-store"
+    "cache-control": "no-store",
+    "x-robots-tag": PRIVATE_ROBOTS_POLICY
   });
   response.end(payload);
 }
@@ -49,10 +60,59 @@ function html(response, body) {
     "content-type": "text/html; charset=utf-8",
     "content-security-policy": "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'",
     "x-content-type-options": "nosniff",
+    "x-robots-tag": PRIVATE_ROBOTS_POLICY,
     "referrer-policy": "no-referrer",
     "cache-control": "no-store"
   });
   response.end(body);
+}
+
+function plain(response, statusCode, body) {
+  response.writeHead(statusCode, {
+    "content-type": "text/plain; charset=utf-8",
+    "content-length": Buffer.byteLength(body),
+    "cache-control": "no-store",
+    "x-robots-tag": PRIVATE_ROBOTS_POLICY,
+    "x-content-type-options": "nosniff"
+  });
+  response.end(body);
+}
+
+function basicAuthConfig(options = {}) {
+  const configured = options.backofficeAuth ?? {
+    username: process.env.HERO_BACKOFFICE_USER,
+    password: process.env.HERO_BACKOFFICE_PASSWORD
+  };
+  const username = configured?.username;
+  const password = configured?.password;
+  if ((username === undefined || username === "") && (password === undefined || password === "")) return null;
+  if (typeof username !== "string" || username.trim() === "" || typeof password !== "string" || password.length < 16) {
+    throw new Error("Back Office Basic Auth requires a non-empty username and a password of at least 16 characters.");
+  }
+  return Object.freeze({ username, password });
+}
+
+function basicCredentials(request) {
+  const value = request.headers.authorization;
+  if (typeof value !== "string" || !value.startsWith("Basic ")) return null;
+  try {
+    const decoded = Buffer.from(value.slice(6), "base64").toString("utf8");
+    const separator = decoded.indexOf(":");
+    if (separator < 1) return null;
+    return { username: decoded.slice(0, separator), password: decoded.slice(separator + 1) };
+  } catch {
+    return null;
+  }
+}
+
+function matchesBasicAuth(credentials, expected) {
+  if (!credentials || !expected) return false;
+  const actualUser = Buffer.from(credentials.username);
+  const expectedUser = Buffer.from(expected.username);
+  const actualPassword = Buffer.from(credentials.password);
+  const expectedPassword = Buffer.from(expected.password);
+  return actualUser.length === expectedUser.length && actualPassword.length === expectedPassword.length &&
+    timingSafeEqual(actualUser, expectedUser) && timingSafeEqual(actualPassword, expectedPassword);
 }
 
 async function readJson(request) {
@@ -84,23 +144,91 @@ function parsePort(value) {
   return port;
 }
 
+function optionalCostUnits(envName) {
+  const raw = process.env[envName];
+  if (raw === undefined || raw.trim() === "") return undefined;
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value < 0) throw new Error(`${envName} must be a non-negative number.`);
+  return value;
+}
+
 export function createHeroServer(options = {}) {
   const host = options.host ?? process.env.HERO_HTTP_HOST ?? "127.0.0.1";
   const port = parsePort(options.port ?? process.env.HERO_HTTP_PORT ?? "3100");
-  const dashboard = options.dashboard ?? createControlDashboard({ now: options.now });
+  const backofficeAuth = basicAuthConfig(options);
+  const providerAdapterOptions = options.providerAdapterOptions ?? {
+    openai: { costUnitsPer1kTokens: optionalCostUnits("HERO_OPENAI_COST_UNITS_PER_1K_TOKENS") },
+    anthropic: { costUnitsPer1kTokens: optionalCostUnits("HERO_ANTHROPIC_COST_UNITS_PER_1K_TOKENS") },
+    google: { costUnitsPer1kTokens: optionalCostUnits("HERO_GOOGLE_COST_UNITS_PER_1K_TOKENS") },
+    "openai-compatible": { costUnitsPer1kTokens: optionalCostUnits("HERO_OPENAI_COMPATIBLE_COST_UNITS_PER_1K_TOKENS") }
+  };
+  const providerAdapters = options.providerAdapters ?? ((options.enableRealProviders === true || process.env.HERO_ENABLE_REAL_PROVIDERS === "true")
+    ? createConfiguredAiProviderAdapters(providerAdapterOptions)
+    : Object.freeze({}));
+  const dashboard = options.dashboard ?? createControlDashboard({ now: options.now, providerAdapters, externalSpendAuthorizer: options.externalSpendAuthorizer });
   const ownerAuth = options.ownerAuth ?? createOwnerAuth({ secret: process.env.HERO_OWNER_AUTH_SECRET, now: options.now });
   let postgresRuntime = options.postgresRuntime ?? null;
   let ownsPostgresRuntime = false;
+  let persistedDomainEventIds = new Set();
+
+  async function persistNewDomainEvents() {
+    if (!postgresRuntime?.store || typeof dashboard.domainEvents !== "function") return;
+    const events = [...dashboard.domainEvents()].sort((left, right) =>
+      `${left.aggregateType}:${left.aggregateId}`.localeCompare(`${right.aggregateType}:${right.aggregateId}`) ||
+      (left.aggregateVersion ?? 0) - (right.aggregateVersion ?? 0)
+    );
+    for (const event of events) {
+      if (persistedDomainEventIds.has(event.eventId)) continue;
+      await postgresRuntime.store.appendEvent(event, {
+        expectedVersion: Math.max(0, (event.aggregateVersion ?? 1) - 1),
+        outbox: { outboxId: `hero-domain-${event.eventId}`, topic: "hero.domain.events" }
+      });
+      persistedDomainEventIds.add(event.eventId);
+    }
+  }
 
   async function executeDashboardCommand(command, input, operation) {
-    const result = await operation();
+    const projectIdCandidate = input?.projectId ?? input?.organizationId;
+    const projectId = typeof projectIdCandidate === "string" && /^[A-Za-z][A-Za-z0-9._:-]{2,127}$/.test(projectIdCandidate)
+      ? projectIdCandidate
+      : "hero";
+    let result;
+    try {
+      result = await operation();
+    } catch (error) {
+      if (postgresRuntime?.audit) {
+        try {
+          await postgresRuntime.audit.record({
+            command,
+            projectId,
+            actor: { kind: "project-owner", id: "hero-owner" },
+            outcome: "rejected"
+          });
+        } catch {
+          // Preserve the original command error if audit persistence is unavailable.
+        }
+      }
+      throw error;
+    }
     if (postgresRuntime?.audit) {
-      const projectId = input?.projectId ?? result?.projectId ?? result?.request?.projectId ?? result?.research?.projectId ?? result?.result?.projectId ?? "hero";
-      await postgresRuntime.audit.record({
+      await persistNewDomainEvents();
+      const auditEvent = await postgresRuntime.audit.record({
         command,
         projectId,
-        actor: { kind: "project-owner", id: "hero-owner" }
+        actor: { kind: "project-owner", id: "hero-owner" },
+        outcome: "accepted"
       });
+      if (postgresRuntime.registrySnapshots && typeof dashboard.persistenceSnapshot === "function") {
+        const state = dashboard.persistenceSnapshot();
+        for (const registry of state.registries) {
+          await postgresRuntime.registrySnapshots.save({
+            registryId: registry.registryId,
+            schemaVersion: registry.schemaVersion,
+            sourceSequence: auditEvent.sequence ?? 0,
+            data: registry
+          });
+        }
+      }
     }
     return result;
   }
@@ -111,7 +239,67 @@ export function createHeroServer(options = {}) {
     const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
 
     try {
-      if (url.pathname.startsWith("/api/")) ownerAuth.requireOwner(request.headers.authorization);
+      const protectedBackofficePath = request.method === "GET" && ["/backoffice", "/backoffice-data", "/backoffice-events"].includes(url.pathname);
+      if (protectedBackofficePath && backofficeAuth && !matchesBasicAuth(basicCredentials(request), backofficeAuth)) {
+        response.writeHead(401, {
+          "www-authenticate": 'Basic realm="Hero Back Office", charset="UTF-8"',
+          "cache-control": "no-store",
+          "x-robots-tag": PRIVATE_ROBOTS_POLICY,
+          "x-content-type-options": "nosniff"
+        });
+        response.end("Back Office authentication required.");
+        return;
+      }
+
+      if (request.method === "GET" && url.pathname === "/robots.txt") {
+        return plain(response, 200, "User-agent: *\nDisallow: /\n");
+      }
+
+      if (request.method === "GET" && url.pathname === "/backoffice") {
+        return html(response, getBackofficeHtml());
+      }
+
+      if (request.method === "GET" && url.pathname === "/backoffice-data") {
+        return json(response, 200, { service: HERO_SERVICE, backoffice: dashboard.backofficeSnapshot() });
+      }
+
+      if (request.method === "GET" && url.pathname === "/backoffice-events") {
+        const after = Number(url.searchParams.get("after") ?? "0");
+        const limit = Number(url.searchParams.get("limit") ?? "24");
+        if (!Number.isInteger(after) || after < 0 || !Number.isInteger(limit) || limit < 1 || limit > 100) {
+          throw new DashboardCommandError("INVALID_INPUT", "مقادیر after و limit معتبر نیستند.");
+        }
+        if (postgresRuntime?.store) {
+          const allStored = await postgresRuntime.store.readAfter(after);
+          const stored = allStored.slice(0, limit);
+          return json(response, 200, {
+            service: HERO_SERVICE,
+            events: stored.map(projectOperationalEvent),
+            nextAfter: stored.at(-1)?.sequence ?? after,
+            hasMore: allStored.length > limit,
+            source: "postgresql-events"
+          });
+        }
+        return json(response, 200, { service: HERO_SERVICE, ...dashboard.backofficeEvents({ after, limit }) });
+      }
+
+      const authenticatedOwner = url.pathname.startsWith("/api/")
+        ? ownerAuth.requireOwner(request.headers.authorization)
+        : null;
+
+      if (request.method === "POST" && url.pathname === "/api/auth/revoke-session") {
+        const input = await readJson(request);
+        const sessionId = input.sessionId ?? authenticatedOwner.sessionId;
+        const revocation = ownerAuth.revokeSession({
+          sessionId,
+          subject: authenticatedOwner.subject,
+          reason: input.reason
+        });
+        if (postgresRuntime?.ownerSessions) {
+          await postgresRuntime.ownerSessions.revoke(revocation);
+        }
+        return json(response, 200, { service: HERO_SERVICE, revocation });
+      }
 
       if (request.method === "GET" && url.pathname === "/") {
         return html(response, getDashboardHtml());
@@ -119,6 +307,59 @@ export function createHeroServer(options = {}) {
 
       if (request.method === "GET" && url.pathname === "/api/dashboard") {
         return json(response, 200, { service: HERO_SERVICE, dashboard: dashboard.snapshot() });
+      }
+
+      if (request.method === "GET" && url.pathname === "/api/ai-orchestration") {
+        return json(response, 200, { service: HERO_SERVICE, aiOrchestration: dashboard.aiOrchestrationSnapshot() });
+      }
+
+      if (request.method === "GET" && url.pathname === "/api/ai/events") {
+        const after = Number(url.searchParams.get("after") ?? "0");
+        if (!Number.isInteger(after) || after < 0) return json(response, 400, { error: { code: "INVALID_AFTER", message: "after must be a non-negative integer." } });
+        return json(response, 200, { service: HERO_SERVICE, events: dashboard.aiOrchestrationEvents(after) });
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/memory") {
+        const input = await readJson(request);
+        const result = await executeDashboardCommand("memory.record", input, () => dashboard.recordProjectMemory(input));
+        return json(response, 201, { service: HERO_SERVICE, result });
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/ai/context") {
+        const input = await readJson(request);
+        const result = await executeDashboardCommand("ai.context-assemble", input, () => dashboard.assembleAiContext(input));
+        return json(response, 200, { service: HERO_SERVICE, result });
+      }
+
+      const aiCommandRoutes = {
+        "/api/ai/providers": ["registerAiProvider", 201, "ai.provider-register"],
+        "/api/ai/models": ["registerAiModel", 201, "ai.model-register"],
+        "/api/ai/profiles": ["registerAiProfile", 201, "ai.profile-register"],
+        "/api/ai/bindings": ["bindAiRole", 201, "ai.binding-create"],
+        "/api/ai/invocations": ["invokeAi", 201, "ai.invoke"],
+        "/api/ai/evaluations": ["recordAiEvaluation", 201, "ai.evaluation-record"],
+        "/api/ai/evaluations/from-invocation": ["evaluateAiInvocation", 201, "ai.evaluation-from-invocation"],
+        "/api/ai/decisions": ["proposeAiDecision", 201, "ai.decision-propose"],
+        "/api/ai/organization-evaluations": ["reviewOrganizationPerformance", 201, "ai.organization-evaluation"]
+      };
+      if (request.method === "POST" && url.pathname === "/api/ai/benchmarks/synthetic") {
+        const input = await readJson(request);
+        const result = await executeDashboardCommand("ai.benchmark.synthetic", input, () => dashboard.runSyntheticBenchmark(input));
+        return json(response, 201, { service: HERO_SERVICE, result });
+      }
+      if (request.method === "POST" && aiCommandRoutes[url.pathname]) {
+        const input = await readJson(request);
+        const [command, statusCode, auditCommand] = aiCommandRoutes[url.pathname];
+        const result = await executeDashboardCommand(auditCommand, input, () => dashboard[command](input));
+        return json(response, statusCode, { service: HERO_SERVICE, result });
+      }
+
+      const aiDecisionResolveMatch = url.pathname.match(/^\/api\/ai\/decisions\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/resolve$/);
+      if (request.method === "POST" && aiDecisionResolveMatch) {
+        const input = await readJson(request);
+        const decisionId = aiDecisionResolveMatch[1];
+        const result = await executeDashboardCommand("ai.decision-resolve", input, () => dashboard.resolveAiDecision(decisionId, input));
+        return json(response, 200, { service: HERO_SERVICE, result });
       }
 
       if (request.method === "GET" && url.pathname === "/api/teams") {
@@ -160,6 +401,12 @@ export function createHeroServer(options = {}) {
         const input = await readJson(request);
         const plan = await executeDashboardCommand("planning.create", input, () => dashboard.createPlan(input));
         return json(response, 201, { service: HERO_SERVICE, plan });
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/pilots/dry-run") {
+        const input = await readJson(request);
+        const result = await executeDashboardCommand("pilot.dry-run", input, () => dashboard.runPilotDryRun(input));
+        return json(response, 201, { service: HERO_SERVICE, result });
       }
 
       const outputDecisionMatch = url.pathname.match(/^\/api\/plans\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/output-decision$/);
@@ -217,6 +464,26 @@ export function createHeroServer(options = {}) {
 
       if (request.method === "GET" && url.pathname === "/owner-auth-contract") {
         return json(response, 200, { service: HERO_SERVICE, ownerAuthContract: getOwnerAuthContractSummary() });
+      }
+
+      if (request.method === "GET" && url.pathname === "/ai-orchestration-contract") {
+        return json(response, 200, { service: HERO_SERVICE, aiOrchestrationContract: getAiOrchestrationContractSummary() });
+      }
+
+      if (request.method === "GET" && url.pathname === "/ai-benchmark-contract") {
+        return json(response, 200, { service: HERO_SERVICE, aiBenchmarkContract: getAiBenchmarkContractSummary() });
+      }
+
+      if (request.method === "GET" && url.pathname === "/organization-performance-contract") {
+        return json(response, 200, { service: HERO_SERVICE, organizationPerformanceContract: getOrganizationPerformanceContractSummary() });
+      }
+
+      if (request.method === "GET" && url.pathname === "/observability-contract") {
+        return json(response, 200, { service: HERO_SERVICE, observabilityContract: getObservabilityContractSummary() });
+      }
+
+      if (request.method === "GET" && url.pathname === "/pilot-contract") {
+        return json(response, 200, { service: HERO_SERVICE, pilotContract: getPilotContractSummary() });
       }
 
       if (request.method === "POST" && url.pathname === "/api/requests") {
@@ -516,6 +783,17 @@ export function createHeroServer(options = {}) {
         ownsPostgresRuntime = true;
       }
       if (postgresRuntime) await postgresRuntime.ping();
+      if (postgresRuntime?.registrySnapshots && typeof dashboard.hydrateFromPersistence === "function") {
+        const hydrated = await postgresRuntime.registrySnapshots.hydrate({
+          registryIds: ["team-registry", "team-research", "principles-registry", "release-promotion", "planner", "project-memory", "ai-orchestration", "organization-performance", "control-dashboard"]
+        });
+        const events = postgresRuntime.store ? await postgresRuntime.store.readAfter(0) : [];
+        persistedDomainEventIds = new Set(events.map(event => event.eventId));
+        dashboard.hydrateFromPersistence({ ...hydrated, events });
+      }
+      if (postgresRuntime?.ownerSessions && typeof ownerAuth.restoreRevocations === "function") {
+        ownerAuth.restoreRevocations(await postgresRuntime.ownerSessions.list());
+      }
       try {
         await new Promise((resolve, reject) => {
           server.once("error", reject);

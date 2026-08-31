@@ -1,6 +1,8 @@
 import { createPostgresMigrationRunner } from "./postgresql-schema.mjs";
 import { createPostgresOperationalStore } from "./postgresql-operational-store.mjs";
 import { createPostgresCommandAudit } from "./postgresql-command-audit.mjs";
+import { createPostgresDomainRegistrySnapshotStore } from "./domain-registry-snapshot-store.mjs";
+import { createPostgresOwnerSessionStore } from "./owner-session-store.mjs";
 
 export class PostgresRuntimeError extends Error {
   constructor(code, message) {
@@ -52,6 +54,8 @@ export async function createPostgresRuntime({ connectionString = process.env.HER
         migration,
         store,
         audit: createPostgresCommandAudit({ store }),
+        registrySnapshots: createPostgresDomainRegistrySnapshotStore({ pool, client }),
+        ownerSessions: createPostgresOwnerSessionStore({ pool, client }),
         async ping() {
           await target.query("SELECT 1");
           return Object.freeze({ status: "ok", persistence: "postgresql" });

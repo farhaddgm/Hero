@@ -366,6 +366,28 @@ export function createTeamResearchRegistry(options = {}) {
     return Object.freeze([...requests.values()].filter(research => normalized === null || research.teamId === normalized).map(immutableCopy));
   }
 
+  function persistenceSnapshot() {
+    return immutableCopy({
+      schemaVersion: "1.0",
+      registryId: "team-research",
+      requests: [...requests.values()]
+    });
+  }
+
+  function hydrate(input = {}) {
+    const state = input.data ?? input;
+    if (!state || !Array.isArray(state.requests)) throw new TeamResearchCommandError("HYDRATION_INVALID", "Team research hydration requires requests.");
+    if (Array.isArray(input.events)) eventLog.load(input.events.filter(event => event.aggregateType === "research"));
+    requests.clear();
+    idempotency.clear();
+    for (const research of state.requests) {
+      if (!research || typeof research !== "object" || typeof research.researchId !== "string") throw new TeamResearchCommandError("HYDRATION_INVALID", "A hydrated research request is invalid.");
+      requests.set(research.researchId, immutableCopy(research));
+    }
+    nextResearch = Math.max(0, ...[...requests.keys()].map(value => Number(value.match(/(\d+)$/)?.[1] ?? 0)));
+    return immutableCopy({ registryId: "team-research", hydrated: true, requests: requests.size });
+  }
+
   return Object.freeze({
     request,
     start,
@@ -373,6 +395,8 @@ export function createTeamResearchRegistry(options = {}) {
     review,
     get,
     list,
+    persistenceSnapshot,
+    hydrate,
     events: () => eventLog.readAfter(),
     contract: () => getTeamResearchContractSummary()
   });

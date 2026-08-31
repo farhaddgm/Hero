@@ -59,4 +59,4 @@
 
 ## مرز فعلی
 
-Registry فعلی deterministic و in-memory است و احراز هویت API مالک با نشست امضاشده و fail-closed پیاده شده است. migration و Event Store تراکنشی PostgreSQL، audit فرمان‌های Control Plane و تست CI نیز ثبت شده‌اند؛ projection کامل persistent، session revocation و enforcement در Deployment Adapter زنده هنوز مرحلهٔ بعد هستند.
+Registry فعلی deterministic و in-memory projection است و اکنون Snapshot append-only و startup hydration از PostgreSQL برای Registryهای اصلی دارد؛ احراز هویت API مالک با نشست امضاشده و fail-closed پیاده شده و session revocation durable نیز migration/store و route owner-gated دارد. migration و Event Store تراکنشی PostgreSQL، audit فرمان‌های Control Plane و تست CI نیز ثبت شده‌اند؛ projection کامل همهٔ commandها و enforcement در Deployment Adapter زنده هنوز مرحلهٔ بعد هستند.

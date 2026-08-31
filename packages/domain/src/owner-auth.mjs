@@ -48,6 +48,18 @@ export function createOwnerAuth(options = {}) {
   const secret = typeof options.secret === "string" && options.secret.length >= 32 ? options.secret : null;
   const issuer = options.issuer ?? "hero-control-plane";
   const now = options.now ?? (() => new Date().toISOString());
+  const revokedSessions = new Map();
+
+  for (const record of options.revokedSessions ?? []) {
+    if (!record || typeof record !== "object") throw new OwnerAuthError("OWNER_AUTH_INVALID", "A revoked session record is invalid.", 500);
+    const sessionId = assertIdentifier("sessionId", record.sessionId);
+    revokedSessions.set(sessionId, immutableCopy({
+      sessionId,
+      subject: record.subject === undefined ? null : assertIdentifier("subject", record.subject),
+      revokedAt: record.revokedAt ?? now(),
+      reason: typeof record.reason === "string" ? record.reason.slice(0, 240) : "restored"
+    }));
+  }
 
   function currentEpoch() {
     const timestamp = now();
@@ -95,6 +107,7 @@ export function createOwnerAuth(options = {}) {
     assertIdentifier("claims.sub", claims.sub);
     assertIdentifier("claims.sid", claims.sid);
     if (!Number.isInteger(claims.exp) || claims.exp <= currentEpoch()) throw new OwnerAuthError("OWNER_AUTH_EXPIRED", "Owner session has expired.", 401);
+    if (revokedSessions.has(claims.sid)) throw new OwnerAuthError("OWNER_AUTH_REVOKED", "Owner session has been revoked.", 401);
     return immutableCopy({ subject: claims.sub, sessionId: claims.sid, role: claims.role, expiresAt: claims.exp, decision: "OWNER_AUTHENTICATED" });
   }
 
@@ -102,10 +115,33 @@ export function createOwnerAuth(options = {}) {
     return authenticate(authorizationHeader);
   }
 
+  function revokeSession(input = {}) {
+    const sessionId = assertIdentifier("sessionId", input.sessionId);
+    const subject = input.subject === undefined ? null : assertIdentifier("subject", input.subject);
+    const reason = input.reason === undefined ? "owner-request" : String(input.reason).trim().slice(0, 240);
+    if (reason === "") throw new OwnerAuthError("OWNER_AUTH_INVALID", "Revocation reason is invalid.", 400);
+    const record = immutableCopy({ sessionId, subject, revokedAt: now(), reason });
+    revokedSessions.set(sessionId, record);
+    return record;
+  }
+
+  function restoreRevocations(records = []) {
+    if (!Array.isArray(records)) throw new OwnerAuthError("OWNER_AUTH_INVALID", "Session revocations must be an array.", 500);
+    for (const record of records) revokeSession(record);
+    return Object.freeze({ restored: records.length, active: revokedSessions.size });
+  }
+
+  function revocationSnapshot() {
+    return Object.freeze([...revokedSessions.values()].map(immutableCopy));
+  }
+
   return Object.freeze({
     issueSession,
     authenticate,
     requireOwner,
+    revokeSession,
+    restoreRevocations,
+    revocationSnapshot,
     configured: Boolean(secret),
     contract: () => getOwnerAuthContractSummary()
   });

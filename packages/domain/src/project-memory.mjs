@@ -282,9 +282,37 @@ export function createProjectMemory(options = {}) {
     return immutableCopy(result);
   }
 
+  function persistenceSnapshot() {
+    return immutableCopy({
+      schemaVersion: "1.0",
+      registryId: "project-memory",
+      records: [...records.values()]
+    });
+  }
+
+  function hydrate(input = {}) {
+    const state = input.data ?? input;
+    if (!state || !Array.isArray(state.records)) throw new ProjectMemorySafetyError("Project Memory hydration requires records.");
+    if (Array.isArray(input.events)) eventLog.load(input.events.filter(event => event.aggregateType === "memory"));
+    records.clear();
+    currentByKey.clear();
+    idempotency.clear();
+    for (const record of state.records) {
+      if (!record || typeof record !== "object" || typeof record.memoryId !== "string" || typeof record.projectId !== "string" || typeof record.memoryKey !== "string") throw new ProjectMemorySafetyError("A hydrated memory record is invalid.");
+      const stored = immutableCopy(record);
+      records.set(stored.memoryId, stored);
+      const key = currentKey(stored.projectId, stored.memoryKey);
+      const current = records.get(currentByKey.get(key));
+      if (!current || (stored.recordVersion ?? 0) >= (current.recordVersion ?? 0)) currentByKey.set(key, stored.memoryId);
+    }
+    return immutableCopy({ registryId: "project-memory", hydrated: true, records: records.size, currentKeys: currentByKey.size });
+  }
+
   return Object.freeze({
     record,
     assemble,
+    persistenceSnapshot,
+    hydrate,
     read: memoryId => records.has(memoryId) ? immutableCopy(records.get(memoryId)) : null,
     events: () => eventLog.readAfter(),
     contract: () => getProjectMemoryContractSummary()

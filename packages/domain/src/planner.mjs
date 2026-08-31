@@ -1,5 +1,6 @@
 import {
   PLANNER_ROUTER_PROVIDERS,
+  PLANNER_AI_ROLE_ROUTES,
   PLANNER_TEAM_ROUTES,
   PLANNER_TASK_KINDS,
   getPlannerContractSummary
@@ -115,11 +116,20 @@ function normalizeContext(value, projectId) {
 
 function routedTask({ planningId, suffix, kind, dependsOn, provider, operation, rationale, teamRoute }) {
   const taskId = `TASK-${planningId}-${suffix}`;
+  const aiRoute = PLANNER_AI_ROLE_ROUTES[kind];
   return Object.freeze({
     taskId,
     kind,
     dependsOn: Object.freeze([...dependsOn]),
-    route: Object.freeze({ provider, operation, rationale }),
+    route: Object.freeze({
+      provider,
+      operation,
+      rationale,
+      aiRole: aiRoute.aiRole,
+      providerId: aiRoute.providerId,
+      modelId: aiRoute.modelId,
+      outputSchema: aiRoute.outputSchema
+    }),
     team: Object.freeze({
       owner: teamRoute.owner,
       collaborators: Object.freeze([...teamRoute.collaborators]),
@@ -547,10 +557,34 @@ export function createPlanner(options = {}) {
     return result;
   }
 
+  function persistenceSnapshot() {
+    return immutableCopy({
+      schemaVersion: "1.0",
+      registryId: "planner",
+      plans: [...plans.values()]
+    });
+  }
+
+  function hydrate(input = {}) {
+    const state = input.data ?? input;
+    if (!state || !Array.isArray(state.plans)) throw new PlannerSafetyError("Planner hydration requires plans.");
+    if (Array.isArray(input.events)) eventLog.load(input.events.filter(event => event.aggregateType === "planning"));
+    plans.clear();
+    idempotency.clear();
+    outputDecisionIdempotency.clear();
+    for (const plan of state.plans) {
+      if (!plan || typeof plan !== "object" || typeof plan.planningId !== "string") throw new PlannerSafetyError("A hydrated plan is invalid.");
+      plans.set(plan.planningId, immutableCopy(plan));
+    }
+    return immutableCopy({ registryId: "planner", hydrated: true, plans: plans.size });
+  }
+
   return Object.freeze({
     plan,
     decideOutput,
     halt,
+    persistenceSnapshot,
+    hydrate,
     get: planningId => plans.has(planningId) ? immutableCopy(plans.get(planningId)) : null,
     events: () => eventLog.readAfter(),
     contract: () => getPlannerContractSummary()

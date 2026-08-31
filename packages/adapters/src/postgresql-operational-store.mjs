@@ -75,6 +75,13 @@ function normalizeExpectedVersion(value) {
   return assertInteger("expectedVersion", value ?? 0);
 }
 
+function assertIdentifier(label, value) {
+  if (typeof value !== "string" || !IDENTIFIER.test(value)) {
+    throw new PostgresOperationalStoreError("INVALID_OUTBOX", `${label} is invalid.`);
+  }
+  return value;
+}
+
 function normalizeOutbox(outbox) {
   if (outbox === undefined || outbox === null) return null;
   if (!IDENTIFIER.test(outbox.outboxId ?? "")) {
@@ -84,6 +91,30 @@ function normalizeOutbox(outbox) {
     throw new PostgresOperationalStoreError("INVALID_OUTBOX", "outbox topic is invalid.");
   }
   return { outboxId: outbox.outboxId, topic: outbox.topic };
+}
+
+function rowToOutbox(row) {
+  if (!row) return null;
+  return copy({
+    outboxId: row.outbox_id,
+    eventId: row.event_id,
+    topic: row.topic,
+    payload: parseJson(row.payload, "outbox.payload"),
+    status: row.status,
+    attemptCount: assertInteger("outbox.attempt_count", row.attempt_count, 0),
+    lockedAt: row.locked_at instanceof Date ? row.locked_at.toISOString() : row.locked_at ?? null,
+    lastError: row.last_error ?? null,
+    createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
+    publishedAt: row.published_at instanceof Date ? row.published_at.toISOString() : row.published_at ?? null
+  });
+}
+
+function normalizePositiveInteger(label, value, minimum, maximum) {
+  const number = Number(value);
+  if (!Number.isInteger(number) || number < minimum || number > maximum) {
+    throw new PostgresOperationalStoreError("INVALID_OUTBOX", `${label} must be between ${minimum} and ${maximum}.`);
+  }
+  return number;
 }
 
 export function createPostgresOperationalStore({ client, pool } = {}) {
@@ -215,6 +246,59 @@ export function createPostgresOperationalStore({ client, pool } = {}) {
         [after]
       );
       return Object.freeze((result.rows ?? []).map(rowToEvent));
+    },
+
+    async claimOutbox({ limit = 10, leaseSeconds = 300 } = {}) {
+      const normalizedLimit = normalizePositiveInteger("limit", limit, 1, 100);
+      const normalizedLease = normalizePositiveInteger("leaseSeconds", leaseSeconds, 1, 86_400);
+      return transaction(async target => {
+        const result = await target.query(
+          `WITH candidates AS (
+             SELECT outbox_id
+               FROM outbox
+              WHERE status = 'pending'
+                 OR (status = 'processing' AND (locked_at IS NULL OR locked_at < now() - ($2 * interval '1 second')))
+              ORDER BY created_at ASC, outbox_id ASC
+              FOR UPDATE SKIP LOCKED
+              LIMIT $1
+           )
+           UPDATE outbox AS item
+              SET status = 'processing', attempt_count = item.attempt_count + 1, locked_at = now()
+             FROM candidates
+            WHERE item.outbox_id = candidates.outbox_id
+           RETURNING item.outbox_id, item.event_id, item.topic, item.payload, item.status,
+                     item.attempt_count, item.locked_at, item.last_error, item.created_at, item.published_at`,
+          [normalizedLimit, normalizedLease]
+        );
+        return Object.freeze((result.rows ?? []).map(rowToOutbox));
+      });
+    },
+
+    async acknowledgeOutbox(outboxId) {
+      assertIdentifier("outboxId", outboxId);
+      const result = await readTarget.query(
+        `UPDATE outbox
+            SET status = 'published', published_at = COALESCE(published_at, now()), locked_at = NULL, last_error = NULL
+          WHERE outbox_id = $1 AND status = 'processing'
+        RETURNING outbox_id, event_id, topic, payload, status, attempt_count, locked_at, last_error, created_at, published_at`,
+        [outboxId]
+      );
+      return rowToOutbox(result.rows?.[0]);
+    },
+
+    async failOutbox(outboxId, error, { maxAttempts = 5 } = {}) {
+      assertIdentifier("outboxId", outboxId);
+      const normalizedMaxAttempts = normalizePositiveInteger("maxAttempts", maxAttempts, 1, 100);
+      const message = String(error?.message ?? error ?? "outbox delivery failed").trim().slice(0, 500);
+      const result = await readTarget.query(
+        `UPDATE outbox
+            SET status = CASE WHEN attempt_count >= $2 THEN 'failed' ELSE 'pending' END,
+                locked_at = NULL, last_error = $3
+          WHERE outbox_id = $1 AND status = 'processing'
+        RETURNING outbox_id, event_id, topic, payload, status, attempt_count, locked_at, last_error, created_at, published_at`,
+        [outboxId, normalizedMaxAttempts, message || "outbox delivery failed"]
+      );
+      return rowToOutbox(result.rows?.[0]);
     },
 
     currentVersion

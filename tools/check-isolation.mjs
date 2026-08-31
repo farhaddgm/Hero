@@ -78,7 +78,9 @@ function inspectGit(errors) {
 
   const sourceSnapshot = process.env.HERO_SOURCE_SNAPSHOT === "1";
   const hasGitMetadata = fs.existsSync(path.join(REPO_ROOT, ".git"));
-  if (!hasGitMetadata && sourceSnapshot) return;
+  // A source snapshot is intentionally built without .git and without a Git
+  // binary. Do not let a host-mounted .git directory change that contract.
+  if (sourceSnapshot) return;
   if (!hasGitMetadata) {
     addError(errors, "MISSING_GIT_BOUNDARY", ".git metadata is missing");
     return;
@@ -89,7 +91,7 @@ function inspectGit(errors) {
     encoding: "utf8"
   });
   if (topLevel.status !== 0 || path.resolve(topLevel.stdout.trim()) !== REPO_ROOT) {
-    addError(errors, "GIT_ROOT_MISMATCH", topLevel.stderr.trim() || topLevel.stdout.trim());
+    addError(errors, "GIT_ROOT_MISMATCH", String(topLevel.stderr ?? topLevel.stdout ?? "").trim());
   }
 
   const remotes = spawnSync("git", ["remote", "-v"], { cwd: REPO_ROOT, encoding: "utf8" });

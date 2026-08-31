@@ -18,8 +18,13 @@ PostgreSQL is the future operational source of truth. The event log is append-on
 | Team workflow policy | `team_workflows` | Per-project stage owners and approval mode |
 | Critical principle / review | `principles`, `principle_reviews` | Hero baseline and product-specific blocking rules with owner decisions |
 | Release / environment evidence | `releases`, `release_evidence` | Exact Artifact/version/commit promotion from test to production |
+| AI Provider / Model / Profile / Binding | `ai_providers`, `ai_models`, `agent_profiles`, `project_agent_bindings` | Replaceable Provider/Model selection without changing Team ownership or prior history |
+| AI Invocation / Evaluation / Decision | `ai_invocations`, `evaluations`, `decision_proposals` | Profile and Context snapshots, structured evidence and owner-resolved proposals |
+| Organization performance / team metrics | `organization_performance_reviews`, `organization_performance_metrics` | Exactly 11-team, period-bound evidence and advisory findings |
+| AI benchmark run / result | `ai_benchmark_runs`, `ai_benchmark_results` | Synthetic, versioned Provider/Profile comparison without authority |
 | Outbox | `outbox` | Durable dispatch created with the source event transaction |
 | Control command audit | `events` (`control.command-recorded`) | Safe, paginatable owner timeline; raw command input and secrets are excluded |
+| Domain Registry restart projection | `domain_registry_snapshots` | Append-only versioned snapshots for startup hydration; never a replacement for Events |
 
 ## Transaction rule
 
@@ -55,7 +60,7 @@ The team aggregate stores the phase-one catalog definition, contract approvals, 
 
 The `team_research` record stores a research request, benchmark brief, evidence-rich report and owner decision. A report may propose knowledge, principles and training updates, but only an approved review applies those values to the team projection.
 
-The current `TeamRegistry` is an in-memory projection for deterministic tests and the control API. A future PostgreSQL adapter must preserve owner-gated commands, idempotency, optimistic concurrency, append-only events and the rule that team autonomy never grants sensitive operations.
+The current `TeamRegistry` is a deterministic in-process projection for commands and tests. PostgreSQL stores its versioned restart snapshot and new Registry events through the operational adapter; owner-gated commands, idempotency, optimistic concurrency, append-only events and the rule that team autonomy never grants sensitive operations remain unchanged.
 
 ## Critical principles projection
 
@@ -67,6 +72,8 @@ The current `TeamRegistry` is an in-memory projection for deterministic tests an
 
 ## Current implementation boundary
 
-`packages/contracts` owns the stable event schema. `packages/domain` provides an in-memory append-only log with duplicate protection and optimistic concurrency for deterministic tests. A future PostgreSQL adapter must preserve these semantics.
+`packages/contracts` owns the stable event schema. `packages/domain` provides an in-memory append-only log with duplicate protection and optimistic concurrency for deterministic tests; `packages/adapters` provides the PostgreSQL equivalent plus versioned Domain Registry snapshots for restart hydration.
 
-The first PostgreSQL boundary is checked in at `packages/adapters/migrations/001_principles_release_audit.sql`. Its injected migration runner is `packages/adapters/src/postgresql-schema.mjs`, and `packages/adapters/src/postgresql-operational-store.mjs` provides the transaction-bound append/read Event Store with advisory aggregate locking and optional Outbox insertion. `postgresql-runtime.mjs` can create a bounded `pg` pool from the runtime-only `HERO_POSTGRES_URL`, apply the migration and expose a ping/readiness result; the Control Plane uses this path only when that URL is configured. `postgresql-command-audit.mjs` records accepted Control Plane commands as safe `control.command-recorded` events, and the authenticated audit endpoint reads them by global sequence. Domain command projections remain deterministic in-memory until their async persistence port is separately integrated. Durable owner-session revocation and production deployment remain separately authorized work.
+The Multi-AI foundation adds deterministic projections for Provider, Model, Agent Profile, Project Role Binding, Invocation, Evaluation and Decision Proposal. When Project Memory is injected, every Invocation can consume only a role-mapped, read-only Context Snapshot with exact Task/Step/document-version matching; stale or missing context blocks the invocation. These records are subordinate to the existing Project, Task, Run, Memory, Authorization and Quality boundaries. An Evaluation is Evidence, and resolving a Decision Proposal never creates an Authorization implicitly. Credential fields are runtime references only; raw credential values are rejected before they can enter Domain or Event data. Organization performance and synthetic benchmark projections are additive evidence stores, not command authorities; their event source remains Hero's append-only Event Store.
+
+The PostgreSQL boundary is checked in at `packages/adapters/migrations/001_principles_release_audit.sql` through `005_session_revocation_outbox_leasing.sql`. Its injected migration runner is `packages/adapters/src/postgresql-schema.mjs`, and `packages/adapters/src/postgresql-operational-store.mjs` provides the transaction-bound append/read Event Store with advisory aggregate locking, optional Outbox insertion and bounded claim/ack/fail delivery state. `postgresql-runtime.mjs` can create a bounded `pg` pool from the runtime-only `HERO_POSTGRES_URL`, apply migrations and expose ping/readiness; `postgresql-command-audit.mjs` records accepted Control Plane commands as safe `control.command-recorded` events, while `domain-registry-snapshot-store.mjs` saves and loads append-only Registry snapshots and `owner-session-store.mjs` restores append-only session revocations. At startup the Control Plane hydrates its Domain projections and revoked owner sessions from PostgreSQL; after a successful command, new Domain Events are persisted before the audit/Snapshot step. Production deployment, external spend and live Provider access remain separately authorized work.

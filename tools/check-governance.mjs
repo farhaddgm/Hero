@@ -11,6 +11,11 @@ import { validatePostgresSchemaContract } from "../packages/adapters/src/postgre
 import { validateTrainingContract } from "../packages/contracts/src/training.mjs";
 import { validateTeamResearchContract } from "../packages/contracts/src/team-research.mjs";
 import { validateOutputAdvisoryContract } from "../packages/contracts/src/output-advisory.mjs";
+import { validateAiOrchestrationContract } from "../packages/contracts/src/ai-orchestration.mjs";
+import { validateOrganizationPerformanceContract } from "../packages/contracts/src/organization-performance.mjs";
+import { validateAiBenchmarkContract } from "../packages/contracts/src/ai-benchmark.mjs";
+import { validateObservabilityContract } from "../packages/contracts/src/observability.mjs";
+import { validatePilotContract } from "../packages/contracts/src/pilot.mjs";
 
 const governanceFile = path.join(REPO_ROOT, "config", "governance.json");
 const snapshotFile = path.join(
@@ -38,6 +43,11 @@ export function validateGovernance() {
   for (const detail of validateTrainingContract()) errors.push({ code: "TRAINING_CONTRACT", detail });
   for (const detail of validateTeamResearchContract()) errors.push({ code: "TEAM_RESEARCH_CONTRACT", detail });
   for (const detail of validateOutputAdvisoryContract()) errors.push({ code: "OUTPUT_ADVISORY_CONTRACT", detail });
+  for (const detail of validateAiOrchestrationContract()) errors.push({ code: "AI_ORCHESTRATION_CONTRACT", detail });
+  for (const detail of validateOrganizationPerformanceContract()) errors.push({ code: "ORGANIZATION_PERFORMANCE_CONTRACT", detail });
+  for (const detail of validateAiBenchmarkContract()) errors.push({ code: "AI_BENCHMARK_CONTRACT", detail });
+  for (const detail of validateObservabilityContract()) errors.push({ code: "OBSERVABILITY_CONTRACT", detail });
+  for (const detail of validatePilotContract()) errors.push({ code: "PILOT_CONTRACT", detail });
   const governance = loadJson(governanceFile);
   const snapshot = loadJson(snapshotFile);
 

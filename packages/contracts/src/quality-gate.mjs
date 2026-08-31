@@ -16,7 +16,10 @@ export const QUALITY_GATE_DECISION_CODES = Object.freeze([
   "BUDGET_LIMIT_REACHED",
   "TEST_EVIDENCE_REJECTED",
   "REVIEW_BLOCKED",
-  "GLOBAL_STOP_ACTIVE"
+  "GLOBAL_STOP_ACTIVE",
+  "AI_EVALUATION_APPROVED",
+  "AI_EVALUATION_NEEDS_REVISION",
+  "AI_EVALUATION_REJECTED"
 ]);
 
 export const DEFAULT_QUALITY_GATE_POLICY = Object.freeze({
@@ -47,6 +50,7 @@ export function getQualityGateContractSummary() {
     flow: "authorized Codex test evidence -> independent Claude review -> separately authorized correction -> retest",
     evidenceRule: "A success claim requires structured, passing test evidence from an isolated workspace.",
     limitRule: "The gate stops safely before a correction cycle or accounted cost can exceed its approved policy.",
-    safetyBoundary: "The deterministic gate does not invoke a provider, mutate a repository, merge, deploy, spend money, or bypass version-bound authorization."
+    safetyBoundary: "The deterministic gate does not invoke a provider, mutate a repository, merge, deploy, spend money, or bypass version-bound authorization.",
+    asyncBoundary: "An optional AI evaluator may provide schema-validated evidence through reviewAsync; the gate still owns correction limits and authorization boundaries."
   });
 }

@@ -333,6 +333,27 @@ export function createPrinciplesRegistry(options = {}) {
     });
   }
 
+  function persistenceSnapshot() {
+    return copy({
+      schemaVersion: "1.0",
+      registryId: "principles-registry",
+      principles: [...principles.values()].map(copy)
+    });
+  }
+
+  function hydrate(input = {}) {
+    const state = input.data ?? input;
+    if (!state || !Array.isArray(state.principles)) throw new PrincipleCommandError("HYDRATION_INVALID", "Principles registry hydration requires principles.");
+    if (Array.isArray(input.events)) eventLog.load(input.events.filter(event => event.aggregateType === "principle"));
+    principles.clear();
+    for (const principle of state.principles) {
+      if (!principle || typeof principle !== "object" || typeof principle.projectId !== "string" || typeof principle.principleId !== "string") throw new PrincipleCommandError("HYDRATION_INVALID", "A hydrated principle is invalid.");
+      principles.set(getKey(principle.projectId, principle.principleId), copy(principle));
+    }
+    idempotency.clear();
+    return copy({ registryId: "principles-registry", hydrated: true, principles: principles.size });
+  }
+
   function history(projectId, principleId) {
     assertIdentifier("projectId", projectId ?? "hero");
     assertIdentifier("principleId", principleId);
@@ -348,7 +369,10 @@ export function createPrinciplesRegistry(options = {}) {
     get: (projectId, principleId) => copy(getPrinciple(projectId ?? "hero", principleId)),
     list,
     snapshot,
+    persistenceSnapshot,
+    hydrate,
     history,
+    events: () => eventLog.readAfter(),
     contract: () => getCriticalPrinciplesContractSummary()
   });
 }
