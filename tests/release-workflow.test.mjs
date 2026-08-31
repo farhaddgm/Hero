@@ -16,5 +16,8 @@ test("release candidate workflow is test-gated, version-bound and production-fre
   assert.match(source, /prerelease: true/);
   assert.match(source, /Production deploy: not performed/);
   assert.match(source, /inputs\.release_version \|\| format\('0\.1\.0-rc\.\{0\}', github\.run_number\)/);
+  assert.match(source, /printf 'release_version=%s\\ncommit_sha=%s\\nartifact=%s\\nartifact_id=%s\\n' \\\n\s+"\$RELEASE_VERSION"/);
+  assert.doesNotMatch(source, /printf '[^']*\\\\n/);
+  assert.doesNotMatch(source, /' \\\\\\\n/);
   assert.doesNotMatch(source, /production-promote|docker compose.*production|secrets\.(OPENAI|ANTHROPIC|GOOGLE)/i);
 });

@@ -69,7 +69,7 @@ jobs:
         run: |
           docker build --tag "$IMAGE_TAG" .
           IMAGE_ID="$(docker image inspect --format='{{.Id}}' "$IMAGE_TAG")"
-          printf 'release_version=%s\\ncommit_sha=%s\\nartifact=%s\\nartifact_id=%s\\n' \\
+          printf 'release_version=%s\ncommit_sha=%s\nartifact=%s\nartifact_id=%s\n' \
             "$RELEASE_VERSION" "$GITHUB_SHA" "$IMAGE_TAG" "$IMAGE_ID" > hero-release-evidence.txt
         env:
           IMAGE_TAG: hero-release-${{ github.sha }}
@@ -111,7 +111,7 @@ jobs:
         env:
           RELEASE_URL: ${{ steps.github-release.outputs.url }}
         run: |
-          printf 'release_url=%s\\n' "$RELEASE_URL" >> hero-release-evidence.txt
+          printf 'release_url=%s\n' "$RELEASE_URL" >> hero-release-evidence.txt
           {
             echo "### Hero test candidate"
             echo "- Version: \`${RELEASE_VERSION}\`"
