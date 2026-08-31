@@ -1,6 +1,9 @@
 name: Hero Release Candidate
 
 on:
+  push:
+    branches:
+      - codex/hero-001-project-charter
   workflow_dispatch:
     inputs:
       release_version:
@@ -17,7 +20,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: hero-release-candidate-${{ inputs.release_version }}
+  group: hero-release-candidate-${{ github.ref }}-${{ github.sha }}
   cancel-in-progress: false
 
 jobs:
@@ -27,6 +30,9 @@ jobs:
     environment:
       name: test
     timeout-minutes: 20
+    env:
+      RELEASE_VERSION: ${{ inputs.release_version || format('0.1.0-rc.{0}', github.run_number) }}
+      RELEASE_NOTES: ${{ inputs.release_notes || format('Automatic test candidate for commit {0}.', github.sha) }}
     steps:
       - name: Checkout selected revision
         uses: actions/checkout@v4
@@ -43,8 +49,6 @@ jobs:
           cache: pnpm
 
       - name: Validate candidate version
-        env:
-          RELEASE_VERSION: ${{ inputs.release_version }}
         run: |
           node --input-type=module -e '
             const version = process.env.RELEASE_VERSION ?? "";
@@ -68,12 +72,9 @@ jobs:
           printf 'release_version=%s\\ncommit_sha=%s\\nartifact=%s\\nartifact_id=%s\\n' \\
             "$RELEASE_VERSION" "$GITHUB_SHA" "$IMAGE_TAG" "$IMAGE_ID" > hero-release-evidence.txt
         env:
-          RELEASE_VERSION: ${{ inputs.release_version }}
           IMAGE_TAG: hero-release-${{ github.sha }}
 
       - name: Create exact version tag
-        env:
-          RELEASE_VERSION: ${{ inputs.release_version }}
         run: |
           TAG="v${RELEASE_VERSION}"
           git fetch --tags --force
@@ -87,9 +88,6 @@ jobs:
       - name: Create GitHub pre-release
         id: github-release
         uses: actions/github-script@v7
-        env:
-          RELEASE_VERSION: ${{ inputs.release_version }}
-          RELEASE_NOTES: ${{ inputs.release_notes }}
         with:
           github-token: ${{ github.token }}
           script: |
@@ -116,7 +114,7 @@ jobs:
           printf 'release_url=%s\\n' "$RELEASE_URL" >> hero-release-evidence.txt
           {
             echo "### Hero test candidate"
-            echo "- Version: \`${{ inputs.release_version }}\`"
+            echo "- Version: \`${RELEASE_VERSION}\`"
             echo "- Commit: \`${GITHUB_SHA}\`"
             echo "- Release: ${RELEASE_URL}"
             echo "- Production deploy: not performed"
@@ -125,6 +123,6 @@ jobs:
       - name: Upload immutable evidence
         uses: actions/upload-artifact@v4
         with:
-          name: hero-release-evidence-${{ inputs.release_version }}-${{ github.sha }}
+          name: hero-release-evidence-${{ inputs.release_version || format('0.1.0-rc.{0}', github.run_number) }}-${{ github.sha }}
           path: hero-release-evidence.txt
           if-no-files-found: error

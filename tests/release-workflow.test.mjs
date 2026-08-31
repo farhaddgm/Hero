@@ -6,6 +6,7 @@ const WORKFLOW = new URL("../.github/workflows/release-candidate.yml", import.me
 
 test("release candidate workflow is test-gated, version-bound and production-free", async () => {
   const source = await readFile(WORKFLOW, "utf8");
+  assert.match(source, /push:\s*\n\s+branches:\s*\n\s+- codex\/hero-001-project-charter/);
   assert.match(source, /workflow_dispatch:/);
   assert.match(source, /environment:\s*\n\s+name: test/);
   assert.match(source, /contents: write/);
@@ -14,5 +15,6 @@ test("release candidate workflow is test-gated, version-bound and production-fre
   assert.match(source, /actions\/github-script@v7/);
   assert.match(source, /prerelease: true/);
   assert.match(source, /Production deploy: not performed/);
+  assert.match(source, /inputs\.release_version \|\| format\('0\.1\.0-rc\.\{0\}', github\.run_number\)/);
   assert.doesNotMatch(source, /production-promote|docker compose.*production|secrets\.(OPENAI|ANTHROPIC|GOOGLE)/i);
 });

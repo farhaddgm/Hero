@@ -4,7 +4,8 @@ ENV HERO_SOURCE_SNAPSHOT=1
 COPY . .
 RUN npm install --global pnpm@11.19.0 --ignore-scripts \
     && pnpm install --frozen-lockfile --ignore-scripts \
-    && node tools/doctor.mjs && node tools/build.mjs && node --test
+    && node tools/doctor.mjs && node tools/build.mjs && node --test \
+    && rm -rf .github
 
 FROM node:22.13.1-alpine AS runtime
 WORKDIR /opt/hero

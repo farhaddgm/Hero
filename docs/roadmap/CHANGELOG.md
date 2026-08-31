@@ -2,6 +2,7 @@
 
 ## 2026-08-31 — خودکارسازی release candidate و نسخه‌گذاری test
 
+- افزوده‌شده: اجرای خودکار Release Candidate پس از push به شاخهٔ عملیاتی و تولید نسخهٔ `0.1.0-rc.<run_number>`؛ اجرای دستی برای نسخهٔ انتخابی همچنان فعال است؛
 - افزوده‌شده: workflow دستی و Environment-gated برای اعتبارسنجی SemVer، اجرای `pnpm check`، ساخت image، tag دقیق و GitHub pre-release؛
 - افزوده‌شده: artifact شواهد شامل نسخه، commit SHA، image ID و URL release؛
 - تثبیت‌شده: `GITHUB_TOKEN` فقط برای tag و pre-release همین repository استفاده می‌شود و production deploy همچنان خارج از workflow است؛
