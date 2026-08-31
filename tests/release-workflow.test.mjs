@@ -12,6 +12,8 @@ test("release candidate workflow is test-gated, version-bound and production-fre
   assert.match(source, /contents: write/);
   assert.match(source, /pnpm check/);
   assert.match(source, /git tag --annotate/);
+  assert.match(source, /git config user\.name "hero-release-bot"/);
+  assert.match(source, /git config user\.email "hero-release-bot@users\.noreply\.github\.com"/);
   assert.match(source, /actions\/github-script@v7/);
   assert.match(source, /prerelease: true/);
   assert.match(source, /Production deploy: not performed/);

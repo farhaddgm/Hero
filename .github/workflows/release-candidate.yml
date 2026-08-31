@@ -82,6 +82,8 @@ jobs:
             echo "Tag $TAG already exists; choose a new candidate version."
             exit 1
           fi
+          git config user.name "hero-release-bot"
+          git config user.email "hero-release-bot@users.noreply.github.com"
           git tag --annotate "$TAG" "$GITHUB_SHA" --message "Hero $TAG"
           git push origin "$TAG"
 
