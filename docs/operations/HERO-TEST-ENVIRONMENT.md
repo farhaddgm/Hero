@@ -34,6 +34,7 @@ Secret Store یعنی محل امنی که مقدارهای حساس را فقط
 
 - `HERO_OWNER_AUTH_SECRET` برای نشست‌های API؛
 - `HERO_BACKOFFICE_USER` و `HERO_BACKOFFICE_PASSWORD` برای Back Office؛
+- `HERO_BACKOFFICE_PASSWORD_HASH` برای Caddy؛ این مقدار باید با خود Caddy ساخته شود و جایگزین password خام در Caddyfile شود؛
 - `HERO_POSTGRES_PASSWORD` و `HERO_POSTGRES_URL` برای PostgreSQL؛
 - API key Provider فقط اگر در آینده با مجوز مستقل فعال شود.
 
@@ -57,7 +58,7 @@ test.hero.beeproject.ir  A  <IP عمومی همین سرور>
 
 ۲. یک محیط Secret امن برای Test آماده کند و مقدارهای واقعی را فقط آنجا قرار دهد.
 
-۳. Caddy همان سرور را با نمونهٔ [Caddyfile.test.example](../../deploy/backoffice/Caddyfile.test.example) تنظیم کند. گواهی TLS باید فقط برای همین نام صادر شود و پورت `43101` و PostgreSQL عمومی نشوند.
+۳. Caddy همان سرور را با نمونهٔ [Caddyfile.test.example](../../deploy/backoffice/Caddyfile.test.example) تنظیم کند. مقدار `HERO_BACKOFFICE_PASSWORD_HASH` باید در محیط امن خود Caddy قرار گیرد و با ابزار Caddy ساخته شود؛ password خام یا hash در Git نوشته نشود. گواهی TLS باید فقط برای همین نام صادر شود و پورت `43101` و PostgreSQL عمومی نشوند.
 
 ۴. دسترسی اپراتوری Docker/Compose را در همان سرور فراهم کند؛ بدون ارسال credential در چت.
 
