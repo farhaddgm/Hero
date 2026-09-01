@@ -125,6 +125,24 @@ export {
 } from "./organization-performance.mjs";
 
 export {
+  SKILL_BINDING_STATES,
+  SKILL_CONTRACT_VERSION,
+  SKILL_SCOPES,
+  SKILL_STATUSES,
+  SKILL_TOOL_POLICIES,
+  getSkillContractSummary,
+  validateSkillContract
+} from "./skill.mjs";
+
+export {
+  ORGANIZATION_ADVISOR_CONTRACT_VERSION,
+  ORGANIZATION_ADVISOR_PIPELINE_ROLES,
+  ORGANIZATION_ADVISOR_STATES,
+  getOrganizationAdvisorContractSummary,
+  validateOrganizationAdvisorContract
+} from "./organization-advisor.mjs";
+
+export {
   AI_BENCHMARK_CASES,
   AI_BENCHMARK_CONTRACT_VERSION,
   AI_BENCHMARK_METRICS,

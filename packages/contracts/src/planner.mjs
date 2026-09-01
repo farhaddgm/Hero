@@ -50,8 +50,8 @@ export const PLANNER_AI_ROLE_ROUTES = Object.freeze({
   analysis: Object.freeze({ aiRole: "analyst", providerId: "openai", modelId: "chatgpt", outputSchema: "analysis-v1" }),
   architecture: Object.freeze({ aiRole: "planner", providerId: "openai", modelId: "chatgpt", outputSchema: "plan-v1" }),
   implementation: Object.freeze({ aiRole: "executor", providerId: "openai", modelId: "codex", outputSchema: "execution-v1" }),
-  testing: Object.freeze({ aiRole: "verifier", providerId: "anthropic", modelId: "default", outputSchema: "evaluation-v1" }),
-  review: Object.freeze({ aiRole: "code-reviewer", providerId: "anthropic", modelId: "default", outputSchema: "evaluation-v1" }),
+  testing: Object.freeze({ aiRole: "verifier", providerId: "openai", modelId: "chatgpt", outputSchema: "evaluation-v1" }),
+  review: Object.freeze({ aiRole: "code-reviewer", providerId: "openai", modelId: "chatgpt", outputSchema: "evaluation-v1" }),
   handoff: Object.freeze({ aiRole: "decision-maker", providerId: "openai", modelId: "chatgpt", outputSchema: "decision-proposal-v1" })
 });
 

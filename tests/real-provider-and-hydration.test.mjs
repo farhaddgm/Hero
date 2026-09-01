@@ -133,5 +133,5 @@ test("domain registry snapshots are append-only, secret-safe and hydrate all con
   });
   assert.equal(result.status, "hydrated");
   assert.equal(second.snapshot().teamControl.teams.length, 11);
-  assert.equal(second.snapshot().persistenceHydration.registryCount, 9);
+  assert.equal(second.snapshot().persistenceHydration.registryCount, 11);
 });

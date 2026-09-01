@@ -13,6 +13,8 @@ import { validateTeamResearchContract } from "../packages/contracts/src/team-res
 import { validateOutputAdvisoryContract } from "../packages/contracts/src/output-advisory.mjs";
 import { validateAiOrchestrationContract } from "../packages/contracts/src/ai-orchestration.mjs";
 import { validateOrganizationPerformanceContract } from "../packages/contracts/src/organization-performance.mjs";
+import { validateOrganizationAdvisorContract } from "../packages/contracts/src/organization-advisor.mjs";
+import { validateSkillContract } from "../packages/contracts/src/skill.mjs";
 import { validateAiBenchmarkContract } from "../packages/contracts/src/ai-benchmark.mjs";
 import { validateObservabilityContract } from "../packages/contracts/src/observability.mjs";
 import { validatePilotContract } from "../packages/contracts/src/pilot.mjs";
@@ -45,6 +47,8 @@ export function validateGovernance() {
   for (const detail of validateOutputAdvisoryContract()) errors.push({ code: "OUTPUT_ADVISORY_CONTRACT", detail });
   for (const detail of validateAiOrchestrationContract()) errors.push({ code: "AI_ORCHESTRATION_CONTRACT", detail });
   for (const detail of validateOrganizationPerformanceContract()) errors.push({ code: "ORGANIZATION_PERFORMANCE_CONTRACT", detail });
+  for (const detail of validateOrganizationAdvisorContract()) errors.push({ code: "ORGANIZATION_ADVISOR_CONTRACT", detail });
+  for (const detail of validateSkillContract()) errors.push({ code: "SKILL_CONTRACT", detail });
   for (const detail of validateAiBenchmarkContract()) errors.push({ code: "AI_BENCHMARK_CONTRACT", detail });
   for (const detail of validateObservabilityContract()) errors.push({ code: "OBSERVABILITY_CONTRACT", detail });
   for (const detail of validatePilotContract()) errors.push({ code: "PILOT_CONTRACT", detail });

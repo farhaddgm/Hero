@@ -96,6 +96,51 @@ test("team contract review is owner-gated, versioned and supports explicit rewor
   assert.equal(replay.idempotent, true);
 });
 
+test("owner can edit team principles and editing requires a fresh approval", () => {
+  const registry = createTeamRegistry({ now: fixedNow });
+  const before = registry.get("mahsulo");
+  assert.throws(
+    () => registry.updatePrinciples({
+      teamId: "mahsulo",
+      principles: ["اصل آزمایشی"],
+      actor: orchestrator,
+      idempotencyKey: "principles-not-owner"
+    }),
+    error => error instanceof TeamCommandError && error.code === "OWNER_APPROVAL_REQUIRED"
+  );
+
+  const edited = registry.updatePrinciples({
+    teamId: "mahsulo",
+    principles: ["هر تصمیم به outcome و نیاز کاربر متصل است.", "دامنه با معیار پذیرش روشن تحویل می‌شود."],
+    expectedVersion: before.version,
+    actor: owner,
+    idempotencyKey: "principles-edit-mahsulo"
+  });
+  assert.equal(edited.event.type, "team.principles-updated");
+  assert.deepEqual(edited.team.principles, ["هر تصمیم به outcome و نیاز کاربر متصل است.", "دامنه با معیار پذیرش روشن تحویل می‌شود."]);
+  assert.equal(edited.team.approvals.principles, false);
+  assert.equal(edited.team.status, "rework");
+  assert.equal(edited.team.version, before.version + 1);
+  assert.throws(
+    () => registry.updatePrinciples({
+      teamId: "mahsulo",
+      principles: ["نسخهٔ ناسازگار"],
+      expectedVersion: before.version,
+      actor: owner,
+      idempotencyKey: "principles-stale-mahsulo"
+    }),
+    error => error instanceof TeamCommandError && error.code === "VERSION_CONFLICT"
+  );
+  const approved = registry.reviewContract({
+    teamId: "mahsulo",
+    target: "principles",
+    decision: "approved",
+    actor: owner,
+    idempotencyKey: "principles-approve-mahsulo"
+  });
+  assert.equal(approved.team.approvals.principles, true);
+});
+
 test("team cannot receive project work before contract approval and training", () => {
   const registry = createTeamRegistry({ now: fixedNow });
   assert.throws(

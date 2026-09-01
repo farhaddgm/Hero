@@ -245,10 +245,17 @@ export function createTeamRegistry(options = {}) {
     if (!TEAM_REVIEW_DECISIONS.includes(decision)) throw new TeamCommandError("INVALID_REVIEW_DECISION", "The team review decision is not supported.");
     const feedback = input.feedback === undefined ? "" : assertIdentifier("feedback", input.feedback, 2000);
     if (decision !== "approved" && feedback.length < 3) throw new TeamCommandError("FEEDBACK_REQUIRED", "Rejecting or returning work requires actionable feedback.");
+    const expectedVersion = input.expectedVersion === undefined ? undefined : input.expectedVersion;
+    if (expectedVersion !== undefined && (!Number.isInteger(expectedVersion) || expectedVersion < 0)) {
+      throw new TeamCommandError("INVALID_VERSION", "expectedVersion must be a non-negative integer.");
+    }
     const idempotencyKey = assertKey(input.idempotencyKey);
-    return remember(`CONTRACT:${teamId}:${target}`, idempotencyKey, { teamId, target, decision, feedback, actor }, () => {
+    return remember(`CONTRACT:${teamId}:${target}`, idempotencyKey, { teamId, target, decision, feedback, expectedVersion, actor }, () => {
       const team = getTeamOrThrow(teamId);
       if (team.status === "retired") throw new TeamCommandError("TEAM_RETIRED", "A retired team cannot receive a new review.");
+      if (expectedVersion !== undefined && expectedVersion !== team.version) {
+        throw new TeamCommandError("VERSION_CONFLICT", "Team version is stale; reload the team before reviewing the contract.");
+      }
       const review = {
         reviewId: `TEAM-REVIEW-${String(++nextReview).padStart(5, "0")}`,
         target,
@@ -270,6 +277,44 @@ export function createTeamRegistry(options = {}) {
       refreshTeamReadiness(team);
       commitTeamEvent(team, event);
       return { team, review, event, idempotent: false };
+    });
+  }
+
+  function updatePrinciples(input) {
+    assertSafe(input);
+    const actor = assertActor(input?.actor, { owner: true });
+    const teamId = assertTeamId(input?.teamId);
+    const principles = normalizeList("team.principles", input?.principles);
+    const expectedVersion = input.expectedVersion === undefined ? undefined : input.expectedVersion;
+    if (expectedVersion !== undefined && (!Number.isInteger(expectedVersion) || expectedVersion < 0)) {
+      throw new TeamCommandError("INVALID_VERSION", "expectedVersion must be a non-negative integer.");
+    }
+    const idempotencyKey = assertKey(input.idempotencyKey);
+    return remember(`PRINCIPLES:${teamId}`, idempotencyKey, { teamId, principles, expectedVersion, actor }, () => {
+      const team = getTeamOrThrow(teamId);
+      if (team.status === "retired") throw new TeamCommandError("TEAM_RETIRED", "A retired team cannot receive new principles.");
+      if (expectedVersion !== undefined && expectedVersion !== team.version) {
+        throw new TeamCommandError("VERSION_CONFLICT", "Team version is stale; reload the team before saving principles.");
+      }
+      const previousPrinciples = [...team.principles];
+      const event = appendTeamEvent({
+        aggregateId: teamId,
+        type: "team.principles-updated",
+        actor,
+        data: { previousPrinciples, principles, approvalRequired: true }
+      });
+      team.principles = [...principles];
+      team.approvals.principles = false;
+      team.status = "rework";
+      team.reworkRequests.push({
+        kind: "contract",
+        target: "principles",
+        feedback: "اصول تیم ویرایش شده‌اند و باید دوباره توسط مالک پروژه تأیید شوند.",
+        requestedBy: actor.id,
+        requestedAt: now()
+      });
+      commitTeamEvent(team, event);
+      return { team, event, idempotent: false };
     });
   }
 
@@ -622,6 +667,7 @@ export function createTeamRegistry(options = {}) {
     persistenceSnapshot,
     hydrate,
     reviewContract,
+    updatePrinciples,
     requestRework,
     reviewDeliverable,
     recordTraining,

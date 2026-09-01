@@ -22,6 +22,10 @@ export const OBSERVABILITY_SAFE_DATA_KEYS = Object.freeze([
   "evaluationId",
   "decisionId",
   "reviewId",
+  "advisorId",
+  "organizationId",
+  "skillId",
+  "bindingId",
   "planningId",
   "requestId",
   "runId",
@@ -33,6 +37,9 @@ export const OBSERVABILITY_SAFE_DATA_KEYS = Object.freeze([
   "attempts",
   "latencyMs",
   "costUnits",
+  "findingCount",
+  "recommendation",
+  "period",
   "sequence"
 ]);
 
@@ -67,6 +74,8 @@ function safeScalar(value) {
 
 function publicKind(type = "") {
   if (type.startsWith("ai.")) return "ai";
+  if (type.startsWith("skill.") || type.startsWith("organization-advisor.")) return "ai";
+  if (type.startsWith("organization-performance.")) return "quality";
   if (type.startsWith("authorization.")) return "authorization";
   if (type.startsWith("team.")) return "team";
   if (type.startsWith("run.") || type.startsWith("task.") || type.startsWith("runner.") || type.startsWith("planning.")) return "workflow";

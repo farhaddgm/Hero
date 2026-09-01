@@ -12,6 +12,8 @@ import { PlannerIdempotencyConflictError, PlannerSafetyError, createPlanner } fr
 import { ProjectMemoryIdempotencyConflictError, ProjectMemorySafetyError, createProjectMemory } from "../../../packages/domain/src/project-memory.mjs";
 import { AiOrchestrationError, createAiOrchestration, createDeterministicAiProviderAdapter } from "../../../packages/domain/src/ai-orchestration.mjs";
 import { OrganizationPerformanceError, createOrganizationPerformanceReview } from "../../../packages/domain/src/organization-performance.mjs";
+import { OrganizationAdvisorError, createOrganizationAdvisor } from "../../../packages/domain/src/organization-advisor.mjs";
+import { SkillRegistryError, createSkillRegistry } from "../../../packages/domain/src/skill-registry.mjs";
 import { getObservabilityContractSummary, projectOperationalEvent } from "../../../packages/contracts/src/observability.mjs";
 import { getAiBenchmarkContractSummary } from "../../../packages/contracts/src/ai-benchmark.mjs";
 import { runAiBenchmark } from "../../../packages/domain/src/ai-benchmark.mjs";
@@ -92,14 +94,18 @@ export class DashboardCommandError extends Error {
 export function createControlDashboard(options = {}) {
   const now = options.now ?? (() => new Date().toISOString());
   const providerAdapters = options.providerAdapters ?? Object.freeze({});
-  const eventIdFactories = options.eventIdFactories ?? {
+  const eventIdFactories = {
     team: () => `evt_team_${randomUUID().replaceAll("-", "")}`,
     research: () => `evt_research_${randomUUID().replaceAll("-", "")}`,
     principle: () => `evt_principle_${randomUUID().replaceAll("-", "")}`,
     release: () => `evt_release_${randomUUID().replaceAll("-", "")}`,
     planner: () => `evt_planner_${randomUUID().replaceAll("-", "")}`,
     memory: () => `evt_memory_${randomUUID().replaceAll("-", "")}`,
-    ai: () => `evt_ai_${randomUUID().replaceAll("-", "")}`
+    ai: () => `evt_ai_${randomUUID().replaceAll("-", "")}`,
+    performance: () => `evt_performance_${randomUUID().replaceAll("-", "")}`,
+    skill: () => `evt_skill_${randomUUID().replaceAll("-", "")}`,
+    advisor: () => `evt_advisor_${randomUUID().replaceAll("-", "")}`,
+    ...(options.eventIdFactories ?? {})
   };
   const teamRegistry = options.teamRegistry ?? createTeamRegistry({ now, eventIdFactory: eventIdFactories.team });
   const researchRegistry = options.researchRegistry ?? createTeamResearchRegistry({ now, teamRegistry, eventIdFactory: eventIdFactories.research });
@@ -121,8 +127,10 @@ export function createControlDashboard(options = {}) {
   });
   const planner = options.planner ?? createPlanner({ now, teamRegistry, eventIdFactory: eventIdFactories.planner });
   const projectMemory = options.projectMemory ?? createProjectMemory({ now, eventIdFactory: eventIdFactories.memory });
-  const aiOrchestration = options.aiOrchestration ?? createAiOrchestration({ now, projectMemory, providerAdapters, externalSpendAuthorizer: options.externalSpendAuthorizer, eventIdFactory: eventIdFactories.ai });
-  const organizationPerformance = options.organizationPerformance ?? createOrganizationPerformanceReview({ now, teamRegistry });
+  const skillRegistry = options.skillRegistry ?? createSkillRegistry({ now, eventIdFactory: eventIdFactories.skill });
+  const aiOrchestration = options.aiOrchestration ?? createAiOrchestration({ now, projectMemory, skillRegistry, providerAdapters, externalSpendAuthorizer: options.externalSpendAuthorizer, eventIdFactory: eventIdFactories.ai });
+  const organizationPerformance = options.organizationPerformance ?? createOrganizationPerformanceReview({ now, teamRegistry, eventIdFactory: eventIdFactories.performance });
+  const organizationAdvisor = options.organizationAdvisor ?? createOrganizationAdvisor({ now, eventIdFactory: eventIdFactories.advisor });
   let hydrationState = Object.freeze({ status: "not-configured", source: null, registryCount: 0, missingRegistryIds: [] });
   let planningSequence = 0;
   const benchmarkRuns = new Map();
@@ -143,6 +151,8 @@ export function createControlDashboard(options = {}) {
       principlesControl: principlesRegistry.snapshot(),
       releaseControl: releasePromotion.snapshot(),
       aiOrchestration: aiOrchestration.snapshot(),
+      skills: skillRegistry.snapshot(),
+      organizationAdvisor: organizationAdvisor.snapshot(),
       organizationPerformance: organizationPerformance.contract(),
       persistenceHydration: hydrationState,
       requests: [...requests.values()]
@@ -163,7 +173,33 @@ export function createControlDashboard(options = {}) {
         responsibility: team.responsibility,
         approvals: Object.freeze({ approved: approvedSections, total: approvalValues.length }),
         trainingStatus: team.training.status,
-        ready: team.status === "ready"
+        ready: team.status === "ready",
+        contract: Object.freeze({
+          version: team.contractVersion,
+          decisionRights: Object.freeze([...team.decisionRights]),
+          inputs: Object.freeze([...team.inputs]),
+          outputs: Object.freeze([...team.outputs]),
+          principles: Object.freeze([...team.principles]),
+          partners: Object.freeze([...team.partners]),
+          defaultStages: Object.freeze([...team.defaultStages]),
+          autonomy: Object.freeze({
+            default: team.autonomy.default,
+            byStage: Object.freeze({ ...team.autonomy.byStage })
+          })
+        }),
+        training: Object.freeze({
+          status: team.training.status,
+          modules: Object.freeze(Object.values(team.training.modules).map(module => Object.freeze({
+            module: module.module,
+            score: module.score,
+            passed: module.passed,
+            recordedAt: module.recordedAt
+          })))
+        }),
+        knowledge: Object.freeze([...team.knowledge]),
+        knowledgeVersion: team.knowledgeVersion,
+        assignmentCount: team.assignments.length,
+        reviewCount: team.reviews.length
       });
     });
     const requestStatuses = current.requests.reduce((statuses, request) => {
@@ -206,9 +242,22 @@ export function createControlDashboard(options = {}) {
       ai: Object.freeze({
         roles: Object.freeze([...(current.aiOrchestration.contract.roles ?? [])]),
         counts: current.aiOrchestration.counts,
+        defaultRolePolicies: current.aiOrchestration.defaultRolePolicies,
         activity: current.aiOrchestration.activity,
         providerMode: current.providerMode,
         liveStatus: "گیت‌شده؛ بدون credential، cost policy و مجوز مستقل هیچ تماس بیرونی انجام نمی‌شود"
+      }),
+      skills: Object.freeze({
+        counts: current.skills.counts,
+        skills: current.skills.skills,
+        bindings: current.skills.bindings,
+        decisionBoundary: "skills constrain context and tools; they never grant authorization"
+      }),
+      advisor: Object.freeze({
+        contract: current.organizationAdvisor.contract,
+        latest: current.organizationAdvisor.latest,
+        count: current.organizationAdvisor.count,
+        decisionBoundary: "advisory-only-no-dispatch-no-authorization-no-mutation"
       }),
       benchmark: Object.freeze({
         mode: getAiBenchmarkContractSummary().mode,
@@ -381,6 +430,19 @@ export function createControlDashboard(options = {}) {
     }
   }
 
+  function runSkillCommand(command, input = {}, actor = { kind: "project-owner", id: "hero-owner" }) {
+    try {
+      return command({
+        ...input,
+        actor,
+        idempotencyKey: input.idempotencyKey ?? `dashboard-skill-${aiCommandSequence + 1}`
+      });
+    } catch (error) {
+      if (error instanceof SkillRegistryError) throw new DashboardCommandError(error.code, error.message);
+      throw error;
+    }
+  }
+
   async function runAiAsyncCommand(operation) {
     try {
       return await operation();
@@ -533,6 +595,10 @@ export function createControlDashboard(options = {}) {
     return runTeamCommand(teamRegistry.reviewContract, { ...input, teamId });
   }
 
+  function updateTeamPrinciples(teamId, input) {
+    return runTeamCommand(teamRegistry.updatePrinciples, { ...input, teamId });
+  }
+
   function requestTeamRework(teamId, input) {
     return runTeamCommand(teamRegistry.requestRework, { ...input, teamId });
   }
@@ -623,6 +689,21 @@ export function createControlDashboard(options = {}) {
     return runAiCommand(aiOrchestration.bindRole, payload);
   }
 
+  function registerAiSkill(input = {}) {
+    const { actor: ignoredActor, ...payload } = input;
+    return runSkillCommand(skillRegistry.register, payload);
+  }
+
+  function bindAiSkill(input = {}) {
+    const { actor: ignoredActor, ...payload } = input;
+    return runSkillCommand(skillRegistry.bind, payload);
+  }
+
+  function setAiRolePolicy(input = {}) {
+    const { actor: ignoredActor, ...payload } = input;
+    return runAiCommand(aiOrchestration.setDefaultRolePolicy, payload);
+  }
+
   function recordAiEvaluation(input = {}) {
     const { actor: ignoredActor, ...payload } = input;
     return runAiCommand(aiOrchestration.recordEvaluation, payload, { kind: "system", id: "hero-ai-orchestration" });
@@ -665,6 +746,27 @@ export function createControlDashboard(options = {}) {
     }
   }
 
+  function adviseOrganization(input = {}) {
+    const reviewId = input.reviewId ?? organizationPerformance.list().sort((left, right) => String(right.recordedAt).localeCompare(String(left.recordedAt)))[0]?.reviewId;
+    if (!reviewId) throw new DashboardCommandError("PERFORMANCE_REVIEW_REQUIRED", "ابتدا ارزیابی عملکرد هر ۱۱ تیم را ثبت کنید.");
+    const performanceReview = organizationPerformance.get(reviewId);
+    if (!performanceReview) throw new DashboardCommandError("PERFORMANCE_REVIEW_NOT_FOUND", "ارزیابی عملکرد انتخاب‌شده پیدا نشد.");
+    const { actor: ignoredActor, performanceReview: ignoredReview, ...payload } = input;
+    try {
+      return organizationAdvisor.advise({
+        ...payload,
+        advisorId: payload.advisorId ?? `ADVISOR-${reviewId}`,
+        organizationId: performanceReview.organizationId,
+        performanceReview,
+        actor: { kind: "system", id: "hero-organization-advisor" },
+        idempotencyKey: payload.idempotencyKey ?? `organization-advisor-${reviewId}`
+      });
+    } catch (error) {
+      if (error instanceof OrganizationAdvisorError) throw new DashboardCommandError(error.code, error.message);
+      throw error;
+    }
+  }
+
   function persistenceSnapshot() {
     const registries = [
       teamRegistry,
@@ -674,7 +776,9 @@ export function createControlDashboard(options = {}) {
       planner,
       projectMemory,
       aiOrchestration,
-      organizationPerformance
+      organizationPerformance,
+      skillRegistry,
+      organizationAdvisor
     ];
     const dashboardState = Object.freeze({
       schemaVersion: "1.0",
@@ -692,7 +796,7 @@ export function createControlDashboard(options = {}) {
   }
 
   function domainEvents() {
-    const registries = [teamRegistry, researchRegistry, principlesRegistry, releasePromotion, planner, projectMemory, aiOrchestration];
+    const registries = [teamRegistry, researchRegistry, principlesRegistry, releasePromotion, planner, projectMemory, aiOrchestration, organizationPerformance, skillRegistry, organizationAdvisor];
     const seen = new Set();
     return Object.freeze(registries.flatMap(registry => registry.events?.() ?? []).filter(event => {
       if (seen.has(event.eventId)) return false;
@@ -713,7 +817,9 @@ export function createControlDashboard(options = {}) {
       ["planner", planner],
       ["project-memory", projectMemory],
       ["ai-orchestration", aiOrchestration],
-      ["organization-performance", organizationPerformance]
+      ["organization-performance", organizationPerformance],
+      ["skill-registry", skillRegistry],
+      ["organization-advisor", organizationAdvisor]
     ];
     const hydrated = [];
     const missingRegistryIds = [];
@@ -944,13 +1050,20 @@ export function createControlDashboard(options = {}) {
     registerAiModel,
     registerAiProfile,
     bindAiRole,
+    registerAiSkill,
+    bindAiSkill,
+    setAiRolePolicy,
     invokeAi,
     recordAiEvaluation,
     evaluateAiInvocation,
     reviewOrganizationPerformance,
+    adviseOrganization,
     benchmarkSnapshot,
     runSyntheticBenchmark,
     organizationPerformanceContract: () => organizationPerformance.contract(),
+    organizationAdvisorSnapshot: () => organizationAdvisor.snapshot(),
+    organizationAdvisorEvents: after => organizationAdvisor.events(after),
+    skillSnapshot: () => skillRegistry.snapshot(),
     proposeAiDecision,
     resolveAiDecision,
     teamResearchContract: () => researchRegistry.contract(),
@@ -966,6 +1079,7 @@ export function createControlDashboard(options = {}) {
     getPlan,
     decidePlanOutput,
     reviewTeam,
+    updateTeamPrinciples,
     requestTeamRework,
     reviewTeamDeliverable,
     setTeamAutonomy,

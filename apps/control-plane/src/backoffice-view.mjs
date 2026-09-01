@@ -6,92 +6,258 @@ export function getBackofficeHtml() {
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate">
     <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate">
-    <title>Hero — بک‌آفیس توسعه</title>
+    <title>Hero — مرکز مدیریت</title>
     <style>
-      :root { color-scheme: light; font-family: Tahoma, Arial, sans-serif; background: #eef3f8; color: #172333; }
+      :root {
+        color-scheme: light;
+        font-family: IRANSans, IRANSansWeb, "IRANSansX", Tahoma, Arial, sans-serif;
+        background: #f4f7fb;
+        color: #17253b;
+        --ink: #17253b;
+        --muted: #6e7d91;
+        --line: #e5ebf3;
+        --surface: #ffffff;
+        --primary: #2b5fd3;
+        --primary-soft: #eef3ff;
+        --teal: #159a83;
+        --teal-soft: #e7f8f3;
+        --amber: #b87918;
+        --amber-soft: #fff5df;
+        --rose: #c34e68;
+        --rose-soft: #fff0f3;
+        --shadow: 0 18px 45px rgba(38, 70, 113, .08);
+      }
       * { box-sizing: border-box; }
-      body { margin: 0; min-width: 320px; }
-      main { max-width: 1280px; margin: auto; padding: 24px 18px 56px; }
-      .topbar { display: flex; justify-content: space-between; align-items: start; gap: 20px; margin-bottom: 24px; }
+      html { scroll-behavior: smooth; }
+      body { min-width: 320px; margin: 0; background: #f4f7fb; }
+      button, input, textarea, select { font: inherit; }
+      button, a { -webkit-tap-highlight-color: transparent; }
+      button { border: 0; cursor: pointer; }
+      button:disabled { cursor: wait; opacity: .58; }
+      a { color: inherit; }
+      main { width: min(1440px, calc(100% - 48px)); margin: 0 auto; padding: 32px 0 72px; }
+      .topbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 28px; margin-bottom: 28px; }
+      .brand { display: flex; align-items: flex-start; gap: 14px; }
+      .brand-mark { display: grid; place-items: center; width: 48px; height: 48px; flex: 0 0 48px; border-radius: 15px; background: linear-gradient(145deg, #356fe4, #2049ae); color: #fff; font-size: 1.35rem; font-weight: 900; box-shadow: 0 10px 20px rgba(43, 95, 211, .23); }
+      .eyebrow { display: block; margin-bottom: 7px; color: var(--primary); font-size: .73rem; font-weight: 800; letter-spacing: .12em; direction: ltr; text-transform: uppercase; }
       h1, h2, h3, p { margin-top: 0; }
-      h1 { margin-bottom: 8px; font-size: clamp(1.7rem, 4vw, 2.65rem); letter-spacing: -.04em; }
-      h2 { margin-bottom: 14px; font-size: 1.12rem; }
-      h3 { margin-bottom: 8px; font-size: 1rem; }
-      .subtitle, .muted { color: #607083; line-height: 1.8; }
-      .subtitle { margin-bottom: 0; }
-      .top-actions, .actions { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
-      .badge { display: inline-flex; align-items: center; border-radius: 99px; padding: 7px 11px; font-size: .8rem; font-weight: 700; white-space: nowrap; }
-      .badge.good { color: #146247; background: #dcf6e9; }.badge.warn { color: #8b5b12; background: #fff0c7; }.badge.blocked { color: #9b2947; background: #ffe1e8; }.badge.neutral { color: #34536e; background: #dceaf5; }
-      button, a.button { border: 0; border-radius: 9px; background: #1d547c; color: #fff; cursor: pointer; font: inherit; font-weight: 700; padding: 9px 12px; text-decoration: none; }
-      button:hover, a.button:hover { filter: brightness(.95); }.button.secondary { color: #31516a; background: #e1eaf1; }
-      .grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px; }
-      .card { grid-column: span 12; background: #fff; border: 1px solid #dce5ed; border-radius: 16px; padding: 19px; box-shadow: 0 8px 24px rgba(32, 61, 91, .06); }
-      .half { grid-column: span 6; }.third { grid-column: span 4; }
-      .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
-      .metric, .status-card, .role, .next-step { border: 1px solid #e1e9f0; border-radius: 12px; padding: 13px; background: #fbfdff; }
-      .metric strong { display: block; color: #1d547c; font-size: 1.55rem; margin-bottom: 4px; }.metric span { color: #607083; font-size: .83rem; }
-      .status-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 11px; }
-      .status-card { display: grid; gap: 9px; border-top: 4px solid #2b8a66; }.status-card.warn { border-top-color: #d08a1d; }.status-card.blocked { border-top-color: #c33e5c; }
-      .status-card p { margin-bottom: 0; color: #53677a; line-height: 1.75; font-size: .88rem; }.status-card small { color: #6b7b8a; line-height: 1.7; }
-      .architecture { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; align-items: stretch; }.arch-node { padding: 14px 10px; border-radius: 12px; background: #eaf3fa; color: #204e6e; text-align: center; font-weight: 700; line-height: 1.7; }.arch-arrow { align-self: center; color: #8aa5ba; text-align: center; font-size: 1.25rem; }
-      .roles { display: flex; flex-wrap: wrap; gap: 8px; }.role { padding: 8px 10px; color: #3e347e; background: #f0efff; border-color: #dedbff; font-size: .86rem; }
-      .activity { display: grid; gap: 7px; margin-top: 12px; }.activity-row { display: flex; justify-content: space-between; gap: 10px; padding: 8px 10px; background: #f6f9fb; border-radius: 8px; color: #53677a; font-size: .82rem; }.activity-row strong { color: #214f70; }
-      .table-wrap { overflow-x: auto; } table { width: 100%; border-collapse: collapse; min-width: 650px; } th, td { border-bottom: 1px solid #e7edf2; padding: 11px 8px; text-align: right; vertical-align: top; line-height: 1.65; } th { color: #52677a; background: #f6f9fb; font-size: .82rem; } td { font-size: .87rem; } td strong { color: #214f70; }
-      .next-steps { display: grid; gap: 9px; }.next-step { display: flex; gap: 9px; align-items: start; }.next-step b { color: #1d547c; }
-      .timeline { display: grid; gap: 8px; max-height: 430px; overflow: auto; }.timeline-item { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: start; padding: 11px 12px; border: 1px solid #e1e9f0; border-radius: 10px; background: #fbfdff; }.timeline-item strong { color: #214f70; font-size: .86rem; }.timeline-item small, .timeline-item span { color: #607083; line-height: 1.65; font-size: .8rem; }.timeline-item small { direction: ltr; text-align: left; white-space: nowrap; }
-      .reviews { display: grid; gap: 8px; }.review { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 11px 12px; border: 1px solid #e1e9f0; border-radius: 10px; background: #fbfdff; }.review strong { display: block; color: #214f70; font-size: .88rem; }.review small { color: #607083; line-height: 1.6; }
-      .learn { display: grid; gap: 10px; }.learn p { margin: 0; padding: 10px 12px; border-radius: 9px; color: #4d6274; background: #f6f9fb; line-height: 1.8; font-size: .88rem; }.learn code { color: #443a91; font-family: inherit; font-weight: 700; }
-      .footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 18px; }.notice { min-height: 22px; color: #1d547c; font-size: .86rem; }
-      .filters { display: flex; gap: 9px; flex-wrap: wrap; align-items: center; }.filters input, .filters select { border: 1px solid #cbd9e4; border-radius: 9px; background: #fff; color: #172333; font: inherit; padding: 9px 10px; min-width: 170px; }.filter-count { color: #607083; font-size: .83rem; }
-      @media (max-width: 900px) { .half, .third { grid-column: span 12; }.metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }.architecture { grid-template-columns: 1fr; }.arch-arrow { transform: rotate(90deg); } }
-      @media (max-width: 540px) { .topbar { display: block; }.top-actions { margin-top: 13px; }.metrics { grid-template-columns: 1fr 1fr; }.card { padding: 15px; } }
+      h1 { margin-bottom: 7px; color: var(--ink); font-size: clamp(1.7rem, 3.2vw, 2.55rem); font-weight: 900; letter-spacing: -.04em; line-height: 1.35; }
+      h2 { margin-bottom: 7px; font-size: 1.22rem; font-weight: 850; letter-spacing: -.02em; }
+      h3 { margin-bottom: 5px; font-size: 1rem; font-weight: 850; }
+      .subtitle, .muted { color: var(--muted); line-height: 1.9; }
+      .subtitle { max-width: 720px; margin-bottom: 0; font-size: .92rem; }
+      .top-actions, .actions, .section-tools, .filters { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+      .top-actions { justify-content: flex-end; }
+      .button, button.button { display: inline-flex; align-items: center; justify-content: center; min-height: 39px; padding: 9px 14px; border-radius: 11px; background: var(--primary); color: #fff; font-size: .84rem; font-weight: 800; text-decoration: none; transition: transform .18s ease, box-shadow .18s ease, background .18s ease; }
+      .button:hover, button.button:hover { transform: translateY(-1px); box-shadow: 0 8px 18px rgba(43, 95, 211, .18); }
+      .button.secondary, button.button.secondary { background: #eef2f7; color: #53647a; }
+      .button.ghost, button.button.ghost { min-height: 35px; padding: 7px 10px; background: transparent; border: 1px solid #dce5f0; color: #48617f; box-shadow: none; }
+      .button.ghost:hover, button.button.ghost:hover { background: var(--primary-soft); color: var(--primary); }
+      .button.success, button.button.success { background: var(--teal); }
+      .status-pill, .tag, .team-id, .section-kicker { display: inline-flex; align-items: center; white-space: nowrap; }
+      .status-pill { gap: 7px; min-height: 34px; padding: 7px 11px; border: 1px solid #d7e3f0; border-radius: 99px; background: #fff; color: #4f6782; font-size: .78rem; font-weight: 800; }
+      .status-pill::before { width: 7px; height: 7px; border-radius: 50%; background: var(--teal); content: ""; box-shadow: 0 0 0 4px var(--teal-soft); }
+      .status-pill.warn::before { background: var(--amber); box-shadow: 0 0 0 4px var(--amber-soft); }
+      .status-pill.blocked::before { background: var(--rose); box-shadow: 0 0 0 4px var(--rose-soft); }
+      .card, .section { border: 1px solid var(--line); border-radius: 20px; background: var(--surface); box-shadow: var(--shadow); }
+      .section { padding: 24px; }
+      .section + .section { margin-top: 18px; }
+      .section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+      .section-head p { max-width: 760px; margin-bottom: 0; color: var(--muted); font-size: .86rem; line-height: 1.85; }
+      .section-kicker { min-height: 27px; padding: 5px 9px; border-radius: 8px; background: var(--primary-soft); color: var(--primary); font-size: .72rem; font-weight: 850; }
+      .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 13px; }
+      .metric { position: relative; overflow: hidden; min-height: 112px; padding: 18px; border: 1px solid var(--line); border-radius: 16px; background: linear-gradient(145deg, #fff, #f9fbfe); }
+      .metric::after { position: absolute; left: -15px; bottom: -35px; width: 96px; height: 96px; border-radius: 50%; background: var(--primary-soft); content: ""; }
+      .metric strong { position: relative; z-index: 1; display: block; margin-bottom: 5px; color: var(--primary); font-size: 1.75rem; font-weight: 900; line-height: 1.2; }
+      .metric span { position: relative; z-index: 1; color: var(--muted); font-size: .8rem; font-weight: 700; }
+      .overview-grid { display: grid; grid-template-columns: minmax(0, 1.12fr) minmax(360px, .88fr); gap: 18px; margin-top: 18px; }
+      .focus-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px; }
+      .focus-card { min-height: 142px; padding: 15px; border: 1px solid var(--line); border-top: 3px solid var(--teal); border-radius: 14px; background: #fcfdff; }
+      .focus-card.warn { border-top-color: var(--amber); }.focus-card.blocked { border-top-color: var(--rose); }
+      .focus-card .status-pill { margin: 4px 0 9px; border: 0; padding: 0; background: transparent; }
+      .focus-card .status-pill::before { display: none; }
+      .focus-card p { margin-bottom: 6px; color: #52657c; font-size: .8rem; line-height: 1.75; }
+      .focus-card small { color: var(--muted); font-size: .74rem; line-height: 1.7; }
+      .architecture { display: grid; grid-template-columns: 1fr auto 1fr auto 1.15fr; align-items: center; gap: 10px; min-height: 150px; }
+      .arch-node { display: grid; place-items: center; min-height: 105px; padding: 15px 10px; border: 1px solid #dae7ff; border-radius: 15px; background: linear-gradient(145deg, #f5f8ff, #edf3ff); color: #2850a5; font-size: .85rem; font-weight: 850; line-height: 1.75; text-align: center; }
+      .arch-node.primary { border-color: #ccece5; background: linear-gradient(145deg, #f0fcf8, #e8f8f3); color: #187d69; }
+      .arch-arrow { color: #9bb1cc; font-size: 1.4rem; }
+      .roles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+      .role-chip { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 10px 11px; border: 1px solid #e2e6fb; border-radius: 12px; background: #fafaff; color: #453c99; font-size: .8rem; font-weight: 800; }
+      .role-chip i { display: grid; place-items: center; width: 25px; height: 25px; flex: 0 0 25px; border-radius: 8px; background: #ecebff; color: #6255c2; font-size: .7rem; font-style: normal; }
+      .activity { display: grid; gap: 7px; margin-top: 13px; }
+      .activity-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 11px; border-radius: 10px; background: #f7f9fc; color: var(--muted); font-size: .78rem; }
+      .activity-row strong { color: #48617f; }
+      .filters { align-items: stretch; }
+      .filters input, .filters select, .admin-token { min-height: 41px; border: 1px solid #d9e2ee; border-radius: 11px; background: #fff; color: var(--ink); outline: none; font-size: .82rem; }
+      .filters input, .filters select { min-width: 185px; padding: 8px 11px; }
+      .filters input:focus, .filters select:focus, .admin-token:focus, textarea:focus { border-color: #8baaf0; box-shadow: 0 0 0 4px #eef3ff; }
+      .filter-count { align-self: center; color: var(--muted); font-size: .78rem; }
+      .team-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+      .team-card { min-width: 0; padding: 18px; border: 1px solid var(--line); border-radius: 17px; background: #fff; transition: border-color .18s ease, box-shadow .18s ease; }
+      .team-card:hover { border-color: #cbd9ef; box-shadow: 0 13px 28px rgba(40, 77, 126, .08); }
+      .team-card-head { display: flex; align-items: flex-start; gap: 11px; }
+      .team-index { display: grid; place-items: center; width: 34px; height: 34px; flex: 0 0 34px; border-radius: 11px; background: var(--primary-soft); color: var(--primary); font-size: .78rem; font-weight: 900; direction: ltr; }
+      .team-title { min-width: 0; flex: 1; }.team-title h3 { margin: 1px 0 3px; font-size: 1.05rem; }.team-title p { margin: 0; }
+      .team-id { color: #9aa8ba; direction: ltr; font-family: ui-monospace, monospace; font-size: .7rem; }
+      .team-status { padding: 6px 9px; border-radius: 9px; background: var(--amber-soft); color: var(--amber); font-size: .73rem; font-weight: 850; }
+      .team-status.good { background: var(--teal-soft); color: #15816d; }.team-status.blocked { background: var(--rose-soft); color: var(--rose); }
+      .team-responsibility { min-height: 48px; margin: 14px 0 14px; color: #53677f; font-size: .84rem; line-height: 1.85; }
+      .progress-meta { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 7px; color: var(--muted); font-size: .73rem; }.progress-meta strong { color: var(--ink); font-size: .75rem; }
+      .progress-track { height: 7px; overflow: hidden; border-radius: 99px; background: #edf1f6; }.progress-track i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #356fe4, #6a8ee9); }
+      .team-meta { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 15px; }.team-meta > div { padding: 9px 10px; border-radius: 11px; background: #f7f9fc; }.team-meta span { display: block; margin-bottom: 3px; color: var(--muted); font-size: .7rem; }.team-meta strong { display: block; overflow: hidden; color: #3c5571; font-size: .76rem; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+      .team-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 15px 0; padding-top: 14px; border-top: 1px solid #eef2f6; }.team-summary > div { min-width: 0; }.label { display: block; margin-bottom: 7px; color: #8291a4; font-size: .7rem; font-weight: 800; }.tag-list { display: flex; flex-wrap: wrap; gap: 5px; }.tag { max-width: 100%; overflow: hidden; padding: 5px 7px; border-radius: 7px; background: #f4f7fb; color: #52677f; font-size: .7rem; line-height: 1.5; text-overflow: ellipsis; }.tag.more { background: var(--primary-soft); color: var(--primary); }
+      details.team-details { margin-top: 10px; border-top: 1px solid #eef2f6; } details.team-details summary { padding: 13px 0 3px; cursor: pointer; color: var(--primary); font-size: .78rem; font-weight: 850; list-style-position: inside; } details.team-details summary::marker { color: #9bb1cc; }
+      .detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; padding: 12px 0 2px; }.detail-block { min-width: 0; }.detail-block.full { grid-column: 1 / -1; }.detail-block ul { display: grid; gap: 6px; margin: 0; padding: 0 17px 0 0; color: #50647c; font-size: .77rem; line-height: 1.75; }.detail-block li::marker { color: #9aacc3; }.detail-block .tag-list { gap: 6px; }
+      .team-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-top: 16px; }.team-actions .actions { gap: 7px; }.approval-note { color: var(--muted); font-size: .7rem; }
+      .admin-bar { display: flex; align-items: center; justify-content: space-between; gap: 15px; margin: 18px 0; padding: 14px 17px; border: 1px solid #dce6f5; border-radius: 15px; background: linear-gradient(105deg, #f8faff, #f1f6ff); }.admin-copy { display: flex; align-items: flex-start; gap: 10px; }.admin-icon { display: grid; place-items: center; width: 30px; height: 30px; flex: 0 0 30px; border-radius: 9px; background: #e3ecff; color: var(--primary); font-weight: 900; }.admin-copy strong { display: block; margin-bottom: 2px; font-size: .8rem; }.admin-copy span { display: block; color: var(--muted); font-size: .72rem; line-height: 1.65; }.token-field { display: flex; align-items: center; gap: 7px; color: #5a6f89; font-size: .73rem; font-weight: 800; }.admin-token { width: min(330px, 36vw); padding: 8px 11px; direction: ltr; text-align: left; }
+      .lower-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 18px; }.timeline, .reviews, .next-steps { display: grid; gap: 8px; }.timeline { max-height: 410px; overflow: auto; }.timeline-item, .review, .next-step { border: 1px solid var(--line); border-radius: 12px; background: #fcfdff; }.timeline-item { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: start; padding: 11px 12px; }.timeline-item strong, .review strong { color: #345b9e; font-size: .76rem; }.timeline-item span, .timeline-item small, .review small { color: var(--muted); font-size: .71rem; line-height: 1.65; }.timeline-item small { direction: ltr; text-align: left; white-space: nowrap; }.review { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px; }.review small { display: block; }.next-step { display: flex; align-items: flex-start; gap: 10px; padding: 11px 12px; color: #50647c; font-size: .78rem; line-height: 1.75; }.next-step b { display: grid; place-items: center; width: 22px; height: 22px; flex: 0 0 22px; border-radius: 7px; background: var(--primary-soft); color: var(--primary); font-size: .7rem; direction: ltr; }
+      .guide-grid { display: grid; grid-template-columns: minmax(300px, .83fr) minmax(0, 1.17fr); gap: 15px; }.guide-card { min-width: 0; padding: 17px; border: 1px solid var(--line); border-radius: 15px; background: #fcfdff; }.guide-card h3 { margin-bottom: 12px; }.role-guide { display: grid; gap: 8px; }.role-guide-item { display: grid; grid-template-columns: 28px 1fr; gap: 9px; align-items: start; padding: 9px; border-radius: 10px; background: #f8f8ff; }.role-guide-item i { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; background: #e9e8ff; color: #6255c2; font-size: .68rem; font-style: normal; font-weight: 900; }.role-guide-item strong { display: block; margin-bottom: 2px; color: #433a91; font-size: .78rem; }.role-guide-item span { display: block; color: var(--muted); font-size: .7rem; line-height: 1.65; }.concept-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }.concept { padding: 10px; border-radius: 10px; background: #f7f9fc; }.concept strong { display: block; margin-bottom: 3px; color: #3a5474; font-size: .76rem; }.concept span { display: block; color: var(--muted); font-size: .7rem; line-height: 1.65; }
+      .learn-note { margin: 16px 0 0; padding: 12px 14px; border-radius: 11px; background: #fffaf0; color: #7e632f; font-size: .76rem; line-height: 1.8; }.learn-note strong { color: #9a6b1c; }
+      .footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 19px; padding: 0 4px; }.footer span { color: var(--muted); font-size: .72rem; line-height: 1.7; }.notice { min-height: 20px; color: var(--primary) !important; font-weight: 800; }.empty { padding: 26px; border: 1px dashed #d7e1ed; border-radius: 13px; color: var(--muted); font-size: .8rem; text-align: center; }
+      dialog { width: min(620px, calc(100% - 28px)); padding: 0; border: 0; border-radius: 20px; background: #fff; color: var(--ink); box-shadow: 0 25px 90px rgba(18, 39, 72, .25); } dialog::backdrop { background: rgba(20, 37, 65, .42); backdrop-filter: blur(3px); }.dialog-form { padding: 23px; }.dialog-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 15px; }.dialog-head h2 { margin-bottom: 3px; }.dialog-head p { margin: 0; color: var(--muted); font-size: .75rem; line-height: 1.7; }.close { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: #f1f4f8; color: #69809d; font-size: 1.15rem; }.dialog-form label { display: grid; gap: 7px; margin: 0; color: #52677f; font-size: .78rem; font-weight: 800; }.dialog-form textarea { width: 100%; min-height: 260px; resize: vertical; padding: 11px 12px; border: 1px solid #d9e2ee; border-radius: 12px; color: var(--ink); outline: none; font-size: .82rem; line-height: 2; }.dialog-help { margin: 8px 0 0; color: var(--muted); font-size: .7rem; line-height: 1.75; }.dialog-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 17px; }.dialog-notice { min-height: 19px; margin: 10px 0 0; color: var(--rose); font-size: .72rem; font-weight: 700; }
+      @media (max-width: 1080px) { main { width: min(100% - 30px, 980px); }.overview-grid, .guide-grid { grid-template-columns: 1fr; }.team-grid { grid-template-columns: 1fr; } }
+      @media (max-width: 720px) { main { width: min(100% - 22px, 650px); padding-top: 20px; }.topbar, .admin-bar, .section-head { display: block; }.top-actions { justify-content: flex-start; margin-top: 16px; }.admin-bar { padding: 14px; }.token-field { margin-top: 12px; }.admin-token { width: 100%; }.metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }.focus-grid, .lower-grid, .concept-grid { grid-template-columns: 1fr; }.architecture { grid-template-columns: 1fr; gap: 7px; }.arch-node { min-height: 75px; }.arch-arrow { transform: rotate(90deg); text-align: center; }.section { padding: 17px; }.section-tools { margin-top: 14px; }.filters input, .filters select { min-width: 0; flex: 1 1 170px; }.team-summary, .detail-grid { grid-template-columns: 1fr; }.detail-block.full { grid-column: auto; }.timeline-item { grid-template-columns: 1fr; gap: 4px; }.timeline-item small { text-align: right; }.footer { display: block; }.footer span { display: block; margin-top: 4px; } }
+      @media (max-width: 420px) { .metrics { gap: 8px; }.metric { min-height: 100px; padding: 13px; }.metric strong { font-size: 1.4rem; }.team-card-head { flex-wrap: wrap; }.team-status { margin-right: 45px; }.roles { grid-template-columns: 1fr; }.team-meta { gap: 5px; }.team-meta > div { padding: 8px 7px; }.team-meta strong { font-size: .69rem; } }
     </style>
   </head>
   <body>
     <main>
       <header class="topbar">
-        <div><h1>بک‌آفیس توسعهٔ Hero</h1><p class="subtitle">نمای مشاهده‌ای برای فهم وضعیت سازمان، لایهٔ Multi-AI، گیت‌ها و مسیر بعدی</p></div>
-        <div class="top-actions"><span id="overall" class="badge neutral">در حال خواندن وضعیت…</span><button id="refresh" type="button">به‌روزرسانی</button><a class="button secondary" href="/">اتاق کنترل</a></div>
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">H</div>
+          <div>
+            <span class="eyebrow">HERO / CONTROL PLANE</span>
+            <h1>مرکز مدیریت و راهبری</h1>
+            <p class="subtitle">بک‌آفیس توسعهٔ Hero برای دیدن تیم‌ها، نقش‌های هوش مصنوعی، گیت‌های ایمنی و مسیر تصمیم‌گیری پروژه.</p>
+          </div>
+        </div>
+        <div class="top-actions">
+          <span id="overall" class="status-pill">در حال خواندن وضعیت…</span>
+          <button id="refresh" class="button" type="button">به‌روزرسانی</button>
+          <a class="button secondary" href="/">اتاق کنترل</a>
+        </div>
       </header>
-      <section class="grid" aria-live="polite">
-        <section class="card"><h2>نمای سریع</h2><div id="metrics" class="metrics"></div></section>
-        <section class="card"><h2>الان کجای پروژه‌ایم؟</h2><div id="status-grid" class="status-grid"></div></section>
-        <section class="card half"><h2>مدل کلی سیستم</h2><p class="muted">Hero سازمان و کنترل‌پلین آن است؛ Teamها واحدهای عملیاتی‌اند و Roleهای AI قابلیت‌های قابل‌تعویض هستند.</p><div class="architecture"><div class="arch-node">مالک پروژه</div><div class="arch-arrow">←</div><div class="arch-node">Hero Control Plane<br>۱۱ تیم</div><div class="arch-arrow">←</div><div class="arch-node">AI Orchestration<br>Role → Profile → Provider</div></div></section>
-        <section class="card half"><h2>Roleهای AI</h2><p class="muted">شش Role عملیاتی اصلی و دو Role تخصصی کیفیت در قرارداد هستند؛ هیچ‌کدام با Team سازمانی یکی نیستند.</p><div id="roles" class="roles"></div><div id="ai-activity" class="activity"></div><p id="provider-note" class="muted" style="margin:14px 0 0"></p><p id="benchmark-note" class="muted" style="margin:10px 0 0"></p></section>
-        <section class="card"><h2>فیلتر سریع</h2><div class="filters"><input id="team-search" type="search" placeholder="جست‌وجوی نام یا مسئولیت تیم" aria-label="جست‌وجوی تیم"><select id="team-status" aria-label="فیلتر وضعیت تیم"><option value="all">همهٔ وضعیت‌ها</option><option value="ready">آمادهٔ کار</option><option value="not-ready">نیازمند تکمیل</option></select><span id="filter-count" class="filter-count"></span></div></section>
-        <section class="card"><h2>وضعیت ۱۱ تیم</h2><div class="table-wrap"><table><thead><tr><th>تیم</th><th>مسئولیت</th><th>قرارداد</th><th>آموزش</th><th>آمادهٔ کار</th></tr></thead><tbody id="teams"></tbody></table></div></section>
-        <section class="card half"><h2>Timeline تغییرات</h2><p class="muted">فقط خلاصهٔ امن eventها نمایش داده می‌شود؛ متن درخواست، prompt و خروجی AI حذف شده‌اند.</p><div id="timeline" class="timeline"></div></section>
-        <section class="card half"><h2>ارزیابی سازمان</h2><p class="muted">نتیجهٔ ارزیابی شواهد و پیشنهاد است و به‌تنهایی مجوز یا تغییر وضعیت تیم ایجاد نمی‌کند.</p><div id="reviews" class="reviews"></div></section>
-        <section class="card half"><h2>گام‌های بعدی</h2><div id="next-steps" class="next-steps"></div></section>
-        <section class="card half"><h2>چطور این پنل را بخوانیم؟</h2><div class="learn"><p><code>Team</code> یعنی واحد سازمانی با مسئولیت و خروجی مشخص.</p><p><code>AI Role</code> یعنی توانایی؛ مثل تحلیل، ارزیابی یا اجرا.</p><p><code>Provider/Model/Profile</code> یعنی ابزار و تنظیمات قابل‌تعویض برای یک Role.</p><p><code>Evaluation</code> شواهد تولید می‌کند؛ خودش مجوز اجرا یا تصمیم مالک نیست.</p><p><code>Blocked</code> شکست نیست؛ یعنی شرط لازم هنوز فراهم نشده و سیستم باید متوقف بماند.</p></div></section>
+
+      <section class="admin-bar" aria-label="دسترسی ادمین">
+        <div class="admin-copy"><div class="admin-icon" aria-hidden="true">✓</div><div><strong>دسترسی مالک برای تغییرات</strong><span>برای ویرایش یا تأیید اصول، توکن Bearer مالک را وارد کنید. توکن در این صفحه یا دادهٔ سرویس ذخیره نمی‌شود.</span></div></div>
+        <label class="token-field" for="owner-token">توکن مالک<input id="owner-token" class="admin-token" type="password" autocomplete="off" placeholder="hero-session.…"></label>
       </section>
-      <footer class="footer"><span id="updated" class="muted"></span><span id="access-note" class="muted"></span><span id="notice" class="notice" role="status"></span></footer>
+
+      <section class="section" aria-labelledby="metrics-title">
+        <div class="section-head"><div><span class="section-kicker">نمای سریع</span><h2 id="metrics-title">وضعیت در یک نگاه</h2></div><p>این اعداد مشاهده‌ای هستند و هیچ‌کدام به‌تنهایی مجوز اجرای بیرونی یا انتشار ایجاد نمی‌کنند.</p></div>
+        <div id="metrics" class="metrics"></div>
+      </section>
+
+      <div class="overview-grid">
+        <section class="section" aria-labelledby="focus-title"><div class="section-head"><div><span class="section-kicker">گیت‌ها</span><h2 id="focus-title">الان کجای پروژه‌ایم؟</h2></div></div><div id="status-grid" class="focus-grid"></div></section>
+        <section class="section" aria-labelledby="architecture-title"><div class="section-head"><div><span class="section-kicker">ساختار</span><h2 id="architecture-title">مدل کلی Hero</h2></div></div><p class="muted" style="font-size:.82rem">مالک پروژه تصمیم‌گیرنده است؛ تیم‌ها واحدهای عملیاتی‌اند و نقش‌های AI قابلیت‌های قابل‌تعویض هستند.</p><div class="architecture"><div class="arch-node">مالک پروژه<br><small>تصمیم و گیت</small></div><div class="arch-arrow">←</div><div class="arch-node primary">Hero Control Plane<br><small>۱۱ تیم سازمانی</small></div><div class="arch-arrow">←</div><div class="arch-node">AI Orchestration<br><small>Role → Profile → Provider</small></div></div></section>
+      </div>
+
+      <section class="section" style="margin-top:18px" aria-labelledby="ai-title"><div class="section-head"><div><span class="section-kicker">Multi-AI</span><h2 id="ai-title">نقش‌ها و فعالیت هوش مصنوعی</h2></div><p>Team و AI Role دو مفهوم جدا هستند: تیم مسئولیت سازمانی دارد؛ Role فقط نوع توانایی موردنیاز در یک جریان را مشخص می‌کند.</p></div><div class="overview-grid" style="margin-top:0"><div><div id="roles" class="roles"></div><div id="ai-activity" class="activity"></div></div><div><p id="provider-note" class="muted" style="margin-bottom:10px;font-size:.8rem"></p><p id="benchmark-note" class="muted" style="margin-bottom:10px;font-size:.8rem"></p><div id="ai-policy-list" class="activity"></div><p id="advisor-note" class="muted" style="margin:10px 0 0;font-size:.8rem"></p></div></div></section>
+
+      <section id="teams-section" class="section" style="margin-top:18px" aria-labelledby="teams-title"><div class="section-head"><div><span class="section-kicker">سازمان</span><h2 id="teams-title">۱۱ تیم عملیاتی و قرارداد آن‌ها</h2><p>برای دیدن ورودی، خروجی، اختیار تصمیم، همکاران، مراحل و اصول هر تیم، جزئیات همان کارت را باز کنید.</p></div><div class="section-tools"><div class="filters"><input id="team-search" type="search" placeholder="جست‌وجوی تیم یا مسئولیت" aria-label="جست‌وجوی تیم یا مسئولیت"><select id="team-status" aria-label="فیلتر وضعیت تیم"><option value="all">همهٔ وضعیت‌ها</option><option value="ready">آمادهٔ کار</option><option value="not-ready">نیازمند تکمیل</option></select><span id="filter-count" class="filter-count"></span></div></div></div><div id="teams" class="team-grid"></div></section>
+
+      <div class="lower-grid">
+        <section class="section" aria-labelledby="timeline-title"><div class="section-head"><div><span class="section-kicker">ردیابی</span><h2 id="timeline-title">Timeline تغییرات</h2></div></div><p class="muted" style="font-size:.78rem">فقط خلاصهٔ امن eventها نمایش داده می‌شود؛ prompt، credential و خروجی خام AI وارد این نما نمی‌شوند.</p><div id="timeline" class="timeline"></div></section>
+        <section class="section" aria-labelledby="review-title"><div class="section-head"><div><span class="section-kicker">شواهد</span><h2 id="review-title">ارزیابی سازمان</h2></div></div><p class="muted" style="font-size:.78rem">ارزیابی شواهد و پیشنهاد تولید می‌کند؛ خودش مجوز یا تغییر وضعیت تیم نیست.</p><div id="reviews" class="reviews"></div></section>
+        <section class="section" aria-labelledby="next-title"><div class="section-head"><div><span class="section-kicker">ادامه مسیر</span><h2 id="next-title">گام‌های بعدی</h2></div></div><div id="next-steps" class="next-steps"></div></section>
+        <section class="section" aria-labelledby="boundary-title"><div class="section-head"><div><span class="section-kicker">مرزها</span><h2 id="boundary-title">قواعدی که نباید گم شوند</h2></div></div><div class="learn-note"><strong>توقف اضطراری:</strong> اجرای جدید را می‌بندد؛ به معنی شکست نیست.<br><strong>اصول تیم:</strong> تغییر آن‌ها نسخه‌دار است و پس از ویرایش دوباره به تأیید مالک نیاز دارد.<br><strong>Provider زنده:</strong> بدون credential، هزینه و مجوز مستقل متصل نمی‌شود.<br><strong>انتشار:</strong> فقط از commit تست‌شده و گیت‌های مستقل عبور می‌کند.</div></section>
+      </div>
+
+      <section id="guide" class="section" style="margin-top:18px" aria-labelledby="guide-title"><div class="section-head"><div><span class="section-kicker">راهنما</span><h2 id="guide-title">چطور این پنل را بخوانیم؟</h2><p>این فرهنگ کوچک همهٔ نقش‌ها و مفهوم‌های اصلی این نما را یک‌جا توضیح می‌دهد.</p></div></div><div class="guide-grid"><div class="guide-card"><h3>همهٔ AI Roleها</h3><div id="role-guide" class="role-guide"></div></div><div class="guide-card"><h3>مفاهیم و قراردادها</h3><div id="concept-guide" class="concept-grid"></div></div></div></section>
+
+      <footer class="footer"><span id="updated"></span><span id="access-note"></span><span id="notice" class="notice" role="status"></span></footer>
     </main>
+
+    <dialog id="principles-dialog" aria-labelledby="dialog-title"><form id="principles-form" class="dialog-form"><div class="dialog-head"><div><span class="section-kicker">ویرایش نسخهٔ جدید</span><h2 id="dialog-title">اصول تیم</h2><p id="dialog-team-name"></p></div><button id="dialog-close" class="close" type="button" aria-label="بستن">×</button></div><label for="principles-input">هر اصل را در یک خط بنویسید<textarea id="principles-input" required></textarea></label><p class="dialog-help">ذخیرهٔ تغییرات، تأیید قبلی اصول را بازنشانی می‌کند تا مالک بتواند نسخهٔ تازه را جداگانه بررسی و تأیید کند.</p><div class="dialog-actions"><button id="dialog-cancel" class="button secondary" type="button">انصراف</button><button id="dialog-save" class="button" type="submit">ذخیرهٔ اصول</button></div><p id="dialog-notice" class="dialog-notice" role="alert"></p></form></dialog>
+
     <script>
       const $ = selector => document.querySelector(selector);
       let currentData = null;
-      const text = (tag, value, className) => { const node = document.createElement(tag); node.textContent = value ?? ''; if (className) node.className = className; return node; };
-      const badge = (value, tone) => text('span', value, 'badge ' + (tone === 'blocked' ? 'blocked' : tone === 'warn' ? 'warn' : tone === 'good' ? 'good' : 'neutral'));
+      let editingTeam = null;
+      const ROLE_INFO = {
+        analyst: ['تحلیلگر', 'مسئله، داده و شواهد را به تحلیل ساختاریافته تبدیل می‌کند.'],
+        evaluator: ['ارزیاب', 'کیفیت، ریسک و انطباق خروجی را با evidence می‌سنجد.'],
+        'decision-maker': ['تصمیم‌ساز', 'گزینه‌ها و trade-offها را برای تصمیم مالک آماده می‌کند.'],
+        planner: ['برنامه‌ریز', 'درخواست را به Spec، Task Graph و مسیر قابل اجرا تبدیل می‌کند.'],
+        researcher: ['پژوهشگر', 'تحقیق و benchmark نسخه‌دار برای تیم یا مسئله تولید می‌کند.'],
+        executor: ['اجراکننده', 'فقط در محدودهٔ مجاز، کار فنی یا workflow را اجرا می‌کند.'],
+        verifier: ['راستی‌آزما', 'نتیجهٔ اجرا را با معیار پذیرش و شواهد بررسی می‌کند.'],
+        'code-reviewer': ['بازبین کد', 'تغییرات کد را از نظر کیفیت، ریسک و قابلیت نگهداری مرور می‌کند.']
+      };
+      const CONCEPTS = [
+        ['Team', 'واحد سازمانی با مسئولیت، اختیار، ورودی، خروجی، اصول و همکاران مشخص.'],
+        ['AI Role', 'نوع توانایی در یک جریان؛ با تیم سازمانی یا انسان مسئول یکی نیست.'],
+        ['Profile', 'تنظیمات اجرایی یک Role، شامل policy، schema و مسیر ابزار.'],
+        ['Provider / Model', 'سرویس و مدل قابل‌تعویضی که Profile به آن متصل می‌شود.'],
+        ['Credential', 'ارجاع امن به راز محیط اجرا؛ مقدار آن هرگز در UI، event یا کد نمایش داده نمی‌شود.'],
+        ['Context', 'بستهٔ نسخه‌دار و تأییدشده‌ای که Role اجازه دارد بخواند.'],
+        ['Invocation', 'یک فراخوانی ثبت‌شده با وضعیت، schema، هزینه و محدودیت زمانی.'],
+        ['Evaluation', 'ارزیابی evidence؛ به‌تنهایی مجوز اجرا یا انتشار نیست.'],
+        ['Decision Proposal', 'پیشنهاد تصمیم قابل بررسی؛ تا تأیید مالک، authorization محسوب نمی‌شود.'],
+        ['Workflow', 'ترتیب Roleها و گیت‌های یک مسیر مثل analysis، research یا development.'],
+        ['Contract', 'قرارداد نسخه‌دار برای رفتار، ورودی/خروجی و معیار پذیرش.'],
+        ['Principle', 'قاعدهٔ کاری تیم یا شرکت که پیش از گیت‌های مشخص باید وضعیت معتبر داشته باشد.'],
+        ['Training', 'پنج ماژول یادگیری و benchmark که آمادگی تیم را تشکیل می‌دهند.'],
+        ['Assignment', 'اتصال یک تیم آماده به Project، Stage و Task مشخص.'],
+        ['Autonomy', 'سطح اختیار تیم: owner-gated، stage-gated یا autonomous-with-escalation.'],
+        ['Global Stop', 'کلید توقف fail-closed برای بستن اجرای جدید تا رفع علت.'],
+        ['Event / Timeline', 'ردیف append-only و قابل ممیزی از تغییرات مهم سیستم.'],
+        ['Artifact', 'خروجی نسخه‌دار و قابل اشاره که تیم بعدی یا گیت آن را بررسی می‌کند.'],
+        ['Benchmark', 'اندازه‌گیری تکرارپذیر کیفیت/latency؛ فقط advisory و بدون اختیار مجوزدهی.'],
+        ['Read-only', 'حالت مشاهده یا تحلیل که اجازهٔ تغییر کد، داده یا ابزار را نمی‌دهد.']
+      ];
+      const text = (tag, value, className) => { const node = document.createElement(tag); node.textContent = value === undefined || value === null ? '' : String(value); if (className) node.className = className; return node; };
+      const badge = (value, tone) => text('span', value, 'status-pill ' + (tone === 'blocked' ? 'blocked' : tone === 'warn' ? 'warn' : ''));
+      const statusLabels = { proposed: 'پیشنهادشده', training: 'در حال آموزش', ready: 'آمادهٔ کار', assigned: 'تخصیص‌یافته', working: 'در حال کار', review: 'در بازبینی', rework: 'نیازمند بازکاری', paused: 'متوقف', retired: 'بازنشسته' };
+      const autonomyLabels = { 'owner-gated': 'تأیید مالک', 'stage-gated': 'گیت مرحله', 'autonomous-with-escalation': 'خودکار با ارجاع' };
+      const stageLabels = { intake: 'دریافت', discovery: 'کشف', product: 'محصول', design: 'طراحی', architecture: 'معماری', implementation: 'پیاده‌سازی', quality: 'کیفیت', release: 'انتشار', measurement: 'اندازه‌گیری', learning: 'یادگیری', delivery: 'تحویل' };
+      const listNode = (items, className, limit) => { const list = document.createElement('div'); list.className = className || 'tag-list'; const values = Array.isArray(items) ? items : []; const shown = limit ? values.slice(0, limit) : values; shown.forEach(item => list.append(text('span', item, 'tag'))); if (limit && values.length > limit) list.append(text('span', '+' + (values.length - limit) + ' مورد دیگر', 'tag more')); if (!shown.length) list.append(text('span', 'ثبت نشده', 'tag')); return list; };
       const safeFetch = async () => { let response; try { response = await fetch('/backoffice-data', { cache: 'no-store' }); } catch { throw new Error('به سرویس متصل نشد؛ مرورگر و Docker باید روی یک میزبان باشند.'); } let payload = {}; try { payload = await response.json(); } catch { throw new Error('پاسخ سرویس قابل خواندن نیست.'); } if (!response.ok) throw new Error(payload.message || 'خواندن وضعیت انجام نشد.'); return payload.backoffice; };
-      function renderTeams() { const query = ($('#team-search').value || '').trim().toLocaleLowerCase(); const status = $('#team-status').value; const teams = (currentData?.organization?.teams || []).filter(team => { const matchesText = !query || (team.name + ' ' + team.responsibility).toLocaleLowerCase().includes(query); const matchesStatus = status === 'all' || (status === 'ready' ? team.ready : !team.ready); return matchesText && matchesStatus; }); $('#teams').replaceChildren(...teams.map(team => { const row = document.createElement('tr'); row.append(text('td', team.name), text('td', team.responsibility), text('td', team.approvals.approved + '/' + team.approvals.total), text('td', team.trainingStatus), text('td', team.ready ? 'بله' : 'خیر')); return row; })); $('#filter-count').textContent = teams.length + ' از ' + (currentData?.organization?.teams || []).length + ' تیم'; }
-      function render(data) {
-        currentData = data;
-        const counts = data.ai.counts || {}; const metrics = [['تیم‌های سازمان', data.organization.teamCount], ['Roleهای AI', data.ai.roles.length], ['Invocationها', counts.invocations || 0], ['درخواست‌های ثبت‌شده', data.requests.total]];
-        $('#metrics').replaceChildren(...metrics.map(([label, value]) => { const item = document.createElement('div'); item.className = 'metric'; item.append(text('strong', value), text('span', label)); return item; }));
-        const openStatuses = Object.entries(data.requests.byStatus || {}).map(([key, value]) => key + ': ' + value).join(' · ');
-        $('#overall').replaceWith(Object.assign(badge(data.governance.globalStop ? 'توقف اضطراری فعال' : 'مرز مشاهده‌ای سالم', data.governance.globalStop ? 'blocked' : 'good'), { id: 'overall' }));
-        $('#status-grid').replaceChildren(...data.focus.map(item => { const card = document.createElement('article'); card.className = 'status-card ' + (item.tone === 'blocked' ? 'blocked' : item.tone === 'warn' ? 'warn' : ''); card.append(text('h3', item.title), badge(item.status, item.tone), text('p', item.detail), text('small', 'بعدی: ' + item.next)); return card; }));
-        $('#roles').replaceChildren(...data.ai.roles.map(role => text('span', role, 'role'))); $('#provider-note').textContent = 'حالت Provider: ' + data.ai.providerMode + ' · ' + data.ai.liveStatus;
-        const activity = data.ai.activity || {}; const activityRows = [['Invocation', (activity.invocations || []).length], ['Evaluation', (activity.evaluations || []).length], ['Decision', (activity.decisions || []).length]]; $('#ai-activity').replaceChildren(...activityRows.map(([label, value]) => { const item = document.createElement('div'); item.className = 'activity-row'; item.append(text('strong', label), text('span', value + ' مورد اخیر')); return item; })); $('#benchmark-note').textContent = 'Benchmark: ' + (data.benchmark?.mode || 'synthetic-deterministic') + ' · ' + (data.benchmark?.decisionBoundary || 'advisory-only');
-        renderTeams();
-        const timeline = data.timeline || []; $('#timeline').replaceChildren(...(timeline.length ? timeline : [{ type: 'timeline.empty', kind: 'persistence', aggregateType: '-', aggregateId: '-', occurredAt: null, data: {} }]).map(event => { const item = document.createElement('div'); item.className = 'timeline-item'; item.append(text('strong', event.type), text('span', event.aggregateType + ' / ' + event.aggregateId + ' · ' + event.kind), text('small', event.occurredAt ? new Date(event.occurredAt).toLocaleString('fa-IR') : 'هنوز eventی ثبت نشده')); return item; }));
-        const reviews = data.performance?.reviews || []; $('#reviews').replaceChildren(...(reviews.length ? reviews : [{ reviewId: '—', period: 'هنوز ارزیابی ثبت نشده', average: null, band: 'neutral', teamCount: 0 }]).map(review => { const item = document.createElement('div'); item.className = 'review'; const info = document.createElement('div'); info.append(text('strong', review.reviewId), text('small', review.period + ' · پوشش تیم: ' + review.teamCount)); item.append(info, badge(review.average === null ? 'بدون داده' : review.average + '/100 · ' + review.band, review.band === 'strong' ? 'good' : review.band === 'intervention' ? 'blocked' : review.band === 'watch' ? 'warn' : 'neutral')); return item; }));
-        $('#next-steps').replaceChildren(...data.nextSteps.map((step, index) => { const item = document.createElement('div'); item.className = 'next-step'; item.append(text('b', String(index + 1)), text('span', step)); return item; }));
-        $('#updated').textContent = 'آخرین خواندن: ' + new Date(data.generatedAt).toLocaleString('fa-IR') + (openStatuses ? ' · وضعیت درخواست‌ها: ' + openStatuses : '');
-        $('#access-note').textContent = 'دسترسی: فقط همین میزبان · ' + (data.access?.path || '/backoffice');
+      const requestJson = async (path, body, token) => { const options = { method: body ? 'POST' : 'GET', cache: 'no-store', headers: {} }; if (body) { options.headers['content-type'] = 'application/json'; options.body = JSON.stringify(body); } if (token) options.headers.authorization = 'Bearer ' + token; const response = await fetch(path, options); let payload = {}; try { payload = await response.json(); } catch { throw new Error('پاسخ عملیات قابل خواندن نیست.'); } if (!response.ok) throw new Error(payload.message || payload.error?.message || 'عملیات انجام نشد.'); return payload; };
+      const setNotice = message => { $('#notice').textContent = message || ''; };
+      const teamContract = team => team.contract || {};
+      const teamStatusTone = team => team.status === 'ready' ? 'good' : team.status === 'retired' ? 'blocked' : '';
+      const approvalText = team => team.approvals.principles ? 'اصول تأیید شده' : 'اصول نیازمند تأیید';
+      function renderTeams() {
+        const query = ($('#team-search').value || '').trim().toLocaleLowerCase();
+        const status = $('#team-status').value;
+        const allTeams = currentData?.organization?.teams || [];
+        const teams = allTeams.filter(team => { const matchesText = !query || (team.name + ' ' + team.responsibility + ' ' + team.teamId).toLocaleLowerCase().includes(query); const matchesStatus = status === 'all' || (status === 'ready' ? team.ready : !team.ready); return matchesText && matchesStatus; });
+        $('#teams').replaceChildren(...(teams.length ? teams.map((team, index) => renderTeam(team, allTeams.indexOf(team) + 1)) : [text('p', 'تیمی با این فیلتر پیدا نشد.', 'empty')]));
+        $('#filter-count').textContent = teams.length + ' از ' + allTeams.length + ' تیم';
       }
-      async function refresh() { $('#notice').textContent = 'در حال به‌روزرسانی…'; try { render(await safeFetch()); $('#notice').textContent = 'وضعیت مشاهده‌ای به‌روز شد.'; } catch (error) { $('#notice').textContent = error.message; } }
-      $('#refresh').addEventListener('click', refresh); $('#team-search').addEventListener('input', renderTeams); $('#team-status').addEventListener('change', renderTeams); refresh();
+      function renderTeam(team, index) {
+        const contract = teamContract(team); const card = document.createElement('article'); card.className = 'team-card';
+        const head = document.createElement('div'); head.className = 'team-card-head'; const number = text('div', String(index).padStart(2, '0'), 'team-index'); const title = document.createElement('div'); title.className = 'team-title'; title.append(text('h3', team.name), text('span', team.teamId, 'team-id')); const state = text('span', statusLabels[team.status] || team.status, 'team-status ' + teamStatusTone(team)); head.append(number, title, state); card.append(head);
+        card.append(text('p', team.responsibility, 'team-responsibility'));
+        const approved = team.approvals.approved || 0; const total = team.approvals.total || 0; const percent = total ? Math.round(approved * 100 / total) : 0; const progress = document.createElement('div'); progress.innerHTML = '<div class="progress-meta"><span>پیشرفت قرارداد</span><strong>' + approved + ' از ' + total + ' بخش</strong></div><div class="progress-track" aria-label="پیشرفت قرارداد"><i style="width:' + percent + '%"></i></div>'; card.append(progress);
+        const meta = document.createElement('div'); meta.className = 'team-meta'; const training = team.training || {}; [['آمادگی', team.ready ? 'آماده' : statusLabels[training.status] || training.status || 'تکمیل نشده'], ['خودکارسازی', autonomyLabels[contract.autonomy?.default] || contract.autonomy?.default || 'ثبت نشده'], ['تخصیص / بازبینی', (team.assignmentCount || 0) + ' / ' + (team.reviewCount || 0)]].forEach(item => { const cell = document.createElement('div'); cell.append(text('span', item[0]), text('strong', item[1])); meta.append(cell); }); card.append(meta);
+        const summary = document.createElement('div'); summary.className = 'team-summary'; const inputBlock = document.createElement('div'); inputBlock.append(text('span', 'ورودی‌های کلیدی', 'label'), listNode(contract.inputs, 'tag-list', 3)); const outputBlock = document.createElement('div'); outputBlock.append(text('span', 'خروجی‌های مرجع', 'label'), listNode(contract.outputs, 'tag-list', 3)); summary.append(inputBlock, outputBlock); card.append(summary);
+        const details = document.createElement('details'); details.className = 'team-details'; const summaryNode = document.createElement('summary'); summaryNode.textContent = 'مشاهدهٔ قرارداد کامل تیم'; details.append(summaryNode); const detailGrid = document.createElement('div'); detailGrid.className = 'detail-grid';
+        const detailList = (label, items, full) => { const block = document.createElement('div'); block.className = 'detail-block' + (full ? ' full' : ''); block.append(text('span', label, 'label')); if (Array.isArray(items) && items.length) { const ul = document.createElement('ul'); items.forEach(item => ul.append(text('li', item))); block.append(ul); } else block.append(text('span', 'ثبت نشده', 'tag')); return block; };
+        detailGrid.append(detailList('اختیارهای تصمیم', contract.decisionRights), detailList('مراحل پیش‌فرض', (contract.defaultStages || []).map(stage => stageLabels[stage] ? stageLabels[stage] + ' (' + stage + ')' : stage)), detailList('اصول تیم', contract.principles, true), detailList('تیم‌های همکار', contract.partners, true), detailList('دانش نسخه‌دار', team.knowledge, true)); details.append(detailGrid); card.append(details);
+        const actions = document.createElement('div'); actions.className = 'team-actions'; const actionGroup = document.createElement('div'); actionGroup.className = 'actions'; const edit = text('button', 'ویرایش اصول', 'button ghost'); edit.type = 'button'; edit.addEventListener('click', () => openPrinciplesEditor(team)); actionGroup.append(edit); if (!team.approvals.principles && team.status !== 'retired') { const approve = text('button', 'تأیید اصول', 'button success'); approve.type = 'button'; approve.addEventListener('click', () => reviewPrinciples(team)); actionGroup.append(approve); } actions.append(actionGroup, text('span', approvalText(team), 'approval-note')); card.append(actions); return card;
+      }
+      function renderRoleChips(data) { const roles = data?.ai?.roles || Object.keys(ROLE_INFO); $('#roles').replaceChildren(...roles.map(role => { const item = document.createElement('div'); item.className = 'role-chip'; item.append(text('i', role === 'decision-maker' ? 'D' : role.slice(0, 1).toUpperCase()), text('span', ROLE_INFO[role]?.[0] || role)); return item; })); }
+      function renderGuide(data) { const roles = data?.ai?.roles || Object.keys(ROLE_INFO); $('#role-guide').replaceChildren(...roles.map(role => { const item = document.createElement('div'); item.className = 'role-guide-item'; item.append(text('i', role === 'decision-maker' ? 'D' : role.slice(0, 1).toUpperCase())); const copy = document.createElement('div'); copy.append(text('strong', (ROLE_INFO[role]?.[0] || role) + ' · ' + role), text('span', ROLE_INFO[role]?.[1] || 'نقش ثبت‌شده در قرارداد AI.')); item.append(copy); return item; })); $('#concept-guide').replaceChildren(...CONCEPTS.map(([term, description]) => { const item = document.createElement('div'); item.className = 'concept'; item.append(text('strong', term), text('span', description)); return item; })); }
+      function render(data) {
+        currentData = data; const counts = data.ai?.counts || {}; const metrics = [['تیم‌های سازمان', data.organization?.teamCount || 0], ['Roleهای AI', data.ai?.roles?.length || 0], ['Invocationها', counts.invocations || 0], ['درخواست‌های ثبت‌شده', data.requests?.total || 0]]; $('#metrics').replaceChildren(...metrics.map(([label, value]) => { const item = document.createElement('div'); item.className = 'metric'; item.append(text('strong', value), text('span', label)); return item; }));
+        const stop = Boolean(data.governance?.globalStop); const overall = badge(stop ? 'توقف اضطراری فعال' : 'مرز مشاهده‌ای سالم', stop ? 'blocked' : 'good'); overall.id = 'overall'; $('#overall').replaceWith(overall);
+        $('#status-grid').replaceChildren(...(data.focus || []).map(item => { const card = document.createElement('article'); card.className = 'focus-card ' + (item.tone === 'blocked' ? 'blocked' : item.tone === 'warn' ? 'warn' : ''); card.append(text('h3', item.title), badge(item.status, item.tone), text('p', item.detail), text('small', 'بعدی: ' + item.next)); return card; }));
+        renderRoleChips(data); const activity = data.ai?.activity || {}; const activityRows = [['Invocation', (activity.invocations || []).length], ['Evaluation', (activity.evaluations || []).length], ['Decision', (activity.decisions || []).length]]; $('#ai-activity').replaceChildren(...activityRows.map(([label, value]) => { const item = document.createElement('div'); item.className = 'activity-row'; item.append(text('strong', label), text('span', value + ' مورد اخیر')); return item; })); $('#provider-note').textContent = 'حالت Provider: ' + (data.ai?.providerMode || 'ثبت نشده') + ' · ' + (data.ai?.liveStatus || 'وضعیت ثبت نشده'); $('#benchmark-note').textContent = 'Benchmark: ' + (data.benchmark?.mode || 'synthetic-deterministic') + ' · ' + (data.benchmark?.decisionBoundary || 'advisory-only'); const policies = data.ai?.defaultRolePolicies || []; $('#ai-policy-list').replaceChildren(...(policies.length ? policies.map(policy => { const item = document.createElement('div'); item.className = 'activity-row'; item.append(text('strong', policy.role), text('span', policy.providerId + ' / ' + policy.modelId + ' · ' + policy.toolPolicy + ' · v' + policy.policyVersion)); return item; }) : [text('p', 'Policy پیش‌فرض هنوز ثبت نشده.', 'muted')])); const advisor = data.advisor || {}; const latestAdvisor = advisor.latest; $('#advisor-note').textContent = latestAdvisor ? 'مشاور سازمان: ' + latestAdvisor.state + ' · پیشنهاد: ' + (latestAdvisor.recommendation?.optionId || 'ثبت نشده') + ' · خروجی فقط advisory است.' : 'مشاور سازمان هنوز برای یک ارزیابی عملکرد اجرا نشده است.';
+        renderTeams(); renderGuide(data);
+        const timeline = data.timeline || []; $('#timeline').replaceChildren(...(timeline.length ? timeline : [{ type: 'timeline.empty', kind: 'persistence', aggregateType: '-', aggregateId: '-', occurredAt: null }]).map(event => { const item = document.createElement('div'); item.className = 'timeline-item'; item.append(text('strong', event.type), text('span', event.aggregateType + ' / ' + event.aggregateId + ' · ' + event.kind), text('small', event.occurredAt ? new Date(event.occurredAt).toLocaleString('fa-IR') : 'هنوز eventی ثبت نشده')); return item; }));
+        const reviews = data.performance?.reviews || []; $('#reviews').replaceChildren(...(reviews.length ? reviews : [{ reviewId: '—', period: 'هنوز ارزیابی ثبت نشده', average: null, band: 'neutral', teamCount: 0 }]).map(review => { const item = document.createElement('div'); item.className = 'review'; const info = document.createElement('div'); info.append(text('strong', review.reviewId), text('small', review.period + ' · پوشش تیم: ' + review.teamCount)); item.append(info, badge(review.average === null ? 'بدون داده' : review.average + '/100 · ' + review.band, review.band === 'strong' ? 'good' : review.band === 'intervention' ? 'blocked' : review.band === 'watch' ? 'warn' : '')); return item; }));
+        $('#next-steps').replaceChildren(...(data.nextSteps || []).map((step, index) => { const item = document.createElement('div'); item.className = 'next-step'; item.append(text('b', String(index + 1)), text('span', step)); return item; })); const openStatuses = Object.entries(data.requests?.byStatus || {}).map(([key, value]) => key + ': ' + value).join(' · '); $('#updated').textContent = 'آخرین خواندن: ' + new Date(data.generatedAt).toLocaleString('fa-IR') + (openStatuses ? ' · وضعیت درخواست‌ها: ' + openStatuses : ''); $('#access-note').textContent = 'دسترسی: فقط همین میزبان · ' + (data.access?.path || '/backoffice');
+      }
+      async function refresh(message) { $('#notice').textContent = 'در حال به‌روزرسانی…'; try { render(await safeFetch()); setNotice(message || 'وضعیت مشاهده‌ای به‌روز شد.'); } catch (error) { setNotice(error.message); } }
+      function openPrinciplesEditor(team) { editingTeam = team; $('#dialog-team-name').textContent = team.name + ' · نسخهٔ قرارداد ' + (team.version ?? 0); $('#principles-input').value = (team.contract?.principles || []).join('\\n'); $('#dialog-notice').textContent = ''; const dialog = $('#principles-dialog'); if (typeof dialog.showModal === 'function') dialog.showModal(); else setNotice('مرورگر این ویرایشگر را پشتیبانی نمی‌کند.'); }
+      function closePrinciplesEditor() { const dialog = $('#principles-dialog'); if (dialog.open) dialog.close(); editingTeam = null; }
+      async function savePrinciples(event) { event.preventDefault(); if (!editingTeam) return; const token = ($('#owner-token').value || '').trim(); if (!token) { $('#dialog-notice').textContent = 'برای ذخیره، توکن مالک را وارد کنید.'; return; } const principles = $('#principles-input').value.split('\\n').map(value => value.trim()).filter(Boolean); if (!principles.length) { $('#dialog-notice').textContent = 'حداقل یک اصل وارد کنید.'; return; } const save = $('#dialog-save'); const teamName = editingTeam.name; save.disabled = true; $('#dialog-notice').textContent = 'در حال ثبت نسخه…'; try { await requestJson('/api/teams/' + encodeURIComponent(editingTeam.teamId) + '/principles', { principles, expectedVersion: editingTeam.version, idempotencyKey: 'backoffice-principles-' + editingTeam.teamId + '-' + Date.now() }, token); closePrinciplesEditor(); await refresh('اصول ' + teamName + ' ذخیره شد؛ تأیید مالک دوباره لازم است.'); } catch (error) { $('#dialog-notice').textContent = error.message; } finally { save.disabled = false; } }
+      async function reviewPrinciples(team) { const token = ($('#owner-token').value || '').trim(); if (!token) { setNotice('برای تأیید اصول، توکن مالک را وارد کنید.'); return; } try { await requestJson('/api/teams/' + encodeURIComponent(team.teamId) + '/review', { target: 'principles', decision: 'approved', expectedVersion: team.version, idempotencyKey: 'backoffice-approve-principles-' + team.teamId + '-' + Date.now() }, token); await refresh('اصول ' + team.name + ' تأیید شد.'); } catch (error) { setNotice(error.message); } }
+      $('#refresh').addEventListener('click', () => refresh()); $('#team-search').addEventListener('input', renderTeams); $('#team-status').addEventListener('change', renderTeams); $('#principles-form').addEventListener('submit', savePrinciples); $('#dialog-close').addEventListener('click', closePrinciplesEditor); $('#dialog-cancel').addEventListener('click', closePrinciplesEditor); refresh();
     </script>
   </body>
 </html>`;

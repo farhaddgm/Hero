@@ -46,6 +46,7 @@ export const AI_OUTPUT_SCHEMAS = Object.freeze([
   "plan-v1",
   "research-v1",
   "execution-v1",
+  "organization-advisor-v1",
   "generic-json-v1"
 ]);
 
@@ -131,13 +132,13 @@ export const AI_WORKFLOW_CONTRACTS = Object.freeze({
 
 export const AI_DEFAULT_ROLE_POLICIES = Object.freeze({
   analyst: Object.freeze({ providerId: "openai", modelId: "chatgpt", toolPolicy: "read-only" }),
-  evaluator: Object.freeze({ providerId: "anthropic", modelId: "default", toolPolicy: "read-only" }),
+  evaluator: Object.freeze({ providerId: "openai", modelId: "chatgpt", toolPolicy: "read-only" }),
   "decision-maker": Object.freeze({ providerId: "openai", modelId: "chatgpt", toolPolicy: "read-only" }),
   planner: Object.freeze({ providerId: "openai", modelId: "chatgpt", toolPolicy: "read-only" }),
-  researcher: Object.freeze({ providerId: "google", modelId: "default", toolPolicy: "read-only" }),
+  researcher: Object.freeze({ providerId: "openai", modelId: "chatgpt", toolPolicy: "read-only" }),
   executor: Object.freeze({ providerId: "openai", modelId: "codex", toolPolicy: "development" }),
-  verifier: Object.freeze({ providerId: "anthropic", modelId: "default", toolPolicy: "read-only" }),
-  "code-reviewer": Object.freeze({ providerId: "anthropic", modelId: "default", toolPolicy: "read-only" })
+  verifier: Object.freeze({ providerId: "openai", modelId: "chatgpt", toolPolicy: "read-only" }),
+  "code-reviewer": Object.freeze({ providerId: "openai", modelId: "chatgpt", toolPolicy: "read-only" })
 });
 
 export function getAiOrchestrationContractSummary() {

@@ -25,9 +25,14 @@ export const AGGREGATE_TYPES = Object.freeze([
   "ai-model",
   "ai-profile",
   "ai-binding",
+  "ai-role-policy",
   "ai-invocation",
   "ai-evaluation",
-  "ai-decision"
+  "ai-decision",
+  "skill",
+  "skill-binding",
+  "organization-performance",
+  "organization-advisor"
 ]);
 
 export const EVENT_TYPES = Object.freeze([
@@ -75,6 +80,7 @@ export const EVENT_TYPES = Object.freeze([
   "task-graph.created",
   "router.selection-recorded",
   "team.contract-reviewed",
+  "team.principles-updated",
   "team.deliverable-reviewed",
   "team.rework-requested",
   "team.assigned",
@@ -93,6 +99,7 @@ export const EVENT_TYPES = Object.freeze([
   "ai.model-registered",
   "ai.profile-registered",
   "ai.role-bound",
+  "ai.role-policy-updated",
   "ai.provider-health-checked",
   "ai.invocation-started",
   "ai.invocation-retry-scheduled",
@@ -102,6 +109,10 @@ export const EVENT_TYPES = Object.freeze([
   "ai.evaluation-recorded",
   "ai.decision-proposed",
   "ai.decision-resolved",
+  "skill.registered",
+  "skill.binding-created",
+  "organization-performance.review-recorded",
+  "organization-advisor.created",
   "principle.defined",
   "principle.reviewed",
   "principle.rework-requested",
@@ -140,6 +151,7 @@ export const EVENT_TYPES = Object.freeze([
 
 export const ACTOR_KINDS = Object.freeze([
   "project-owner",
+  "admin",
   "orchestrator",
   "agent",
   "system"
@@ -181,6 +193,11 @@ export const OPERATIONAL_ENTITY_MODEL = Object.freeze([
   Object.freeze({ id: "ai-invocation", sourceOfTruth: "ai_invocations", purpose: "Provider call, profile snapshot, usage and result status" }),
   Object.freeze({ id: "ai-evaluation", sourceOfTruth: "evaluations", purpose: "Structured evaluation evidence and findings" }),
   Object.freeze({ id: "ai-decision", sourceOfTruth: "decision_proposals", purpose: "Versioned owner-resolved decision proposals" }),
+  Object.freeze({ id: "ai-role-policy", sourceOfTruth: "ai_role_policies", purpose: "Versioned default Provider/Model/Tool policy per AI role" }),
+  Object.freeze({ id: "skill", sourceOfTruth: "skills", purpose: "Versioned approved capability, knowledge and tool boundary" }),
+  Object.freeze({ id: "skill-binding", sourceOfTruth: "skill_bindings", purpose: "Scoped Skill assignment to organization, team, role or task" }),
+  Object.freeze({ id: "organization-performance", sourceOfTruth: "organization_performance_reviews", purpose: "Evidence-based performance review of all eleven teams" }),
+  Object.freeze({ id: "organization-advisor", sourceOfTruth: "organization_advisor_records", purpose: "Read-only organization-level analysis, options and roadmap" }),
   Object.freeze({ id: "outbox", sourceOfTruth: "outbox", purpose: "Dispatch پایدار پس از commit تراکنش" })
 ]);
 

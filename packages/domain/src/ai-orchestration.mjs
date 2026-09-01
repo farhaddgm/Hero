@@ -1,6 +1,7 @@
 import {
   AI_DECISION_REQUESTS,
   AI_DECISION_STATES,
+  AI_DEFAULT_ROLE_POLICIES,
   AI_EVALUATION_VERDICTS,
   AI_CONTEXT_RECIPIENT_ROLES,
   AI_OUTPUT_SCHEMAS,
@@ -15,7 +16,7 @@ import { createOperationalEvent, SENSITIVE_ACTIONS } from "../../contracts/src/o
 import { createInMemoryEventLog } from "./event-log.mjs";
 
 const SYSTEM = Object.freeze({ kind: "system", id: "hero-ai-orchestration" });
-const ACTOR_KINDS = new Set(["project-owner", "orchestrator", "agent", "system"]);
+const ACTOR_KINDS = new Set(["project-owner", "admin", "orchestrator", "agent", "system"]);
 const SENSITIVE_FIELD = /(?:api[_-]?key|access[_-]?token|refresh[_-]?token|secret|password|private[_-]?key)/i;
 const SENSITIVE_VALUE = /(?:\bsk-[A-Za-z0-9_-]{12,}\b|\bBearer\s+[A-Za-z0-9._-]{12,}\b|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----)/i;
 const HOST_PATH = /(?:^|[\s"'(])(?:[A-Za-z]:[\\/]|\/(?:home|Users|mnt|opt)\/)/;
@@ -177,6 +178,10 @@ function commandScope(kind, id, idempotencyKey) {
   return `${kind}:${id}\u0000${idempotencyKey}`;
 }
 
+function roleBindingKey({ projectId, teamId = null, skillId = null, role }) {
+  return [projectId, teamId ?? "*", skillId ?? "*", role].join("\u0000");
+}
+
 export class AiOrchestrationError extends Error {
   constructor(code, message) {
     super(message);
@@ -227,6 +232,7 @@ export function createAiOrchestration(options = {}) {
   const projectMemory = options.projectMemory ?? null;
   const providerAdapters = options.providerAdapters ?? Object.freeze({});
   const externalSpendAuthorizer = options.externalSpendAuthorizer ?? null;
+  const skillRegistry = options.skillRegistry ?? null;
   const nextEventId = options.eventIdFactory ?? eventIdFactory();
   const providers = new Map();
   const models = new Map();
@@ -236,6 +242,7 @@ export function createAiOrchestration(options = {}) {
   const invocations = new Map();
   const evaluations = new Map();
   const decisions = new Map();
+  const rolePolicies = new Map(Object.entries(options.defaultRolePolicies ?? AI_DEFAULT_ROLE_POLICIES).map(([role, policy]) => [role, { ...policy, policyVersion: policy.policyVersion ?? 1 }]));
   const idempotency = new Map();
 
   function appendEvent({ aggregateType, aggregateId, type, actor, data, correlationId, causationId }) {
@@ -275,6 +282,65 @@ export function createAiOrchestration(options = {}) {
     const profile = profiles.get(profileId);
     if (!profile) throw new AiOrchestrationError("PROFILE_NOT_FOUND", `Agent Profile ${profileId} was not registered.`);
     return profile;
+  }
+
+  function readSkill(skillId) {
+    if (!skillId) return null;
+    if (!skillRegistry || typeof skillRegistry.get !== "function") {
+      throw new AiOrchestrationError("SKILL_REGISTRY_NOT_CONFIGURED", "A skill binding requires a configured Skill Registry.");
+    }
+    const skill = skillRegistry.get(skillId);
+    if (!skill) throw new AiOrchestrationError("SKILL_NOT_FOUND", `Skill ${skillId} was not registered.`);
+    if (skill.status !== "active") throw new AiOrchestrationError("SKILL_NOT_ACTIVE", "Only an active Skill can be bound.");
+    return skill;
+  }
+
+  function resolveBinding({ projectId, teamId = null, skillId = null, role }) {
+    const candidates = [...currentBindings.values()]
+      .filter(binding => binding.projectId === projectId && binding.role === role)
+      .map(binding => {
+        const teamMatch = binding.teamId === null || binding.teamId === teamId;
+        const skillMatch = binding.skillId === null || binding.skillId === skillId;
+        if (!teamMatch || !skillMatch) return null;
+        const specificity = (binding.teamId === null ? 0 : 2) + (binding.skillId === null ? 0 : 1);
+        return { binding, specificity };
+      })
+      .filter(Boolean)
+      .sort((left, right) => right.specificity - left.specificity || String(right.binding.boundAt).localeCompare(String(left.binding.boundAt)));
+    return candidates[0]?.binding ?? null;
+  }
+
+  function setDefaultRolePolicy(input = {}) {
+    const actor = assertActor(input.actor);
+    if (!["project-owner", "admin"].includes(actor.kind)) {
+      throw new AiOrchestrationError("ADMIN_APPROVAL_REQUIRED", "Changing the default AI policy requires the project owner or an admin.");
+    }
+    const role = assertEnum("role", input.role, AI_ROLES);
+    const providerId = assertEnum("providerId", input.providerId, AI_PROVIDER_IDS);
+    const modelId = assertIdentifier("modelId", input.modelId);
+    const toolPolicy = assertEnum("toolPolicy", input.toolPolicy ?? AI_DEFAULT_ROLE_POLICIES[role]?.toolPolicy, AI_TOOL_POLICIES);
+    if (role !== "executor" && toolPolicy === "development") {
+      throw new AiOrchestrationError("INVALID_POLICY_BOUNDARY", "Only the executor role can use the development tool policy.");
+    }
+    readProvider(providerId);
+    if (!models.has(`${providerId}\u0000${modelId}`)) throw new AiOrchestrationError("MODEL_NOT_FOUND", `Model ${providerId}/${modelId} was not registered.`);
+    const current = rolePolicies.get(role);
+    const policyVersion = (current?.policyVersion ?? 0) + 1;
+    const value = { role, providerId, modelId, toolPolicy, policyVersion };
+    const idempotencyKey = assertIdentifier("idempotencyKey", input.idempotencyKey);
+    const scope = commandScope("role-policy", role, idempotencyKey);
+    const replay = replayOrThrow(scope, value);
+    if (replay) return replay;
+    const event = appendEvent({
+      aggregateType: "ai-role-policy",
+      aggregateId: role,
+      type: "ai.role-policy-updated",
+      actor,
+      data: value
+    });
+    const policy = immutableCopy({ ...value, updatedAt: event.occurredAt, eventId: event.eventId });
+    rolePolicies.set(role, policy);
+    return remember(scope, value, { policy, idempotent: false });
   }
 
   function registerProvider(input = {}) {
@@ -377,20 +443,26 @@ export function createAiOrchestration(options = {}) {
   }
 
   function bindRole(input = {}) {
-    const actor = assertActor(input.actor, { ownerOnly: true });
+    const actor = assertActor(input.actor);
+    if (!["project-owner", "admin"].includes(actor.kind)) {
+      throw new AiOrchestrationError("ADMIN_APPROVAL_REQUIRED", "Changing an AI role binding requires the project owner or an admin.");
+    }
     const bindingId = assertIdentifier("bindingId", input.bindingId);
     const projectId = assertIdentifier("projectId", input.projectId);
     const role = assertEnum("role", input.role, AI_ROLES);
+    const teamId = input.teamId === undefined || input.teamId === null ? null : assertIdentifier("teamId", input.teamId, 80);
+    const skillId = input.skillId === undefined || input.skillId === null ? null : assertIdentifier("skillId", input.skillId, 80);
+    const skill = readSkill(skillId);
     const profile = readProfile(input.profileId);
     if (profile.role !== role) throw new AiOrchestrationError("ROLE_PROFILE_MISMATCH", "The profile role does not match the binding role.");
     if (profile.status !== "active") throw new AiOrchestrationError("PROFILE_NOT_ACTIVE", "Only an active profile can be bound.");
     const idempotencyKey = assertIdentifier("idempotencyKey", input.idempotencyKey);
-    const key = `${projectId}\u0000${role}`;
+    const key = roleBindingKey({ projectId, teamId, skillId, role });
     const current = currentBindings.get(key);
     if (current && input.supersedesBindingId !== current.bindingId) {
       throw new AiOrchestrationError("BINDING_VERSION_CONFLICT", "Replacing a role binding requires the current binding id.");
     }
-    const value = { bindingId, projectId, role, profileId: profile.profileId, supersedesBindingId: input.supersedesBindingId ?? null };
+    const value = { bindingId, projectId, teamId, skillId, role, profileId: profile.profileId, supersedesBindingId: input.supersedesBindingId ?? null };
     const scope = commandScope("binding", bindingId, idempotencyKey);
     const replay = replayOrThrow(scope, value);
     if (replay) return replay;
@@ -400,7 +472,7 @@ export function createAiOrchestration(options = {}) {
       aggregateId: `${projectId}:${role}`,
       type: "ai.role-bound",
       actor,
-      data: { bindingId, projectId, role, profileId: profile.profileId, supersedesBindingId: input.supersedesBindingId ?? null }
+      data: { bindingId, projectId, teamId, skillId, role, profileId: profile.profileId, supersedesBindingId: input.supersedesBindingId ?? null }
     });
     const binding = immutableCopy({ ...value, boundAt: event.occurredAt, eventId: event.eventId });
     bindings.set(bindingId, binding);
@@ -415,6 +487,8 @@ export function createAiOrchestration(options = {}) {
     const taskId = assertIdentifier("taskId", input.taskId);
     const stepId = assertIdentifier("stepId", input.stepId);
     const documentVersion = assertIdentifier("documentVersion", input.documentVersion, 48);
+    const skillId = input.skillId === undefined || input.skillId === null ? null : assertIdentifier("skillId", input.skillId, 80);
+    const skill = readSkill(skillId);
     const maxItems = input.maxItems ?? 12;
     if (!projectMemory) {
       return immutableCopy({
@@ -422,7 +496,8 @@ export function createAiOrchestration(options = {}) {
         code: "PROJECT_MEMORY_NOT_CONFIGURED",
         context: null,
         aiRole: role,
-        recipientRole: AI_CONTEXT_RECIPIENT_ROLES[role]
+        recipientRole: AI_CONTEXT_RECIPIENT_ROLES[role],
+        skill: skill ? { skillId: skill.skillId, version: skill.version } : null
       });
     }
     try {
@@ -439,7 +514,8 @@ export function createAiOrchestration(options = {}) {
       return immutableCopy({
         ...result,
         aiRole: role,
-        recipientRole: AI_CONTEXT_RECIPIENT_ROLES[role]
+        recipientRole: AI_CONTEXT_RECIPIENT_ROLES[role],
+        skill: skill ? { skillId: skill.skillId, version: skill.version } : null
       });
     } catch (error) {
       const reason = error instanceof Error ? error.message : "Project Memory assembly failed.";
@@ -487,6 +563,8 @@ export function createAiOrchestration(options = {}) {
       data: {
         invocationId: input.invocationId,
         projectId: input.projectId,
+        teamId: input.teamId ?? null,
+        skillId: input.skillId ?? null,
         role: input.role,
         providerId: provider.providerId,
         modelId: profile.modelId,
@@ -502,6 +580,8 @@ export function createAiOrchestration(options = {}) {
       projectId: input.projectId,
       taskId: input.taskId ?? null,
       runId: input.runId ?? null,
+      teamId: input.teamId ?? null,
+      skillId: input.skillId ?? null,
       role: input.role,
       providerId: provider.providerId,
       modelId: profile.modelId,
@@ -525,6 +605,9 @@ export function createAiOrchestration(options = {}) {
     const invocationId = assertIdentifier("invocationId", input.invocationId);
     const projectId = assertIdentifier("projectId", input.projectId);
     const role = assertEnum("role", input.role, AI_ROLES);
+    const teamId = input.teamId === undefined || input.teamId === null ? null : assertIdentifier("teamId", input.teamId, 80);
+    const skillId = input.skillId === undefined || input.skillId === null ? null : assertIdentifier("skillId", input.skillId, 80);
+    const skill = readSkill(skillId);
     const contextSnapshotId = assertIdentifier("contextSnapshotId", input.contextSnapshotId);
     const idempotencyKey = assertIdentifier("idempotencyKey", input.idempotencyKey);
     const request = typeof input.request === "string" ? assertText("request", input.request, { maximum: 10_000 }) : assertObject("request", input.request);
@@ -534,6 +617,8 @@ export function createAiOrchestration(options = {}) {
         role,
         contextId: contextSnapshotId,
         projectId,
+        teamId,
+        skillId,
         taskId: input.taskId,
         stepId: input.stepId,
         documentVersion: input.documentVersion,
@@ -545,7 +630,7 @@ export function createAiOrchestration(options = {}) {
       }
       context = { ...context, projectMemory: assembledContext.context };
     }
-    const binding = currentBindings.get(`${projectId}\u0000${role}`);
+    const binding = resolveBinding({ projectId, teamId, skillId, role });
     if (!binding) {
       throw new AiOrchestrationError("ROLE_NOT_BOUND", `Role ${role} is not bound for project ${projectId}.`);
     }
@@ -556,10 +641,13 @@ export function createAiOrchestration(options = {}) {
       projectId,
       taskId: input.taskId ?? null,
       runId: input.runId ?? null,
+      teamId,
+      skillId,
       role,
       contextSnapshotId,
       request,
       context,
+      skillVersion: skill?.version ?? null,
       toolAction: input.toolAction ?? null,
       externalSpendAuthorizationId: input.externalSpendAuthorization?.authorizationId ?? null
     };
@@ -569,6 +657,12 @@ export function createAiOrchestration(options = {}) {
     if (invocations.has(invocationId)) throw new AiOrchestrationError("INVOCATION_EXISTS", `Invocation ${invocationId} already exists.`);
     if (profile.status !== "active") return blockedInvocation({ input, actor, profile, provider, code: "PROFILE_NOT_ACTIVE", reason: "The bound Agent Profile is not active.", idempotencyKey, value });
     if (provider.mode === "disabled") return blockedInvocation({ input, actor, profile, provider, code: "PROVIDER_DISABLED", reason: "The provider is disabled.", idempotencyKey, value });
+    if (skill?.toolPolicy === "read-only" && input.toolAction) {
+      return blockedInvocation({ input, actor, profile, provider, code: "SKILL_READ_ONLY_TOOL_POLICY", reason: "A read-only Skill cannot request a tool action.", idempotencyKey, value });
+    }
+    if (skill && input.toolAction && !skill.allowedTools.includes(input.toolAction)) {
+      return blockedInvocation({ input, actor, profile, provider, code: "SKILL_TOOL_NOT_ALLOWED", reason: "The requested tool action is outside the Skill allow-list.", idempotencyKey, value });
+    }
     if (provider.mode === "live" && !hasSeparateExternalSpendAuthorization(input, projectId)) {
       return blockedInvocation({ input, actor, profile, provider, code: "LIVE_PROVIDER_REQUIRES_SEPARATE_AUTHORIZATION", reason: "Live provider invocation requires a separate version-bound external-spend authorization.", idempotencyKey, value });
     }
@@ -607,9 +701,19 @@ export function createAiOrchestration(options = {}) {
     const adapterInput = {
       request,
       context,
+      skill: skill ? {
+        skillId: skill.skillId,
+        version: skill.version,
+        knowledgeRefs: skill.knowledgeRefs,
+        principlesRefs: skill.principlesRefs,
+        allowedTools: skill.allowedTools,
+        toolPolicy: skill.toolPolicy
+      } : null,
       projectId,
       taskId: input.taskId ?? null,
       runId: input.runId ?? null,
+      teamId,
+      skillId,
       role,
       providerId: provider.providerId,
       modelId: profile.modelId,
@@ -646,6 +750,8 @@ export function createAiOrchestration(options = {}) {
       data: {
         invocationId,
         projectId,
+        teamId,
+        skillId,
         role,
         providerId: provider.providerId,
         modelId: profile.modelId,
@@ -696,11 +802,11 @@ export function createAiOrchestration(options = {}) {
         aggregateId: invocationId,
         type: "ai.invocation-failed",
         actor,
-        data: { invocationId, projectId, role, providerId: provider.providerId, modelId: profile.modelId, profileId: profile.profileId, code, reason, attempts },
+        data: { invocationId, projectId, teamId, skillId, role, providerId: provider.providerId, modelId: profile.modelId, profileId: profile.profileId, code, reason, attempts },
         correlationId: input.runId ?? projectId,
         causationId: started.eventId
       });
-      const invocation = immutableCopy({ invocationId, projectId, taskId: input.taskId ?? null, runId: input.runId ?? null, role, providerId: provider.providerId, modelId: profile.modelId, profileId: profile.profileId, profileVersion: profile.profileVersion, contextSnapshotId, status: "failed", code, reason, response: null, attempts, latencyMs: Math.max(0, Date.now() - startedAtMs), requestedAt: started.occurredAt, completedAt: failedEvent.occurredAt, eventId: failedEvent.eventId, credentialRef: profile.credentialRef });
+      const invocation = immutableCopy({ invocationId, projectId, taskId: input.taskId ?? null, runId: input.runId ?? null, teamId, skillId, role, providerId: provider.providerId, modelId: profile.modelId, profileId: profile.profileId, profileVersion: profile.profileVersion, contextSnapshotId, status: "failed", code, reason, response: null, attempts, latencyMs: Math.max(0, Date.now() - startedAtMs), requestedAt: started.occurredAt, completedAt: failedEvent.occurredAt, eventId: failedEvent.eventId, credentialRef: profile.credentialRef });
       invocations.set(invocationId, invocation);
       return remember(scope, value, { invocation, idempotent: false });
     }
@@ -713,6 +819,8 @@ export function createAiOrchestration(options = {}) {
       data: {
         invocationId,
         projectId,
+        teamId,
+        skillId,
         role,
         providerId: provider.providerId,
         modelId: profile.modelId,
@@ -726,7 +834,7 @@ export function createAiOrchestration(options = {}) {
       correlationId: input.runId ?? projectId,
       causationId: started.eventId
     });
-    const invocation = immutableCopy({ invocationId, projectId, taskId: input.taskId ?? null, runId: input.runId ?? null, role, providerId: provider.providerId, modelId: profile.modelId, profileId: profile.profileId, profileVersion: profile.profileVersion, contextSnapshotId, status: "completed", code: "AI_INVOCATION_COMPLETED", response, attempts, latencyMs: Math.max(0, Date.now() - startedAtMs), requestedAt: started.occurredAt, completedAt: completed.occurredAt, eventId: completed.eventId, credentialRef: profile.credentialRef });
+    const invocation = immutableCopy({ invocationId, projectId, taskId: input.taskId ?? null, runId: input.runId ?? null, teamId, skillId, role, providerId: provider.providerId, modelId: profile.modelId, profileId: profile.profileId, profileVersion: profile.profileVersion, contextSnapshotId, status: "completed", code: "AI_INVOCATION_COMPLETED", response, attempts, latencyMs: Math.max(0, Date.now() - startedAtMs), requestedAt: started.occurredAt, completedAt: completed.occurredAt, eventId: completed.eventId, credentialRef: profile.credentialRef });
     invocations.set(invocationId, invocation);
     return remember(scope, value, { invocation, idempotent: false });
   }
@@ -867,7 +975,8 @@ export function createAiOrchestration(options = {}) {
       models: [...models.values()],
       profiles: [...profiles.values()],
       bindings: [...currentBindings.values()],
-      counts: { providers: providers.size, models: models.size, profiles: profiles.size, bindings: currentBindings.size, invocations: invocations.size, evaluations: evaluations.size, decisions: decisions.size },
+      defaultRolePolicies: [...rolePolicies.values()],
+      counts: { providers: providers.size, models: models.size, profiles: profiles.size, bindings: currentBindings.size, rolePolicies: rolePolicies.size, invocations: invocations.size, evaluations: evaluations.size, decisions: decisions.size },
       activity: activitySnapshot()
     });
   }
@@ -926,6 +1035,7 @@ export function createAiOrchestration(options = {}) {
       profiles: [...profiles.values()],
       bindings: [...bindings.values()],
       currentBindings: [...currentBindings.values()],
+      rolePolicies: [...rolePolicies.values()],
       invocations: [...invocations.values()],
       evaluations: [...evaluations.values()],
       decisions: [...decisions.values()]
@@ -937,7 +1047,7 @@ export function createAiOrchestration(options = {}) {
     if (!state || typeof state !== "object" || Array.isArray(state)) throw new AiOrchestrationError("HYDRATION_INVALID", "AI orchestration hydration requires an object.");
     assertSafePayload(state, "hydratedState");
     if (Array.isArray(input.events)) eventLog.load(input.events.filter(event => event.aggregateType.startsWith("ai-")));
-    for (const map of [providers, models, profiles, bindings, currentBindings, invocations, evaluations, decisions]) map.clear();
+    for (const map of [providers, models, profiles, bindings, currentBindings, rolePolicies, invocations, evaluations, decisions]) map.clear();
     for (const provider of state.providers ?? []) {
       const stored = immutableCopy(provider);
       providers.set(stored.providerId, { ...stored, adapter: providerAdapters[stored.providerId] ?? null });
@@ -945,17 +1055,20 @@ export function createAiOrchestration(options = {}) {
     for (const model of state.models ?? []) models.set(`${model.providerId}\u0000${model.modelId}`, immutableCopy(model));
     for (const profile of state.profiles ?? []) profiles.set(profile.profileId, immutableCopy(profile));
     for (const binding of state.bindings ?? []) bindings.set(binding.bindingId, immutableCopy(binding));
-    for (const binding of state.currentBindings ?? state.bindings ?? []) currentBindings.set(`${binding.projectId}\u0000${binding.role}`, immutableCopy(binding));
+    for (const [role, policy] of Object.entries(AI_DEFAULT_ROLE_POLICIES)) rolePolicies.set(role, { ...policy, policyVersion: 1 });
+    for (const policy of state.rolePolicies ?? []) rolePolicies.set(policy.role, immutableCopy(policy));
+    for (const binding of state.currentBindings ?? state.bindings ?? []) currentBindings.set(roleBindingKey(binding), immutableCopy(binding));
     for (const invocation of state.invocations ?? []) invocations.set(invocation.invocationId, immutableCopy(invocation));
     for (const evaluation of state.evaluations ?? []) evaluations.set(evaluation.evaluationId, immutableCopy(evaluation));
     for (const decision of state.decisions ?? []) decisions.set(decision.decisionId, immutableCopy(decision));
-    return immutableCopy({ registryId: "ai-orchestration", hydrated: true, providers: providers.size, models: models.size, profiles: profiles.size, bindings: currentBindings.size, invocations: invocations.size, evaluations: evaluations.size, decisions: decisions.size });
+    return immutableCopy({ registryId: "ai-orchestration", hydrated: true, providers: providers.size, models: models.size, profiles: profiles.size, bindings: currentBindings.size, rolePolicies: rolePolicies.size, invocations: invocations.size, evaluations: evaluations.size, decisions: decisions.size });
   }
 
   return Object.freeze({
     registerProvider,
     registerModel,
     registerProfile,
+    setDefaultRolePolicy,
     bindRole,
     invoke,
     recordEvaluation,
@@ -964,6 +1077,15 @@ export function createAiOrchestration(options = {}) {
     proposeDecision,
     resolveDecision,
     assembleContext,
+    resolveBinding: input => {
+      const projectId = assertIdentifier("projectId", input?.projectId);
+      const role = assertEnum("role", input?.role, AI_ROLES);
+      const teamId = input?.teamId === undefined || input?.teamId === null ? null : assertIdentifier("teamId", input.teamId, 80);
+      const skillId = input?.skillId === undefined || input?.skillId === null ? null : assertIdentifier("skillId", input.skillId, 80);
+      const binding = resolveBinding({ projectId, teamId, skillId, role });
+      return binding ? immutableCopy(binding) : null;
+    },
+    readDefaultRolePolicy: role => rolePolicies.has(role) ? immutableCopy(rolePolicies.get(role)) : null,
     readProvider: providerId => {
       if (!providers.has(providerId)) return null;
       const { adapter, ...provider } = providers.get(providerId);

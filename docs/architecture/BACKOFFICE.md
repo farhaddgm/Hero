@@ -1,7 +1,7 @@
 # بک‌آفیس توسعهٔ Hero
 
 - نسخهٔ قرارداد: 1.0
-- وضعیت: نسخهٔ اول read-only پیاده‌سازی شده
+- وضعیت: نسخهٔ مشاهده‌ای با نمایش Role Policy، Skill و Organization Advisor و ویرایش مالک‌محور اصول تیم
 - مسیر مشاهده: `/backoffice`
 
 ## هدف
@@ -10,7 +10,7 @@
 
 ## دامنهٔ نسخهٔ اول
 
-- خلاصهٔ ۱۱ Team و وضعیت قرارداد/آموزش؛
+- جزئیات کامل قرارداد ۱۱ Team شامل مسئولیت، اختیار تصمیم، ورودی، خروجی، اصول، همکاران، مراحل و سطح خودکارسازی؛
 - شش Role اصلی `Analyst`، `Evaluator`، `Decision Maker`، `Planner`، `Researcher` و `Executor`، به‌علاوهٔ `Verifier` و `Code Reviewer` برای کنترل کیفیت؛
 - شمارندهٔ Provider، Profile، Invocation، Evaluation و Decision؛
 - وضعیت Global Stop، اختیار کامل و hydration؛
@@ -20,11 +20,15 @@
 - سیاست ضدایندکس روی همهٔ پاسخ‌ها (`X-Robots-Tag`، meta robots و `robots.txt`) و نبود sitemap عمومی؛ این کنترل‌ها مرز امنیتی نیستند؛
 - Timeline امن eventهای اخیر، بدون prompt، متن درخواست، خروجی مدل یا Secret؛
 - خلاصهٔ metadata ارزیابی سازمان و مرز تصمیم آن؛
+- نمایش Policy پیش‌فرض هر Role شامل Provider، Model، Tool Policy و نسخه؛
+- نمایش Skillهای ثبت‌شده و bindingهای scoped بدون افشای دادهٔ حساس؛
+- نمایش آخرین Organization Advisor شامل state، recommendation و مرز advisory-only؛
 - خلاصهٔ activityهای Invocation، Evaluation و Decision و وضعیت benchmark synthetic؛
 - قرارداد correlation سازگار با trace/span برای آماده‌سازی مشاهده‌پذیری آینده؛
-- مسیر بعدی و واژه‌نامهٔ کوتاه برای تسلط مالک.
+- مسیر بعدی و واژه‌نامهٔ کامل نقش‌ها و مفهوم‌های اصلی پنل؛
+- ویرایش خط‌به‌خط اصول هر تیم با فرمان owner-authenticated و ثبت event نسخه‌دار؛ ویرایش، تأیید قبلی اصول را بازنشانی می‌کند تا تأیید تازه جداگانه انجام شود.
 
-Projection بک‌آفیس فقط فیلدهای مشاهده‌ای و بدون متن درخواست، Credential، Secret، Token یا مسیر میزبان را برمی‌گرداند. عملیات تغییردهنده و APIهای `/api/*` همچنان owner-authenticated هستند.
+Projection بک‌آفیس فقط فیلدهای مشاهده‌ای و بدون متن درخواست، Credential، Secret، Token یا مسیر میزبان را برمی‌گرداند. عملیات تغییردهنده و APIهای `/api/*` همچنان owner-authenticated هستند؛ رابط ویرایش اصول فقط همین مرز موجود را مصرف می‌کند.
 
 ## چیزهایی که فعلاً عمداً ندارد
 
@@ -38,8 +42,12 @@ Projection بک‌آفیس فقط فیلدهای مشاهده‌ای و بدون
 
 - metadata دسترسی same-host و پیام diagnostic برای خطای اتصال؛
 - جست‌وجو و فیلتر محلی Team بر اساس نام/مسئولیت و آمادگی؛
+- کارت‌های responsive برای مرور قرارداد کامل هر Team و وضعیت آمادگی آن؛
+- ویرایش و تأیید دوبارهٔ اصول Team از داخل Back Office با کنترل نسخه؛
 - timeline امن با cursor `after` و `limit`؛
 - benchmark synthetic از مسیر owner-authenticated با خروجی advisory؛
+- ثبت Skill و Skill Binding و تغییر Role Policy از API owner-authenticated؛
+- ساخت Organization Advisor از آخرین Performance Review کاملِ ۱۱ تیم؛
 - ثبت audit برای نتیجهٔ `accepted` یا `rejected` فرمان.
 
 ## مسیر رشد
@@ -47,7 +55,7 @@ Projection بک‌آفیس فقط فیلدهای مشاهده‌ای و بدون
 1. افزودن لینک دقیق به Evidence و Sheetهای مرجع؛
 2. افزودن persistence و مقایسهٔ benchmarkها در PostgreSQL؛
 3. افزودن audit دسترسی و policy مشاهده‌ای در محیط Production؛
-4. افزودن کنترل‌های تغییردهنده فقط پس از تکمیل worker، Session Revocation و Audit عملیاتی.
+4. تکمیل کنترل‌های تغییردهندهٔ بیشتر فقط پس از worker، Session Revocation و Audit عملیاتی.
 
 ## مسیرهای این نسخه
 
@@ -57,6 +65,11 @@ Projection بک‌آفیس فقط فیلدهای مشاهده‌ای و بدون
 - `/observability-contract` قرارداد correlation و redaction را ارائه می‌کند؛
 - `/pilot-contract` state و acceptance checkهای پایلوت را ارائه می‌کند؛
 - `POST /api/auth/revoke-session` session مالک را با مرز owner-authenticated قابل‌ابطال می‌کند؛
+- `POST /api/teams/:teamId/principles` اصول تیم را با `expectedVersion` و تأیید مالک نسخه‌دار ویرایش می‌کند؛
+- `GET /api/ai/skills` و `GET /api/ai/organization-advisor` projectionهای امن Skill و Advisor را می‌دهند؛
+- `POST /api/ai/skills`، `POST /api/ai/skill-bindings` و `POST /api/ai/role-policies` تغییرات owner-authenticated و نسخه‌دار را ثبت می‌کنند؛
+- `POST /api/ai/organization-advisor` از Performance Review ثبت‌شده خروجی advisory و roadmap می‌سازد؛
+- `/skill-contract` و `/organization-advisor-contract` قراردادهای اجرایی این دو لایه را ارائه می‌کنند؛
 - `POST /api/pilots/dry-run` فقط pilot deterministic و بدون شبکه را اجرا می‌کند؛
 - endpointهای `/api/*` فعلی همچنان مسیرهای mutation هستند و owner authentication می‌خواهند.
 

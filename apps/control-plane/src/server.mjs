@@ -10,6 +10,8 @@ import {
   getAssuranceGateContractSummary,
   getAiOrchestrationContractSummary,
   getAiBenchmarkContractSummary,
+  getOrganizationAdvisorContractSummary,
+  getSkillContractSummary,
   getClaudeReviewContractSummary,
   getCursorHandoffContractSummary,
   getCriticalPrinciplesContractSummary,
@@ -319,6 +321,14 @@ export function createHeroServer(options = {}) {
         return json(response, 200, { service: HERO_SERVICE, events: dashboard.aiOrchestrationEvents(after) });
       }
 
+      if (request.method === "GET" && url.pathname === "/api/ai/skills") {
+        return json(response, 200, { service: HERO_SERVICE, skills: dashboard.skillSnapshot() });
+      }
+
+      if (request.method === "GET" && url.pathname === "/api/ai/organization-advisor") {
+        return json(response, 200, { service: HERO_SERVICE, advisor: dashboard.organizationAdvisorSnapshot() });
+      }
+
       if (request.method === "POST" && url.pathname === "/api/memory") {
         const input = await readJson(request);
         const result = await executeDashboardCommand("memory.record", input, () => dashboard.recordProjectMemory(input));
@@ -336,11 +346,15 @@ export function createHeroServer(options = {}) {
         "/api/ai/models": ["registerAiModel", 201, "ai.model-register"],
         "/api/ai/profiles": ["registerAiProfile", 201, "ai.profile-register"],
         "/api/ai/bindings": ["bindAiRole", 201, "ai.binding-create"],
+        "/api/ai/skills": ["registerAiSkill", 201, "ai.skill-register"],
+        "/api/ai/skill-bindings": ["bindAiSkill", 201, "ai.skill-binding-create"],
+        "/api/ai/role-policies": ["setAiRolePolicy", 201, "ai.role-policy-update"],
         "/api/ai/invocations": ["invokeAi", 201, "ai.invoke"],
         "/api/ai/evaluations": ["recordAiEvaluation", 201, "ai.evaluation-record"],
         "/api/ai/evaluations/from-invocation": ["evaluateAiInvocation", 201, "ai.evaluation-from-invocation"],
         "/api/ai/decisions": ["proposeAiDecision", 201, "ai.decision-propose"],
-        "/api/ai/organization-evaluations": ["reviewOrganizationPerformance", 201, "ai.organization-evaluation"]
+        "/api/ai/organization-evaluations": ["reviewOrganizationPerformance", 201, "ai.organization-evaluation"],
+        "/api/ai/organization-advisor": ["adviseOrganization", 201, "ai.organization-advisor"]
       };
       if (request.method === "POST" && url.pathname === "/api/ai/benchmarks/synthetic") {
         const input = await readJson(request);
@@ -470,6 +484,14 @@ export function createHeroServer(options = {}) {
         return json(response, 200, { service: HERO_SERVICE, aiOrchestrationContract: getAiOrchestrationContractSummary() });
       }
 
+      if (request.method === "GET" && url.pathname === "/skill-contract") {
+        return json(response, 200, { service: HERO_SERVICE, skillContract: getSkillContractSummary() });
+      }
+
+      if (request.method === "GET" && url.pathname === "/organization-advisor-contract") {
+        return json(response, 200, { service: HERO_SERVICE, organizationAdvisorContract: getOrganizationAdvisorContractSummary() });
+      }
+
       if (request.method === "GET" && url.pathname === "/ai-benchmark-contract") {
         return json(response, 200, { service: HERO_SERVICE, aiBenchmarkContract: getAiBenchmarkContractSummary() });
       }
@@ -564,13 +586,14 @@ export function createHeroServer(options = {}) {
         return json(response, 200, { service: HERO_SERVICE, result });
       }
 
-      const teamMatch = url.pathname.match(/^\/api\/teams\/([a-z][a-z0-9-]{2,63})\/(review|rework|deliverable-review|autonomy|training|assign|split)$/);
+      const teamMatch = url.pathname.match(/^\/api\/teams\/([a-z][a-z0-9-]{2,63})\/(review|rework|principles|deliverable-review|autonomy|training|assign|split)$/);
       if (request.method === "POST" && teamMatch) {
         const input = await readJson(request);
         const [, teamId, action] = teamMatch;
         const teamByAction = {
           review: dashboard.reviewTeam,
           rework: dashboard.requestTeamRework,
+          principles: dashboard.updateTeamPrinciples,
           "deliverable-review": dashboard.reviewTeamDeliverable,
           autonomy: dashboard.setTeamAutonomy,
           training: dashboard.recordTeamTraining,
@@ -785,7 +808,7 @@ export function createHeroServer(options = {}) {
       if (postgresRuntime) await postgresRuntime.ping();
       if (postgresRuntime?.registrySnapshots && typeof dashboard.hydrateFromPersistence === "function") {
         const hydrated = await postgresRuntime.registrySnapshots.hydrate({
-          registryIds: ["team-registry", "team-research", "principles-registry", "release-promotion", "planner", "project-memory", "ai-orchestration", "organization-performance", "control-dashboard"]
+          registryIds: ["team-registry", "team-research", "principles-registry", "release-promotion", "planner", "project-memory", "ai-orchestration", "organization-performance", "skill-registry", "organization-advisor", "control-dashboard"]
         });
         const events = postgresRuntime.store ? await postgresRuntime.store.readAfter(0) : [];
         persistedDomainEventIds = new Set(events.map(event => event.eventId));

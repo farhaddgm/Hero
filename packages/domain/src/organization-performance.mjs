@@ -4,6 +4,8 @@ import {
   getOrganizationPerformanceContractSummary
 } from "../../contracts/src/organization-performance.mjs";
 import { TEAM_CATALOG } from "../../contracts/src/team.mjs";
+import { createOperationalEvent } from "../../contracts/src/operational-data.mjs";
+import { createInMemoryEventLog } from "./event-log.mjs";
 
 const SCORE_MIN = 0;
 const SCORE_MAX = 100;
@@ -77,7 +79,12 @@ export class OrganizationPerformanceError extends Error {
   }
 }
 
-export function createOrganizationPerformanceReview({ teamRegistry, now = () => new Date().toISOString() } = {}) {
+function eventIdFactory() {
+  let sequence = 0;
+  return () => `evt_performance_${String(++sequence).padStart(6, "0")}`;
+}
+
+export function createOrganizationPerformanceReview({ teamRegistry, now = () => new Date().toISOString(), eventLog = createInMemoryEventLog(), eventIdFactory: nextEventId = eventIdFactory() } = {}) {
   const reviews = new Map();
   const idempotency = new Map();
 
@@ -113,6 +120,16 @@ export function createOrganizationPerformanceReview({ teamRegistry, now = () => 
     if (seen.size !== expected.size) throw new OrganizationPerformanceError("TEAM_COVERAGE_INCOMPLETE", "Every Hero team must be represented exactly once.");
     const average = Number((teams.reduce((sum, team) => sum + team.average, 0) / teams.length).toFixed(2));
     const findings = teams.flatMap(team => team.findings);
+    const recordedAt = now();
+    const event = eventLog.append(createOperationalEvent({
+      eventId: nextEventId(),
+      aggregateType: "organization-performance",
+      aggregateId: reviewId,
+      type: "organization-performance.review-recorded",
+      occurredAt: recordedAt,
+      actor: { kind: "system", id: "hero-organization-evaluator" },
+      data: { reviewId, organizationId, period, teamCount: teams.length, average, band: bandFor(average), findingCount: findings.length }
+    }), { expectedVersion: eventLog.currentVersion("organization-performance", reviewId) });
     const result = copy({
       reviewId,
       organizationId,
@@ -124,7 +141,8 @@ export function createOrganizationPerformanceReview({ teamRegistry, now = () => 
       teams,
       findings,
       recommendation: findings.length === 0 ? "ادامهٔ روند فعلی و بازبینی دورهٔ بعد." : "برای یافته‌های ثبت‌شده owner، مهلت و evidence اصلاحی تعیین شود.",
-      recordedAt: now(),
+      recordedAt,
+      eventId: event.eventId,
       decisionBoundary: "evidence-and-recommendation-only"
     });
     reviews.set(reviewId, result);
@@ -145,6 +163,7 @@ export function createOrganizationPerformanceReview({ teamRegistry, now = () => 
     if (!state || !Array.isArray(state.reviews)) throw new OrganizationPerformanceError("HYDRATION_INVALID", "Organization performance hydration requires reviews.");
     reviews.clear();
     idempotency.clear();
+    if (Array.isArray(input.events)) eventLog.load(input.events.filter(event => event.aggregateType === "organization-performance"));
     for (const review of state.reviews) {
       if (!review || typeof review !== "object" || typeof review.reviewId !== "string") throw new OrganizationPerformanceError("HYDRATION_INVALID", "A hydrated performance review is invalid.");
       reviews.set(review.reviewId, copy(review));
@@ -158,6 +177,7 @@ export function createOrganizationPerformanceReview({ teamRegistry, now = () => 
     list: () => Object.freeze([...reviews.values()].map(copy)),
     persistenceSnapshot,
     hydrate,
+    events: (after = 0) => eventLog.readAfter(after),
     contract: () => getOrganizationPerformanceContractSummary()
   });
 }
