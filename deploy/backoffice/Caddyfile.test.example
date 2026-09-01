@@ -1,0 +1,24 @@
+# Apply only to the approved Caddy instance for the Hero Test environment.
+# Do not commit a rendered file or a password/hash.
+
+test.hero.beeproject.ir {
+    encode gzip
+
+    header {
+        X-Robots-Tag "noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate"
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "no-referrer"
+        X-DNS-Prefetch-Control "off"
+        -Server
+    }
+
+    @backoffice path /backoffice /backoffice-data /backoffice-events /robots.txt
+    handle @backoffice {
+        basic_auth {
+            {$HERO_BACKOFFICE_USER} {$HERO_BACKOFFICE_PASSWORD_HASH}
+        }
+        reverse_proxy 127.0.0.1:43101
+    }
+
+    respond 404 "not found" 404
+}

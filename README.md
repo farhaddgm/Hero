@@ -74,6 +74,8 @@ APIهای `/api/*` فقط با نشست امضاشدهٔ مالک پروژه ق�
 
     docker compose --env-file .env up --build
 
+راهنمای اجرای محیط Test جداگانهٔ خود Hero در [docs/operations/HERO-TEST-ENVIRONMENT.md](docs/operations/HERO-TEST-ENVIRONMENT.md) است. محیط Test روی همان سرور با Compose project `hero-test`، پورت `43101`، volume و PostgreSQL مستقل اجرا می‌شود؛ این راهنما هیچ DNS، Secret یا Production را خودکار تغییر نمی‌دهد.
+
 پورت پیش‌فرض میزبان 43100 است تا احتمال برخورد با سرویس‌های موجود کم شود. Compose نام volume و network را با نام پروژه namespace می‌کند.
 
 ### مشاهدهٔ Back Office
