@@ -19,7 +19,7 @@
 
 ## وضعیت خط مبنا
 
-- قراردادهای HERO-001 تا HERO-019 و Harnessهای deterministic موجودند و آخرین اجرای کامل محلی پس از این گام 197 تست موفق داشته است.
+- قراردادهای HERO-001 تا HERO-019 و Harnessهای deterministic موجودند و آخرین اجرای کامل در Linux container با 213 تست موفق ثبت شده است.
 - HERO-020 هنوز به شواهد واقعی Clean Linux، Compose و Restore نیاز دارد.
 - HERO-021 هنوز پایلوت واقعی Provider/اپلیکیشن نیست و به‌صورت پیش‌نویس طراحی باقی مانده است.
 - در این بازنگری، کاتالوگ ۱۱ تیم شیت، قرارداد تیم، curriculum و benchmark آموزش، Registry، Eventهای تیم و API/نمایش اولیهٔ کنترل تیم اضافه شده‌اند.
@@ -40,7 +40,7 @@
 | ۷ | reliability | انجام‌شده؛ timeout، retry، health، cost، attempt و latency |
 | ۸ | API و audit | انجام‌شده؛ endpointهای owner-gated و pagination event |
 | ۹ | benchmark harness | انجام‌شده؛ synthetic/deterministic و advisory-only |
-| ۱۰ | تست، اصلاح، مستندات | انجام‌شده؛ 197/197 تست و Build/Governance موفق |
+| ۱۰ | تست، اصلاح، مستندات | انجام‌شده؛ 213/213 تست و Build/Governance موفق |
 
 ## نقشهٔ مرحله‌ای
 

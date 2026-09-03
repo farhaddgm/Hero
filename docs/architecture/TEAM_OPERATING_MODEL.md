@@ -134,7 +134,7 @@ proposed -> training -> ready -> assigned -> working -> review -> completed
 - `POST /api/teams/merge` و `POST /api/teams/:teamId/split` تغییر ساختار تیمی را با حفظ تاریخچه ثبت می‌کنند.
 - `GET /team-contract` خلاصهٔ قرارداد ماشینی را می‌دهد.
 
-Registry، گزارش تحقیق و projection فرمان‌ها همچنان deterministic و in-memory هستند، اما در صورت تنظیم PostgreSQL، فرمان‌های پذیرفته‌شدهٔ Control Plane به‌صورت audit event پایدار ثبت و از `GET /api/audit?after=0` قابل صفحه‌بندی خواندن‌اند. Session revocation پایدار و primitiveهای claim/ack/fail صف dispatch اضافه شده‌اند؛ projection کامل، worker dispatch، Provider واقعی و اجرای بیرونی هنوز آداپترهای جداگانهٔ آینده‌اند.
+Registryها و گزارش تحقیق همچنان در هستهٔ deterministic اجرا می‌شوند، اما Snapshotهای نسخه‌دارشان با تنظیم PostgreSQL قابل ذخیره و startup hydration هستند؛ فرمان‌های پذیرفته‌شدهٔ Control Plane نیز به‌صورت audit event پایدار ثبت و از `GET /api/audit?after=0` قابل صفحه‌بندی خواندن‌اند. Session revocation پایدار و primitiveهای claim/ack/fail صف dispatch اضافه شده‌اند؛ projection کامل همهٔ commandها، worker dispatch، Provider واقعی و اجرای بیرونی هنوز آداپترهای جداگانهٔ آینده‌اند.
 
 ## تیم‌های مکمل پیشنهادی
 

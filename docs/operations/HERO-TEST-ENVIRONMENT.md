@@ -76,10 +76,16 @@ test.hero.beeproject.ir  A  <IP عمومی همین سرور>
 اپراتور پس از آماده‌کردن secretها، از ریشهٔ repository و با فایل env محافظت‌شده اجرا می‌کند:
 
 ```bash
-docker compose --project-name hero-test --env-file <protected-test-env-file> --profile postgres config --quiet
-docker compose --project-name hero-test --env-file <protected-test-env-file> --profile postgres up -d --build
-docker compose --project-name hero-test --env-file <protected-test-env-file> --profile postgres ps
+TEST_ENV_FILE=/etc/hero/hero-test.env
+test -f "$TEST_ENV_FILE"
+chmod 600 "$TEST_ENV_FILE"
+docker compose --project-name hero-test --env-file "$TEST_ENV_FILE" --profile postgres config --quiet
+docker compose --project-name hero-test --env-file "$TEST_ENV_FILE" --profile postgres run --rm --build control-plane node tools/check-test-config.mjs
+docker compose --project-name hero-test --env-file "$TEST_ENV_FILE" --profile postgres up -d --build
+docker compose --project-name hero-test --env-file "$TEST_ENV_FILE" --profile postgres ps
 ```
+
+در این مثال `/etc/hero/hero-test.env` یک مسیر نمونه برای فایل محافظت‌شده است؛ باید همان مسیر واقعی فایل Secret خودتان را جایگزین کنید. عبارت‌های داخل علامت `< >` را نباید عیناً وارد کنید. اگر `check-test-config` خطا داد، `up` را اجرا نکنید.
 
 خروجی دستور `config` یا logها نباید در چت یا ticket عمومی قرار گیرد؛ ممکن است تنظیمات runtime را نمایش دهد.
 
