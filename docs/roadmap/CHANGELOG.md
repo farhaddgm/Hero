@@ -1,5 +1,13 @@
 # تغییرات رودمپ شرکت
 
+## 2026-09-04 — ممیزی وضعیت و مدیریت پایهٔ کاتالوگ AI در Back Office
+
+- افزوده‌شده: projection امن Provider/Model/Profile/Role Binding در `/backoffice-data`، بدون `credentialRef` و دادهٔ حساس؛
+- افزوده‌شده: فرم owner-authenticated برای ثبت نسخهٔ جدید Provider deterministic/disabled، Model، Profile، Binding و Default Role Policy؛ live Provider و external spend از UI قابل فعال‌سازی نیست؛
+- افزوده‌شده: تست پوشش UI و اطمینان از حذف ارجاع Credential از projection؛
+- اصلاح‌شده: شواهد roadmap و Google Sheet با آخرین وضعیت `214/214` تست، Build `124` و Governance `21` هم‌تراز شد؛
+- مرز: Test stack، WCDN/Caddy/HTTPS، PostgreSQL مقصد، Secret واقعی، Provider live، recovery مقصد و Pilot واقعی همچنان به اپراتور/مجوز مستقل نیاز دارند.
+
 ## 2026-08-31 — تفکیک verification از runtime image
 
 - اصلاح‌شده: target `verify` فایل‌های workflow را تا پایان تست نگه می‌دارد تا اجرای مستقل `pnpm check` ناقص نشود؛

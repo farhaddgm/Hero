@@ -211,6 +211,7 @@ export function createControlDashboard(options = {}) {
       .slice(0, 24)
       .map(projectOperationalEvent);
     const benchmark = benchmarkSnapshot();
+    const aiConfiguration = current.aiOrchestration;
     const performanceReviews = typeof organizationPerformance.list === "function"
       ? [...organizationPerformance.list()]
         .sort((left, right) => String(right.recordedAt).localeCompare(String(left.recordedAt)))
@@ -243,6 +244,46 @@ export function createControlDashboard(options = {}) {
         roles: Object.freeze([...(current.aiOrchestration.contract.roles ?? [])]),
         counts: current.aiOrchestration.counts,
         defaultRolePolicies: current.aiOrchestration.defaultRolePolicies,
+        providers: Object.freeze((aiConfiguration.providers ?? []).map(provider => Object.freeze({
+          providerId: provider.providerId,
+          mode: provider.mode,
+          displayName: provider.displayName,
+          capabilities: Object.freeze([...(provider.capabilities ?? [])]),
+          registeredAt: provider.registeredAt
+        }))),
+        models: Object.freeze((aiConfiguration.models ?? []).map(model => Object.freeze({
+          providerId: model.providerId,
+          modelId: model.modelId,
+          displayName: model.displayName,
+          metadata: Object.freeze({ ...model.metadata }),
+          registeredAt: model.registeredAt
+        }))),
+        profiles: Object.freeze((aiConfiguration.profiles ?? []).map(profile => Object.freeze({
+          profileId: profile.profileId,
+          role: profile.role,
+          providerId: profile.providerId,
+          modelId: profile.modelId,
+          promptVersion: profile.promptVersion,
+          contextPolicy: profile.contextPolicy,
+          toolPolicy: profile.toolPolicy,
+          outputSchema: profile.outputSchema,
+          status: profile.status,
+          profileVersion: profile.profileVersion,
+          timeoutMs: profile.timeoutMs,
+          maxRetries: profile.maxRetries,
+          maxCostUnits: profile.maxCostUnits,
+          registeredAt: profile.registeredAt
+        }))),
+        bindings: Object.freeze((aiConfiguration.bindings ?? []).map(binding => Object.freeze({
+          bindingId: binding.bindingId,
+          projectId: binding.projectId,
+          teamId: binding.teamId,
+          skillId: binding.skillId,
+          role: binding.role,
+          profileId: binding.profileId,
+          profileVersion: binding.profileVersion,
+          boundAt: binding.boundAt
+        }))),
         activity: current.aiOrchestration.activity,
         providerMode: current.providerMode,
         liveStatus: "گیت‌شده؛ بدون credential، cost policy و مجوز مستقل هیچ تماس بیرونی انجام نمی‌شود"

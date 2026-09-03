@@ -19,13 +19,13 @@
 
 ## وضعیت خط مبنا
 
-- قراردادهای HERO-001 تا HERO-019 و Harnessهای deterministic موجودند و آخرین اجرای کامل در Linux container با 213 تست موفق ثبت شده است.
+- قراردادهای HERO-001 تا HERO-019 و Harnessهای deterministic موجودند و آخرین اجرای کامل در Linux container با 214 تست موفق ثبت شده است.
 - HERO-020 هنوز به شواهد واقعی Clean Linux، Compose و Restore نیاز دارد.
 - HERO-021 هنوز پایلوت واقعی Provider/اپلیکیشن نیست و به‌صورت پیش‌نویس طراحی باقی مانده است.
 - در این بازنگری، کاتالوگ ۱۱ تیم شیت، قرارداد تیم، curriculum و benchmark آموزش، Registry، Eventهای تیم و API/نمایش اولیهٔ کنترل تیم اضافه شده‌اند.
 - اصول حیاتی Hero/محصول و Release Promotion از Git تا test و تأیید production نیز به‌صورت قرارداد و گیت deterministic اضافه شده‌اند.
 - Projectionهای runtime در حافظه هستند و اکنون Snapshot append-only و Event Store اختیاری PostgreSQL برای بازسازی آن‌ها وجود دارد؛ هیچ Provider زنده، Secret، deploy یا پیام خارجی فعال نشده است.
-- بستهٔ بعدی مشاهده‌پذیری، revocation، Outbox primitive، Pilot Dry-Run و benchmark تکرارپذیر نیز در `2026-08-31` با ۱۹۷/۱۹۷ تست و smoke-test runtime تأیید شد.
+- بستهٔ بعدی مشاهده‌پذیری، revocation، Outbox primitive، Pilot Dry-Run و benchmark تکرارپذیر نیز در `2026-08-31` با ۱۹۷/۱۹۷ تست و smoke-test runtime تأیید شد؛ آخرین verification در `2026-09-04` با ۲۱۴/۲۱۴ تست و مدیریت پایهٔ کاتالوگ AI انجام شد.
 
 ## بستهٔ ۱۰ گام اجرایی این بازنگری
 
@@ -40,7 +40,7 @@
 | ۷ | reliability | انجام‌شده؛ timeout، retry، health، cost، attempt و latency |
 | ۸ | API و audit | انجام‌شده؛ endpointهای owner-gated و pagination event |
 | ۹ | benchmark harness | انجام‌شده؛ synthetic/deterministic و advisory-only |
-| ۱۰ | تست، اصلاح، مستندات | انجام‌شده؛ 213/213 تست و Build/Governance موفق |
+| ۱۰ | تست، اصلاح، مستندات | انجام‌شده؛ 214/214 تست و Build/Governance موفق |
 
 ## نقشهٔ مرحله‌ای
 

@@ -17,6 +17,8 @@ test("read-only development back office exposes a safe orientation projection", 
   assert.match(pageHtml, /IRANSans/);
   assert.match(pageHtml, /همهٔ AI Roleها/);
   assert.match(pageHtml, /مفاهیم و قراردادها/);
+  assert.match(pageHtml, /پیکربندی Provider و Role/);
+  assert.match(pageHtml, /ai-config-form/);
   assert.match(pageHtml, /ویرایش اصول/);
 
   const response = await fetch(baseUrl + "/backoffice-data");
@@ -33,7 +35,25 @@ test("read-only development back office exposes a safe orientation projection", 
   assert.equal(backoffice.organization.teams.some(team => "description" in team), false);
   assert.equal(backoffice.organization.teams[0].contract.principles.length >= 5, true);
   assert.equal(backoffice.organization.teams[0].contract.outputs.length > 0, true);
+  assert.deepEqual(backoffice.ai.providers, []);
+  assert.deepEqual(backoffice.ai.models, []);
+  assert.deepEqual(backoffice.ai.profiles, []);
+  assert.deepEqual(backoffice.ai.bindings, []);
   assert.doesNotMatch(JSON.stringify(backoffice), /api[_-]?key\s*[:=]|access[_-]?token\s*[:=]|password\s*[:=]|Bearer\s+[A-Za-z0-9._-]{12,}|-----BEGIN/i);
+});
+
+test("back office exposes a safe AI configuration catalog without credential references", async () => {
+  const { createControlDashboard } = await import("../apps/control-plane/src/dashboard-service.mjs");
+  const dashboard = createControlDashboard({ now: () => "2026-08-30T12:00:00.000Z" });
+  dashboard.registerAiProvider({ providerId: "openai", mode: "deterministic", displayName: "OpenAI test", idempotencyKey: "backoffice-catalog-provider" });
+  dashboard.registerAiModel({ providerId: "openai", modelId: "chatgpt", displayName: "ChatGPT test", idempotencyKey: "backoffice-catalog-model" });
+  dashboard.registerAiProfile({ profileId: "backoffice-analyst-profile", role: "analyst", providerId: "openai", modelId: "chatgpt", credentialRef: "env:OPENAI_API_KEY", promptVersion: "analyst-v1", contextPolicy: "approved", toolPolicy: "read-only", outputSchema: "analysis-v1", status: "draft", idempotencyKey: "backoffice-catalog-profile" });
+  const ai = dashboard.backofficeSnapshot().ai;
+  assert.equal(ai.providers[0].providerId, "openai");
+  assert.equal(ai.models[0].modelId, "chatgpt");
+  assert.equal(ai.profiles[0].profileId, "backoffice-analyst-profile");
+  assert.equal("credentialRef" in ai.profiles[0], false);
+  assert.doesNotMatch(JSON.stringify(ai), /OPENAI_API_KEY|credentialRef/i);
 });
 
 test("owner can edit team principles through the protected back office command", async t => {

@@ -1,7 +1,7 @@
 # بک‌آفیس توسعهٔ Hero
 
 - نسخهٔ قرارداد: 1.0
-- وضعیت: نسخهٔ مشاهده‌ای با نمایش Role Policy، Skill و Organization Advisor و ویرایش مالک‌محور اصول تیم
+- وضعیت: نسخهٔ مشاهده‌ای با مدیریت مالک‌محور اصول تیم و پیکربندی نسخه‌دار AI
 - مسیر مشاهده: `/backoffice`
 
 ## هدف
@@ -27,8 +27,9 @@
 - قرارداد correlation سازگار با trace/span برای آماده‌سازی مشاهده‌پذیری آینده؛
 - مسیر بعدی و واژه‌نامهٔ کامل نقش‌ها و مفهوم‌های اصلی پنل؛
 - ویرایش خط‌به‌خط اصول هر تیم با فرمان owner-authenticated و ثبت event نسخه‌دار؛ ویرایش، تأیید قبلی اصول را بازنشانی می‌کند تا تأیید تازه جداگانه انجام شود.
+- مدیریت پایهٔ کاتالوگ AI در خود پنل: ثبت Provider deterministic/disabled، Model، Profile، Role Binding و Default Role Policy. این بخش credential را فقط به‌صورت reference می‌پذیرد و live/external-spend را فعال نمی‌کند.
 
-Projection بک‌آفیس فقط فیلدهای مشاهده‌ای و بدون متن درخواست، Credential، Secret، Token یا مسیر میزبان را برمی‌گرداند. عملیات تغییردهنده و APIهای `/api/*` همچنان owner-authenticated هستند؛ رابط ویرایش اصول فقط همین مرز موجود را مصرف می‌کند.
+Projection بک‌آفیس فقط فیلدهای مشاهده‌ای و بدون متن درخواست، مقدار Credential، Secret، Token یا مسیر میزبان را برمی‌گرداند. عملیات تغییردهنده و APIهای `/api/*` همچنان owner-authenticated هستند. رابط پنل علاوه بر اصول تیم، ثبت Provider/Model/Profile/Role Binding و تغییر Default Role Policy را با توکن مالک مصرف می‌کند؛ هر تغییر با event نسخه‌دار ثبت می‌شود و Provider زنده از این فرم قابل فعال‌سازی نیست. پشتیبانی احراز هویت نقش admin در سطح HTTP هنوز یک کار باز است.
 
 ## چیزهایی که فعلاً عمداً ندارد
 
@@ -46,6 +47,7 @@ Projection بک‌آفیس فقط فیلدهای مشاهده‌ای و بدون
 - ویرایش و تأیید دوبارهٔ اصول Team از داخل Back Office با کنترل نسخه؛
 - timeline امن با cursor `after` و `limit`؛
 - benchmark synthetic از مسیر owner-authenticated با خروجی advisory؛
+- فرم مدیریت کاتالوگ AI با ثبت مرحله‌ای Provider/Model/Profile/Binding/Policy و نمایش وضعیت فعلی؛
 - ثبت Skill و Skill Binding و تغییر Role Policy از API owner-authenticated؛
 - ساخت Organization Advisor از آخرین Performance Review کاملِ ۱۱ تیم؛
 - ثبت audit برای نتیجهٔ `accepted` یا `rejected` فرمان.
