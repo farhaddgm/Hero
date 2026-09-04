@@ -7,7 +7,8 @@
 | مورد | مقدار |
 |---|---|
 | branch | `codex/hero-001-project-charter` |
-| candidate commit محلی | `923a0f3` — `chore: validate roadmap audit ledgers` |
+| candidate commit محلی | `98bf0c6` — `chore: enforce roadmap cross references` |
+| roadmap validator commit | `923a0f3` — `chore: validate roadmap audit ledgers` |
 | deployment-contract commit | `2b3d5b8` — `chore: enforce deployment contract` |
 | implementation commit | `cdc44bc` — `feat: harden Hero backoffice and audit projections` |
 | evidence chain | `cce6aaa`، `0aaeaa3`، `de4b4c5`، `79b0977` و `e865e5b` — ثبت verification، baseline، artifact و runtime audit |
@@ -21,13 +22,13 @@
 
 | مورد | مقدار |
 |---|---|
-| image tag محلی | `hero-control-plane:candidate-923a0f3` |
-| image digest | `sha256:c048cb5f67ee33fc4a40d92a4589b150e70265c179b0d8adf8b8392288fe3cb9` |
-| مبنای build | archive از HEAD commit‌شدهٔ `923a0f3`؛ فایل‌های خارج از commit وارد build نشدند |
+| image tag محلی | `hero-control-plane:candidate-98bf0c6` |
+| image digest | `sha256:f90a6ccda1ac4723da8956d13c0c679e0e54b3fc34d2834d459502f466614846` |
+| مبنای build | archive از HEAD commit‌شدهٔ `98bf0c6`؛ فایل‌های خارج از commit وارد build نشدند |
 | نتیجهٔ verify داخل build | `pnpm check`: ۲۳۹/۲۳۹ تست موفق؛ Build: ۱۴۰ ماژول و ۷ فایل JSON |
 | parity با source | hash هر پنج فایل fingerprint‌شده برابر است |
-| کنترل roadmap | `OPEN-50=50` و `NEXT-100=100`؛ همهٔ ستون‌های الزامی و refها معتبرند |
-| runtime smoke مستقل | `candidate-923a0f3` در کانتینر موقت با پورت loopback `43102`؛ `/health` و `/backoffice` برابر ۲۰۰، HTML فارسی/IRANSans/noindex و بخش‌های تنظیمات/راهنما حاضر؛ پس از تست حذف شد. احراز هویت runtime جداگانه روی Test تأیید شده است |
+| کنترل roadmap | `OPEN-50=50` و `NEXT-100=100`؛ ستون‌های الزامی و cross-referenceها معتبرند |
+| runtime smoke مستقل | `candidate-98bf0c6` در کانتینر موقت با پورت loopback `43102`؛ `/health` و `/backoffice` برابر ۲۰۰، HTML فارسی/IRANSans/noindex و بخش‌های تنظیمات/راهنما حاضر؛ پس از تست حذف شد. احراز هویت runtime جداگانه روی Test تأیید شده است |
 | وضعیت انتشار | فقط image محلی ساخته و بررسی شده؛ به Test یا Production deploy نشده است |
 
 ## شواهد verification
@@ -63,7 +64,7 @@ fa16ce5ef898670bb138d17554290626d4f6005753ccfa3b38f104a6ccb21f15  packages/domai
 
 ## گیت‌های قبل از promotion
 
-۱. commit candidate انجام شد؛ برای CI باید commit `923a0f3` و image digest دقیق بالا استفاده شود؛
+۱. commit candidate انجام شد؛ برای CI باید commit `98bf0c6` و image digest دقیق بالا استفاده شود؛
 
 ۲. اجرای `pnpm check` روی همان commit و ثبت SHA، image digest و artifact؛
 

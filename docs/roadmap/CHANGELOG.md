@@ -1,5 +1,12 @@
 # تغییرات رودمپ شرکت
 
+## 2026-09-05 — cross-reference fail-closed در ممیزی roadmap
+
+- اصلاح‌شده: validator علاوه بر تعداد/پیوستگی، ارجاع هر ردیف `OPEN-50` به `NEXT-100` را نیز کنترل می‌کند؛
+- ساخته‌شده: candidate `hero-control-plane:candidate-98bf0c6` با digest versioned؛
+- تأییدشده: smoke همین candidate با health و Back Office برابر ۲۰۰ و markerهای UI فارسی/IRANSans/noindex؛ resource موقت حذف شد؛
+- مرز: candidate هنوز به Test یا Production deploy نشده است.
+
 ## 2026-09-05 — machine-checkable roadmap audit و candidate جدید
 
 - افزوده‌شده: validator داخلی برای پیوستگی و کامل‌بودن دفترهای `OPEN-50` و `NEXT-100`؛ نتیجهٔ واقعی `50/50` و `100/100`؛
