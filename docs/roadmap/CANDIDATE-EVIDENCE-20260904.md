@@ -39,6 +39,7 @@
 - clean-room: ۲۴۱ فایل، بدون خطا؛
 - `git diff --check`: موفق؛
 - Test مستقل: health/readiness، PostgreSQL/migration، preflight، احراز هویت، hydration بعد از restart و isolation موفق؛ fingerprint پنج فایل اصلی با candidate برابر است.
+- Back Office Test با احراز هویت: page/data/events همگی `۲۰۰`؛ ۱۱ تیم با جزئیات قرارداد/اصول/ورودی/خروجی، ۸ Role، ۶ route، ۵ دستهٔ تنظیمات و ۲۴ event؛ markerهای `تنظیمات کل Hero`، `چطور این پنل را بخوانیم`، `IRANSans` و `lang="fa"` حاضرند.
 
 ## fingerprint منبع فعلی
 
