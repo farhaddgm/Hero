@@ -1,5 +1,12 @@
 # تغییرات رودمپ شرکت
 
+## 2026-09-04 — ثبت ممیزی دسترسی و وضعیت Test
+
+- شواهد بررسی دسترسی در `docs/operations/ACCESS-AUDIT-20260904.md` ثبت شد؛
+- دسترسی repository و بررسی محدود namespace `hero-test` تأیید شد؛ namespace خالی است و Test deploy نشده؛
+- `pnpm check` با `214/214` تست موفق شد و `check:pilot` سه گیت عملیاتی را مسدود گزارش کرد؛
+- هیچ Secret، Caddy، DNS/WCDN، Provider زنده یا Production تغییر نکرد.
+
 ## 2026-09-04 — ممیزی وضعیت و مدیریت پایهٔ کاتالوگ AI در Back Office
 
 - افزوده‌شده: projection امن Provider/Model/Profile/Role Binding در `/backoffice-data`، بدون `credentialRef` و دادهٔ حساس؛
