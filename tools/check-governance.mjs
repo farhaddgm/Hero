@@ -18,6 +18,8 @@ import { validateSkillContract } from "../packages/contracts/src/skill.mjs";
 import { validateAiBenchmarkContract } from "../packages/contracts/src/ai-benchmark.mjs";
 import { validateObservabilityContract } from "../packages/contracts/src/observability.mjs";
 import { validatePilotContract } from "../packages/contracts/src/pilot.mjs";
+import { validateOperationalDiagnosticsContract } from "../packages/contracts/src/operational-diagnostics.mjs";
+import { validateAdminAuthContract } from "../packages/contracts/src/admin-auth.mjs";
 
 const governanceFile = path.join(REPO_ROOT, "config", "governance.json");
 const snapshotFile = path.join(
@@ -52,6 +54,8 @@ export function validateGovernance() {
   for (const detail of validateAiBenchmarkContract()) errors.push({ code: "AI_BENCHMARK_CONTRACT", detail });
   for (const detail of validateObservabilityContract()) errors.push({ code: "OBSERVABILITY_CONTRACT", detail });
   for (const detail of validatePilotContract()) errors.push({ code: "PILOT_CONTRACT", detail });
+  for (const detail of validateOperationalDiagnosticsContract()) errors.push({ code: "OPERATIONAL_DIAGNOSTICS_CONTRACT", detail });
+  for (const detail of validateAdminAuthContract()) errors.push({ code: "ADMIN_AUTH_CONTRACT", detail });
   const governance = loadJson(governanceFile);
   const snapshot = loadJson(snapshotFile);
 

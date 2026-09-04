@@ -19,6 +19,7 @@ import {
   getMobileFactoryContractSummary,
   getOperationalDataSummary,
   getOwnerAuthContractSummary,
+  getAdminAuthContractSummary,
   getPortabilityGateContractSummary,
   getPlannerContractSummary,
   getQualityGateContractSummary,
@@ -42,6 +43,7 @@ import { DashboardCommandError, createControlDashboard } from "./dashboard-servi
 import { getDashboardHtml } from "./dashboard-view.mjs";
 import { getBackofficeHtml } from "./backoffice-view.mjs";
 import { OwnerAuthError, createOwnerAuth } from "../../../packages/domain/src/owner-auth.mjs";
+import { AdminAuthError, createAdminAuth } from "../../../packages/domain/src/admin-auth.mjs";
 import { createConfiguredAiProviderAdapters, createPostgresRuntime } from "../../../packages/adapters/src/index.mjs";
 
 const PRIVATE_ROBOTS_POLICY = "noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate";
@@ -52,7 +54,19 @@ const READ_MODEL_AUDIT_RESOURCES = new Set([
   "/api/dashboard",
   "/api/ai/benchmarks",
   "/api/ai/benchmarks/compare",
-  "/api/audit"
+  "/api/ai/role-policies/history",
+  "/api/teams/contract-history",
+  "/api/audit",
+  "/api/operations/diagnostics"
+]);
+const ADMIN_ALLOWED_MUTATIONS = new Set([
+  "/api/ai/providers",
+  "/api/ai/models",
+  "/api/ai/profiles",
+  "/api/ai/bindings",
+  "/api/ai/skills",
+  "/api/ai/skill-bindings",
+  "/api/ai/role-policies"
 ]);
 
 function json(response, statusCode, body) {
@@ -163,6 +177,17 @@ function optionalCostUnits(envName) {
   return value;
 }
 
+function isAdminAllowedMutation(pathname) {
+  return ADMIN_ALLOWED_MUTATIONS.has(pathname) || /^\/api\/ai\/role-policies\/[a-z][a-z0-9-]{2,63}\/rollback$/.test(pathname);
+}
+
+function readModelAuditResource(pathname) {
+  if (READ_MODEL_AUDIT_RESOURCES.has(pathname)) return pathname;
+  if (/^\/api\/ai\/role-policies\/[a-z][a-z0-9-]{2,63}\/history$/.test(pathname)) return "/api/ai/role-policies/history";
+  if (/^\/api\/teams\/[a-z][a-z0-9-]{2,63}\/contract-history$/.test(pathname)) return "/api/teams/contract-history";
+  return null;
+}
+
 export function createHeroServer(options = {}) {
   const host = options.host ?? process.env.HERO_HTTP_HOST ?? "127.0.0.1";
   const port = parsePort(options.port ?? process.env.HERO_HTTP_PORT ?? "3100");
@@ -178,9 +203,32 @@ export function createHeroServer(options = {}) {
     : Object.freeze({}));
   const dashboard = options.dashboard ?? createControlDashboard({ now: options.now, providerAdapters, externalSpendAuthorizer: options.externalSpendAuthorizer });
   const ownerAuth = options.ownerAuth ?? createOwnerAuth({ secret: process.env.HERO_OWNER_AUTH_SECRET, now: options.now });
+  const adminAuth = options.adminAuth ?? createAdminAuth({ secret: process.env.HERO_ADMIN_AUTH_SECRET, now: options.now });
   let postgresRuntime = options.postgresRuntime ?? null;
   let ownsPostgresRuntime = false;
   let persistedDomainEventIds = new Set();
+
+  function authenticateApiPrincipal(authorizationHeader) {
+    try {
+      const owner = ownerAuth.requireOwner(authorizationHeader);
+      return Object.freeze({ ...owner, actor: Object.freeze({ kind: "project-owner", id: owner.subject }) });
+    } catch (ownerError) {
+      if (!adminAuth.configured) throw ownerError;
+      try {
+        const admin = adminAuth.requireAdmin(authorizationHeader);
+        return Object.freeze({ ...admin, actor: Object.freeze({ kind: "admin", id: admin.subject }) });
+      } catch (adminError) {
+        if (adminError instanceof AdminAuthError && adminError.code === "ADMIN_AUTH_NOT_CONFIGURED") throw ownerError;
+        throw ownerError;
+      }
+    }
+  }
+
+  function assertApiPermission(request, url, principal) {
+    if (principal.role !== "admin") return;
+    if (request.method === "GET" || (request.method === "POST" && isAdminAllowedMutation(url.pathname))) return;
+    throw new OwnerAuthError("ADMIN_SCOPE_FORBIDDEN", "این عملیات فقط با دسترسی مالک پروژه مجاز است.", 403);
+  }
 
   async function recordReadAccess(resource, outcome, actor = { kind: "anonymous", id: "anonymous" }) {
     if (!postgresRuntime?.accessAudit || !READ_MODEL_AUDIT_RESOURCES.has(resource)) return;
@@ -212,7 +260,7 @@ export function createHeroServer(options = {}) {
     }
   }
 
-  async function executeDashboardCommand(command, input, operation) {
+  async function executeDashboardCommand(command, input, operation, actor = { kind: "project-owner", id: "hero-owner" }) {
     const projectIdCandidate = input?.projectId ?? input?.organizationId;
     const projectId = typeof projectIdCandidate === "string" && /^[A-Za-z][A-Za-z0-9._:-]{2,127}$/.test(projectIdCandidate)
       ? projectIdCandidate
@@ -226,7 +274,7 @@ export function createHeroServer(options = {}) {
           await postgresRuntime.audit.record({
             command,
             projectId,
-            actor: { kind: "project-owner", id: "hero-owner" },
+            actor,
             outcome: "rejected"
           });
         } catch {
@@ -240,7 +288,7 @@ export function createHeroServer(options = {}) {
       const auditEvent = await postgresRuntime.audit.record({
         command,
         projectId,
-        actor: { kind: "project-owner", id: "hero-owner" },
+        actor,
         outcome: "accepted"
       });
       if (postgresRuntime.registrySnapshots && typeof dashboard.persistenceSnapshot === "function") {
@@ -313,11 +361,13 @@ export function createHeroServer(options = {}) {
       }
 
       const authenticatedOwner = url.pathname.startsWith("/api/")
-        ? ownerAuth.requireOwner(request.headers.authorization)
+        ? authenticateApiPrincipal(request.headers.authorization)
         : null;
+      if (authenticatedOwner) assertApiPermission(request, url, authenticatedOwner);
 
-      if (request.method === "GET" && READ_MODEL_AUDIT_RESOURCES.has(url.pathname)) {
-        await recordReadAccess(url.pathname, "accepted", { kind: "project-owner", id: authenticatedOwner?.subject ?? "development-local" });
+      const readAuditResource = request.method === "GET" ? readModelAuditResource(url.pathname) : null;
+      if (readAuditResource) {
+        await recordReadAccess(readAuditResource, "accepted", { kind: authenticatedOwner?.actor.kind ?? "project-owner", id: authenticatedOwner?.subject ?? "development-local" });
       }
 
       if (request.method === "GET" && url.pathname === "/api/audit") {
@@ -374,6 +424,10 @@ export function createHeroServer(options = {}) {
         return json(response, 200, { service: HERO_SERVICE, dashboard: dashboard.snapshot() });
       }
 
+      if (request.method === "GET" && url.pathname === "/api/operations/diagnostics") {
+        return json(response, 200, { service: HERO_SERVICE, diagnostics: dashboard.operationalDiagnostics() });
+      }
+
       if (request.method === "GET" && url.pathname === "/api/ai-orchestration") {
         return json(response, 200, { service: HERO_SERVICE, aiOrchestration: dashboard.aiOrchestrationSnapshot() });
       }
@@ -396,6 +450,11 @@ export function createHeroServer(options = {}) {
           throw new DashboardCommandError("INVALID_INPUT", "پارامترهای مقایسهٔ Benchmark معتبر نیستند.");
         }
         return json(response, 200, { service: HERO_SERVICE, comparison: await dashboard.compareBenchmarks({ benchmarkIds, limit }) });
+      }
+
+      const rolePolicyHistoryMatch = url.pathname.match(/^\/api\/ai\/role-policies\/([a-z][a-z0-9-]{2,63})\/history$/);
+      if (request.method === "GET" && rolePolicyHistoryMatch) {
+        return json(response, 200, { service: HERO_SERVICE, history: dashboard.aiRolePolicyHistory(rolePolicyHistoryMatch[1]) });
       }
 
       if (request.method === "GET" && url.pathname === "/api/ai/skills") {
@@ -433,6 +492,14 @@ export function createHeroServer(options = {}) {
         "/api/ai/organization-evaluations": ["reviewOrganizationPerformance", 201, "ai.organization-evaluation"],
         "/api/ai/organization-advisor": ["adviseOrganization", 201, "ai.organization-advisor"]
       };
+      const rolePolicyRollbackMatch = url.pathname.match(/^\/api\/ai\/role-policies\/([a-z][a-z0-9-]{2,63})\/rollback$/);
+      if (request.method === "POST" && rolePolicyRollbackMatch) {
+        const input = await readJson(request);
+        const role = rolePolicyRollbackMatch[1];
+        const commandInput = { ...input, actor: authenticatedOwner.actor };
+        const result = await executeDashboardCommand("ai.role-policy-rollback", commandInput, () => dashboard.rollbackAiRolePolicy(role, commandInput), authenticatedOwner.actor);
+        return json(response, 200, { service: HERO_SERVICE, result });
+      }
       if (request.method === "POST" && url.pathname === "/api/ai/benchmarks/synthetic") {
         const input = await readJson(request);
         const result = await executeDashboardCommand("ai.benchmark.synthetic", input, () => dashboard.runSyntheticBenchmark(input));
@@ -441,7 +508,8 @@ export function createHeroServer(options = {}) {
       if (request.method === "POST" && aiCommandRoutes[url.pathname]) {
         const input = await readJson(request);
         const [command, statusCode, auditCommand] = aiCommandRoutes[url.pathname];
-        const result = await executeDashboardCommand(auditCommand, input, () => dashboard[command](input));
+        const commandInput = { ...input, actor: authenticatedOwner.actor };
+        const result = await executeDashboardCommand(auditCommand, commandInput, () => dashboard[command](commandInput), authenticatedOwner.actor);
         return json(response, statusCode, { service: HERO_SERVICE, result });
       }
 
@@ -455,6 +523,11 @@ export function createHeroServer(options = {}) {
 
       if (request.method === "GET" && url.pathname === "/api/teams") {
         return json(response, 200, { service: HERO_SERVICE, teamControl: dashboard.teamSnapshot() });
+      }
+
+      const teamContractHistoryMatch = url.pathname.match(/^\/api\/teams\/([a-z][a-z0-9-]{2,63})\/contract-history$/);
+      if (request.method === "GET" && teamContractHistoryMatch) {
+        return json(response, 200, { service: HERO_SERVICE, history: dashboard.teamContractHistory(teamContractHistoryMatch[1]) });
       }
 
       if (request.method === "GET" && url.pathname === "/team-principles") {
@@ -555,6 +628,10 @@ export function createHeroServer(options = {}) {
 
       if (request.method === "GET" && url.pathname === "/owner-auth-contract") {
         return json(response, 200, { service: HERO_SERVICE, ownerAuthContract: getOwnerAuthContractSummary() });
+      }
+
+      if (request.method === "GET" && url.pathname === "/admin-auth-contract") {
+        return json(response, 200, { service: HERO_SERVICE, adminAuthContract: getAdminAuthContractSummary() });
       }
 
       if (request.method === "GET" && url.pathname === "/ai-orchestration-contract") {
@@ -678,6 +755,14 @@ export function createHeroServer(options = {}) {
           split: dashboard.splitTeam
         };
         const result = await executeDashboardCommand(`team.${action}`, input, () => teamByAction[action](teamId, input));
+        return json(response, 200, { service: HERO_SERVICE, result });
+      }
+
+      const teamPrinciplesRollbackMatch = url.pathname.match(/^\/api\/teams\/([a-z][a-z0-9-]{2,63})\/principles\/rollback$/);
+      if (request.method === "POST" && teamPrinciplesRollbackMatch) {
+        const input = await readJson(request);
+        const teamId = teamPrinciplesRollbackMatch[1];
+        const result = await executeDashboardCommand("team.principles-rollback", { ...input, teamId }, () => dashboard.rollbackTeamPrinciples(teamId, input));
         return json(response, 200, { service: HERO_SERVICE, result });
       }
 
@@ -864,8 +949,9 @@ export function createHeroServer(options = {}) {
         status: "not_found"
       });
     } catch (error) {
-      if (error instanceof OwnerAuthError && request.method === "GET" && READ_MODEL_AUDIT_RESOURCES.has(url.pathname)) {
-        await recordReadAccess(url.pathname, "rejected");
+      const rejectedReadResource = request.method === "GET" ? readModelAuditResource(url.pathname) : null;
+      if (error instanceof OwnerAuthError && rejectedReadResource) {
+        await recordReadAccess(rejectedReadResource, "rejected");
       }
       const known = error instanceof DashboardCommandError;
       const auth = error instanceof OwnerAuthError;
@@ -900,7 +986,9 @@ export function createHeroServer(options = {}) {
         dashboard.hydrateFromPersistence({ ...hydrated, events });
       }
       if (postgresRuntime?.ownerSessions && typeof ownerAuth.restoreRevocations === "function") {
-        ownerAuth.restoreRevocations(await postgresRuntime.ownerSessions.list());
+        const revocations = await postgresRuntime.ownerSessions.list();
+        ownerAuth.restoreRevocations(revocations);
+        if (adminAuth.configured && typeof adminAuth.restoreRevocations === "function") adminAuth.restoreRevocations(revocations);
       }
       try {
         await new Promise((resolve, reject) => {

@@ -26,10 +26,12 @@
 - خلاصهٔ activityهای Invocation، Evaluation و Decision و وضعیت benchmark synthetic؛
 - قرارداد correlation سازگار با trace/span برای آماده‌سازی مشاهده‌پذیری آینده؛
 - مسیر بعدی و واژه‌نامهٔ کامل نقش‌ها و مفهوم‌های اصلی پنل؛
-- ویرایش خط‌به‌خط اصول هر تیم با فرمان owner-authenticated و ثبت event نسخه‌دار؛ ویرایش، تأیید قبلی اصول را بازنشانی می‌کند تا تأیید تازه جداگانه انجام شود.
+- ویرایش خط‌به‌خط اصول هر تیم با فرمان owner-authenticated و ثبت event نسخه‌دار؛ ویرایش، تأیید قبلی اصول را بازنشانی می‌کند تا تأیید تازه جداگانه انجام شود؛ تاریخچهٔ diff و rollback نیز با نسخهٔ فعلی و idempotency کنترل می‌شود.
 - مدیریت پایهٔ کاتالوگ AI در خود پنل: ثبت Provider deterministic/disabled، Model، Profile، Role Binding و Default Role Policy. این بخش credential را فقط به‌صورت reference می‌پذیرد و live/external-spend را فعال نمی‌کند.
 
-Projection بک‌آفیس فقط فیلدهای مشاهده‌ای و بدون متن درخواست، مقدار Credential، Secret، Token یا مسیر میزبان را برمی‌گرداند. عملیات تغییردهنده و APIهای `/api/*` همچنان owner-authenticated هستند. رابط پنل علاوه بر اصول تیم، ثبت Provider/Model/Profile/Role Binding و تغییر Default Role Policy را با توکن مالک مصرف می‌کند؛ هر تغییر با event نسخه‌دار ثبت می‌شود و Provider زنده از این فرم قابل فعال‌سازی نیست. تاریخچهٔ Benchmark synthetic در صورت اتصال PostgreSQL پس از restart hydrate می‌شود و مقایسهٔ آن advisory-only است. پشتیبانی احراز هویت نقش admin در سطح HTTP هنوز یک کار باز است.
+Projection بک‌آفیس فقط فیلدهای مشاهده‌ای و بدون متن درخواست، مقدار Credential، Secret، Token یا مسیر میزبان را برمی‌گرداند. عملیات تغییردهنده و APIهای `/api/*` با احراز هویت تفکیک‌شدهٔ Owner/Admin کنترل می‌شوند: admin فقط read modelها و کاتالوگ AI را در فهرست صریح مجاز تغییر می‌دهد؛ تیم، پروژه، release، revocation و عملیات حساس همچنان owner-only هستند. رابط پنل علاوه بر اصول تیم، ثبت Provider/Model/Profile/Role Binding و تغییر Default Role Policy را با نشست احراز‌شده مصرف می‌کند؛ هر تغییر با event نسخه‌دار ثبت می‌شود و Provider زنده از این فرم قابل فعال‌سازی نیست. تاریخچهٔ Benchmark synthetic در صورت اتصال PostgreSQL پس از restart hydrate می‌شود و مقایسهٔ آن advisory-only است.
+
+Diagnostic read model در `/api/operations/diagnostics` پوشش ۱۱ Projection، صحت Snapshot/Event، replay dry-run، digest، freshness دانش و تعارض تخصیص را فقط‌خواندنی گزارش می‌کند.
 
 ## چیزهایی که فعلاً عمداً ندارد
 
@@ -59,7 +61,7 @@ Projection بک‌آفیس فقط فیلدهای مشاهده‌ای و بدون
 
 1. افزودن لینک دقیق به Evidence و Sheetهای مرجع؛
 2. افزودن audit دسترسی و policy مشاهده‌ای در محیط Production؛
-3. تکمیل diff/rollback قراردادها و احراز هویت نقش admin؛
+3. تکمیل نمایش UI برای diff/rollback قراردادها و نمایش کامل Diagnostic؛ API و احراز هویت نقش admin آماده است؛
 4. تکمیل کنترل‌های تغییردهندهٔ بیشتر فقط پس از worker، Session Revocation و Audit عملیاتی.
 
 ## مسیرهای این نسخه
@@ -70,6 +72,11 @@ Projection بک‌آفیس فقط فیلدهای مشاهده‌ای و بدون
 - `GET /api/ai/benchmarks` تاریخچهٔ Benchmark synthetic را با منبع `in-memory` یا `postgresql` می‌دهد؛
 - `GET /api/ai/benchmarks/compare?ids=...&limit=...` مقایسهٔ advisory-only و قابل‌ممیزی را می‌دهد؛
 - `GET /api/audit?after=0&limit=50` timeline فرمان‌های ثبت‌شده را برمی‌گرداند؛ `GET /api/audit/read-access?after=0&limit=50` audit دسترسی read model را فقط برای owner برمی‌گرداند؛
+- `GET /api/operations/diagnostics` گزارش owner/admin-authenticated و فقط‌خواندنی سلامت Projectionها، replay، digest، AI catalog، freshness و تعارض تخصیص را برمی‌گرداند؛
+- `/admin-auth-contract` قرارداد احراز هویت و دامنهٔ محدود Admin را ارائه می‌کند؛
+- `GET /api/teams/:teamId/contract-history` diff امن نسخه‌های قرارداد تیم را می‌دهد؛ `POST /api/teams/:teamId/principles/rollback` فقط با target event، expectedVersion و idempotency یک نسخهٔ جدید از اصول را برمی‌گرداند؛
+- `GET /api/ai/role-policies/:role/history` تاریخچهٔ Policy را می‌دهد؛ `POST /api/ai/role-policies/:role/rollback` بازگشت نسخه‌ای و owner/admin-gated را انجام می‌دهد؛
+- `/admin-auth-contract` مرز احراز هویت و اختیارهای محدود admin را اعلام می‌کند؛
 - `/observability-contract` قرارداد correlation و redaction را ارائه می‌کند؛
 - `/pilot-contract` state و acceptance checkهای پایلوت را ارائه می‌کند؛
 - `POST /api/auth/revoke-session` session مالک را با مرز owner-authenticated قابل‌ابطال می‌کند؛
@@ -81,7 +88,7 @@ Projection بک‌آفیس فقط فیلدهای مشاهده‌ای و بدون
 - `POST /api/pilots/dry-run` فقط pilot deterministic و بدون شبکه را اجرا می‌کند؛
 - endpointهای `/api/*` فعلی همچنان مسیرهای mutation هستند و owner authentication می‌خواهند.
 
-دادهٔ بک‌آفیس برای توسعهٔ local/test است. قبل از Production باید Secretهای Basic Auth در Secret Store، TLS/reverse proxy، احراز هویت مشاهده‌ای، audit دسترسی، session revocation پایدار، worker Outbox و policy نگهداری داده تکمیل شوند. اجرای worker فقط با فراخوانی صریح و handler تزریق‌شده ممکن است.
+دادهٔ بک‌آفیس برای توسعهٔ local/test است. قبل از Production باید Secretهای Basic/Auth در Secret Store، TLS/reverse proxy، policy مشاهده‌ای، audit دسترسی، session revocation پایدار، worker Outbox و policy نگهداری داده تکمیل و جداگانه تأیید شوند. اجرای worker فقط با فراخوانی صریح و handler تزریق‌شده ممکن است.
 
 ## سیاست پیدا نشدن در جست‌وجو
 

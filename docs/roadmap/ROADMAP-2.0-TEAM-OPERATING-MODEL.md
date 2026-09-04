@@ -228,7 +228,7 @@ HERO-001 تا HERO-021، منشور، Authorization Snapshot، Global Stop، Cle
 
 1. فعال‌سازی controlled اتصال ChatGPT/Codex/Claude/Cursor و Providerهای قابل‌تعویض با مجوز جداگانه؛ transport adapter و hydration benchmark اکنون آماده‌اند؛
 2. ساخت اپلیکیشن واقعی برای یک درخواست مالک؛
-3. projection کامل Eventهای تمام commandها، worker queue/outbox و audit دسترسی؛ Snapshot hydration Registryهای اصلی و session revocation durable اکنون پیاده‌سازی شده‌اند؛
+3. projection کامل Eventهای تمام commandها و worker queue/outbox؛ audit دسترسی read model اکنون با metadata allowlist پیاده‌سازی شده، اما policy مشاهده‌ای و بهره‌برداری Production هنوز جداگانه باز است؛ Snapshot hydration Registryهای اصلی و session revocation durable اکنون پیاده‌سازی شده‌اند؛
 4. Clean Linux و backup/restore روی مقصد عملیاتی با checksum؛ آزمون disposable محلی به‌تنهایی کافی نیست؛
 5. Preview، cloud build، deploy، secret management و external spend؛
 6. ارزیابی آموزش مبتنی بر اجرای واقعی benchmarkهای تیم‌ها؛ benchmark فعلی AI و تیم synthetic/deterministic است؛

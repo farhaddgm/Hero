@@ -7,7 +7,9 @@
 .env.*
 !.env.example
 node_modules
+**/node_modules
 .pnpm-store
+**/.pnpm-store
 var
 dist
 coverage

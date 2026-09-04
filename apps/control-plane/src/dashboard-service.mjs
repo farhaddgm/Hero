@@ -18,6 +18,7 @@ import { getObservabilityContractSummary, projectOperationalEvent } from "../../
 import { getAiBenchmarkContractSummary } from "../../../packages/contracts/src/ai-benchmark.mjs";
 import { compareAiBenchmarks, runAiBenchmark } from "../../../packages/domain/src/ai-benchmark.mjs";
 import { PilotDryRunError, runPilotDryRun } from "../../../packages/domain/src/pilot-dry-run.mjs";
+import { createOperationalDiagnostics } from "../../../packages/domain/src/operational-diagnostics.mjs";
 
 const SENSITIVE_INPUT = /(?:\bsk-[A-Za-z0-9_-]{12,}\b|\bBearer\s+[A-Za-z0-9._-]{12,}\b|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|(?:api[_-]?key|access[_-]?token|refresh[_-]?token|password|credential)\s*[:=])/i;
 
@@ -164,6 +165,7 @@ export function createControlDashboard(options = {}) {
 
   function backofficeSnapshot() {
     const current = snapshot();
+    const diagnostics = operationalDiagnostics();
     const teams = current.teamControl.teams.map(team => {
       const approvalValues = Object.values(team.approvals);
       const approvedSections = approvalValues.filter(Boolean).length;
@@ -171,6 +173,8 @@ export function createControlDashboard(options = {}) {
         teamId: team.teamId,
         name: team.name,
         status: team.status,
+        version: team.version,
+        lastEventId: team.lastEventId,
         responsibility: team.responsibility,
         approvals: Object.freeze({ approved: approvedSections, total: approvalValues.length }),
         trainingStatus: team.training.status,
@@ -199,6 +203,18 @@ export function createControlDashboard(options = {}) {
         }),
         knowledge: Object.freeze([...team.knowledge]),
         knowledgeVersion: team.knowledgeVersion,
+        knowledgeProvenance: Object.freeze((team.knowledgeProvenance ?? []).map(item => Object.freeze({
+          knowledge: item.knowledge,
+          sourceRefs: Object.freeze([...(item.sourceRefs ?? [])]),
+          sourceVersion: item.sourceVersion,
+          observedAt: item.observedAt,
+          validUntil: item.validUntil,
+          freshness: item.freshness,
+          approvedBy: item.approvedBy,
+          approvedAt: item.approvedAt,
+          researchId: item.researchId
+        }))),
+        contractHistory: Object.freeze(typeof teamRegistry.contractHistory === "function" ? teamRegistry.contractHistory(team.teamId) : []),
         assignmentCount: team.assignments.length,
         reviewCount: team.reviews.length
       });
@@ -245,6 +261,10 @@ export function createControlDashboard(options = {}) {
         roles: Object.freeze([...(current.aiOrchestration.contract.roles ?? [])]),
         counts: current.aiOrchestration.counts,
         defaultRolePolicies: current.aiOrchestration.defaultRolePolicies,
+        rolePolicyHistories: Object.freeze((current.aiOrchestration.contract.roles ?? []).map(role => Object.freeze({
+          role,
+          versions: Object.freeze(typeof aiOrchestration.rolePolicyHistory === "function" ? aiOrchestration.rolePolicyHistory(role) : [])
+        }))),
         providers: Object.freeze((aiConfiguration.providers ?? []).map(provider => Object.freeze({
           providerId: provider.providerId,
           mode: provider.mode,
@@ -308,7 +328,9 @@ export function createControlDashboard(options = {}) {
         recent: benchmark.recent,
         decisionBoundary: "advisory-only; no authorization"
       }),
+      projections: domainProjectionStatus(),
       observability: getObservabilityContractSummary(),
+      diagnostics,
       governance: Object.freeze({
         globalStop: current.globalStop,
         fullAutonomy: current.fullAutonomy,
@@ -356,6 +378,31 @@ export function createControlDashboard(options = {}) {
         recordedAt: run.recordedAt
       })));
     return Object.freeze({ latest: recent[0] ?? null, recent: Object.freeze(recent) });
+  }
+
+  function domainProjectionStatus() {
+    const registries = [
+      ["team-registry", teamRegistry],
+      ["team-research", researchRegistry],
+      ["principles-registry", principlesRegistry],
+      ["release-promotion", releasePromotion],
+      ["planner", planner],
+      ["project-memory", projectMemory],
+      ["ai-orchestration", aiOrchestration],
+      ["organization-performance", organizationPerformance],
+      ["skill-registry", skillRegistry],
+      ["organization-advisor", organizationAdvisor]
+    ].map(([registryId, registry]) => Object.freeze({ registryId, eventCount: registry.events?.().length ?? 0, snapshotSupported: typeof registry.persistenceSnapshot === "function", hydrationSupported: typeof registry.hydrate === "function" }));
+    const missing = registries.filter(registry => !registry.snapshotSupported || !registry.hydrationSupported).map(registry => registry.registryId);
+    return Object.freeze({
+      contractVersion: "1.0",
+      coverage: missing.length === 0 ? "complete" : "partial",
+      registries: Object.freeze(registries),
+      missingRegistries: Object.freeze(missing),
+      eventCount: domainEvents().length,
+      rebuild: Object.freeze({ mode: "snapshot-plus-append-only-event-log-validation", supported: missing.length === 0, source: hydrationState.source }),
+      boundary: "projection is read-only; event replay never grants authorization or dispatch"
+    });
   }
 
   async function runSyntheticBenchmark(input = {}) {
@@ -670,6 +717,14 @@ export function createControlDashboard(options = {}) {
     return runTeamCommand(teamRegistry.updatePrinciples, { ...input, teamId });
   }
 
+  function teamContractHistory(teamId) {
+    return teamRegistry.contractHistory(teamId);
+  }
+
+  function rollbackTeamPrinciples(teamId, input) {
+    return runTeamCommand(teamRegistry.rollbackPrinciples, { ...input, teamId });
+  }
+
   function requestTeamRework(teamId, input) {
     return runTeamCommand(teamRegistry.requestRework, { ...input, teamId });
   }
@@ -733,7 +788,8 @@ export function createControlDashboard(options = {}) {
   }
 
   function registerAiProvider(input = {}) {
-    const { adapter: ignoredAdapter, actor: ignoredActor, ...payload } = input;
+    const { adapter: ignoredAdapter, actor: inputActor, ...payload } = input;
+    const actor = inputActor ?? { kind: "project-owner", id: "hero-owner" };
     const adapter = payload.mode === "deterministic"
       ? createDeterministicAiProviderAdapter(payload.providerId)
       : payload.mode === "live"
@@ -742,37 +798,46 @@ export function createControlDashboard(options = {}) {
     if (payload.mode === "live" && !adapter) {
       throw new DashboardCommandError("LIVE_PROVIDER_REQUIRES_SEPARATE_AUTHORIZATION", "Provider زنده فقط با Adapter زمان اجرا و مجوز مستقل قابل ثبت است.");
     }
-    return runAiCommand(aiOrchestration.registerProvider, { ...payload, ...(adapter ? { adapter } : {}) });
+    return runAiCommand(aiOrchestration.registerProvider, { ...payload, ...(adapter ? { adapter } : {}) }, actor);
   }
 
   function registerAiModel(input = {}) {
-    const { actor: ignoredActor, ...payload } = input;
-    return runAiCommand(aiOrchestration.registerModel, payload);
+    const { actor: inputActor, ...payload } = input;
+    return runAiCommand(aiOrchestration.registerModel, payload, inputActor ?? { kind: "project-owner", id: "hero-owner" });
   }
 
   function registerAiProfile(input = {}) {
-    const { actor: ignoredActor, ...payload } = input;
-    return runAiCommand(aiOrchestration.registerProfile, payload);
+    const { actor: inputActor, ...payload } = input;
+    return runAiCommand(aiOrchestration.registerProfile, payload, inputActor ?? { kind: "project-owner", id: "hero-owner" });
   }
 
   function bindAiRole(input = {}) {
-    const { actor: ignoredActor, ...payload } = input;
-    return runAiCommand(aiOrchestration.bindRole, payload);
+    const { actor: inputActor, ...payload } = input;
+    return runAiCommand(aiOrchestration.bindRole, payload, inputActor ?? { kind: "project-owner", id: "hero-owner" });
   }
 
   function registerAiSkill(input = {}) {
-    const { actor: ignoredActor, ...payload } = input;
-    return runSkillCommand(skillRegistry.register, payload);
+    const { actor: inputActor, ...payload } = input;
+    return runSkillCommand(skillRegistry.register, payload, inputActor ?? { kind: "project-owner", id: "hero-owner" });
   }
 
   function bindAiSkill(input = {}) {
-    const { actor: ignoredActor, ...payload } = input;
-    return runSkillCommand(skillRegistry.bind, payload);
+    const { actor: inputActor, ...payload } = input;
+    return runSkillCommand(skillRegistry.bind, payload, inputActor ?? { kind: "project-owner", id: "hero-owner" });
   }
 
   function setAiRolePolicy(input = {}) {
-    const { actor: ignoredActor, ...payload } = input;
-    return runAiCommand(aiOrchestration.setDefaultRolePolicy, payload);
+    const { actor: inputActor, ...payload } = input;
+    return runAiCommand(aiOrchestration.setDefaultRolePolicy, payload, inputActor ?? { kind: "project-owner", id: "hero-owner" });
+  }
+
+  function aiRolePolicyHistory(role) {
+    return aiOrchestration.rolePolicyHistory(role);
+  }
+
+  function rollbackAiRolePolicy(role, input = {}) {
+    const { actor: inputActor, ...payload } = input;
+    return runAiCommand(aiOrchestration.rollbackRolePolicy, { ...payload, role }, inputActor ?? { kind: "project-owner", id: "hero-owner" });
   }
 
   function recordAiEvaluation(input = {}) {
@@ -874,6 +939,14 @@ export function createControlDashboard(options = {}) {
       seen.add(event.eventId);
       return true;
     }).sort((left, right) => (left.occurredAt ?? "").localeCompare(right.occurredAt ?? "") || (left.eventId ?? "").localeCompare(right.eventId ?? "")));
+  }
+
+  function operationalDiagnostics() {
+    return createOperationalDiagnostics({
+      persistenceSnapshot: persistenceSnapshot(),
+      events: domainEvents(),
+      now: timestamp(now)
+    });
   }
 
   function hydrateFromPersistence(input = {}) {
@@ -1102,6 +1175,7 @@ export function createControlDashboard(options = {}) {
     backofficeSnapshot,
     persistenceSnapshot,
     domainEvents,
+    domainProjectionStatus,
     backofficeEvents,
     hydrateFromPersistence,
     createRequest,
@@ -1114,6 +1188,7 @@ export function createControlDashboard(options = {}) {
     teamSnapshot: () => teamRegistry.snapshot(),
     aiOrchestrationSnapshot: () => aiOrchestration.snapshot(),
     aiOrchestrationEvents: after => aiOrchestration.events(after),
+    operationalDiagnostics,
     aiOrchestration,
     recordProjectMemory,
     assembleAiContext,
@@ -1140,6 +1215,8 @@ export function createControlDashboard(options = {}) {
     skillSnapshot: () => skillRegistry.snapshot(),
     proposeAiDecision,
     resolveAiDecision,
+    aiRolePolicyHistory,
+    rollbackAiRolePolicy,
     teamResearchContract: () => researchRegistry.contract(),
     requestTeamResearch,
     startTeamResearch,
@@ -1154,6 +1231,8 @@ export function createControlDashboard(options = {}) {
     decidePlanOutput,
     reviewTeam,
     updateTeamPrinciples,
+    teamContractHistory,
+    rollbackTeamPrinciples,
     requestTeamRework,
     reviewTeamDeliverable,
     setTeamAutonomy,

@@ -61,6 +61,9 @@ test("owner can request, review and apply a research report to team knowledge an
   const team = teamRegistry.get("tahlilgoro");
   assert.ok(team.knowledge.includes("قالب مقایسهٔ چندمعیاره برای تصمیم‌های تیمی"));
   assert.ok(team.principles.includes("هر توصیه باید با شاهد، trade-off و معیار موفقیت همراه باشد"));
+  assert.equal(team.knowledgeProvenance[0].sourceVersion, "v1.0");
+  assert.deepEqual(team.knowledgeProvenance[0].sourceRefs, report().sourceRefs);
+  assert.equal(team.knowledgeProvenance[0].approvedBy, owner.id);
   assert.ok(researchRegistry.events().some(event => event.type === "team.research-applied"));
 });
 

@@ -170,6 +170,14 @@ export {
 } from "./observability.mjs";
 
 export {
+  OPERATIONAL_DIAGNOSTICS_CONTRACT_VERSION,
+  OPERATIONAL_DIAGNOSTIC_REGISTRY_IDS,
+  OPERATIONAL_DIAGNOSTIC_REPORTS,
+  getOperationalDiagnosticsContractSummary,
+  validateOperationalDiagnosticsContract
+} from "./operational-diagnostics.mjs";
+
+export {
   WEB_FACTORY_CONTRACT_VERSION,
   WEB_FACTORY_DECISION_CODES,
   WEB_FACTORY_RECIPE_FIELDS,
@@ -310,6 +318,15 @@ export {
   getOwnerAuthContractSummary,
   validateOwnerAuthContract
 } from "./owner-auth.mjs";
+
+export {
+  ADMIN_AUTH_ALLOWED_MUTATIONS,
+  ADMIN_AUTH_CONTRACT_VERSION,
+  ADMIN_AUTH_DECISIONS,
+  ADMIN_AUTH_ROLE,
+  getAdminAuthContractSummary,
+  validateAdminAuthContract
+} from "./admin-auth.mjs";
 
 export {
   DASHBOARD_ACTIONS,

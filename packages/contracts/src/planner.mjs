@@ -95,6 +95,7 @@ export function getPlannerContractSummary() {
     decisionCodes: PLANNER_DECISION_CODES,
     input: "simple Persian product request + optional read-only project context",
     output: "versioned spec, explicit assumptions, acceptance criteria, valid Task Graph, explained provider routing, team-readiness decision and owner-reviewed output advisory",
+    capacityModel: "optional team limits and time-bounded resource claims are checked before dispatch; conflicts fail closed",
     routerRule: "ChatGPT analyzes and designs; Codex implements and tests; Claude independently reviews; Cursor receives only a human-controlled handoff. Every task also has a team owner and explicit collaborators.",
     outputBoundary: "the advisory compares multiple product output forms across value, speed, cost, risk, maintainability, scalability and user fit; owner approval or rejection becomes the decision basis.",
     safetyBoundary: "planning is deterministic and read-only; it does not invoke providers, create runners, merge code, spend money, or bypass version-bound authorization. Output approval and team readiness are dispatch gates, not automatic assignment.",

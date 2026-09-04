@@ -99,6 +99,65 @@ function normalizeOptionalList(label, values, maximum = 16) {
   return normalizeList(label, values, { minimum: 0, maximum });
 }
 
+function normalizeKnowledgeProvenance(input, researchId, now) {
+  const value = input ?? {};
+  const sourceRefs = value.sourceRefs === undefined ? [`hero://research/${researchId}`] : value.sourceRefs;
+  if (!Array.isArray(sourceRefs) || sourceRefs.length < 1 || sourceRefs.length > 16) {
+    throw new TeamCommandError("INVALID_PROVENANCE", "Knowledge provenance needs 1-16 source references.");
+  }
+  const normalizedSources = sourceRefs.map((source, index) => {
+    if (typeof source !== "string" || source.trim().length < 3 || source.trim().length > 600) {
+      throw new TeamCommandError("INVALID_PROVENANCE", `provenance.sourceRefs[${index}] is invalid.`);
+    }
+    const normalized = source.trim();
+    if (normalized.startsWith("hero://")) return normalized;
+    let parsed;
+    try { parsed = new URL(normalized); } catch { throw new TeamCommandError("INVALID_PROVENANCE", "Knowledge sources must be hero:// references or https URLs."); }
+    if (parsed.protocol !== "https:" || parsed.username || parsed.password) {
+      throw new TeamCommandError("INVALID_PROVENANCE", "Knowledge sources must be public https URLs without credentials.");
+    }
+    return normalized;
+  });
+  if (new Set(normalizedSources).size !== normalizedSources.length) throw new TeamCommandError("DUPLICATE_PROVENANCE", "Knowledge sources must be unique.");
+  const sourceVersion = assertIdentifier("provenance.sourceVersion", value.sourceVersion ?? "unknown", 80);
+  const observedAt = value.observedAt ?? now();
+  if (typeof observedAt !== "string" || Number.isNaN(Date.parse(observedAt))) throw new TeamCommandError("INVALID_PROVENANCE", "provenance.observedAt must be an ISO timestamp.");
+  const validUntil = value.validUntil ?? null;
+  if (validUntil !== null && (typeof validUntil !== "string" || Number.isNaN(Date.parse(validUntil)) || Date.parse(validUntil) <= Date.parse(observedAt))) {
+    throw new TeamCommandError("INVALID_PROVENANCE", "provenance.validUntil must be later than observedAt.");
+  }
+  return {
+    sourceRefs: normalizedSources,
+    sourceVersion,
+    observedAt,
+    validUntil,
+    freshness: validUntil ? "bounded" : "review-on-use"
+  };
+}
+
+function projectContractEvent(event) {
+  const data = event.data ?? {};
+  let diff = { fields: Object.keys(data).filter(key => !["feedback", "reason"].includes(key)).sort() };
+  if (event.type === "team.principles-updated") {
+    diff = { principles: { from: data.previousPrinciples ?? [], to: data.principles ?? [] } };
+  } else if (event.type === "team.autonomy-changed") {
+    diff = { autonomy: { stage: data.stage, to: data.mode } };
+  } else if (event.type === "team.deliverable-reviewed") {
+    diff = { artifact: { id: data.artifactId, version: data.artifactVersion, direction: data.direction }, decision: data.decision };
+  } else if (event.type === "team.contract-reviewed" || event.type === "team.rework-requested") {
+    diff = { approval: { target: data.target, decision: data.decision } };
+  }
+  return immutableCopy({
+    eventId: event.eventId,
+    version: event.aggregateVersion,
+    type: event.type,
+    occurredAt: event.occurredAt,
+    actor: event.actor,
+    diff,
+    rollbackAvailable: event.type === "team.principles-updated" && Array.isArray(data.previousPrinciples)
+  });
+}
+
 function normalizeDefinition(definition) {
   const value = definition ?? {};
   const teamId = assertTeamId(value.teamId);
@@ -136,6 +195,7 @@ function createTeamRecord(definition) {
     training: { status: "not-started", modules: {}, latestAssessment: null },
     knowledge: [],
     knowledgeVersion: 0,
+    knowledgeProvenance: [],
     researchApplications: [],
     reviews: [],
     deliverableReviews: [],
@@ -410,8 +470,9 @@ export function createTeamRegistry(options = {}) {
     const knowledgeEntries = normalizeOptionalList("knowledgeEntries", input.knowledgeEntries, 16);
     const principleAdditions = normalizeOptionalList("principleAdditions", input.principleAdditions, 16);
     const trainingUpdates = normalizeOptionalList("trainingUpdates", input.trainingUpdates, 16);
+    const provenance = normalizeKnowledgeProvenance(input.provenance, researchId, now);
     const idempotencyKey = assertKey(input.idempotencyKey ?? `research-apply-${researchId}`);
-    return remember(`RESEARCH-APPLY:${teamId}:${researchId}`, idempotencyKey, { teamId, researchId, knowledgeEntries, principleAdditions, trainingUpdates, actor }, () => {
+    return remember(`RESEARCH-APPLY:${teamId}:${researchId}`, idempotencyKey, { teamId, researchId, knowledgeEntries, principleAdditions, trainingUpdates, provenance, actor }, () => {
       const team = getTeamOrThrow(teamId);
       if (team.status === "retired") throw new TeamCommandError("TEAM_RETIRED", "A retired team cannot receive research updates.");
       const knowledge = [...team.knowledge];
@@ -431,8 +492,24 @@ export function createTeamRegistry(options = {}) {
       });
       team.knowledge = knowledge;
       team.knowledgeVersion += 1;
+      const existingProvenance = Array.isArray(team.knowledgeProvenance) ? team.knowledgeProvenance : [];
+      const addedKnowledge = knowledgeEntries.filter(entry => !existingProvenance.some(item => item.knowledge === entry));
+      team.knowledgeProvenance = [
+        ...existingProvenance,
+        ...addedKnowledge.map(knowledge => ({
+          knowledge,
+          sourceRefs: [...provenance.sourceRefs],
+          sourceVersion: provenance.sourceVersion,
+          observedAt: provenance.observedAt,
+          validUntil: provenance.validUntil,
+          freshness: provenance.freshness,
+          approvedBy: actor.id,
+          approvedAt: now(),
+          researchId
+        }))
+      ];
       team.principles = principles;
-      team.researchApplications.push({ researchId, appliedAt: now(), appliedBy: actor.id, trainingUpdates });
+      team.researchApplications.push({ researchId, appliedAt: now(), appliedBy: actor.id, trainingUpdates, provenance });
       commitTeamEvent(team, event);
       return {
         team,
@@ -440,7 +517,8 @@ export function createTeamRegistry(options = {}) {
           researchId,
           knowledgeEntries: Object.freeze(knowledgeEntries),
           principleAdditions: Object.freeze(principleAdditions),
-          trainingUpdates: Object.freeze(trainingUpdates)
+          trainingUpdates: Object.freeze(trainingUpdates),
+          provenance: immutableCopy(provenance)
         },
         event,
         idempotent: false
@@ -532,6 +610,35 @@ export function createTeamRegistry(options = {}) {
       team.autonomy.byStage[stage] = mode;
       commitTeamEvent(team, event);
       return { team, autonomy: { stage, mode }, event, idempotent: false };
+    });
+  }
+
+  function contractHistory(teamId) {
+    const normalizedTeamId = assertTeamId(teamId);
+    getTeamOrThrow(normalizedTeamId);
+    return Object.freeze(eventLog.readAfter()
+      .filter(event => event.aggregateType === "team" && event.aggregateId === normalizedTeamId)
+      .sort((left, right) => (left.aggregateVersion ?? 0) - (right.aggregateVersion ?? 0))
+      .map(projectContractEvent));
+  }
+
+  function rollbackPrinciples(input = {}) {
+    assertSafe(input);
+    const actor = assertActor(input?.actor, { owner: true });
+    const teamId = assertTeamId(input?.teamId);
+    const targetEventId = assertIdentifier("targetEventId", input?.targetEventId, 160);
+    const target = eventLog.readAfter().find(event =>
+      event.aggregateType === "team" && event.aggregateId === teamId && event.eventId === targetEventId && event.type === "team.principles-updated"
+    );
+    if (!target || !Array.isArray(target.data?.previousPrinciples)) {
+      throw new TeamCommandError("ROLLBACK_TARGET_NOT_FOUND", "The selected principles version cannot be rolled back.");
+    }
+    return updatePrinciples({
+      teamId,
+      principles: target.data.previousPrinciples,
+      expectedVersion: input.expectedVersion,
+      actor,
+      idempotencyKey: input.idempotencyKey
     });
   }
 
@@ -648,7 +755,7 @@ export function createTeamRegistry(options = {}) {
     teams.clear();
     for (const team of state.teams) {
       const normalized = normalizeDefinition(team);
-      const restored = immutableCopy({ ...team, ...normalized });
+      const restored = immutableCopy({ ...team, ...normalized, knowledgeProvenance: Array.isArray(team.knowledgeProvenance) ? team.knowledgeProvenance : [] });
       teams.set(restored.teamId, restored);
     }
     workflows.clear();
@@ -672,6 +779,8 @@ export function createTeamRegistry(options = {}) {
     reviewDeliverable,
     recordTraining,
     applyResearch,
+    contractHistory,
+    rollbackPrinciples,
     assignToProject,
     updateAssignment,
     setAutonomy,

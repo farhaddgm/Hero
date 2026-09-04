@@ -197,6 +197,61 @@ function assessTeamReadiness(graph, teamRegistry) {
   });
 }
 
+function assertIsoTimestamp(label, value) {
+  if (typeof value !== "string" || Number.isNaN(Date.parse(value))) throw new PlannerSafetyError(`${label} must be an ISO timestamp.`);
+  return value;
+}
+
+function assessCapacity(capacityInput, graph) {
+  if (capacityInput === undefined || capacityInput === null) {
+    return Object.freeze({ status: "not-provided", ready: true, conflicts: Object.freeze([]), teamUsage: Object.freeze([]), resourceClaims: Object.freeze([]) });
+  }
+  if (!capacityInput || typeof capacityInput !== "object" || Array.isArray(capacityInput)) throw new PlannerSafetyError("capacity must be an object.");
+  const teamLimits = capacityInput.teamLimits === undefined ? [] : capacityInput.teamLimits;
+  const resourceClaims = capacityInput.resourceClaims === undefined ? [] : capacityInput.resourceClaims;
+  if (!Array.isArray(teamLimits) || teamLimits.length > 32) throw new PlannerSafetyError("capacity.teamLimits must contain at most 32 items.");
+  if (!Array.isArray(resourceClaims) || resourceClaims.length > 64) throw new PlannerSafetyError("capacity.resourceClaims must contain at most 64 items.");
+  const limits = new Map();
+  for (const [index, item] of teamLimits.entries()) {
+    assertIdentifier(`capacity.teamLimits[${index}].teamId`, item?.teamId, 64);
+    const maxConcurrent = Number(item?.maxConcurrent);
+    const active = Number(item?.active ?? 0);
+    if (!Number.isInteger(maxConcurrent) || maxConcurrent < 0 || maxConcurrent > 1000 || !Number.isInteger(active) || active < 0 || active > 1000) throw new PlannerSafetyError("capacity team limits must use non-negative integer counts.");
+    if (limits.has(item.teamId)) throw new PlannerSafetyError(`capacity has duplicate team limit: ${item.teamId}.`);
+    limits.set(item.teamId, { teamId: item.teamId, maxConcurrent, active });
+  }
+  const claims = resourceClaims.map((item, index) => {
+    assertIdentifier(`capacity.resourceClaims[${index}].claimId`, item?.claimId, 128);
+    assertIdentifier(`capacity.resourceClaims[${index}].resourceId`, item?.resourceId, 128);
+    assertIdentifier(`capacity.resourceClaims[${index}].teamId`, item?.teamId, 64);
+    const startsAt = assertIsoTimestamp(`capacity.resourceClaims[${index}].startsAt`, item?.startsAt);
+    const endsAt = assertIsoTimestamp(`capacity.resourceClaims[${index}].endsAt`, item?.endsAt);
+    if (Date.parse(endsAt) <= Date.parse(startsAt)) throw new PlannerSafetyError("capacity claim end must be later than start.");
+    return { claimId: item.claimId, resourceId: item.resourceId, teamId: item.teamId, taskId: item.taskId ?? null, startsAt, endsAt };
+  });
+  const conflicts = [];
+  for (const [resourceId, sameResource] of Map.groupBy(claims, claim => claim.resourceId)) {
+    for (let index = 0; index < sameResource.length; index += 1) {
+      for (let next = index + 1; next < sameResource.length; next += 1) {
+        const left = sameResource[index];
+        const right = sameResource[next];
+        if (Date.parse(left.startsAt) < Date.parse(right.endsAt) && Date.parse(right.startsAt) < Date.parse(left.endsAt)) {
+          conflicts.push({ type: "resource-overlap", resourceId, claimIds: [left.claimId, right.claimId], reason: "یک منبع در دو بازهٔ هم‌پوشان تخصیص یافته است." });
+        }
+      }
+    }
+  }
+  const plannedByTeam = new Map();
+  for (const node of graph.nodes) plannedByTeam.set(node.team.owner, (plannedByTeam.get(node.team.owner) ?? 0) + 1);
+  const teamUsage = [...limits.values()].map(limit => {
+    const planned = plannedByTeam.get(limit.teamId) ?? 0;
+    const total = limit.active + planned;
+    if (total > limit.maxConcurrent) conflicts.push({ type: "team-capacity", teamId: limit.teamId, active: limit.active, planned, capacity: limit.maxConcurrent, reason: "ظرفیت هم‌زمان تیم برای این برنامه کافی نیست." });
+    return { ...limit, planned, total, available: Math.max(0, limit.maxConcurrent - total) };
+  });
+  return Object.freeze({ status: conflicts.length ? "conflict" : "checked", ready: conflicts.length === 0, conflicts: Object.freeze(conflicts), teamUsage: Object.freeze(teamUsage), resourceClaims: Object.freeze(claims) });
+}
+
 function outputSignals(requestText) {
   return {
     automation: /اتوماسیون|خودکار|workflow|فرایند تکراری|یکپارچه‌سازی/i.test(requestText),
@@ -286,16 +341,20 @@ function buildOutputAdvisory(requestText, platforms, preferredOutputType) {
 }
 
 function withOutputDecision(plan, decision, teamReadiness) {
+  const teamsReady = teamReadiness?.ready === true;
+  const capacityReady = teamReadiness?.capacityCheck?.ready !== false;
   const outputAdvisory = {
     ...plan.outputAdvisory,
     decision,
     dispatch: {
-      ready: decision.state === "approved" && teamReadiness?.ready === true,
+      ready: decision.state === "approved" && teamsReady && capacityReady,
       reason: decision.state !== "approved"
         ? "تا تأیید گزینهٔ خروجی توسط مالک، تولید آغاز نمی‌شود."
-        : teamReadiness?.ready === true
-          ? "گزینهٔ خروجی تأیید و تیم‌های مالک آماده‌اند؛ dispatch طبق مجوز مستقل بعدی ممکن است."
-          : "گزینهٔ خروجی تأیید شده، اما آمادگی تیم‌های مالک هنوز کامل نیست."
+        : !teamsReady
+          ? "گزینهٔ خروجی تأیید شده، اما آمادگی تیم‌های مالک هنوز کامل نیست."
+          : !capacityReady
+            ? "گزینهٔ خروجی تأیید شده، اما تعارض ظرفیت یا منبع باید رفع شود."
+            : "گزینهٔ خروجی تأیید و تیم‌های مالک آماده‌اند؛ dispatch طبق مجوز مستقل بعدی ممکن است."
     }
   };
   return immutableCopy({
@@ -441,6 +500,8 @@ export function createPlanner(options = {}) {
     const graphErrors = validateTaskGraph(graph);
     if (graphErrors.length > 0) throw new Error(`Invalid Task Graph: ${graphErrors.join(" ")}`);
     const teamReadiness = assessTeamReadiness(graph, teamRegistry);
+    const capacity = assessCapacity(input.capacity, graph);
+    const readiness = teamReadiness ? Object.freeze({ ...teamReadiness, capacityCheck: capacity }) : Object.freeze({ source: "team-registry", ready: true, capacityCheck: capacity, teams: Object.freeze([]), blockers: Object.freeze([]) });
     const outputAdvisory = buildOutputAdvisory(input.requestText.trim(), inferred.platforms, input.preferredOutputType);
     const created = append(input.planningId, "planning.created", input.actor, {
       requestId: input.requestId, documentVersion: input.documentVersion, state: "ready", specId: spec.specId, targetPlatforms: spec.targetPlatforms,
@@ -470,7 +531,7 @@ export function createPlanner(options = {}) {
       code: "PLAN_READY",
       spec,
       graph,
-      teamReadiness,
+      teamReadiness: readiness,
       outputAdvisory,
       dispatch: outputAdvisory.dispatch,
       stop: { canHaltBeforeDispatch: true, nextState: "halted" },

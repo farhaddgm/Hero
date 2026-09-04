@@ -339,6 +339,12 @@ export function createTeamResearchRegistry(options = {}) {
         knowledgeEntries: research.report.knowledgeEntries,
         principleAdditions: research.report.principleProposals,
         trainingUpdates: research.report.trainingUpdates,
+        provenance: {
+          sourceRefs: research.report.sourceRefs,
+          sourceVersion: research.report.reportVersion,
+          observedAt: research.report.preparedAt,
+          validUntil: input.validUntil
+        },
         actor,
         idempotencyKey: `research-apply-${research.researchId}`
       });

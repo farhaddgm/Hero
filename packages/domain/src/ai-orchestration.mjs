@@ -93,6 +93,14 @@ function assertActor(actor, { ownerOnly = false } = {}) {
   return immutableCopy({ kind: actor.kind, id: actor.id });
 }
 
+function assertCatalogActor(actor) {
+  const normalized = assertActor(actor);
+  if (!['project-owner', 'admin'].includes(normalized.kind)) {
+    throw new AiOrchestrationError('ADMIN_APPROVAL_REQUIRED', 'AI catalog changes require the project owner or an admin.');
+  }
+  return normalized;
+}
+
 function assertEnum(label, value, values) {
   if (!values.includes(value)) throw new AiOrchestrationError("INVALID_ENUM", `${label} is not supported.`);
   return value;
@@ -343,18 +351,65 @@ export function createAiOrchestration(options = {}) {
     return remember(scope, value, { policy, idempotent: false });
   }
 
+  function rolePolicyHistory(role) {
+    const normalizedRole = assertEnum("role", role, AI_ROLES);
+    return Object.freeze(eventLog.readAfter()
+      .filter(event => event.type === "ai.role-policy-updated" && event.aggregateType === "ai-role-policy" && event.data?.role === normalizedRole)
+      .sort((left, right) => (left.aggregateVersion ?? 0) - (right.aggregateVersion ?? 0))
+      .map(event => immutableCopy({
+        eventId: event.eventId,
+        version: event.aggregateVersion,
+        policyVersion: event.data.policyVersion,
+        role: event.data.role,
+        providerId: event.data.providerId,
+        modelId: event.data.modelId,
+        toolPolicy: event.data.toolPolicy,
+        occurredAt: event.occurredAt,
+        actor: event.actor
+      })));
+  }
+
+  function rollbackRolePolicy(input = {}) {
+    const actor = assertActor(input.actor);
+    if (!["project-owner", "admin"].includes(actor.kind)) {
+      throw new AiOrchestrationError("ADMIN_APPROVAL_REQUIRED", "Rolling back an AI policy requires the project owner or an admin.");
+    }
+    const role = assertEnum("role", input.role, AI_ROLES);
+    const targetEventId = assertIdentifier("targetEventId", input.targetEventId, 160);
+    const current = rolePolicies.get(role);
+    if (input.expectedVersion !== undefined && input.expectedVersion !== current?.policyVersion) {
+      throw new AiOrchestrationError("VERSION_CONFLICT", "The AI policy is stale; reload it before rollback.");
+    }
+    const target = eventLog.readAfter().find(event =>
+      event.type === "ai.role-policy-updated" && event.aggregateType === "ai-role-policy" && event.data?.role === role && event.eventId === targetEventId
+    );
+    if (!target) throw new AiOrchestrationError("ROLLBACK_TARGET_NOT_FOUND", "The selected AI policy version cannot be rolled back.");
+    if (target.data.policyVersion === current?.policyVersion) {
+      throw new AiOrchestrationError("ROLLBACK_NOOP", "The selected AI policy is already active.");
+    }
+    return setDefaultRolePolicy({
+      role,
+      providerId: target.data.providerId,
+      modelId: target.data.modelId,
+      toolPolicy: target.data.toolPolicy,
+      actor,
+      idempotencyKey: input.idempotencyKey
+    });
+  }
+
   function registerProvider(input = {}) {
-    const actor = assertActor(input.actor, { ownerOnly: true });
+    const actor = assertCatalogActor(input.actor);
     const providerId = assertEnum("providerId", input.providerId, AI_PROVIDER_IDS);
     const mode = assertEnum("mode", input.mode, AI_PROVIDER_MODES);
     const displayName = assertText("displayName", input.displayName ?? providerId, { maximum: 160 });
     const capabilities = input.capabilities === undefined ? [] : input.capabilities;
+    const adapter = input.adapter ?? (mode === "deterministic" ? createDeterministicAiProviderAdapter(providerId) : null);
     if (!Array.isArray(capabilities)) throw new AiOrchestrationError("INVALID_CAPABILITIES", "capabilities must be an array.");
     capabilities.forEach((capability, index) => assertText(`capabilities[${index}]`, capability, { maximum: 120 }));
-    if (mode !== "disabled" && (!input.adapter || typeof input.adapter.generate !== "function")) {
+    if (mode !== "disabled" && (!adapter || typeof adapter.generate !== "function")) {
       throw new AiOrchestrationError("INVALID_PROVIDER_ADAPTER", "A non-disabled provider requires a generate adapter.");
     }
-    if (mode !== "disabled" && (input.adapter.providerId !== providerId || input.adapter.mode !== mode)) {
+    if (mode !== "disabled" && (adapter.providerId !== providerId || adapter.mode !== mode)) {
       throw new AiOrchestrationError("INVALID_PROVIDER_ADAPTER", "Provider adapter identity and mode must match the registered Provider.");
     }
     const idempotencyKey = assertIdentifier("idempotencyKey", input.idempotencyKey);
@@ -371,12 +426,12 @@ export function createAiOrchestration(options = {}) {
       data: { providerId, mode, displayName, capabilities }
     });
     const provider = immutableCopy({ providerId, mode, displayName, capabilities, registeredAt: event.occurredAt, eventId: event.eventId });
-    providers.set(providerId, { ...provider, adapter: input.adapter ?? null });
+    providers.set(providerId, { ...provider, adapter });
     return remember(scope, value, { provider, idempotent: false });
   }
 
   function registerModel(input = {}) {
-    const actor = assertActor(input.actor, { ownerOnly: true });
+    const actor = assertCatalogActor(input.actor);
     const providerId = assertEnum("providerId", input.providerId, AI_PROVIDER_IDS);
     const provider = readProvider(providerId);
     const modelId = assertIdentifier("modelId", input.modelId);
@@ -402,7 +457,7 @@ export function createAiOrchestration(options = {}) {
   }
 
   function registerProfile(input = {}) {
-    const actor = assertActor(input.actor, { ownerOnly: true });
+    const actor = assertCatalogActor(input.actor);
     const profileId = assertIdentifier("profileId", input.profileId);
     const role = assertEnum("role", input.role, AI_ROLES);
     const providerId = assertEnum("providerId", input.providerId, AI_PROVIDER_IDS);
@@ -1069,6 +1124,8 @@ export function createAiOrchestration(options = {}) {
     registerModel,
     registerProfile,
     setDefaultRolePolicy,
+    rolePolicyHistory,
+    rollbackRolePolicy,
     bindRole,
     invoke,
     recordEvaluation,

@@ -20,5 +20,12 @@ hero.beeproject.ir {
         reverse_proxy 127.0.0.1:43100
     }
 
+    # The page uses owner-signed Bearer sessions for API reads and mutations.
+    # The application remains the authorization boundary for every /api/* route.
+    @hero_api path /api/*
+    handle @hero_api {
+        reverse_proxy 127.0.0.1:43100
+    }
+
     respond 404 "not found" 404
 }

@@ -7,14 +7,14 @@
 ## نتیجهٔ دسترسی
 
 - repository قابل دسترسی است؛ تغییر قبلی کاربر در `.dockerignore` حفظ شده و به آن دست زده نشد.
-- baseline این بررسی commit `c4baca9` بود؛ تغییرات این بسته پس از verification نسخه‌گذاری می‌شوند.
+- baseline بررسی قبلی commit `f48dda6` بود؛ تغییرات این بسته پس از verification در یک commit جداگانه ثبت می‌شوند.
 - Docker برای کاربر عادی مجاز نیست؛ بررسی محدود namespace `hero-test` با دسترسی elevated انجام شد.
 - `hero-test` فعلاً هیچ کانتینری ندارد؛ بنابراین Test هنوز deploy نشده است.
 - پیکربندی Compose داخل repository معتبر است و تغییری ایجاد نمی‌کند.
 
 ## شواهد تست
 
-- `pnpm check`: موفق؛ `220/220` تست، Build با `130` ماژول و `7` فایل JSON، Governance با `21` گام و Doctor با `10/10` check.
+- `pnpm check`: موفق؛ `228/228` تست، Build با `138` ماژول و `7` فایل JSON، Governance با `21` گام و Doctor با `10/10` check.
 - `pnpm check:pilot`: مسدود با سه گیت واقعی:
   - `linux-recovery-evidence`: شواهد Clean Linux و restore روی artifact عملیاتی وجود ندارد؛
   - `provider-authorization`: Provider واقعی و مجوز مستقل فعال نیست؛
@@ -28,6 +28,9 @@
 - Benchmark synthetic اکنون در PostgreSQL قابل ذخیره، بازیابی، مقایسه و hydrate است؛
 - access audit فقط metadata مسیرهای read-model را نگه می‌دارد و outcomeهای accepted/rejected را ثبت می‌کند؛
 - تست HTTP و adapter این مسیر موفق است؛ این قابلیت تا زمان تنظیم `HERO_POSTGRES_URL` در محیط واقعی فعال نمی‌شود.
+- Diagnostic read model با قرارداد نسخه‌دار، پوشش ۱۱ Projection، بررسی Snapshot/Event، replay dry-run، digest، تاریخچهٔ امن AI، freshness دانش و تعارض تخصیص اضافه شد؛
+- احراز هویت امضاشدهٔ Admin فقط برای کاتالوگ AI فعال است و به Team، Release، Dispatch، Secret یا Production اختیار نمی‌دهد؛
+- شواهد این بسته: `228/228` تست، Build `138`، Governance `21` و `git diff --check` موفق.
 
 ## کارهایی که عمداً انجام نشد
 

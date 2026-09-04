@@ -49,4 +49,4 @@
 
 ## گام‌های بعد از این بسته
 
-۱. persistence benchmarkها و مقایسهٔ نسخه‌ها در PostgreSQL؛ ۲. audit دسترسی به read model؛ ۳. یک مقصد Linux پاک برای recovery؛ ۴. انتخاب Provider/Model و سقف هزینه؛ ۵. Pilot واقعی فقط پس از مجوزهای مستقل.
+۱. persistence benchmarkها و مقایسهٔ نسخه‌ها در PostgreSQL — انجام شد و پس از restart در محیط `hero-test` تأیید شد؛ ۲. audit دسترسی به read model — قرارداد، migration، adapter و endpoint اضافه شد؛ ۳. یک مقصد Linux پاک برای recovery؛ ۴. انتخاب Provider/Model و سقف هزینه؛ ۵. Pilot واقعی فقط پس از مجوزهای مستقل.

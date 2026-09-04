@@ -21,6 +21,8 @@ test("read-only development back office exposes a safe orientation projection", 
   assert.match(pageHtml, /تاریخچهٔ Benchmark/);
   assert.match(pageHtml, /ai-config-form/);
   assert.match(pageHtml, /ویرایش اصول/);
+  assert.match(pageHtml, /توکن مالک یا Admin/);
+  assert.match(pageHtml, /برای ویرایش اصول تیم، توکن مالک لازم است/);
 
   const response = await fetch(baseUrl + "/backoffice-data");
   assert.equal(response.status, 200);
