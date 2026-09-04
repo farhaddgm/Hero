@@ -7,7 +7,7 @@
 ## نتیجهٔ دسترسی
 
 - repository قابل دسترسی است؛ تغییر قبلی کاربر در `.dockerignore` حفظ شده و به آن دست زده نشد.
-- baseline بررسی قبلی commit `f48dda6` بود؛ تغییرات این بسته پس از verification در یک commit جداگانه ثبت می‌شوند.
+- baseline بررسی قبلی commit `f48dda6` بود؛ تغییرات این بسته پس از verification در commitهای `8d18bd4` و `4118cce` ثبت شده‌اند.
 - Docker برای کاربر عادی مجاز نیست؛ بررسی محدود namespace `hero-test` با دسترسی elevated انجام شد.
 - `hero-test` فعلاً هیچ کانتینری ندارد؛ بنابراین Test هنوز deploy نشده است.
 - پیکربندی Compose داخل repository معتبر است و تغییری ایجاد نمی‌کند.

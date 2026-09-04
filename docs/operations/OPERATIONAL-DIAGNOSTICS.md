@@ -13,7 +13,7 @@
 5. Digest `sha256` برای مقایسهٔ قابل‌تکرار Snapshot و Event؛
 6. تاریخچهٔ امن تغییرات Provider/Model/Profile/Binding/Policy، بدون Credential و خروجی خام؛
 7. تازگی دانش تیم: منبع، نسخهٔ منبع و محدودهٔ اعتبار به‌صورت metadata؛
-8. تعارض تخصیص: یک Task فعال که هم‌زمان به چند تیم داده شده باشد.
+8. تعارض تخصیص: یک Task فعال که هم‌زمان به چند تیم داده شده باشد؛ مدل ظرفیت عددی Planner در این گزارش تکرار نمی‌شود.
 
 ## استفاده
 
@@ -23,7 +23,7 @@
 GET /api/operations/diagnostics
 ```
 
-مقدار `status=healthy` فقط سلامت ساختاری Projection را نشان می‌دهد و به معنی آماده‌بودن Provider واقعی، Test عملیاتی، Pilot یا Production نیست. اگر `assignmentConflicts.capacityModel` برابر `not-configured` باشد، هنوز سقف ظرفیت عددی برای تیم‌ها تعریف نشده است؛ گزارش فقط تعارض قطعی Task را می‌گیرد.
+مقدار `status=healthy` فقط سلامت ساختاری Projection را نشان می‌دهد و به معنی آماده‌بودن Provider واقعی، Test عملیاتی، Pilot یا Production نیست. اگر `assignmentConflicts.capacityModel` برابر `not-configured` باشد، یعنی Diagnostic برای این read model ظرفیت عددی را محاسبه نمی‌کند؛ مدل ظرفیت عددی و تعارض resource claim در Planner به‌صورت جداگانه ارزیابی می‌شود. این گزارش فقط تعارض قطعی Task را می‌گیرد.
 
 ## تصمیم طراحی و معیار بنچ‌مارک
 
