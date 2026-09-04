@@ -48,7 +48,7 @@
 | ۴۲ | ۷۹ | access audit قابل مشاهده برای مالک | تکمیل محلی/نیازمند Test | خروجی audit روی Test تأیید شود |
 | ۴۳ | ۸۱ | install دقیق با lockfile | اکنون/CI | workflow CI اجرا شود |
 | ۴۴ | ۸۳ | Environment تست GitHub | نیازمند ادمین GitHub | reviewer اجباری فعال شود |
-| ۴۵ | ۸۵ | استقرار Candidate در Test | blocker خارجی؛ parity فعلی رد شد | CI/ادمین image `candidate-98bf0c6` با digest ثبت‌شده و SHA دقیق workspace را deploy کند |
+| ۴۵ | ۸۵ | استقرار Candidate در Test | انجام شد؛ parity و health/auth/restart تأیید شد | برای promotion بعدی فقط Commit قابل‌ارجاع، rollback/recovery و مجوزهای جدا باقی است |
 | ۴۶ | ۸۶ | smoke و security روی Test | تکمیل smoke؛ نیازمند مرور امنیتی کامل | health، auth و isolation اجرا شود |
 | ۴۷ | ۸۷ | Test Evidence و review مالک | نیازمند تصمیم مالک | Evidence کامل را تأیید کن |
 | ۴۸ | ۸۸ | rollback نسخهٔ Test | blocker محیطی | برگشت Artifact قبلی آزموده شود |

@@ -7,14 +7,14 @@
 | مورد | مقدار |
 |---|---|
 | branch | `codex/hero-001-project-charter` |
-| candidate commit محلی | `98bf0c6` — `chore: enforce roadmap cross references` |
+| source snapshot | base commit `34940cb` + owner-handoff contract و build-context hardening در worktree؛ به‌علت read-only بودن Git index، Commit جدید ثبت نشد |
 | roadmap validator commit | `923a0f3` — `chore: validate roadmap audit ledgers` |
 | deployment-contract commit | `2b3d5b8` — `chore: enforce deployment contract` |
 | implementation commit | `cdc44bc` — `feat: harden Hero backoffice and audit projections` |
 | evidence chain | `cce6aaa`، `0aaeaa3`، `de4b4c5`، `79b0977` و `e865e5b` — ثبت verification، baseline، artifact و runtime audit |
 | commit پایه | `26cfe549924b0db63eef71db25aeb8dfb5beb4d7` |
 | remote branch pointer | `c445609b301807df1bb50124a92afa31c500a145`؛ از candidate محلی عقب‌تر است |
-| وضعیت | candidate محلی commit شده؛ push و انتشار انجام نشده |
+| وضعیت | candidate از snapshot کنترل‌شدهٔ worktree ساخته و بررسی شد؛ فقط به Test مستقل deploy شده؛ Commit جدید و push انجام نشده و Production تغییری نکرده است |
 | Git در workspace | commit محلی موفق؛ push هنوز انجام نشده |
 | مرز | فقط repository Hero؛ بدون تغییر اپلیکیشن‌های دیگر |
 
@@ -22,23 +22,23 @@
 
 | مورد | مقدار |
 |---|---|
-| image tag محلی | `hero-control-plane:candidate-98bf0c6` |
-| image digest | `sha256:f90a6ccda1ac4723da8956d13c0c679e0e54b3fc34d2834d459502f466614846` |
-| مبنای build | archive از HEAD commit‌شدهٔ `98bf0c6`؛ فایل‌های خارج از commit وارد build نشدند |
-| نتیجهٔ verify داخل build | `pnpm check`: ۲۳۹/۲۳۹ تست موفق؛ Build: ۱۴۰ ماژول و ۷ فایل JSON |
+| image tag محلی | `hero-control-plane:candidate-52c53f07cf41` |
+| image digest | `sha256:f846ca3da45b0984af8243704681278484670720e4381ef28cda06a0931d88e7` |
+| مبنای build | build استاندارد Docker از snapshot فعلی worktree؛ `.dockerignore` فایل‌های Secret و `compose.test.yaml` را از context حذف کرد |
+| نتیجهٔ verify داخل build | `pnpm check`: ۲۳۹/۲۳۹ تست موفق؛ Build: ۱۴۱ ماژول و ۷ فایل JSON |
 | parity با source | hash هر پنج فایل fingerprint‌شده برابر است |
 | کنترل roadmap | `OPEN-50=50` و `NEXT-100=100`؛ ستون‌های الزامی و cross-referenceها معتبرند |
-| runtime smoke مستقل | `candidate-98bf0c6` در کانتینر موقت با پورت loopback `43102`؛ `/health` و `/backoffice` برابر ۲۰۰، HTML فارسی/IRANSans/noindex و بخش‌های تنظیمات/راهنما حاضر؛ پس از تست حذف شد. احراز هویت runtime جداگانه روی Test تأیید شده است |
-| وضعیت انتشار | فقط image محلی ساخته و بررسی شده؛ به Test یا Production deploy نشده است |
+| runtime smoke مستقل | `candidate-52c53f07cf41` در کانتینر موقت با پورت loopback `43102`؛ `/health` و `/backoffice` برابر ۲۰۰، HTML فارسی/IRANSans/noindex و بخش‌های تنظیمات/راهنما حاضر؛ `compose.test.yaml` داخل image نبود؛ پس از تست حذف شد |
+| وضعیت انتشار | همان digest فقط به stack ایزولهٔ `hero-test` deploy شده؛ به Production deploy نشده است |
 
 ## شواهد verification
 
 - `pnpm check`: ۲۳۹/۲۳۹ تست موفق؛
-- Build: ۱۴۰ ماژول و ۷ فایل JSON موفق؛
+- Build: ۱۴۱ ماژول و ۷ فایل JSON موفق؛
 - Governance: ۲۱ گام نسخه‌مند موفق؛
 - clean-room: ۲۴۱ فایل، بدون خطا؛
 - `git diff --check`: موفق؛
-- Test مستقل: health/readiness، PostgreSQL/migration، احراز هویت، hydration بعد از restart و isolation موفق.
+- Test مستقل: health/readiness، PostgreSQL/migration، preflight، احراز هویت، hydration بعد از restart و isolation موفق؛ fingerprint پنج فایل اصلی با candidate برابر است.
 
 ## fingerprint منبع فعلی
 
@@ -52,7 +52,7 @@ fa16ce5ef898670bb138d17554290626d4f6005753ccfa3b38f104a6ccb21f15  packages/domai
 
 ## وضعیت image فعلی Test
 
-محیط `hero-test` سالم است، اما fingerprint هر پنج فایل اصلی آن با fingerprint بالا متفاوت است؛ candidate تمیز از source ساخته شده و parity آن با source تأیید شده است. برای تکمیل parity باید همین digest در محیط Test با همان Secret/env فعلی deploy شود و hash بعد از deploy دوباره مقایسه شود. image فعلی Test نباید به‌عنوان آخرین workspace معرفی یا به Production promotion شود.
+محیط `hero-test` سالم است و اکنون digest `candidate-52c53f07cf41` با همان Secret/env فعلی روی آن deploy شده است؛ fingerprint هر پنج فایل اصلی با candidate برابر است و preflight، health، readiness، احراز هویت و restart دوباره موفق شدند. این artifact فقط در Test است و نباید بدون گیت‌های بعدی به Production promotion شود.
 
 ## ممیزی runtime آخر — ۲۰۲۶-۰۹-۰۵
 
@@ -64,12 +64,12 @@ fa16ce5ef898670bb138d17554290626d4f6005753ccfa3b38f104a6ccb21f15  packages/domai
 
 ## گیت‌های قبل از promotion
 
-۱. commit candidate انجام شد؛ برای CI باید commit `98bf0c6` و image digest دقیق بالا استفاده شود؛
+۱. snapshot candidate ساخته و بررسی شد؛ برای CI ابتدا باید همین تغییرات در یک Commit قابل‌ارجاع ثبت شود و سپس tag/digest دقیق بالا به آن bind شود؛
 
 ۲. اجرای `pnpm check` روی همان commit و ثبت SHA، image digest و artifact؛
 
-۳. deploy همان artifact به `hero-test` و تأیید hash/health/auth/persistence؛
+۳. deploy همان artifact به `hero-test` و تأیید hash/health/auth/persistence انجام شد؛
 
 ۴. ثبت rollback و recovery؛
 
-۵. برای Production، مجوز مستقل `production-deploy` و تأیید Basic Auth/Caddy لازم است.
+۵. برای Production، مجوز مستقل `production-deploy` و تأیید Basic Auth/Caddy لازم است؛ candidate فعلاً فقط در Test است.

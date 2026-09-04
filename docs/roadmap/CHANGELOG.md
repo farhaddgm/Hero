@@ -1,5 +1,22 @@
 # تغییرات رودمپ شرکت
 
+## 2026-09-05 — candidate نهایی Test پس از اصلاح env handoff
+
+- ساخته‌شده: image محلی `hero-control-plane:candidate-52c53f07cf41` با digest `sha256:f846ca3da45b0984af8243704681278484670720e4381ef28cda06a0931d88e7`؛
+- تأییدشده: build با `239/239` تست موفق، Build `141` ماژول، fingerprint پنج فایل اصلی برابر source و حذف `compose.test.yaml` از image؛
+- انجام‌شده: deploy فقط به `hero-test` با انتقال امن env موجود؛ preflight، `health=200`، `ready=200`، Back Office بدون auth=`401`، با auth=`200` و دامنهٔ Test با auth=`200`؛
+- تأییدشده: restart Control Plane سالم ماند و rollback candidate قبلی به‌عنوان کانتینر متوقف‌شده حفظ شد؛ PostgreSQL و volume دست‌نخورده ماندند؛
+- مرز: Candidate به Production deploy نشده؛ Commit جدید به‌علت read-only بودن Git index ثبت نشده و recovery واقعی از backup/checksum هنوز گیت بیرونی است.
+
+## 2026-09-05 — کنترل تحویل مالک و candidate نهایی worktree
+
+- افزوده‌شده: `check:owner-handoff` برای الزام مستندکردن Secretهای لازم، Test، artifact، `production-deploy`، `rollback` و `recovery`؛
+- اصلاح‌شده: `.dockerignore` اکنون `compose.test.yaml` را هم از build context خارج می‌کند تا فایل خارج از قرارداد وارد image نشود؛
+- ساخته‌شده: image محلی `hero-control-plane:candidate-dd2618847bf8` با digest `sha256:02a1a8ef114800af211f64f102846339f43a64dfe1db3da51c4792ef43a2df8e`؛
+- تأییدشده: `pnpm check` با `239/239` تست، Build `141` ماژول، Governance `21` گام، Roadmap `50/50` و `100/100`؛
+- تأییدشده: fingerprint پنج فایل اصلی برابر source، فایل `compose.test.yaml` خارج از image، و smoke موقت با `/health=200` و `/backoffice=200` و markerهای UI فارسی/IRANSans/noindex؛ resource موقت حذف شد؛
+- مرز: Commit جدید به‌علت read-only بودن Git index ثبت نشد؛ candidate فقط به Test deploy شده و Production، recovery از backup و promotion همچنان گیت جدا دارند.
+
 ## 2026-09-05 — cross-reference fail-closed در ممیزی roadmap
 
 - اصلاح‌شده: validator علاوه بر تعداد/پیوستگی، ارجاع هر ردیف `OPEN-50` به `NEXT-100` را نیز کنترل می‌کند؛

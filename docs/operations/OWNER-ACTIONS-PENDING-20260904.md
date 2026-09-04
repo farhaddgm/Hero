@@ -7,13 +7,13 @@
 - `check:isolation`: موفق؛ ۲۴۱ فایل در مرز `/opt/hero` بررسی شد و خطایی نداشت؛
 - `check:test-config`: موفق داخل `hero-test`؛ شش مقدار host-only با bind واقعی پورت و هر پنج Secret لازم حاضر و معتبر هستند؛
 - `check:pilot`: مسدود؛ شاهد recovery لینوکس، مجوز مستقل Provider واقعی و درخواست/معیار پذیرش Pilot ثبت نشده است؛
-- `pnpm check`: موفق؛ ۲۳۹ تست، Build با ۱۴۰ ماژول و Governance با ۲۱ گام؛ Roadmap audit برابر `50/50` و `100/100`.
+- `pnpm check`: موفق؛ ۲۳۹ تست، Build با ۱۴۱ ماژول و Governance با ۲۱ گام؛ Owner handoff audit موفق؛ Roadmap audit برابر `50/50` و `100/100`.
 - smoke Test مستقل: هر دو سرویس healthy؛ `/health` و `/ready` با کد ۲۰۰؛ Back Office بدون احراز هویت `۴۰۱` و با credential runtime `۲۰۰`؛ DNS/TLS، robots و noindex موفق؛
 - persistence Test: بعد از restart فقط Control Plane، migration، readiness و Read Model سالم ماندند و ۱۱ Projection/۱۰ event/۱ request حفظ شد؛
 - schema Test: migrationهای `001` تا `006` و ۱۷ جدول دارای guard append-only در PostgreSQL تأیید شد؛
 - شبکهٔ Test: دسترسی بیرونی به پورت‌های `43101` و `5432` مسدود و مسیر عمومی فقط از HTTPS reverse proxy در دسترس است؛
 - جداسازی: project=`hero-test`، volumeهای `hero-test_*` و network=`hero-test_hero-private` تأیید شد.
-- parity نسخه: image فعلی `hero-test` با workspace یکسان نیست؛ artifact تمیز `hero-control-plane:candidate-98bf0c6` با digest ثبت‌شده ساخته و با source تطبیق شده است. برای بستن گام candidate باید ادمین همین artifact را با env/Secret فعلی فقط به `hero-test` deploy کند و hash/health را دوباره ثبت کند.
+- parity نسخه: artifact تمیز `hero-control-plane:candidate-52c53f07cf41` با digest ثبت‌شده فقط به `hero-test` deploy شده؛ preflight، hash پنج فایل اصلی، health، readiness، احراز هویت و restart دوباره تأیید شده‌اند.
 - آدرس production موجود نیز پاسخ می‌دهد: HTTP با `۳۰۸` به HTTPS می‌رود و `/backoffice` بدون احراز هویت `۴۰۱` می‌دهد؛ این به‌معنی انتشار نسخهٔ فعلی workspace نیست.
 - تشخیص دقیق production: credential runtime خود سرویس روی localhost `۲۰۰` می‌گیرد، اما همان credential از دامنهٔ عمومی `۴۰۱` می‌گیرد؛ ادمین باید فقط Basic Auth/Caddy production را با Secret Store همان محیط تطبیق دهد و قبل از reload، config را validate کند.
 - نکتهٔ verification: اجرای تشخیصی `node --test` داخل image runtime معیار acceptance نیست؛ به‌دلیل مرز عمدی image (`.git/.github`) و env واقعی Test، ۱۶ تست محیط‌وابسته شکست خوردند. شمارنده‌های Read Model قبل/بعد تغییری نکردند و مرجع معتبر همچنان `pnpm check` در image verification با `۲۳۹/۲۳۹` است.
@@ -94,7 +94,9 @@ HERO_BACKOFFICE_PASSWORD_HASH
 
 ## ممنوعیت‌های ثابت
 
-- Production بدون مجوز مستقل و فرمان صریح اجرا نمی‌شود.
+- Production بدون مجوز مستقل `production-deploy` و فرمان صریح اجرا نمی‌شود.
 - Provider واقعی و external spend بدون Provider، Model، سقف هزینه و authorization مستقل اجرا نمی‌شود.
 - `git reset --hard`، `git clean`، حذف volume یا تغییر سرویس‌های دیگر انجام نمی‌شود.
 - Secret در Git، Google Sheet، Log یا گزارش قرار نمی‌گیرد.
+
+پیش از هر استقرار Test یا Production باید روش `rollback` به artifact قبلی و روش `recovery` از backup/checksum به‌صورت قابل‌اجرا ثبت و یک‌بار آزموده شود. این دو اقدام باید فقط در محیط Hero انجام شوند و نباید به سرویس‌های دیگر سرور دست بزنند.

@@ -6,6 +6,7 @@
 .env
 .env.*
 !.env.example
+compose.test.yaml
 node_modules
 **/node_modules
 .pnpm-store

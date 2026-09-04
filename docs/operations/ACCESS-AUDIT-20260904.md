@@ -43,3 +43,9 @@
 ## گام لازم بعدی
 
 اپراتور باید Secretهای Test را در کانال امن runtime قرار دهد و با همان Secret، `check-test-config` و Compose را اجرا کند. پس از بالا آمدن موفق Test، Caddy/WCDN باید فقط route دامنهٔ Test را به `127.0.0.1:43101` وصل کند و validate/reload شود. سپس health، readiness، migration، hydration، احراز هویت و smoke-test ثبت می‌شوند. تا آن زمان Test و Production عملیاتی محسوب نمی‌شوند.
+
+## ممیزی تکمیلی وضعیت جاری — ۲۰۲۶-۰۹-۰۵
+
+بخش بالا شواهد تاریخی ۴ سپتامبر است. در بررسی جاری، stack مستقل `hero-test` با Control Plane و PostgreSQL هر دو `healthy` مشاهده شد؛ `/health=200`، `/ready=200` و `/backoffice` بدون احراز هویت `401` بودند. دامنهٔ `test.hero.beeproject.ir` نیز TLS معتبر و پاسخ بدون احراز هویت `401` دارد. candidate `candidate-52c53f07cf41` فقط روی Test deploy شد؛ preflight، fingerprint پنج فایل اصلی، احراز هویت و restart موفق‌اند.
+
+همچنین Local Hero سالم است (`/health=200`، `/ready=200`، Back Office بدون احراز هویت `401`). در Production، HTTP به HTTPS با `308` redirect می‌شود و HTTPS Back Office بدون احراز هویت `401` می‌دهد؛ رفع اختلاف Basic Auth/Caddy همچنان اقدام ادمین و خارج از این workspace است. هیچ سرویس یا resource متعلق به پروژهٔ دیگری تغییر نکرد.
