@@ -102,7 +102,7 @@ Benchmark فاز فعلی مقایسهٔ شکل معماری است، نه ان�
 
 Projectionهای PostgreSQL مربوط به AI در migration `002_ai_orchestration_projections.sql` تعریف شده‌اند و Snapshotهای versioned ده Registry دامنه و وضعیت Control Dashboard در migration `004_domain_registry_snapshots.sql` نگهداری می‌شوند. جدول موازی برای Memory، Approval یا Run به‌عنوان منبع حقیقت ساخته نشده است؛ Snapshot فقط read projection قابل‌بازسازی است.
 
-کاتالوگ AI با احراز هویت جداگانهٔ Admin نیز قابل مدیریت است: نشست Admin با `HERO_ADMIN_AUTH_SECRET` امضا می‌شود و فقط مسیرهای صریح Provider/Model/Profile/Binding/Skill/Role Policy را مجاز می‌کند. Admin نمی‌تواند Team، Project، Release، Runner، Dispatch، Secret یا Production را تغییر دهد؛ گیت external-spend و Provider زنده همچنان مستقل باقی می‌ماند.
+کاتالوگ AI با احراز هویت جداگانهٔ Admin نیز قابل مدیریت است: نشست Admin با `HERO_ADMIN_AUTH_SECRET` امضا می‌شود و مسیرهای صریح Provider/Model/Profile/Binding/Skill/Role Policy و ویرایش/rollback نسخهٔ اصول Team را مجاز می‌کند. Admin نمی‌تواند تأیید نهایی Team، Project، Release، Runner، Dispatch، Secret یا Production را تغییر دهد؛ گیت external-spend و Provider زنده همچنان مستقل باقی می‌ماند.
 
 Diagnostic read model در `/api/operations/diagnostics` سلامت ۱۱ Projection، Snapshot/Event integrity، replay dry-run، digest، تاریخچهٔ امن تغییرات AI، freshness دانش و تعارض تخصیص را گزارش می‌کند. این گزارش advisory-only است و هیچ مجوز یا mutation ایجاد نمی‌کند.
 

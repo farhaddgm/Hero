@@ -480,13 +480,14 @@ export function createControlDashboard(options = {}) {
     });
   }
 
-  function runTeamCommand(command, input = {}) {
+  function runTeamCommand(command, input = {}, actor = { kind: "project-owner", id: "hero-owner" }) {
     teamCommandSequence += 1;
+    const { actor: ignoredActor, ...payload } = input;
     try {
       return command({
-        ...input,
-        actor: { kind: "project-owner", id: "hero-owner" },
-        idempotencyKey: input.idempotencyKey ?? `dashboard-team-${teamCommandSequence}`
+        ...payload,
+        actor,
+        idempotencyKey: payload.idempotencyKey ?? `dashboard-team-${teamCommandSequence}`
       });
     } catch (error) {
       if (error instanceof TeamCommandError) throw new DashboardCommandError(error.code, error.message);
@@ -715,16 +716,16 @@ export function createControlDashboard(options = {}) {
     return runTeamCommand(teamRegistry.reviewContract, { ...input, teamId });
   }
 
-  function updateTeamPrinciples(teamId, input) {
-    return runTeamCommand(teamRegistry.updatePrinciples, { ...input, teamId });
+  function updateTeamPrinciples(teamId, input, actor) {
+    return runTeamCommand(teamRegistry.updatePrinciples, { ...input, teamId }, actor);
   }
 
   function teamContractHistory(teamId) {
     return teamRegistry.contractHistory(teamId);
   }
 
-  function rollbackTeamPrinciples(teamId, input) {
-    return runTeamCommand(teamRegistry.rollbackPrinciples, { ...input, teamId });
+  function rollbackTeamPrinciples(teamId, input, actor) {
+    return runTeamCommand(teamRegistry.rollbackPrinciples, { ...input, teamId }, actor);
   }
 
   function requestTeamRework(teamId, input) {

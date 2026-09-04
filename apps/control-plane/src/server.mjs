@@ -178,7 +178,7 @@ function optionalCostUnits(envName) {
 }
 
 function isAdminAllowedMutation(pathname) {
-  return ADMIN_ALLOWED_MUTATIONS.has(pathname) || /^\/api\/ai\/role-policies\/[a-z][a-z0-9-]{2,63}\/rollback$/.test(pathname);
+  return ADMIN_ALLOWED_MUTATIONS.has(pathname) || /^\/api\/ai\/role-policies\/[a-z][a-z0-9-]{2,63}\/rollback$/.test(pathname) || /^\/api\/teams\/[a-z][a-z0-9-]{2,63}\/principles(?:\/rollback)?$/.test(pathname);
 }
 
 function readModelAuditResource(pathname) {
@@ -754,7 +754,8 @@ export function createHeroServer(options = {}) {
           assign: dashboard.assignTeam,
           split: dashboard.splitTeam
         };
-        const result = await executeDashboardCommand(`team.${action}`, input, () => teamByAction[action](teamId, input));
+        const actor = action === "principles" ? authenticatedOwner.actor : undefined;
+        const result = await executeDashboardCommand(`team.${action}`, input, () => teamByAction[action](teamId, input, actor), actor);
         return json(response, 200, { service: HERO_SERVICE, result });
       }
 
@@ -762,7 +763,7 @@ export function createHeroServer(options = {}) {
       if (request.method === "POST" && teamPrinciplesRollbackMatch) {
         const input = await readJson(request);
         const teamId = teamPrinciplesRollbackMatch[1];
-        const result = await executeDashboardCommand("team.principles-rollback", { ...input, teamId }, () => dashboard.rollbackTeamPrinciples(teamId, input));
+        const result = await executeDashboardCommand("team.principles-rollback", { ...input, teamId }, () => dashboard.rollbackTeamPrinciples(teamId, input, authenticatedOwner.actor), authenticatedOwner.actor);
         return json(response, 200, { service: HERO_SERVICE, result });
       }
 

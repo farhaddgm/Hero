@@ -342,7 +342,10 @@ export function createTeamRegistry(options = {}) {
 
   function updatePrinciples(input) {
     assertSafe(input);
-    const actor = assertActor(input?.actor, { owner: true });
+    const actor = assertActor(input?.actor);
+    if (![OWNER_KIND, "admin"].includes(actor.kind)) {
+      throw new TeamCommandError("OWNER_APPROVAL_REQUIRED", "Only project-owner or admin may edit team principles; final approval remains owner-only.");
+    }
     const teamId = assertTeamId(input?.teamId);
     const principles = normalizeList("team.principles", input?.principles);
     const expectedVersion = input.expectedVersion === undefined ? undefined : input.expectedVersion;
@@ -624,7 +627,10 @@ export function createTeamRegistry(options = {}) {
 
   function rollbackPrinciples(input = {}) {
     assertSafe(input);
-    const actor = assertActor(input?.actor, { owner: true });
+    const actor = assertActor(input?.actor);
+    if (![OWNER_KIND, "admin"].includes(actor.kind)) {
+      throw new TeamCommandError("OWNER_APPROVAL_REQUIRED", "Only project-owner or admin may roll back team principles; final approval remains owner-only.");
+    }
     const teamId = assertTeamId(input?.teamId);
     const targetEventId = assertIdentifier("targetEventId", input?.targetEventId, 160);
     const target = eventLog.readAfter().find(event =>
