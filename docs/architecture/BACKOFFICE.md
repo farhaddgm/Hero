@@ -29,7 +29,7 @@
 - ویرایش خط‌به‌خط اصول هر تیم با فرمان owner-authenticated و ثبت event نسخه‌دار؛ ویرایش، تأیید قبلی اصول را بازنشانی می‌کند تا تأیید تازه جداگانه انجام شود.
 - مدیریت پایهٔ کاتالوگ AI در خود پنل: ثبت Provider deterministic/disabled، Model، Profile، Role Binding و Default Role Policy. این بخش credential را فقط به‌صورت reference می‌پذیرد و live/external-spend را فعال نمی‌کند.
 
-Projection بک‌آفیس فقط فیلدهای مشاهده‌ای و بدون متن درخواست، مقدار Credential، Secret، Token یا مسیر میزبان را برمی‌گرداند. عملیات تغییردهنده و APIهای `/api/*` همچنان owner-authenticated هستند. رابط پنل علاوه بر اصول تیم، ثبت Provider/Model/Profile/Role Binding و تغییر Default Role Policy را با توکن مالک مصرف می‌کند؛ هر تغییر با event نسخه‌دار ثبت می‌شود و Provider زنده از این فرم قابل فعال‌سازی نیست. پشتیبانی احراز هویت نقش admin در سطح HTTP هنوز یک کار باز است.
+Projection بک‌آفیس فقط فیلدهای مشاهده‌ای و بدون متن درخواست، مقدار Credential، Secret، Token یا مسیر میزبان را برمی‌گرداند. عملیات تغییردهنده و APIهای `/api/*` همچنان owner-authenticated هستند. رابط پنل علاوه بر اصول تیم، ثبت Provider/Model/Profile/Role Binding و تغییر Default Role Policy را با توکن مالک مصرف می‌کند؛ هر تغییر با event نسخه‌دار ثبت می‌شود و Provider زنده از این فرم قابل فعال‌سازی نیست. تاریخچهٔ Benchmark synthetic در صورت اتصال PostgreSQL پس از restart hydrate می‌شود و مقایسهٔ آن advisory-only است. پشتیبانی احراز هویت نقش admin در سطح HTTP هنوز یک کار باز است.
 
 ## چیزهایی که فعلاً عمداً ندارد
 
@@ -51,12 +51,15 @@ Projection بک‌آفیس فقط فیلدهای مشاهده‌ای و بدون
 - ثبت Skill و Skill Binding و تغییر Role Policy از API owner-authenticated؛
 - ساخت Organization Advisor از آخرین Performance Review کاملِ ۱۱ تیم؛
 - ثبت audit برای نتیجهٔ `accepted` یا `rejected` فرمان.
+- ذخیره، بازیابی، idempotency و مقایسهٔ Benchmark synthetic در PostgreSQL؛
+- نمایش تاریخچهٔ امن Benchmark در پنل، بدون prompt، output، credential یا token.
+- audit دسترسی به read model با actor، مسیر، outcome و زمان؛ query string، payload و token ذخیره نمی‌شود.
 
 ## مسیر رشد
 
 1. افزودن لینک دقیق به Evidence و Sheetهای مرجع؛
-2. افزودن persistence و مقایسهٔ benchmarkها در PostgreSQL؛
-3. افزودن audit دسترسی و policy مشاهده‌ای در محیط Production؛
+2. افزودن audit دسترسی و policy مشاهده‌ای در محیط Production؛
+3. تکمیل diff/rollback قراردادها و احراز هویت نقش admin؛
 4. تکمیل کنترل‌های تغییردهندهٔ بیشتر فقط پس از worker، Session Revocation و Audit عملیاتی.
 
 ## مسیرهای این نسخه
@@ -64,6 +67,9 @@ Projection بک‌آفیس فقط فیلدهای مشاهده‌ای و بدون
 - `/backoffice` صفحهٔ HTML مشاهده‌ای را ارائه می‌کند؛
 - `/backoffice-data` projection JSON امن و read-only را ارائه می‌کند؛
 - `/backoffice-events?after=0&limit=24` timeline امن و page-based را ارائه می‌کند؛
+- `GET /api/ai/benchmarks` تاریخچهٔ Benchmark synthetic را با منبع `in-memory` یا `postgresql` می‌دهد؛
+- `GET /api/ai/benchmarks/compare?ids=...&limit=...` مقایسهٔ advisory-only و قابل‌ممیزی را می‌دهد؛
+- `GET /api/audit?after=0&limit=50` timeline فرمان‌های ثبت‌شده را برمی‌گرداند؛ `GET /api/audit/read-access?after=0&limit=50` audit دسترسی read model را فقط برای owner برمی‌گرداند؛
 - `/observability-contract` قرارداد correlation و redaction را ارائه می‌کند؛
 - `/pilot-contract` state و acceptance checkهای پایلوت را ارائه می‌کند؛
 - `POST /api/auth/revoke-session` session مالک را با مرز owner-authenticated قابل‌ابطال می‌کند؛

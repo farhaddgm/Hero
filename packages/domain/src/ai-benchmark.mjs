@@ -88,7 +88,7 @@ export function compareAiBenchmarks(runs) {
   if (!Array.isArray(runs) || runs.length < 1) throw new AiBenchmarkError("RUNS_REQUIRED", "At least one benchmark run is required.");
   const valid = runs.filter(run => run?.recommendationEligible === true);
   const sorted = [...valid].sort((left, right) => left.metrics.totalCostUnits - right.metrics.totalCostUnits || left.metrics.averageLatencyMs - right.metrics.averageLatencyMs || right.metrics.schemaPassRate - left.metrics.schemaPassRate || left.providerId.localeCompare(right.providerId));
-  return copy({ compared: runs.length, eligible: valid.length, winner: sorted[0] ? { providerId: sorted[0].providerId, modelId: sorted[0].modelId, profileId: sorted[0].profileId } : null, decision: "advisory-only", runs });
+  return copy({ compared: runs.length, eligible: valid.length, winner: sorted[0] ? { benchmarkId: sorted[0].benchmarkId, providerId: sorted[0].providerId, modelId: sorted[0].modelId, profileId: sorted[0].profileId } : null, decision: "advisory-only", runs });
 }
 
 export function getAiBenchmarkContract() {

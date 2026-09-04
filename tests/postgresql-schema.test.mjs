@@ -36,7 +36,8 @@ test("PostgreSQL schema contract covers append-only audit and release boundaries
     "ai_benchmark_runs",
     "ai_benchmark_results",
     "domain_registry_snapshots",
-    "owner_session_revocations"
+    "owner_session_revocations",
+    "read_model_access_audit"
   ]);
   const sql = readPostgresMigration("001");
   assert.match(sql, /sequence bigint GENERATED ALWAYS AS IDENTITY/);
@@ -59,6 +60,9 @@ test("PostgreSQL schema contract covers append-only audit and release boundaries
   assert.match(operationsSql, /CREATE TABLE IF NOT EXISTS owner_session_revocations/);
   assert.match(operationsSql, /ADD COLUMN IF NOT EXISTS attempt_count/);
   assert.match(operationsSql, /owner_session_revocations_append_only_guard/);
+  const accessAuditSql = readPostgresMigration("006");
+  assert.match(accessAuditSql, /CREATE TABLE IF NOT EXISTS read_model_access_audit/);
+  assert.match(accessAuditSql, /read_model_access_audit_append_only_guard/);
 });
 
 test("PostgreSQL migration runner is transaction-bound and requires an injected client", async () => {

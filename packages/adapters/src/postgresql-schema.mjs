@@ -38,13 +38,15 @@ const AI_RELIABILITY_TABLES = Object.freeze([
 
 const DOMAIN_SNAPSHOT_TABLES = Object.freeze(["domain_registry_snapshots"]);
 const OPERATIONS_TABLES = Object.freeze(["owner_session_revocations"]);
+const ACCESS_AUDIT_TABLES = Object.freeze(["read_model_access_audit"]);
 
 export const POSTGRES_TABLES = Object.freeze([
   ...INITIAL_TABLES,
   ...AI_TABLES,
   ...AI_RELIABILITY_TABLES,
   ...DOMAIN_SNAPSHOT_TABLES,
-  ...OPERATIONS_TABLES
+  ...OPERATIONS_TABLES,
+  ...ACCESS_AUDIT_TABLES
 ]);
 
 export const POSTGRES_MIGRATIONS = Object.freeze([
@@ -77,6 +79,12 @@ export const POSTGRES_MIGRATIONS = Object.freeze([
     name: "session-revocation-and-outbox-leasing",
     file: "005_session_revocation_outbox_leasing.sql",
     tables: OPERATIONS_TABLES
+  }),
+  Object.freeze({
+    id: "006",
+    name: "read-model-access-audit",
+    file: "006_read_model_access_audit.sql",
+    tables: ACCESS_AUDIT_TABLES
   })
 ]);
 

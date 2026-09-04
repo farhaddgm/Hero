@@ -45,6 +45,15 @@ import { OwnerAuthError, createOwnerAuth } from "../../../packages/domain/src/ow
 import { createConfiguredAiProviderAdapters, createPostgresRuntime } from "../../../packages/adapters/src/index.mjs";
 
 const PRIVATE_ROBOTS_POLICY = "noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate";
+const READ_MODEL_AUDIT_RESOURCES = new Set([
+  "/backoffice",
+  "/backoffice-data",
+  "/backoffice-events",
+  "/api/dashboard",
+  "/api/ai/benchmarks",
+  "/api/ai/benchmarks/compare",
+  "/api/audit"
+]);
 
 function json(response, statusCode, body) {
   const payload = JSON.stringify(body);
@@ -173,6 +182,20 @@ export function createHeroServer(options = {}) {
   let ownsPostgresRuntime = false;
   let persistedDomainEventIds = new Set();
 
+  async function recordReadAccess(resource, outcome, actor = { kind: "anonymous", id: "anonymous" }) {
+    if (!postgresRuntime?.accessAudit || !READ_MODEL_AUDIT_RESOURCES.has(resource)) return;
+    try {
+      await postgresRuntime.accessAudit.record({
+        resource,
+        outcome,
+        actorKind: actor.kind,
+        actorId: actor.id
+      });
+    } catch {
+      // A read-model audit outage must not turn a safe read into a 500 response.
+    }
+  }
+
   async function persistNewDomainEvents() {
     if (!postgresRuntime?.store || typeof dashboard.domainEvents !== "function") return;
     const events = [...dashboard.domainEvents()].sort((left, right) =>
@@ -243,6 +266,7 @@ export function createHeroServer(options = {}) {
     try {
       const protectedBackofficePath = request.method === "GET" && ["/backoffice", "/backoffice-data", "/backoffice-events"].includes(url.pathname);
       if (protectedBackofficePath && backofficeAuth && !matchesBasicAuth(basicCredentials(request), backofficeAuth)) {
+        await recordReadAccess(url.pathname, "rejected");
         response.writeHead(401, {
           "www-authenticate": 'Basic realm="Hero Back Office", charset="UTF-8"',
           "cache-control": "no-store",
@@ -258,14 +282,17 @@ export function createHeroServer(options = {}) {
       }
 
       if (request.method === "GET" && url.pathname === "/backoffice") {
+        await recordReadAccess("/backoffice", "accepted", { kind: backofficeAuth ? "backoffice-basic-auth" : "project-owner", id: backofficeAuth ? "backoffice-user" : "development-local" });
         return html(response, getBackofficeHtml());
       }
 
       if (request.method === "GET" && url.pathname === "/backoffice-data") {
+        await recordReadAccess("/backoffice-data", "accepted", { kind: backofficeAuth ? "backoffice-basic-auth" : "project-owner", id: backofficeAuth ? "backoffice-user" : "development-local" });
         return json(response, 200, { service: HERO_SERVICE, backoffice: dashboard.backofficeSnapshot() });
       }
 
       if (request.method === "GET" && url.pathname === "/backoffice-events") {
+        await recordReadAccess("/backoffice-events", "accepted", { kind: backofficeAuth ? "backoffice-basic-auth" : "project-owner", id: backofficeAuth ? "backoffice-user" : "development-local" });
         const after = Number(url.searchParams.get("after") ?? "0");
         const limit = Number(url.searchParams.get("limit") ?? "24");
         if (!Number.isInteger(after) || after < 0 || !Number.isInteger(limit) || limit < 1 || limit > 100) {
@@ -288,6 +315,42 @@ export function createHeroServer(options = {}) {
       const authenticatedOwner = url.pathname.startsWith("/api/")
         ? ownerAuth.requireOwner(request.headers.authorization)
         : null;
+
+      if (request.method === "GET" && READ_MODEL_AUDIT_RESOURCES.has(url.pathname)) {
+        await recordReadAccess(url.pathname, "accepted", { kind: "project-owner", id: authenticatedOwner?.subject ?? "development-local" });
+      }
+
+      if (request.method === "GET" && url.pathname === "/api/audit") {
+        const after = Number(url.searchParams.get("after") ?? "0");
+        const limit = Number(url.searchParams.get("limit") ?? "50");
+        if (!Number.isInteger(after) || after < 0 || !Number.isInteger(limit) || limit < 1 || limit > 100) {
+          throw new DashboardCommandError("INVALID_INPUT", "مقادیر after و limit معتبر نیستند.");
+        }
+        if (!postgresRuntime?.store) {
+          return json(response, 503, { service: HERO_SERVICE, status: "persistence_unavailable", code: "PERSISTENCE_NOT_CONFIGURED" });
+        }
+        const allEvents = await postgresRuntime.store.readAfter(after);
+        const events = allEvents.slice(0, limit);
+        return json(response, 200, {
+          service: HERO_SERVICE,
+          events,
+          nextAfter: events.at(-1)?.sequence ?? after,
+          hasMore: allEvents.length > limit,
+          source: "postgresql-events"
+        });
+      }
+
+      if (request.method === "GET" && url.pathname === "/api/audit/read-access") {
+        const after = Number(url.searchParams.get("after") ?? "0");
+        const limit = Number(url.searchParams.get("limit") ?? "50");
+        if (!Number.isInteger(after) || after < 0 || !Number.isInteger(limit) || limit < 1 || limit > 100) {
+          throw new DashboardCommandError("INVALID_INPUT", "مقادیر after و limit معتبر نیستند.");
+        }
+        if (!postgresRuntime?.accessAudit) {
+          return json(response, 503, { service: HERO_SERVICE, status: "persistence_unavailable", code: "PERSISTENCE_NOT_CONFIGURED" });
+        }
+        return json(response, 200, { service: HERO_SERVICE, source: "postgresql", audit: await postgresRuntime.accessAudit.list({ after, limit }) });
+      }
 
       if (request.method === "POST" && url.pathname === "/api/auth/revoke-session") {
         const input = await readJson(request);
@@ -319,6 +382,20 @@ export function createHeroServer(options = {}) {
         const after = Number(url.searchParams.get("after") ?? "0");
         if (!Number.isInteger(after) || after < 0) return json(response, 400, { error: { code: "INVALID_AFTER", message: "after must be a non-negative integer." } });
         return json(response, 200, { service: HERO_SERVICE, events: dashboard.aiOrchestrationEvents(after) });
+      }
+
+      if (request.method === "GET" && url.pathname === "/api/ai/benchmarks") {
+        return json(response, 200, { service: HERO_SERVICE, benchmark: dashboard.benchmarkSnapshot(), source: postgresRuntime?.benchmarkStore ? "postgresql" : "in-memory" });
+      }
+
+      if (request.method === "GET" && url.pathname === "/api/ai/benchmarks/compare") {
+        const rawIds = url.searchParams.get("ids");
+        const benchmarkIds = rawIds ? rawIds.split(",").map(value => value.trim()).filter(Boolean) : undefined;
+        const limit = Number(url.searchParams.get("limit") ?? "50");
+        if (!Number.isInteger(limit) || limit < 1 || limit > 100 || (benchmarkIds && (benchmarkIds.length < 1 || benchmarkIds.length > 100))) {
+          throw new DashboardCommandError("INVALID_INPUT", "پارامترهای مقایسهٔ Benchmark معتبر نیستند.");
+        }
+        return json(response, 200, { service: HERO_SERVICE, comparison: await dashboard.compareBenchmarks({ benchmarkIds, limit }) });
       }
 
       if (request.method === "GET" && url.pathname === "/api/ai/skills") {
@@ -787,6 +864,9 @@ export function createHeroServer(options = {}) {
         status: "not_found"
       });
     } catch (error) {
+      if (error instanceof OwnerAuthError && request.method === "GET" && READ_MODEL_AUDIT_RESOURCES.has(url.pathname)) {
+        await recordReadAccess(url.pathname, "rejected");
+      }
       const known = error instanceof DashboardCommandError;
       const auth = error instanceof OwnerAuthError;
       return json(response, auth ? error.statusCode : known ? 409 : 500, {
@@ -806,6 +886,11 @@ export function createHeroServer(options = {}) {
         ownsPostgresRuntime = true;
       }
       if (postgresRuntime) await postgresRuntime.ping();
+      if (postgresRuntime?.benchmarkStore && typeof dashboard.attachAiBenchmarkStore === "function") {
+        dashboard.attachAiBenchmarkStore(postgresRuntime.benchmarkStore);
+        const benchmarkRuns = await postgresRuntime.benchmarkStore.list({ limit: 100 });
+        dashboard.hydrateBenchmarks(benchmarkRuns);
+      }
       if (postgresRuntime?.registrySnapshots && typeof dashboard.hydrateFromPersistence === "function") {
         const hydrated = await postgresRuntime.registrySnapshots.hydrate({
           registryIds: ["team-registry", "team-research", "principles-registry", "release-promotion", "planner", "project-memory", "ai-orchestration", "organization-performance", "skill-registry", "organization-advisor", "control-dashboard"]

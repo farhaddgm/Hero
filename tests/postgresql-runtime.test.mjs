@@ -17,6 +17,8 @@ test("PostgreSQL runtime migrates, pings and exposes the operational store with 
   assert.equal(runtime.migration.schemaVersion, "1.0");
   assert.equal((await runtime.ping()).persistence, "postgresql");
   assert.equal(typeof runtime.store.appendEvent, "function");
+  assert.equal(typeof runtime.benchmarkStore.save, "function");
+  assert.equal(typeof runtime.accessAudit.record, "function");
   assert.equal(queries[0], "BEGIN");
   assert.equal(queries.at(-1), "SELECT 1");
   await runtime.close();

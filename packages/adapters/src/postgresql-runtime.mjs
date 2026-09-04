@@ -3,6 +3,8 @@ import { createPostgresOperationalStore } from "./postgresql-operational-store.m
 import { createPostgresCommandAudit } from "./postgresql-command-audit.mjs";
 import { createPostgresDomainRegistrySnapshotStore } from "./domain-registry-snapshot-store.mjs";
 import { createPostgresOwnerSessionStore } from "./owner-session-store.mjs";
+import { createPostgresBenchmarkStore } from "./postgresql-benchmark-store.mjs";
+import { createPostgresReadModelAccessAuditStore } from "./postgresql-read-model-access-audit.mjs";
 
 export class PostgresRuntimeError extends Error {
   constructor(code, message) {
@@ -56,6 +58,8 @@ export async function createPostgresRuntime({ connectionString = process.env.HER
         audit: createPostgresCommandAudit({ store }),
         registrySnapshots: createPostgresDomainRegistrySnapshotStore({ pool, client }),
         ownerSessions: createPostgresOwnerSessionStore({ pool, client }),
+        benchmarkStore: createPostgresBenchmarkStore({ pool, client }),
+        accessAudit: createPostgresReadModelAccessAuditStore({ pool, client }),
         async ping() {
           await target.query("SELECT 1");
           return Object.freeze({ status: "ok", persistence: "postgresql" });

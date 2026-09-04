@@ -6,15 +6,15 @@
 
 ## نتیجهٔ دسترسی
 
-- repository قابل دسترسی است و worktree تمیز است.
-- آخرین commit مشاهده‌شده `75e6b9e` است.
+- repository قابل دسترسی است؛ تغییر قبلی کاربر در `.dockerignore` حفظ شده و به آن دست زده نشد.
+- baseline این بررسی commit `c4baca9` بود؛ تغییرات این بسته پس از verification نسخه‌گذاری می‌شوند.
 - Docker برای کاربر عادی مجاز نیست؛ بررسی محدود namespace `hero-test` با دسترسی elevated انجام شد.
 - `hero-test` فعلاً هیچ کانتینری ندارد؛ بنابراین Test هنوز deploy نشده است.
 - پیکربندی Compose داخل repository معتبر است و تغییری ایجاد نمی‌کند.
 
 ## شواهد تست
 
-- `pnpm check`: موفق؛ `214/214` تست، Build با `124` ماژول و `7` فایل JSON، Governance با `21` گام و Doctor با `10/10` check.
+- `pnpm check`: موفق؛ `220/220` تست، Build با `130` ماژول و `7` فایل JSON، Governance با `21` گام و Doctor با `10/10` check.
 - `pnpm check:pilot`: مسدود با سه گیت واقعی:
   - `linux-recovery-evidence`: شواهد Clean Linux و restore روی artifact عملیاتی وجود ندارد؛
   - `provider-authorization`: Provider واقعی و مجوز مستقل فعال نیست؛
@@ -22,6 +22,12 @@
 - `127.0.0.1:43101/health` و `/ready`: پاسخی ندارند، چون سرویس Test اجرا نشده است.
 - route محلی `test.hero.beeproject.ir` روی HTTPS: از این محیط قابل اتصال نیست.
 - DNS دامنهٔ Test از همین نقطه در زمان بررسی resolve نشد؛ پس وضعیت انتشار عمومی از این نقطه تأیید نشده است.
+
+## خروجی تکمیلی همین بسته
+
+- Benchmark synthetic اکنون در PostgreSQL قابل ذخیره، بازیابی، مقایسه و hydrate است؛
+- access audit فقط metadata مسیرهای read-model را نگه می‌دارد و outcomeهای accepted/rejected را ثبت می‌کند؛
+- تست HTTP و adapter این مسیر موفق است؛ این قابلیت تا زمان تنظیم `HERO_POSTGRES_URL` در محیط واقعی فعال نمی‌شود.
 
 ## کارهایی که عمداً انجام نشد
 

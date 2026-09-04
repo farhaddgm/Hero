@@ -16,7 +16,7 @@ import { OrganizationAdvisorError, createOrganizationAdvisor } from "../../../pa
 import { SkillRegistryError, createSkillRegistry } from "../../../packages/domain/src/skill-registry.mjs";
 import { getObservabilityContractSummary, projectOperationalEvent } from "../../../packages/contracts/src/observability.mjs";
 import { getAiBenchmarkContractSummary } from "../../../packages/contracts/src/ai-benchmark.mjs";
-import { runAiBenchmark } from "../../../packages/domain/src/ai-benchmark.mjs";
+import { compareAiBenchmarks, runAiBenchmark } from "../../../packages/domain/src/ai-benchmark.mjs";
 import { PilotDryRunError, runPilotDryRun } from "../../../packages/domain/src/pilot-dry-run.mjs";
 
 const SENSITIVE_INPUT = /(?:\bsk-[A-Za-z0-9_-]{12,}\b|\bBearer\s+[A-Za-z0-9._-]{12,}\b|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|(?:api[_-]?key|access[_-]?token|refresh[_-]?token|password|credential)\s*[:=])/i;
@@ -134,6 +134,7 @@ export function createControlDashboard(options = {}) {
   let hydrationState = Object.freeze({ status: "not-configured", source: null, registryCount: 0, missingRegistryIds: [] });
   let planningSequence = 0;
   const benchmarkRuns = new Map();
+  let aiBenchmarkStore = options.aiBenchmarkStore ?? null;
 
   function getRequest(requestId) {
     const request = requests.get(requestId);
@@ -381,8 +382,37 @@ export function createControlDashboard(options = {}) {
       })
     });
     const recorded = Object.freeze({ ...run, recordedAt: timestamp(now) });
+    if (aiBenchmarkStore?.save) await aiBenchmarkStore.save(recorded);
     benchmarkRuns.set(recorded.benchmarkId, recorded);
     return copy(recorded);
+  }
+
+  function hydrateBenchmarks(runs = []) {
+    if (!Array.isArray(runs)) throw new DashboardCommandError("HYDRATION_INVALID", "Benchmark hydration requires an array.");
+    benchmarkRuns.clear();
+    for (const run of runs) {
+      if (!run || typeof run.benchmarkId !== "string" || run.mode !== "synthetic-deterministic") {
+        throw new DashboardCommandError("HYDRATION_INVALID", "A hydrated benchmark run is invalid.");
+      }
+      benchmarkRuns.set(run.benchmarkId, Object.freeze(copy(run)));
+    }
+    return Object.freeze({ status: "hydrated", count: benchmarkRuns.size });
+  }
+
+  function attachAiBenchmarkStore(store) {
+    if (store !== null && (typeof store !== "object" || typeof store.save !== "function" || typeof store.list !== "function")) {
+      throw new DashboardCommandError("BENCHMARK_STORE_INVALID", "Benchmark persistence store is invalid.");
+    }
+    aiBenchmarkStore = store;
+    return Object.freeze({ attached: aiBenchmarkStore !== null });
+  }
+
+  async function compareBenchmarks(input = {}) {
+    if (aiBenchmarkStore?.compare) return aiBenchmarkStore.compare(input);
+    const runs = Array.isArray(input.benchmarkIds) && input.benchmarkIds.length > 0
+      ? input.benchmarkIds.map(id => benchmarkRuns.get(id)).filter(Boolean)
+      : [...benchmarkRuns.values()];
+    return compareAiBenchmarks(runs);
   }
 
   function backofficeEvents({ after = 0, limit = 24 } = {}) {
@@ -1101,6 +1131,9 @@ export function createControlDashboard(options = {}) {
     adviseOrganization,
     benchmarkSnapshot,
     runSyntheticBenchmark,
+    hydrateBenchmarks,
+    attachAiBenchmarkStore,
+    compareBenchmarks,
     organizationPerformanceContract: () => organizationPerformance.contract(),
     organizationAdvisorSnapshot: () => organizationAdvisor.snapshot(),
     organizationAdvisorEvents: after => organizationAdvisor.events(after),

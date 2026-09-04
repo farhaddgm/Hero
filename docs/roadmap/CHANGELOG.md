@@ -126,6 +126,14 @@
 - افزوده‌شده: Runtime اختیاری PostgreSQL با pool محدود، migration در startup، ping/readiness و profile جداگانهٔ Compose برای `hero-postgres`؛
 - افزوده‌شده: workflow دستی محیط test برای `pnpm check`، ساخت image و ثبت شناسهٔ version/commit/Artifact؛
 - مرز: PostgreSQL واقعی، session revocation، Deployment Adapter و Environment production هنوز فعال نشده‌اند.
+# 2026-09-04 — persistence benchmark و ممیزی خروجی
+
+- افزوده‌شده: `PostgresBenchmarkStore` برای ذخیره، بازیابی و مقایسهٔ benchmarkهای synthetic با digest ثابت، idempotency و مرز advisory-only؛
+- افزوده‌شده: اتصال Control Plane به history و comparison پایدار benchmark در صورت تنظیم `HERO_POSTGRES_URL`؛
+- افزوده‌شده: اعتبارسنجی مجدد رکوردهای خوانده‌شده از PostgreSQL پیش از ورود به projection پنل؛
+- افزوده‌شده: audit دسترسی به read model با metadata allowlist و endpoint owner-gated جدا از audit فرمان‌ها؛
+- شواهد: `pnpm check` در Linux با Build `130` ماژول و `220/220` تست موفق است؛ `check:pilot` همچنان همان سه گیت عملیاتی را مسدود می‌کند؛ اجرای production persistence همچنان به مجوز جداگانه و Secret Store نیاز دارد.
+
 # 2026-08-31 — Back Office access and operational readiness batch 2
 
 - افزوده‌شده: access metadata و راهنمای same-host برای رفع ابهام لینک `127.0.0.1:43100`؛

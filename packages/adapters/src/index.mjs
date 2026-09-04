@@ -37,6 +37,16 @@ export {
 } from "./owner-session-store.mjs";
 
 export {
+  PostgresBenchmarkStoreError,
+  createPostgresBenchmarkStore
+} from "./postgresql-benchmark-store.mjs";
+
+export {
+  ReadModelAccessAuditError,
+  createPostgresReadModelAccessAuditStore
+} from "./postgresql-read-model-access-audit.mjs";
+
+export {
   OutboxWorkerError,
   createPostgresOutboxWorker
 } from "./postgresql-outbox-worker.mjs";

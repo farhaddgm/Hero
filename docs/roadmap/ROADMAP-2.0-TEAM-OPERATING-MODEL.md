@@ -19,13 +19,13 @@
 
 ## وضعیت خط مبنا
 
-- قراردادهای HERO-001 تا HERO-019 و Harnessهای deterministic موجودند و آخرین اجرای کامل در Linux container با 214 تست موفق ثبت شده است.
+- قراردادهای HERO-001 تا HERO-019 و Harnessهای deterministic موجودند و آخرین اجرای کامل در Linux container با 220 تست موفق ثبت شده است.
 - HERO-020 هنوز به شواهد واقعی Clean Linux، Compose و Restore نیاز دارد.
 - HERO-021 هنوز پایلوت واقعی Provider/اپلیکیشن نیست و به‌صورت پیش‌نویس طراحی باقی مانده است.
 - در این بازنگری، کاتالوگ ۱۱ تیم شیت، قرارداد تیم، curriculum و benchmark آموزش، Registry، Eventهای تیم و API/نمایش اولیهٔ کنترل تیم اضافه شده‌اند.
 - اصول حیاتی Hero/محصول و Release Promotion از Git تا test و تأیید production نیز به‌صورت قرارداد و گیت deterministic اضافه شده‌اند.
 - Projectionهای runtime در حافظه هستند و اکنون Snapshot append-only و Event Store اختیاری PostgreSQL برای بازسازی آن‌ها وجود دارد؛ هیچ Provider زنده، Secret، deploy یا پیام خارجی فعال نشده است.
-- بستهٔ بعدی مشاهده‌پذیری، revocation، Outbox primitive، Pilot Dry-Run و benchmark تکرارپذیر نیز در `2026-08-31` با ۱۹۷/۱۹۷ تست و smoke-test runtime تأیید شد؛ آخرین verification در `2026-09-04` با ۲۱۴/۲۱۴ تست و مدیریت پایهٔ کاتالوگ AI انجام شد.
+- بستهٔ بعدی مشاهده‌پذیری، revocation، Outbox primitive، Pilot Dry-Run و benchmark تکرارپذیر نیز در `2026-08-31` با ۱۹۷/۱۹۷ تست و smoke-test runtime تأیید شد؛ آخرین verification در `2026-09-04` با ۲۲۰/۲۲۰ تست، مدیریت کاتالوگ AI، persistence benchmark و read-model access audit موفق شد. `check:pilot` هنوز سه گیت عملیاتی را مسدود می‌کند.
 
 ## بستهٔ ۱۰ گام اجرایی این بازنگری
 
@@ -40,7 +40,7 @@
 | ۷ | reliability | انجام‌شده؛ timeout، retry، health، cost، attempt و latency |
 | ۸ | API و audit | انجام‌شده؛ endpointهای owner-gated و pagination event |
 | ۹ | benchmark harness | انجام‌شده؛ synthetic/deterministic و advisory-only |
-| ۱۰ | تست، اصلاح، مستندات | انجام‌شده؛ 214/214 تست و Build/Governance موفق |
+| ۱۰ | تست، اصلاح، مستندات | انجام‌شده؛ 218/218 تست و Build/Governance موفق |
 
 ## نقشهٔ مرحله‌ای
 
@@ -151,7 +151,7 @@ HERO-001 تا HERO-021، منشور، Authorization Snapshot، Global Stop، Cle
 - revocation نشست مالک به‌صورت fail-closed در هر authenticate و به‌صورت durable در PostgreSQL پیاده‌سازی شد؛
 - Outbox primitiveهای `claim/ack/fail` با lease، retry محدود و `FOR UPDATE SKIP LOCKED` دارد؛ worker خارجی هنوز فعال نیست؛
 - Pilot Dry-Run از intake تا acceptance بدون شبکه evidence تولید می‌کند؛
-- benchmark synthetic اکنون dataset version، timing تزریق‌پذیر و digest قابل‌تکرار دارد؛
+- benchmark synthetic اکنون dataset version، timing تزریق‌پذیر، digest قابل‌تکرار، idempotency و history قابل‌بازیابی دارد؛
 - مرز Provider زنده، external spend، Secret، پیام خارجی، deploy و Production بدون تغییر باقی مانده است.
 
 معیار عبور: Timeline بدون دادهٔ حساس، token revocation قابل‌بازسازی، claim هم‌زمان بدون double-dispatch، dry-run قابل‌تکرار و benchmark با digest ثابت.
@@ -226,7 +226,7 @@ HERO-001 تا HERO-021، منشور، Authorization Snapshot، Global Stop، Cle
 
 ## مواردی که هنوز نباید Done اعلام شوند
 
-1. فعال‌سازی controlled اتصال ChatGPT/Codex/Claude/Cursor و Providerهای قابل‌تعویض با مجوز جداگانه؛ transport adapter و hydration اکنون آماده‌اند؛
+1. فعال‌سازی controlled اتصال ChatGPT/Codex/Claude/Cursor و Providerهای قابل‌تعویض با مجوز جداگانه؛ transport adapter و hydration benchmark اکنون آماده‌اند؛
 2. ساخت اپلیکیشن واقعی برای یک درخواست مالک؛
 3. projection کامل Eventهای تمام commandها، worker queue/outbox و audit دسترسی؛ Snapshot hydration Registryهای اصلی و session revocation durable اکنون پیاده‌سازی شده‌اند؛
 4. Clean Linux و backup/restore روی مقصد عملیاتی با checksum؛ آزمون disposable محلی به‌تنهایی کافی نیست؛

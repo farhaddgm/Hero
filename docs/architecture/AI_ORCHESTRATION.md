@@ -74,7 +74,7 @@ Benchmark فاز فعلی مقایسهٔ شکل معماری است، نه ان�
 - `Organization Performance Review`: برای هر دوره دقیقاً ۱۱ team evidence و پنج score نرمال‌شده می‌دهد؛ نتیجهٔ آن توصیه است، نه تغییر خودکار وضعیت تیم.
 - `Organization Advisor`: ترکیب read-only نقش‌های Analyst، Evaluator، Decision Maker، Planner و Researcher شرطی؛ از evidence هر ۱۱ تیم گزینه، recommendation و roadmap می‌سازد و هیچ dispatch، authorization یا mutation انجام نمی‌دهد.
 - `Reliability Policy`: timeout، retry، cost cap، health check و latency/attempt evidence پیش از پذیرش نتیجه اعمال می‌شوند.
-- `Synthetic Benchmark`: Provider/Profileها با runner تزریق‌شده و بدون شبکه مقایسه می‌شوند؛ نتیجه فقط advisory است.
+- `Synthetic Benchmark`: Provider/Profileها با runner تزریق‌شده و بدون شبکه مقایسه می‌شوند؛ نتیجه فقط advisory است. در صورت فعال‌بودن PostgreSQL، تاریخچهٔ benchmark با digest، idempotency و اعتبارسنجی مجددِ authority در `ai_benchmark_runs` و `ai_benchmark_results` ذخیره و پس از restart بازیابی می‌شود؛ این داده هرگز مجوز Provider، mutation یا release صادر نمی‌کند.
 
 ## سیاست پیش‌فرض Provider
 

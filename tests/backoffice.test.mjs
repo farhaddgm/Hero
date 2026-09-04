@@ -18,6 +18,7 @@ test("read-only development back office exposes a safe orientation projection", 
   assert.match(pageHtml, /همهٔ AI Roleها/);
   assert.match(pageHtml, /مفاهیم و قراردادها/);
   assert.match(pageHtml, /پیکربندی Provider و Role/);
+  assert.match(pageHtml, /تاریخچهٔ Benchmark/);
   assert.match(pageHtml, /ai-config-form/);
   assert.match(pageHtml, /ویرایش اصول/);
 
