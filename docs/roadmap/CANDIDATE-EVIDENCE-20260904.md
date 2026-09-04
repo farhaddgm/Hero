@@ -1,16 +1,17 @@
 # شناسنامهٔ Candidate Hero — ۲۰۲۶-۰۹-۰۴
 
-این سند شناسنامهٔ قابل‌بازبینیِ workspace فعلی است؛ به‌معنی commit، tag یا انتشار نیست و هیچ Secretی در آن وجود ندارد.
+این سند شناسنامهٔ قابل‌بازبینیِ source و candidate فعلی است؛ به‌معنی tag یا انتشار نیست و هیچ Secretی در آن وجود ندارد.
 
 ## منبع
 
 | مورد | مقدار |
 |---|---|
 | branch | `codex/hero-001-project-charter` |
+| candidate commit محلی | `cdc44bc` — `feat: harden Hero backoffice and audit projections` |
 | commit پایه | `26cfe549924b0db63eef71db25aeb8dfb5beb4d7` |
-| remote branch pointer | `c445609b301807df1bb50124a92afa31c500a145`؛ از commit پایه عقب‌تر است |
-| وضعیت | تغییرات محلیِ ثبت‌نشده؛ candidate باید پس از commit دقیق ساخته شود |
-| Git در workspace | read-only؛ commit محلی ممکن نیست |
+| remote branch pointer | `c445609b301807df1bb50124a92afa31c500a145`؛ از candidate محلی عقب‌تر است |
+| وضعیت | candidate محلی commit شده؛ push و انتشار انجام نشده |
+| Git در workspace | commit محلی موفق؛ push هنوز انجام نشده |
 | مرز | فقط repository Hero؛ بدون تغییر اپلیکیشن‌های دیگر |
 
 ## شواهد verification
@@ -38,7 +39,7 @@ fa16ce5ef898670bb138d17554290626d4f6005753ccfa3b38f104a6ccb21f15  packages/domai
 
 ## گیت‌های قبل از promotion
 
-۱. commit همین تغییرات با دسترسی Git/CI محدود به repository؛
+۱. commit candidate انجام شد؛ برای CI باید همین commit/منبع دقیق استفاده شود؛
 
 ۲. اجرای `pnpm check` روی همان commit و ثبت SHA، image digest و artifact؛
 
