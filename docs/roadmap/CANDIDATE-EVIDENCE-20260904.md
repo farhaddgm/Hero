@@ -49,7 +49,15 @@ fa16ce5ef898670bb138d17554290626d4f6005753ccfa3b38f104a6ccb21f15  packages/domai
 
 ## وضعیت image فعلی Test
 
-محیط `hero-test` سالم است، اما fingerprint سه فایل اصلی آن با fingerprint بالا متفاوت است؛ candidate تمیز از source ساخته شده و parity آن با source تأیید شده است. برای تکمیل parity باید همین digest در محیط Test با همان Secret/env فعلی deploy شود و hash بعد از deploy دوباره مقایسه شود. image فعلی Test نباید به‌عنوان آخرین workspace معرفی یا به Production promotion شود.
+محیط `hero-test` سالم است، اما fingerprint هر پنج فایل اصلی آن با fingerprint بالا متفاوت است؛ candidate تمیز از source ساخته شده و parity آن با source تأیید شده است. برای تکمیل parity باید همین digest در محیط Test با همان Secret/env فعلی deploy شود و hash بعد از deploy دوباره مقایسه شود. image فعلی Test نباید به‌عنوان آخرین workspace معرفی یا به Production promotion شود.
+
+## ممیزی runtime آخر — ۲۰۲۶-۰۹-۰۵
+
+- Local Hero: `/health=200`، `/ready=200` و `/backoffice` بدون احراز هویت `401`؛
+- Test داخلی: `/health=200`، `/ready=200`، Back Office بدون احراز هویت `401` و با credential runtime `200`؛
+- دامنهٔ Test: TLS معتبر (`verify=0`) و Back Office بدون احراز هویت `401`؛
+- Production: HTTP `/backoffice=308` به HTTPS و HTTPS بدون احراز هویت `401`؛
+- هیچ stack موجودی در این ممیزی restart یا جایگزین نشد؛ فقط کانتینر موقت candidate smoke شد و حذف شد.
 
 ## گیت‌های قبل از promotion
 

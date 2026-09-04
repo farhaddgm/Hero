@@ -6,6 +6,7 @@
 - تأییدشده: verify داخل build با `239/239` تست موفق؛
 - تأییدشده: hash پنج فایل اصلی image با fingerprint source برابر است؛
 - تأییدشده: runtime smoke مستقل با پورت loopback؛ `/health` و `/backoffice` برابر ۲۰۰ و UI فارسی/IRANSans/noindex؛ کانتینر موقت پس از تست حذف شد؛
+- تأییدشده: ممیزی runtime نهایی Local/Test و دامنه‌ها؛ health/readiness موفق، احراز هویت Test موفق، TLS دامنهٔ Test معتبر و Production همچنان نیازمند اصلاح Basic Auth/Caddy؛
 - مرز: artifact هنوز به `hero-test` یا Production deploy نشده؛ deploy Test باید با همان Secret/env فعلی و ثبت rollback انجام شود.
 
 ## 2026-09-04 — تأیید محیط Test مستقل و دامنهٔ امن
