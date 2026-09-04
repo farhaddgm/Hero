@@ -5,6 +5,7 @@
 - افزوده‌شده: validator داخلی برای پیوستگی و کامل‌بودن دفترهای `OPEN-50` و `NEXT-100`؛ نتیجهٔ واقعی `50/50` و `100/100`؛
 - ساخته‌شده: image تمیز `hero-control-plane:candidate-923a0f3` با digest ثبت‌شده از commit versioned؛
 - تأییدشده: `pnpm check` با `239/239` تست و Build `140` ماژول موفق؛
+- تأییدشده: runtime smoke خود `candidate-923a0f3` با health و Back Office برابر ۲۰۰ و markerهای UI فارسی/IRANSans/noindex؛ resource موقت حذف شد؛
 - مرز: candidate هنوز به `hero-test` یا Production deploy نشده و rollback/recovery واقعی همچنان باز است.
 
 ## 2026-09-05 — ساخت و fingerprint artifact کاندیدای تمیز

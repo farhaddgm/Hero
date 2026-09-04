@@ -27,7 +27,7 @@
 | نتیجهٔ verify داخل build | `pnpm check`: ۲۳۹/۲۳۹ تست موفق؛ Build: ۱۴۰ ماژول و ۷ فایل JSON |
 | parity با source | hash هر پنج فایل fingerprint‌شده برابر است |
 | کنترل roadmap | `OPEN-50=50` و `NEXT-100=100`؛ همهٔ ستون‌های الزامی و refها معتبرند |
-| runtime smoke مستقل | کانتینر موقت با پورت loopback `43102`؛ `/health` و `/backoffice` برابر ۲۰۰، HTML فارسی/IRANSans/noindex؛ پس از تست حذف شد. احراز هویت runtime جداگانه روی Test تأیید شده است |
+| runtime smoke مستقل | `candidate-923a0f3` در کانتینر موقت با پورت loopback `43102`؛ `/health` و `/backoffice` برابر ۲۰۰، HTML فارسی/IRANSans/noindex و بخش‌های تنظیمات/راهنما حاضر؛ پس از تست حذف شد. احراز هویت runtime جداگانه روی Test تأیید شده است |
 | وضعیت انتشار | فقط image محلی ساخته و بررسی شده؛ به Test یا Production deploy نشده است |
 
 ## شواهد verification
