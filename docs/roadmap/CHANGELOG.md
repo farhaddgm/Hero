@@ -5,7 +5,7 @@
 - افزوده‌شده: ثبت metadata امن Contextهای assembled شامل Role، Task/Step، نسخه و memory IDهای انتخاب‌شده؛
 - افزوده‌شده: نگهداری Context retrieval در Snapshot/Hydration بدون محتوای حافظه، prompt، output یا Secret؛
 - افزوده‌شده: نمایش تاریخچهٔ بازیابی Context در Back Office؛
-- شواهد: `pnpm check` در Linux/Node 22 با `231/231` تست، Build `138`، Governance `21` و clean-room با `236` فایل موفق شد.
+- شواهد: `pnpm check` در Linux/Node 22 با `231/231` تست، Build `138`، Governance `21` و clean-room با `235` فایل موفق شد.
 
 ## 2026-09-04 — فعال‌شدن کنترل‌های محدود و محافظت‌شدهٔ Back Office
 
