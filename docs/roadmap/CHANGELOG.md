@@ -1,5 +1,12 @@
 # تغییرات رودمپ شرکت
 
+## 2026-09-05 — ساخت و fingerprint artifact کاندیدای تمیز
+
+- ساخته‌شده: image محلی `hero-control-plane:candidate-0aaeaa3` از archive نسخهٔ commit‌شده، بدون ورود تغییرات خارج از commit؛
+- تأییدشده: verify داخل build با `239/239` تست موفق؛
+- تأییدشده: hash پنج فایل اصلی image با fingerprint source برابر است؛
+- مرز: artifact هنوز به `hero-test` یا Production deploy نشده؛ deploy Test باید با همان Secret/env فعلی و ثبت rollback انجام شود.
+
 ## 2026-09-04 — تأیید محیط Test مستقل و دامنهٔ امن
 
 - تأییدشده: پروژهٔ Compose مستقل `hero-test` با Control Plane و PostgreSQL سالم، volumeهای `hero-test_*`، network مستقل و پورت `127.0.0.1:43101`؛

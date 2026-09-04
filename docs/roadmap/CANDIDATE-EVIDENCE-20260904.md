@@ -15,6 +15,17 @@
 | Git در workspace | commit محلی موفق؛ push هنوز انجام نشده |
 | مرز | فقط repository Hero؛ بدون تغییر اپلیکیشن‌های دیگر |
 
+## artifact کاندیدای تمیز
+
+| مورد | مقدار |
+|---|---|
+| image tag محلی | `hero-control-plane:candidate-0aaeaa3` |
+| image digest | `sha256:6c2619b2ca5aa1e8da6c6df2afc655a1d4dc4158beaa60edfecb71630d74e646` |
+| مبنای build | archive از HEAD commit‌شدهٔ `0aaeaa3`؛ فایل‌های خارج از commit وارد build نشدند |
+| نتیجهٔ verify داخل build | `pnpm check`: ۲۳۹/۲۳۹ تست موفق |
+| parity با source | hash هر پنج فایل fingerprint‌شده برابر است |
+| وضعیت انتشار | فقط image محلی ساخته و بررسی شده؛ به Test یا Production deploy نشده است |
+
 ## شواهد verification
 
 - `pnpm check`: ۲۳۹/۲۳۹ تست موفق؛
@@ -36,7 +47,7 @@ fa16ce5ef898670bb138d17554290626d4f6005753ccfa3b38f104a6ccb21f15  packages/domai
 
 ## وضعیت image فعلی Test
 
-محیط `hero-test` سالم است، اما fingerprint سه فایل اصلی آن با fingerprint بالا متفاوت است؛ بنابراین باید candidate جدید از همین source ساخته و hash آن بعد از deploy دوباره مقایسه شود. image فعلی نباید به‌عنوان آخرین workspace معرفی یا به Production promotion شود.
+محیط `hero-test` سالم است، اما fingerprint سه فایل اصلی آن با fingerprint بالا متفاوت است؛ candidate تمیز از source ساخته شده و parity آن با source تأیید شده است. برای تکمیل parity باید همین digest در محیط Test با همان Secret/env فعلی deploy شود و hash بعد از deploy دوباره مقایسه شود. image فعلی Test نباید به‌عنوان آخرین workspace معرفی یا به Production promotion شود.
 
 ## گیت‌های قبل از promotion
 
