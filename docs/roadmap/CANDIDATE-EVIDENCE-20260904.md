@@ -36,7 +36,7 @@
 - `pnpm check`: ۲۳۹/۲۳۹ تست موفق؛
 - Build: ۱۴۲ ماژول و ۷ فایل JSON موفق؛
 - Governance: ۲۱ گام نسخه‌مند موفق؛
-- clean-room داخل build: ۲۴۳ فایل؛ `check:isolation` روی workspace جاری: ۲۴۵ فایل، هر دو بدون خطا؛
+- clean-room داخل build: ۲۴۴ فایل؛ `check:isolation` روی workspace جاری: ۲۴۵ فایل، هر دو بدون خطا؛
 - `git diff --check`: موفق؛
 - Test مستقل: health/readiness، PostgreSQL/migration، preflight، احراز هویت، hydration بعد از restart و isolation موفق؛ fingerprint پنج فایل اصلی با candidate برابر است.
 - Back Office Test با احراز هویت: page/data/events همگی `۲۰۰`؛ ۱۱ تیم با جزئیات قرارداد/اصول/ورودی/خروجی، ۸ Role، ۶ route، ۵ دستهٔ تنظیمات، دفتر `OPEN-50` با ۵۰ ردیف و ۱۴ اقدام مالک/ادمین؛ markerهای `تنظیمات کل Hero`، `چطور این پنل را بخوانیم`، `IRANSans` و `lang="fa"` حاضرند.
@@ -55,13 +55,13 @@ fa16ce5ef898670bb138d17554290626d4f6005753ccfa3b38f104a6ccb21f15  packages/domai
 
 ## وضعیت image فعلی Test
 
-محیط `hero-test` سالم است و اکنون digest `candidate-b590d6e` با همان Secret/env فعلی روی آن deploy شده است؛ fingerprint هر پنج فایل اصلی با candidate برابر است و preflight، health، readiness، احراز هویت و restart دوباره موفق شدند. این artifact فقط در Test است و نباید بدون گیت‌های بعدی به Production promotion شود.
+محیط `hero-test` سالم است و اکنون digest `candidate-c1a1430` با همان Secret/env فعلی روی آن deploy شده است؛ fingerprint هر پنج فایل اصلی با candidate برابر است و preflight، health، readiness، احراز هویت و restart دوباره موفق شدند. این artifact فقط در Test است و نباید بدون گیت‌های بعدی به Production promotion شود.
 
 ## ممیزی runtime آخر — ۲۰۲۶-۰۹-۰۵
 
 - Local Hero: `/health=200`، `/ready=200` و `/backoffice` بدون احراز هویت `401`؛
 - Test داخلی: `/health=200`، `/ready=200`، Back Office بدون احراز هویت `401` و با credential runtime `200`؛
-- دامنهٔ Test: TLS معتبر (`verify=0`) و Back Office بدون احراز هویت `401`؛
+- دامنهٔ Test: TLS معتبر (`verify=0`)، Back Office بدون احراز هویت `401` و با credential runtime `200`؛
 - Production: HTTP `/backoffice=308` به HTTPS و HTTPS بدون احراز هویت `401`؛
 - stack مستقل Test با همین candidate جایگزین و سپس restart شد؛ PostgreSQL و volume حفظ شدند؛ کانتینر rollback قبلی متوقف و محفوظ است؛ کانتینر موقت smoke پس از تست حذف شد.
 - مالکیت runtime: `hero-test-control-plane-1` با `compose.yaml` مدیریت می‌شود؛ project/service label برابر `hero-test/control-plane`، volume `hero-test_hero-data` و network `hero-test_hero-private` تأیید شد.
