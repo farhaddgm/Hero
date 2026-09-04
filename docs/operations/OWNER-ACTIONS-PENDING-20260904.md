@@ -7,6 +7,7 @@
 - `check:isolation`: موفق؛ ۲۴۵ فایل در مرز `/opt/hero` بررسی شد و خطایی نداشت؛
 - `check:test-config`: موفق داخل `hero-test`؛ شش مقدار host-only با bind واقعی پورت و هر پنج Secret لازم حاضر و معتبر هستند؛
 - `check:pilot`: مسدود؛ شاهد recovery لینوکس، مجوز مستقل Provider واقعی و درخواست/معیار پذیرش Pilot ثبت نشده است؛
+- recovery disposable: backup/restore synthetic با checksum `sha256:1ce262c482e6096d7c315d62c3483ba012a9f1e813e57f2d0fcfe5c29ccffb04` و sentinel موفق شد؛ این جایگزین restore روی Clean Linux و backup عملیاتی نیست.
 - `pnpm check`: موفق؛ ۲۳۹ تست، Build با ۱۴۱ ماژول و Governance با ۲۱ گام؛ Owner handoff audit موفق؛ Roadmap audit برابر `50/50` و `100/100`.
 - smoke Test مستقل: هر دو سرویس healthy؛ `/health` و `/ready` با کد ۲۰۰؛ Back Office بدون احراز هویت `۴۰۱` و با credential runtime `۲۰۰`؛ DNS/TLS، robots و noindex موفق؛
 - persistence Test: بعد از restart فقط Control Plane، migration، readiness و Read Model سالم ماندند و ۱۱ Projection/۱۰ event/۱ request حفظ شد؛

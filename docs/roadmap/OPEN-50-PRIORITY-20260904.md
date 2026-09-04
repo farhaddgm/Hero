@@ -22,7 +22,7 @@
 | ۱۶ | ۲۷ | Snapshot یازده Registry و Dashboard | تأیید Test | Snapshot در Test ذخیره شود |
 | ۱۷ | ۲۸ | hydration بعد از restart | تکمیل Test | قبل/بعد restart مقایسه شود |
 | ۱۸ | ۲۹ | تشخیص Snapshot ناقص/قدیمی | تأیید Test؛ نیازمند سناریوی خرابی | در Test با دادهٔ واقعی اجرا شود |
-| ۱۹ | ۳۰ | Backup/Restore با checksum | blocker خارجی | روی مقصد Clean Linux ثبت شود |
+| ۱۹ | ۳۰ | Backup/Restore با checksum | synthetic backup/restore با checksum موفق؛ Clean Linux مقصد همچنان blocker خارجی | restore واقعی روی مقصد Clean Linux و backup عملیاتی ثبت شود |
 | ۲۰ | ۳۲ | mapping همهٔ Domain Eventها | تکمیل محلی/نیازمند Test | پوشش mapping در Test با دادهٔ واقعی تأیید شود |
 | ۲۱ | ۳۳ | replay کامل Registryها | تکمیل محلیِ Snapshot+Event/نیازمند Test | rebuild واقعی read model در Test اجرا شود |
 | ۲۲ | ۳۴ | rebuild dry-run و digest | تکمیل محلی/نیازمند Test | digest در Test بازتولید شود |
