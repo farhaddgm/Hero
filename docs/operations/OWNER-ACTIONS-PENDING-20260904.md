@@ -4,7 +4,7 @@
 
 ## آخرین ممیزی واقعی
 
-- `check:isolation`: موفق؛ ۲۴۱ فایل در مرز `/opt/hero` بررسی شد و خطایی نداشت؛
+- `check:isolation`: موفق؛ ۲۴۵ فایل در مرز `/opt/hero` بررسی شد و خطایی نداشت؛
 - `check:test-config`: موفق داخل `hero-test`؛ شش مقدار host-only با bind واقعی پورت و هر پنج Secret لازم حاضر و معتبر هستند؛
 - `check:pilot`: مسدود؛ شاهد recovery لینوکس، مجوز مستقل Provider واقعی و درخواست/معیار پذیرش Pilot ثبت نشده است؛
 - `pnpm check`: موفق؛ ۲۳۹ تست، Build با ۱۴۱ ماژول و Governance با ۲۱ گام؛ Owner handoff audit موفق؛ Roadmap audit برابر `50/50` و `100/100`.
