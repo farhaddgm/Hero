@@ -157,6 +157,7 @@ export function createControlDashboard(options = {}) {
       organizationAdvisor: organizationAdvisor.snapshot(),
       organizationPerformance: organizationPerformance.contract(),
       persistenceHydration: hydrationState,
+      projections: domainProjectionStatus(),
       requests: [...requests.values()]
         .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
         .map(publicRequest)

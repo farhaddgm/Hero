@@ -36,6 +36,8 @@ test("dashboard contract is Persian, bounded and complete", () => {
   assert.equal(state.teamControl.contract.humanControl.includes("تأیید"), true);
   assert.equal(state.principlesControl.principles.length, 8);
   assert.deepEqual(state.releaseControl.environments, ["test", "production"]);
+  assert.equal(state.projections.coverage, "complete");
+  assert.equal(state.projections.registries.length, 10);
 });
 
 test("HTTP dashboard exposes the team control surface without live providers", async t => {
