@@ -37,6 +37,9 @@ test("protected development back office exposes safe data and controlled owner/a
   assert.match(pageHtml, /Skill Binding/);
   assert.match(pageHtml, /Planner و تصمیم خروجی/);
   assert.match(pageHtml, /planning-list/);
+  assert.match(pageHtml, /۵۰ گام اولویت‌دار و گیت‌های باز/);
+  assert.match(pageHtml, /roadmap-list/);
+  assert.match(pageHtml, /اقدام‌هایی که قبل از ادامه به مالک یا ادمین نیاز دارند/);
   assert.match(pageHtml, /requestJson/);
   assert.match(pageHtml, /id="download-report"/);
   assert.match(pageHtml, /function downloadReport\(\)/);
@@ -85,6 +88,12 @@ test("protected development back office exposes safe data and controlled owner/a
   assert.deepEqual(backoffice.projectMemory.contextAssemblies, []);
   assert.equal(backoffice.planning.total, 0);
   assert.deepEqual(backoffice.planning.plans, []);
+  assert.equal(backoffice.roadmap.ledger, "OPEN-50");
+  assert.equal(backoffice.roadmap.total, 50);
+  assert.equal(backoffice.roadmap.rows.length, 50);
+  assert.equal(backoffice.roadmap.ownerActions.length >= 10, true);
+  assert.equal(backoffice.roadmap.pilotBlockers.length, 3);
+  assert.doesNotMatch(JSON.stringify(backoffice.roadmap), /api[_-]?key|password|Bearer|private key/i);
   assert.equal(backoffice.focus.find(item => item.id === "pilot").status, "مسدود");
   assert.equal(backoffice.organization.teams.some(team => "description" in team), false);
   assert.equal(backoffice.organization.teams[0].contract.principles.length >= 5, true);

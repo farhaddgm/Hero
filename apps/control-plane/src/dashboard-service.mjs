@@ -21,6 +21,7 @@ import { getAiBenchmarkContractSummary } from "../../../packages/contracts/src/a
 import { compareAiBenchmarks, runAiBenchmark } from "../../../packages/domain/src/ai-benchmark.mjs";
 import { PilotDryRunError, runPilotDryRun } from "../../../packages/domain/src/pilot-dry-run.mjs";
 import { createOperationalDiagnostics } from "../../../packages/domain/src/operational-diagnostics.mjs";
+import { HERO_OPEN_ROADMAP, HERO_OPEN_ROADMAP_VERSION, HERO_OWNER_ACTIONS } from "../../../packages/contracts/src/roadmap.mjs";
 import {
   HERO_BOUNDARY,
   HERO_SERVICE,
@@ -634,6 +635,26 @@ export function createControlDashboard(options = {}) {
       }))),
       teamWorkflows: Object.freeze((current.teamControl.workflows ?? []).map(workflow => Object.freeze(copy(workflow))))
     });
+    const roadmapStatusCounts = HERO_OPEN_ROADMAP.reduce((counts, item) => {
+      const key = item.status.includes("blocker") || item.status.includes("خارج از اختیار")
+        ? "blocked"
+        : item.status.includes("نیازمند") || item.status.includes("باقی") || item.status.includes("مرور")
+          ? "pending"
+          : "evidence";
+      counts[key] = (counts[key] ?? 0) + 1;
+      return counts;
+    }, {});
+    const roadmap = Object.freeze({
+      ledger: "OPEN-50",
+      version: HERO_OPEN_ROADMAP_VERSION,
+      total: HERO_OPEN_ROADMAP.length,
+      statusCounts: Object.freeze(roadmapStatusCounts),
+      rows: HERO_OPEN_ROADMAP,
+      ownerActions: HERO_OWNER_ACTIONS,
+      pilotBlockers: Object.freeze(HERO_OWNER_ACTIONS.filter(item => ["ADMIN-04", "ADMIN-06", "OWNER-07"].includes(item.id))),
+      decisionBoundary: "roadmap is a read-only execution aid; it never grants authorization, dispatch, secret change or deployment",
+      source: "versioned Hero roadmap ledger; docs/roadmap/OPEN-50-PRIORITY-20260904.md"
+    });
     return Object.freeze({
       schemaVersion: "1.1",
       generatedAt: timestamp(now),
@@ -809,6 +830,7 @@ export function createControlDashboard(options = {}) {
         decisionBoundary: "evidence-and-recommendation-only"
       }),
       timeline: Object.freeze(timeline),
+      roadmap,
       focus: Object.freeze([
         Object.freeze({ id: "core", title: "هستهٔ Hero و ۱۱ تیم", status: "تکمیل محلی", detail: "Team Registry، Planner، Workflow، Runner و Quality Gate", next: "ادامهٔ توسعه بر اساس Roadmap", tone: "good" }),
         Object.freeze({ id: "multi-ai", title: "Multi-AI و Role Routing", status: "تکمیل محلی", detail: "Role، Profile، Provider/Model، Invocation، Evaluation و Decision", next: "بازبینی مرز اجرای live", tone: "good" }),
