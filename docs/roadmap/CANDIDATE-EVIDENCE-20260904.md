@@ -25,6 +25,7 @@
 | مبنای build | archive از HEAD commit‌شدهٔ `2b3d5b8`؛ فایل‌های خارج از commit وارد build نشدند |
 | نتیجهٔ verify داخل build | `pnpm check`: ۲۳۹/۲۳۹ تست موفق؛ Build: ۱۳۹ ماژول و ۷ فایل JSON |
 | parity با source | hash هر پنج فایل fingerprint‌شده برابر است |
+| runtime smoke مستقل | کانتینر موقت با پورت loopback `43102`؛ `/health` و `/backoffice` برابر ۲۰۰، HTML فارسی/IRANSans/noindex؛ پس از تست حذف شد. احراز هویت runtime جداگانه روی Test تأیید شده است |
 | وضعیت انتشار | فقط image محلی ساخته و بررسی شده؛ به Test یا Production deploy نشده است |
 
 ## شواهد verification
