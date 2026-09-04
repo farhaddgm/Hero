@@ -2,7 +2,7 @@
 
 ## 2026-09-05 — ساخت و fingerprint artifact کاندیدای تمیز
 
-- ساخته‌شده: image محلی `hero-control-plane:candidate-0aaeaa3` از archive نسخهٔ commit‌شده، بدون ورود تغییرات خارج از commit؛
+- ساخته‌شده: image محلی `hero-control-plane:candidate-2b3d5b8` با digest `sha256:a63abdb1f5b04b847c95cfa4a598b2cead8d3f4a09bd3b6987c1a3ce122a0db1` از archive نسخهٔ commit‌شده، بدون ورود تغییرات خارج از commit؛
 - تأییدشده: verify داخل build با `239/239` تست موفق؛
 - تأییدشده: hash پنج فایل اصلی image با fingerprint source برابر است؛
 - مرز: artifact هنوز به `hero-test` یا Production deploy نشده؛ deploy Test باید با همان Secret/env فعلی و ثبت rollback انجام شود.
