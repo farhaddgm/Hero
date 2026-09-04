@@ -12,6 +12,7 @@
 - آزموده‌شده: rollback کنترل‌پلیس در یک خطای preflight انجام و با health/auth موفق restore شد؛ recovery از backup/checksum هنوز باز است؛
 - مرز: Candidate به Production deploy نشده؛ push هنوز انجام نشده و recovery واقعی از backup/checksum و Pilot گیت‌های جداگانه‌اند.
 - آزموده‌شده: backup/restore PostgreSQL synthetic با checksum `sha256:1ce262c482e6096d7c315d62c3483ba012a9f1e813e57f2d0fcfe5c29ccffb04` و sentinel `source-ok` موفق؛ Clean Linux عملیاتی هنوز باز است.
+- اصلاح‌شده: Control Plane Test از حالت unmanaged خارج و با `compose.yaml` و labelهای درست `hero-test/control-plane` بازسازی شد؛ image، auth، restart، volume و network تأیید شدند.
 
 ## 2026-09-05 — candidate نهایی Test پس از اصلاح env handoff
 

@@ -64,6 +64,7 @@ fa16ce5ef898670bb138d17554290626d4f6005753ccfa3b38f104a6ccb21f15  packages/domai
 - دامنهٔ Test: TLS معتبر (`verify=0`) و Back Office بدون احراز هویت `401`؛
 - Production: HTTP `/backoffice=308` به HTTPS و HTTPS بدون احراز هویت `401`؛
 - stack مستقل Test با همین candidate جایگزین و سپس restart شد؛ PostgreSQL و volume حفظ شدند؛ کانتینر rollback قبلی متوقف و محفوظ است؛ کانتینر موقت smoke پس از تست حذف شد.
+- مالکیت runtime: `hero-test-control-plane-1` با `compose.yaml` مدیریت می‌شود؛ project/service label برابر `hero-test/control-plane`، volume `hero-test_hero-data` و network `hero-test_hero-private` تأیید شد.
 
 ## گیت‌های قبل از promotion
 

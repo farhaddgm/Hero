@@ -18,6 +18,7 @@
 - پوشش UI Test: Back Office احراز‌شدهٔ page/data/events را `۲۰۰` برگرداند؛ ۱۱ تیم با جزئیات کامل، ۸ Role، تنظیمات کل Hero، راهنمای خواندن پنل و فونت فارسی بررسی شدند.
 - کنترل امنیتی HTTP: auth boundary، read-only method guard، CSP، noindex، route ناشناخته و API بدون auth موفق‌اند؛ مرور دستی Caddy، firewall و access policy هنوز برای مالک/ادمین باقی است.
 - APIهای read-only Test: ۱۵ endpoint احراز‌شده برای سطح‌های اصلی پنل همگی `۲۰۰` و ۱۱ تیم/diagnostics حاضر؛ این شاهد جایگزین Pilot واقعی یا Provider زنده نیست.
+- مالکیت Compose: Control Plane candidate اکنون با `compose.yaml` و labelهای `hero-test/control-plane` مدیریت می‌شود؛ volume/network مستقل حفظ شده و rollback container قبلی متوقف است.
 - rollback Test: هنگام مشاهدهٔ env ناقص، candidate حذف و کانتینر قبلی با همان volume/network restore شد؛ health سالم و Back Office بدون احراز هویت دوباره `۴۰۱` شد. این شاهد rollback کنترل‌پلیس است؛ recovery واقعی از backup/checksum هنوز باقی است.
 - آدرس production موجود نیز پاسخ می‌دهد: HTTP با `۳۰۸` به HTTPS می‌رود و `/backoffice` بدون احراز هویت `۴۰۱` می‌دهد؛ این به‌معنی انتشار نسخهٔ فعلی workspace نیست.
 - تشخیص دقیق production: credential runtime خود سرویس روی localhost `۲۰۰` می‌گیرد، اما همان credential از دامنهٔ عمومی `۴۰۱` می‌گیرد؛ ادمین باید فقط Basic Auth/Caddy production را با Secret Store همان محیط تطبیق دهد و قبل از reload، config را validate کند.
