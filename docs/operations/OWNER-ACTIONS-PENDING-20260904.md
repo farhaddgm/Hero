@@ -17,7 +17,7 @@
 - parity نسخه: artifact تمیز `hero-control-plane:candidate-c1a1430` از Commit `c1a1430` با digest `sha256:e662f73725db07e7a1080922ac549940a417f4dba97418c5e6bd12e61fbbd4c2` فقط به `hero-test` deploy شده؛ preflight، hash پنج فایل اصلی، health، readiness، احراز هویت و restart دوباره تأیید شده‌اند.
 - پوشش UI Test: Back Office احراز‌شدهٔ page/data/events را `۲۰۰` برگرداند؛ ۱۱ تیم با جزئیات کامل، ۸ Role، تنظیمات کل Hero، راهنمای خواندن پنل، فونت فارسی، دفتر `OPEN-50` با ۵۰ ردیف و ۱۴ اقدام مالک/ادمین بررسی شدند.
 - کنترل امنیتی HTTP: auth boundary، read-only method guard، CSP، noindex، route ناشناخته و API بدون auth موفق‌اند؛ مرور دستی Caddy، firewall و access policy هنوز برای مالک/ادمین باقی است.
-- APIهای read-only Test: ۱۵ endpoint احراز‌شده برای سطح‌های اصلی پنل همگی `۲۰۰` و ۱۱ تیم/diagnostics حاضر؛ این شاهد جایگزین Pilot واقعی یا Provider زنده نیست.
+- APIهای read-only Test: ۱۷ مسیر احراز‌شده (۳ مسیر Back Office با Basic Auth و ۱۴ مسیر API با نشست Owner) همگی `۲۰۰` و ۱۱ تیم/diagnostics حاضر؛ این شاهد جایگزین Pilot واقعی یا Provider زنده نیست.
 - مالکیت Compose: Control Plane candidate اکنون با `compose.yaml` و labelهای `hero-test/control-plane` مدیریت می‌شود؛ volume/network مستقل حفظ شده و rollback container قبلی متوقف است.
 - rollback Test: هنگام مشاهدهٔ env ناقص، candidate حذف و کانتینر قبلی با همان volume/network restore شد؛ health سالم و Back Office بدون احراز هویت دوباره `۴۰۱` شد. این شاهد rollback کنترل‌پلیس است؛ recovery واقعی از backup/checksum هنوز باقی است.
 - آدرس production موجود نیز پاسخ می‌دهد: HTTP با `۳۰۸` به HTTPS می‌رود و `/backoffice` بدون احراز هویت `۴۰۱` می‌دهد؛ این به‌معنی انتشار نسخهٔ فعلی workspace نیست.

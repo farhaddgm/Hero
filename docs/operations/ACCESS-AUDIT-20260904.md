@@ -51,6 +51,7 @@
 - Commit `c1a1430` با image digest `sha256:e662f73725db07e7a1080922ac549940a417f4dba97418c5e6bd12e61fbbd4c2` فقط روی `hero-test` مستقر شد؛
 - Back Office اکنون Projection نسخه‌دار `OPEN-50` را با ۵۰ ردیف، وضعیت، اقدام بعدی و ۱۴ اقدام مالک/ادمین نشان می‌دهد؛ ۳ blocker Pilot جداگانه مشخص‌اند؛
 - payload احراز‌شدهٔ `/backoffice-data` شامل `ledger=OPEN-50` و `total=50` است؛ HTML شامل عنوان دفتر و فهرست گیت‌هاست؛
+- ۱۷ مسیر read-only Test احراز شد: ۳ مسیر Back Office با Basic Auth و ۱۴ مسیر API با نشست Owner؛ همه `۲۰۰` و بدون mutation بودند؛
 - بعد از restart کنترل‌شده، `/ready=200` و Back Office با auth=`200` باقی ماند؛ PostgreSQL و namespace `hero-test` تغییر نکردند؛
 - `compose.test.yaml` همچنان untracked و خارج از image/فرآیند deploy است و خوانده یا استفاده نشد.
 
