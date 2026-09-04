@@ -1,5 +1,12 @@
 # تغییرات رودمپ شرکت
 
+## 2026-09-05 — machine-checkable roadmap audit و candidate جدید
+
+- افزوده‌شده: validator داخلی برای پیوستگی و کامل‌بودن دفترهای `OPEN-50` و `NEXT-100`؛ نتیجهٔ واقعی `50/50` و `100/100`؛
+- ساخته‌شده: image تمیز `hero-control-plane:candidate-923a0f3` با digest ثبت‌شده از commit versioned؛
+- تأییدشده: `pnpm check` با `239/239` تست و Build `140` ماژول موفق؛
+- مرز: candidate هنوز به `hero-test` یا Production deploy نشده و rollback/recovery واقعی همچنان باز است.
+
 ## 2026-09-05 — ساخت و fingerprint artifact کاندیدای تمیز
 
 - ساخته‌شده: image محلی `hero-control-plane:candidate-2b3d5b8` با digest `sha256:a63abdb1f5b04b847c95cfa4a598b2cead8d3f4a09bd3b6987c1a3ce122a0db1` از archive نسخهٔ commit‌شده، بدون ورود تغییرات خارج از commit؛

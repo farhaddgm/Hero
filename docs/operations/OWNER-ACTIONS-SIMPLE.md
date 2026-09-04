@@ -6,7 +6,7 @@
 
 کارهای داخل پروژه انجام شده و محیط مستقل Test نیز اکنون آماده و بررسی شده است:
 
-- تست Linux: `239/239` موفق؛
+- تست Linux: `239/239` موفق؛ Roadmap audit برابر `OPEN-50=50` و `NEXT-100=100`؛
 - Build برنامه: موفق؛
 - محیط Test مستقل: project name=`hero-test`، پورت `43101` فقط روی localhost، PostgreSQL، volume و network جدا؛
 - preflight، migration نسخهٔ `1.0`، `pg_isready`، `/health` و `/ready` موفق؛
@@ -15,7 +15,7 @@
 - Provider زنده: عمداً خاموش است؛
 - Production: عمداً فعال نشده است.
 
-Test واقعی سالم است. artifact تمیز `hero-control-plane:candidate-2b3d5b8` نیز ساخته و با source تطبیق شده، اما هنوز روی Test نصب نشده است. برای ادامهٔ فعلی باید همین artifact با env/Secret فعلی deploy شود، سپس rollback/recovery و Pilot انجام شوند.
+Test واقعی سالم است. artifact تمیز `hero-control-plane:candidate-923a0f3` نیز ساخته و با source تطبیق شده، اما هنوز روی Test نصب نشده است. برای ادامهٔ فعلی باید همین artifact با env/Secret فعلی deploy شود، سپس rollback/recovery و Pilot انجام شوند.
 
 نکتهٔ production: خود سرویس با credential runtime سالم است، اما دامنهٔ عمومی production همان credential را قبول نمی‌کند و `401` می‌دهد. ادمین باید Basic Auth/Caddy production را اصلاح و validate کند؛ password یا hash نباید در چت ارسال شود.
 

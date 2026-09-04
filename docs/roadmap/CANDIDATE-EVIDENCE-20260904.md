@@ -7,9 +7,10 @@
 | مورد | مقدار |
 |---|---|
 | branch | `codex/hero-001-project-charter` |
-| candidate commit محلی | `2b3d5b8` — `chore: enforce deployment contract` |
+| candidate commit محلی | `923a0f3` — `chore: validate roadmap audit ledgers` |
+| deployment-contract commit | `2b3d5b8` — `chore: enforce deployment contract` |
 | implementation commit | `cdc44bc` — `feat: harden Hero backoffice and audit projections` |
-| evidence chain | `cce6aaa`، `0aaeaa3`، `de4b4c5` و `79b0977` — ثبت verification، baseline و artifact |
+| evidence chain | `cce6aaa`، `0aaeaa3`، `de4b4c5`، `79b0977` و `e865e5b` — ثبت verification، baseline، artifact و runtime audit |
 | commit پایه | `26cfe549924b0db63eef71db25aeb8dfb5beb4d7` |
 | remote branch pointer | `c445609b301807df1bb50124a92afa31c500a145`؛ از candidate محلی عقب‌تر است |
 | وضعیت | candidate محلی commit شده؛ push و انتشار انجام نشده |
@@ -20,18 +21,19 @@
 
 | مورد | مقدار |
 |---|---|
-| image tag محلی | `hero-control-plane:candidate-2b3d5b8` |
-| image digest | `sha256:a63abdb1f5b04b847c95cfa4a598b2cead8d3f4a09bd3b6987c1a3ce122a0db1` |
-| مبنای build | archive از HEAD commit‌شدهٔ `2b3d5b8`؛ فایل‌های خارج از commit وارد build نشدند |
-| نتیجهٔ verify داخل build | `pnpm check`: ۲۳۹/۲۳۹ تست موفق؛ Build: ۱۳۹ ماژول و ۷ فایل JSON |
+| image tag محلی | `hero-control-plane:candidate-923a0f3` |
+| image digest | `sha256:c048cb5f67ee33fc4a40d92a4589b150e70265c179b0d8adf8b8392288fe3cb9` |
+| مبنای build | archive از HEAD commit‌شدهٔ `923a0f3`؛ فایل‌های خارج از commit وارد build نشدند |
+| نتیجهٔ verify داخل build | `pnpm check`: ۲۳۹/۲۳۹ تست موفق؛ Build: ۱۴۰ ماژول و ۷ فایل JSON |
 | parity با source | hash هر پنج فایل fingerprint‌شده برابر است |
+| کنترل roadmap | `OPEN-50=50` و `NEXT-100=100`؛ همهٔ ستون‌های الزامی و refها معتبرند |
 | runtime smoke مستقل | کانتینر موقت با پورت loopback `43102`؛ `/health` و `/backoffice` برابر ۲۰۰، HTML فارسی/IRANSans/noindex؛ پس از تست حذف شد. احراز هویت runtime جداگانه روی Test تأیید شده است |
 | وضعیت انتشار | فقط image محلی ساخته و بررسی شده؛ به Test یا Production deploy نشده است |
 
 ## شواهد verification
 
 - `pnpm check`: ۲۳۹/۲۳۹ تست موفق؛
-- Build: ۱۳۹ ماژول و ۷ فایل JSON موفق؛
+- Build: ۱۴۰ ماژول و ۷ فایل JSON موفق؛
 - Governance: ۲۱ گام نسخه‌مند موفق؛
 - clean-room: ۲۴۱ فایل، بدون خطا؛
 - `git diff --check`: موفق؛
@@ -61,7 +63,7 @@ fa16ce5ef898670bb138d17554290626d4f6005753ccfa3b38f104a6ccb21f15  packages/domai
 
 ## گیت‌های قبل از promotion
 
-۱. commit candidate انجام شد؛ برای CI باید commit `2b3d5b8` و image digest دقیق بالا استفاده شود؛
+۱. commit candidate انجام شد؛ برای CI باید commit `923a0f3` و image digest دقیق بالا استفاده شود؛
 
 ۲. اجرای `pnpm check` روی همان commit و ثبت SHA، image digest و artifact؛
 
