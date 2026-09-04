@@ -19,6 +19,41 @@ import { getAiBenchmarkContractSummary } from "../../../packages/contracts/src/a
 import { compareAiBenchmarks, runAiBenchmark } from "../../../packages/domain/src/ai-benchmark.mjs";
 import { PilotDryRunError, runPilotDryRun } from "../../../packages/domain/src/pilot-dry-run.mjs";
 import { createOperationalDiagnostics } from "../../../packages/domain/src/operational-diagnostics.mjs";
+import {
+  HERO_BOUNDARY,
+  HERO_SERVICE,
+  HERO_VERSION,
+  getAdminAuthContractSummary,
+  getAiOrchestrationContractSummary,
+  getAssuranceGateContractSummary,
+  getAuthorizationContractSummary,
+  getClaudeReviewContractSummary,
+  getCriticalPrinciplesContractSummary,
+  getCursorHandoffContractSummary,
+  getFakeAgentContractSummary,
+  getMobileFactoryContractSummary,
+  getOperationalDataSummary,
+  getOperationalDiagnosticsContractSummary,
+  getOrganizationAdvisorContractSummary,
+  getOrganizationPerformanceContractSummary,
+  getOutputAdvisoryContractSummary,
+  getPilotContractSummary,
+  getPlannerContractSummary,
+  getPortabilityGateContractSummary,
+  getProjectMemoryContractSummary,
+  getProviderAgentContractSummary,
+  getQualityGateContractSummary,
+  getPublicArchitectureSummary,
+  getReleaseContractSummary,
+  getRunnerContractSummary,
+  getSkillContractSummary,
+  getTeamContractSummary,
+  getTeamResearchContractSummary,
+  getTrainingContractSummary,
+  getWebFactoryContractSummary,
+  getWorkflowContractSummary,
+  getOwnerAuthContractSummary
+} from "../../../packages/contracts/src/index.mjs";
 
 const SENSITIVE_INPUT = /(?:\bsk-[A-Za-z0-9_-]{12,}\b|\bBearer\s+[A-Za-z0-9._-]{12,}\b|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|(?:api[_-]?key|access[_-]?token|refresh[_-]?token|password|credential)\s*[:=])/i;
 
@@ -82,6 +117,44 @@ function buildPlan(scenario) {
 
 function publicRequest(request) {
   return Object.freeze(copy(request));
+}
+
+function projectContractCatalog() {
+  return Object.freeze({
+    architecture: getPublicArchitectureSummary(),
+    authorization: getAuthorizationContractSummary(),
+    ownerAuth: getOwnerAuthContractSummary(),
+    adminAuth: getAdminAuthContractSummary(),
+    dashboard: getDashboardContractSummary(),
+    team: getTeamContractSummary(),
+    training: getTrainingContractSummary(),
+    teamResearch: getTeamResearchContractSummary(),
+    aiOrchestration: getAiOrchestrationContractSummary(),
+    providerAgent: getProviderAgentContractSummary(),
+    fakeAgent: getFakeAgentContractSummary(),
+    planner: getPlannerContractSummary(),
+    workflow: getWorkflowContractSummary(),
+    runner: getRunnerContractSummary(),
+    qualityGate: getQualityGateContractSummary(),
+    criticalPrinciples: getCriticalPrinciplesContractSummary(),
+    release: getReleaseContractSummary(),
+    projectMemory: getProjectMemoryContractSummary(),
+    skill: getSkillContractSummary(),
+    outputAdvisory: getOutputAdvisoryContractSummary(),
+    organizationPerformance: getOrganizationPerformanceContractSummary(),
+    organizationAdvisor: getOrganizationAdvisorContractSummary(),
+    benchmark: getAiBenchmarkContractSummary(),
+    pilot: getPilotContractSummary(),
+    observability: getObservabilityContractSummary(),
+    diagnostics: getOperationalDiagnosticsContractSummary(),
+    operationalData: getOperationalDataSummary(),
+    webFactory: getWebFactoryContractSummary(),
+    mobileFactory: getMobileFactoryContractSummary(),
+    assuranceGate: getAssuranceGateContractSummary(),
+    portabilityGate: getPortabilityGateContractSummary(),
+    claudeReview: getClaudeReviewContractSummary(),
+    cursorHandoff: getCursorHandoffContractSummary()
+  });
 }
 
 export class DashboardCommandError extends Error {
@@ -170,6 +243,87 @@ export function createControlDashboard(options = {}) {
     const teams = current.teamControl.teams.map(team => {
       const approvalValues = Object.values(team.approvals);
       const approvedSections = approvalValues.filter(Boolean).length;
+      const safeReviews = Object.freeze((team.reviews ?? []).map(review => Object.freeze({
+        reviewId: review.reviewId,
+        target: review.target,
+        decision: review.decision,
+        reviewer: review.reviewer,
+        reviewedAt: review.reviewedAt
+      })));
+      const safeDeliverableReviews = Object.freeze((team.deliverableReviews ?? []).map(review => Object.freeze({
+        reviewId: review.reviewId,
+        projectId: review.projectId,
+        artifactId: review.artifactId,
+        artifactVersion: review.artifactVersion,
+        direction: review.direction,
+        decision: review.decision,
+        reviewer: review.reviewer,
+        reviewedAt: review.reviewedAt
+      })));
+      const safeAssignments = Object.freeze((team.assignments ?? []).map(assignment => Object.freeze({
+        assignmentId: assignment.assignmentId,
+        projectId: assignment.projectId,
+        stage: assignment.stage,
+        taskId: assignment.taskId,
+        state: assignment.state,
+        autonomyMode: assignment.autonomyMode,
+        assignedBy: assignment.assignedBy,
+        assignedAt: assignment.assignedAt,
+        updatedAt: assignment.updatedAt
+      })));
+      const safeReworkRequests = Object.freeze((team.reworkRequests ?? []).map(request => Object.freeze({
+        kind: request.kind,
+        reviewId: request.reviewId,
+        target: request.target,
+        artifactId: request.artifactId,
+        decision: request.decision,
+        requestedBy: request.reviewer ?? request.requestedBy,
+        requestedAt: request.reviewedAt ?? request.requestedAt
+      })));
+      const safeResearchApplications = Object.freeze((team.researchApplications ?? []).map(application => Object.freeze({
+        researchId: application.researchId,
+        appliedAt: application.appliedAt,
+        appliedBy: application.appliedBy,
+        trainingUpdates: Object.freeze([...(application.trainingUpdates ?? [])]),
+        provenance: application.provenance ? Object.freeze({
+          sourceRefs: Object.freeze([...(application.provenance.sourceRefs ?? [])]),
+          sourceVersion: application.provenance.sourceVersion,
+          observedAt: application.provenance.observedAt,
+          validUntil: application.provenance.validUntil,
+          freshness: application.provenance.freshness
+        }) : null
+      })));
+      const safeResearchRequests = Object.freeze((researchRegistry.list(team.teamId) ?? []).map(research => Object.freeze({
+        researchId: research.researchId,
+        projectId: research.projectId,
+        status: research.status,
+        version: research.version,
+        lastEventId: research.lastEventId,
+        requestedBy: research.requestedBy,
+        requestedAt: research.requestedAt,
+        startedAt: research.startedAt,
+        submittedAt: research.submittedAt,
+        reviewedAt: research.reviewedAt,
+        appliedAt: research.appliedAt,
+        focusAreas: Object.freeze([...(research.focusAreas ?? [])]),
+        requestedOutputs: Object.freeze([...(research.requestedOutputs ?? [])]),
+        reportVersion: research.report?.reportVersion ?? null,
+        sourceCount: research.report?.sourceRefs?.length ?? 0,
+        findingCount: research.report?.findings?.length ?? 0,
+        benchmarkCount: research.report?.benchmarks?.length ?? 0,
+        recommendationCount: research.report?.recommendations?.length ?? 0,
+        hasReport: Boolean(research.report)
+      })));
+      const trainingModules = Object.freeze(Object.values(team.training?.modules ?? {}).map(module => Object.freeze({
+        trainingId: module.trainingId,
+        module: module.module,
+        score: module.score,
+        passed: module.passed,
+        recordedBy: module.recordedBy,
+        recordedAt: module.recordedAt,
+        evidencePresent: Boolean(module.evidenceRef)
+      })));
+      const latestAssessment = team.training?.latestAssessment;
       return Object.freeze({
         teamId: team.teamId,
         name: team.name,
@@ -177,7 +331,11 @@ export function createControlDashboard(options = {}) {
         version: team.version,
         lastEventId: team.lastEventId,
         responsibility: team.responsibility,
-        approvals: Object.freeze({ approved: approvedSections, total: approvalValues.length }),
+        approvals: Object.freeze({
+          approved: approvedSections,
+          total: approvalValues.length,
+          byTarget: Object.freeze({ ...team.approvals })
+        }),
         trainingStatus: team.training.status,
         ready: team.status === "ready",
         contract: Object.freeze({
@@ -195,12 +353,16 @@ export function createControlDashboard(options = {}) {
         }),
         training: Object.freeze({
           status: team.training.status,
-          modules: Object.freeze(Object.values(team.training.modules).map(module => Object.freeze({
-            module: module.module,
-            score: module.score,
-            passed: module.passed,
-            recordedAt: module.recordedAt
-          })))
+          modules: trainingModules,
+          latestAssessment: latestAssessment ? Object.freeze({
+            trainingId: latestAssessment.trainingId,
+            module: latestAssessment.module,
+            score: latestAssessment.score,
+            passed: latestAssessment.passed,
+            recordedBy: latestAssessment.recordedBy,
+            recordedAt: latestAssessment.recordedAt,
+            evidencePresent: Boolean(latestAssessment.evidenceRef)
+          }) : null
         }),
         knowledge: Object.freeze([...team.knowledge]),
         knowledgeVersion: team.knowledgeVersion,
@@ -216,8 +378,27 @@ export function createControlDashboard(options = {}) {
           researchId: item.researchId
         }))),
         contractHistory: Object.freeze(typeof teamRegistry.contractHistory === "function" ? teamRegistry.contractHistory(team.teamId) : []),
-        assignmentCount: team.assignments.length,
-        reviewCount: team.reviews.length
+        assignmentCount: safeAssignments.length,
+        reviewCount: safeReviews.length,
+        details: Object.freeze({
+          approvalTargets: Object.freeze([...Object.keys(team.approvals)]),
+          reviews: safeReviews,
+          deliverableReviews: safeDeliverableReviews,
+          assignments: safeAssignments,
+          reworkRequests: safeReworkRequests,
+          researchApplications: safeResearchApplications,
+          researchRequests: safeResearchRequests,
+          trainingModules,
+          latestAssessment: latestAssessment ? Object.freeze({
+            trainingId: latestAssessment.trainingId,
+            module: latestAssessment.module,
+            score: latestAssessment.score,
+            passed: latestAssessment.passed,
+            recordedBy: latestAssessment.recordedBy,
+            recordedAt: latestAssessment.recordedAt,
+            evidencePresent: Boolean(latestAssessment.evidenceRef)
+          }) : null
+        })
       });
     });
     const requestStatuses = current.requests.reduce((statuses, request) => {
@@ -246,10 +427,51 @@ export function createControlDashboard(options = {}) {
           decisionBoundary: review.decisionBoundary
         }))
       : [];
+    const contracts = projectContractCatalog();
+    const projectControls = Object.freeze({
+      criticalPrinciples: Object.freeze((current.principlesControl.principles ?? []).map(principle => Object.freeze({
+        projectId: principle.projectId,
+        principleId: principle.principleId,
+        title: principle.title,
+        scope: principle.scope,
+        controlPoints: Object.freeze([...(principle.controlPoints ?? [])]),
+        enforcement: principle.enforcement,
+        status: principle.status,
+        version: principle.version,
+        approvedBy: principle.approvedBy,
+        approvedAt: principle.approvedAt,
+        lastEventId: principle.lastEventId,
+        feedbackPresent: Boolean(principle.feedback)
+      }))),
+      releases: Object.freeze((current.releaseControl.releases ?? []).map(release => Object.freeze({
+        releaseId: release.releaseId,
+        projectId: release.projectId,
+        artifactId: release.artifactId,
+        releaseVersion: release.releaseVersion,
+        commitSha: release.commitSha,
+        state: release.state,
+        aggregateVersion: release.aggregateVersion,
+        createdAt: release.createdAt,
+        updatedAt: release.updatedAt,
+        testEnvironment: Object.freeze({ status: release.testEnvironment?.status, deployedAt: release.testEnvironment?.deployedAt }),
+        productionEnvironment: Object.freeze({ status: release.productionEnvironment?.status, deployedAt: release.productionEnvironment?.deployedAt }),
+        testEvidence: release.testEvidence ? Object.freeze({ evidenceId: release.testEvidence.evidenceId, runId: release.testEvidence.runId, exitCode: release.testEvidence.exitCode, result: release.testEvidence.result, recordedAt: release.testEvidence.recordedAt }) : null,
+        productionApproval: release.productionApproval ? Object.freeze({ decision: release.productionApproval.decision, actorId: release.productionApproval.actorId, approvedAt: release.productionApproval.approvedAt }) : null,
+        lastEventId: release.lastEventId
+      }))),
+      teamWorkflows: Object.freeze((current.teamControl.workflows ?? []).map(workflow => Object.freeze(copy(workflow))))
+    });
     return Object.freeze({
-      schemaVersion: "1.0",
+      schemaVersion: "1.1",
       generatedAt: timestamp(now),
       scope: "read-only-development-backoffice",
+      readOnly: Object.freeze({
+        enabled: true,
+        uiMutationControls: false,
+        allowedHttpMethods: Object.freeze(["GET"]),
+        reason: "این projection برای مشاهده و ممیزی است؛ فرمان‌های تغییر فقط از APIهای محافظت‌شده و خارج از بک‌آفیس صادر می‌شوند.",
+        redacted: Object.freeze(["secret values", "credential values", "raw request text", "prompts", "model output", "private feedback"])
+      }),
       access: Object.freeze({
         mode: "same-host-only",
         path: "/backoffice",
@@ -257,6 +479,74 @@ export function createControlDashboard(options = {}) {
         bindDefault: "127.0.0.1",
         browserRequirement: "مرورگر باید روی همان ماشینی باشد که Docker میزبان Hero است"
       }),
+      project: Object.freeze({
+        name: "Hero",
+        service: HERO_SERVICE,
+        version: HERO_VERSION,
+        boundary: HERO_BOUNDARY,
+        locale: "fa-IR",
+        runtime: "Linux container",
+        sourceOfTruth: "versioned domain registries, append-only events and safe read projections"
+      }),
+      settings: Object.freeze({
+        runtime: Object.freeze({
+          service: HERO_SERVICE,
+          node: "Node.js 22 + ESM HTTP service",
+          deployment: "Linux container",
+          host: "runtime-configured",
+          port: "runtime-configured",
+          dataDirectory: "runtime-configured",
+          providerGateway: "adapter-boundary",
+          liveProviderCalls: "disabled unless separately configured and authorized",
+          externalSpend: "separately authorized"
+        }),
+        persistence: Object.freeze({
+          mode: current.persistenceHydration.status === "hydrated" ? "hydrated" : "runtime-configured",
+          hydration: current.persistenceHydration,
+          eventLog: "append-only operational events",
+          snapshots: "versioned registry snapshots",
+          rebuildableReadModel: true,
+          benchmarkHistorySource: benchmark.latest ? "benchmark store" : "empty"
+        }),
+        security: Object.freeze({
+          access: "same-host-only",
+          backofficeAuthentication: "runtime-configured Basic Auth",
+          ownerAuthentication: "runtime-configured signed session",
+          adminAuthentication: "runtime-configured signed session",
+          secretValuesExposed: false,
+          rawPrivateContentExposed: false,
+          publicIndexing: "blocked by noindex headers",
+          hostFileAccess: "excluded by clean-room boundary"
+        }),
+        governance: Object.freeze({
+          globalStop: current.globalStop,
+          fullAutonomy: current.fullAutonomy,
+          mutationFromBackoffice: false,
+          sensitiveActions: Object.freeze(["production-deploy", "secret-change", "external-spend", "external-message", "destructive-data-operation"]),
+          decisionBoundary: "read models and evaluations never grant authorization",
+          ownerBoundary: "project, release and operational decisions remain owner-gated"
+        }),
+        catalog: Object.freeze({
+          teamCount: teams.length,
+          aiRoleCount: current.aiOrchestration.contract.roles?.length ?? 0,
+          providerCount: aiConfiguration.providers?.length ?? 0,
+          modelCount: aiConfiguration.models?.length ?? 0,
+          profileCount: aiConfiguration.profiles?.length ?? 0,
+          bindingCount: aiConfiguration.bindings?.length ?? 0,
+          skillCount: current.skills.skills?.length ?? 0,
+          contractCount: Object.keys(contracts).length
+        })
+      }),
+      projectControls,
+      contracts,
+      routes: Object.freeze([
+        Object.freeze({ method: "GET", path: "/backoffice", purpose: "رابط فارسی فقط‌خواندنی", access: "same-host Basic Auth" }),
+        Object.freeze({ method: "GET", path: "/backoffice-data", purpose: "projection امن تنظیمات و وضعیت", access: "same-host Basic Auth" }),
+        Object.freeze({ method: "GET", path: "/backoffice-events", purpose: "Timeline خلاصه‌شده و امن", access: "same-host Basic Auth" }),
+        Object.freeze({ method: "GET", path: "/api/dashboard", purpose: "read model عملیاتی محافظت‌شده", access: "Owner/Admin" }),
+        Object.freeze({ method: "GET", path: "/api/operations/diagnostics", purpose: "تشخیص وضعیت runtime", access: "Owner/Admin" }),
+        Object.freeze({ method: "GET", path: "/api/audit", purpose: "خلاصهٔ audit بدون محتوای حساس", access: "Owner/Admin" })
+      ]),
       organization: Object.freeze({ name: "Hero", teamCount: teams.length, teams: Object.freeze(teams) }),
       ai: Object.freeze({
         roles: Object.freeze([...(current.aiOrchestration.contract.roles ?? [])]),

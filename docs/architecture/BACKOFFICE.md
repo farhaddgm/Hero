@@ -1,7 +1,7 @@
 # بک‌آفیس توسعهٔ Hero
 
-- نسخهٔ قرارداد: 1.0
-- وضعیت: نسخهٔ مشاهده‌ای با مدیریت مالک‌محور اصول تیم و پیکربندی نسخه‌دار AI
+- نسخهٔ projection: 1.1
+- وضعیت: نمای کاملاً فقط‌خواندنی برای مشاهده، ممیزی و فهم ساختار Hero
 - مسیر مشاهده: `/backoffice`
 
 ## هدف
@@ -11,6 +11,8 @@
 ## دامنهٔ نسخهٔ اول
 
 - جزئیات کامل قرارداد ۱۱ Team شامل مسئولیت، اختیار تصمیم، ورودی، خروجی، اصول، همکاران، مراحل و سطح خودکارسازی؛
+- جزئیات عملیاتی هر Team شامل تأییدها، آموزش و آخرین ارزیابی، تخصیص‌ها، بازبینی قرارداد/Deliverable، بازکاری، پژوهش‌ها، provenance دانش و تاریخچهٔ نسخه‌ها؛
+- تنظیمات امن کل پروژه شامل هویت سرویس، runtime، persistence/hydration، امنیت، حاکمیت، مسیرهای خواندنی و کاتالوگ همهٔ قراردادهای Hero؛
 - شش Role اصلی `Analyst`، `Evaluator`، `Decision Maker`، `Planner`، `Researcher` و `Executor`، به‌علاوهٔ `Verifier` و `Code Reviewer` برای کنترل کیفیت؛
 - شمارندهٔ Provider، Profile، Invocation، Evaluation و Decision؛
 - وضعیت Global Stop، اختیار کامل و hydration؛
@@ -26,11 +28,10 @@
 - خلاصهٔ activityهای Invocation، Evaluation و Decision و وضعیت benchmark synthetic؛
 - قرارداد correlation سازگار با trace/span برای آماده‌سازی مشاهده‌پذیری آینده؛
 - مسیر بعدی و واژه‌نامهٔ کامل نقش‌ها و مفهوم‌های اصلی پنل؛
-- ویرایش خط‌به‌خط اصول هر تیم با فرمان owner-authenticated و ثبت event نسخه‌دار؛ ویرایش، تأیید قبلی اصول را بازنشانی می‌کند تا تأیید تازه جداگانه انجام شود؛ تاریخچهٔ diff و rollback نیز با نسخهٔ فعلی و idempotency کنترل می‌شود.
-- تاریخچهٔ نسخه‌های Default Role Policy نیز در همان پنل قابل مشاهده است و rollback آن برای Owner/Admin با ثبت نسخهٔ تازه انجام می‌شود.
-- مدیریت پایهٔ کاتالوگ AI در خود پنل: ثبت Provider deterministic/disabled، Model، Profile، Role Binding و Default Role Policy. این بخش credential را فقط به‌صورت reference می‌پذیرد و live/external-spend را فعال نمی‌کند.
+- تاریخچهٔ نسخه‌های Team و Default Role Policy در همان پنل فقط برای مشاهده نمایش داده می‌شود؛ هیچ rollback، تأیید یا ویرایشی از UI صادر نمی‌شود.
+- کاتالوگ Provider/Model/Profile/Role Binding و Policy در همان پنل به‌صورت read-only دیده می‌شود؛ credential فقط با وضعیت امن و بدون مقدار واقعی بازتاب می‌یابد.
 
-Projection بک‌آفیس فقط فیلدهای مشاهده‌ای و بدون متن درخواست، مقدار Credential، Secret، Token یا مسیر میزبان را برمی‌گرداند. عملیات تغییردهنده و APIهای `/api/*` با احراز هویت تفکیک‌شدهٔ Owner/Admin کنترل می‌شوند: admin فقط read modelها، کاتالوگ AI و ویرایش/rollback نسخهٔ اصول تیم را در فهرست صریح مجاز تغییر می‌دهد؛ تأیید نهایی Team، پروژه، release، revocation و عملیات حساس همچنان owner-only هستند. رابط پنل علاوه بر اصول تیم، ثبت Provider/Model/Profile/Role Binding و تغییر Default Role Policy را با نشست احراز‌شده مصرف می‌کند؛ هر تغییر با event نسخه‌دار ثبت می‌شود و Provider زنده از این فرم قابل فعال‌سازی نیست. تاریخچهٔ Benchmark synthetic در صورت اتصال PostgreSQL پس از restart hydrate می‌شود و مقایسهٔ آن advisory-only است.
+Projection بک‌آفیس فقط فیلدهای مشاهده‌ای و بدون متن درخواست، مقدار Credential، Secret، Token، prompt، output خام، feedback خصوصی یا مسیر میزبان را برمی‌گرداند. خود رابط فقط `GET` می‌فرستد و هیچ فرم یا کنترل mutation ندارد. APIهای `/api/*` و فرمان‌های Owner/Admin خارج از این UI باقی می‌مانند و با احراز هویت و scope مستقل کنترل می‌شوند؛ تأیید نهایی Team، پروژه، release، revocation و عملیات حساس همچنان owner-only هستند. تاریخچهٔ Benchmark synthetic در صورت اتصال PostgreSQL پس از restart hydrate می‌شود و مقایسهٔ آن advisory-only است.
 
 Diagnostic read model در `/api/operations/diagnostics` پوشش ۱۱ Projection، صحت Snapshot/Event، replay dry-run، digest، freshness دانش و تعارض تخصیص را فقط‌خواندنی گزارش می‌کند.
 
@@ -47,11 +48,11 @@ Diagnostic read model در `/api/operations/diagnostics` پوشش ۱۱ Projectio
 - metadata دسترسی same-host و پیام diagnostic برای خطای اتصال؛
 - جست‌وجو و فیلتر محلی Team بر اساس نام/مسئولیت و آمادگی؛
 - کارت‌های responsive برای مرور قرارداد کامل هر Team و وضعیت آمادگی آن؛
-- ویرایش و تأیید دوبارهٔ اصول Team از داخل Back Office با کنترل نسخه؛
-- ویرایش و rollback نسخهٔ اصول Team با Admin یا Owner؛ تأیید نهایی اصول همچنان Owner-gated است؛
+- نمایش read-only تأییدهای Team، عملیات، تاریخچهٔ نسخه و provenance دانش؛
+- حذف کامل کنترل‌های mutation از UI؛ تغییرات مدیریتی فقط از APIهای محافظت‌شدهٔ خارج از Back Office؛
 - timeline امن با cursor `after` و `limit`؛
 - benchmark synthetic از مسیر owner-authenticated با خروجی advisory؛
-- فرم مدیریت کاتالوگ AI با ثبت مرحله‌ای Provider/Model/Profile/Binding/Policy و نمایش وضعیت فعلی؛
+- کاتالوگ read-only Provider/Model/Profile/Binding/Policy با نمایش جزئیات امن؛
 - ثبت Skill و Skill Binding و تغییر Role Policy از API owner-authenticated؛
 - ساخت Organization Advisor از آخرین Performance Review کاملِ ۱۱ تیم؛
 - ثبت audit برای نتیجهٔ `accepted` یا `rejected` فرمان.
@@ -76,13 +77,13 @@ Diagnostic read model در `/api/operations/diagnostics` پوشش ۱۱ Projectio
 - `GET /api/audit?after=0&limit=50` timeline فرمان‌های ثبت‌شده را برمی‌گرداند؛ `GET /api/audit/read-access?after=0&limit=50` audit دسترسی read model را فقط برای owner برمی‌گرداند؛
 - `GET /api/operations/diagnostics` گزارش owner/admin-authenticated و فقط‌خواندنی سلامت Projectionها، replay، digest، AI catalog، freshness و تعارض تخصیص را برمی‌گرداند؛
 - `/admin-auth-contract` قرارداد احراز هویت و دامنهٔ محدود Admin را ارائه می‌کند؛ ویرایش/rollback اصول تیم نیز به‌صورت صریح در همین دامنه ثبت شده است؛
-- `GET /api/teams/:teamId/contract-history` diff امن نسخه‌های قرارداد تیم را می‌دهد؛ `POST /api/teams/:teamId/principles/rollback` فقط با target event، expectedVersion و idempotency یک نسخهٔ جدید از اصول را برمی‌گرداند؛
-- `GET /api/ai/role-policies/:role/history` تاریخچهٔ Policy را می‌دهد؛ `POST /api/ai/role-policies/:role/rollback` بازگشت نسخه‌ای و owner/admin-gated را انجام می‌دهد؛
+- `GET /api/teams/:teamId/contract-history` diff امن نسخه‌های قرارداد تیم را می‌دهد؛ مسیر rollback در API باقی است اما Back Office آن را مصرف نمی‌کند؛
+- `GET /api/ai/role-policies/:role/history` تاریخچهٔ Policy را می‌دهد؛ rollback در API باقی است اما از UI صادر نمی‌شود؛
 - `/admin-auth-contract` مرز احراز هویت و اختیارهای محدود admin را اعلام می‌کند؛
 - `/observability-contract` قرارداد correlation و redaction را ارائه می‌کند؛
 - `/pilot-contract` state و acceptance checkهای پایلوت را ارائه می‌کند؛
 - `POST /api/auth/revoke-session` session مالک را با مرز owner-authenticated قابل‌ابطال می‌کند؛
-- `POST /api/teams/:teamId/principles` اصول تیم را با `expectedVersion` و event نسخه‌دار ویرایش می‌کند؛ Owner یا Admin می‌توانند نسخهٔ پیشنهادی را ثبت کنند و تأیید نهایی فقط با Owner است؛
+- `POST /api/teams/:teamId/principles` اصول تیم را با `expectedVersion` و event نسخه‌دار ویرایش می‌کند؛ این مسیر مدیریتی خارج از Back Office read-only است؛
 - `GET /api/ai/skills` و `GET /api/ai/organization-advisor` projectionهای امن Skill و Advisor را می‌دهند؛
 - `POST /api/ai/skills`، `POST /api/ai/skill-bindings` و `POST /api/ai/role-policies` تغییرات owner-authenticated و نسخه‌دار را ثبت می‌کنند؛
 - `POST /api/ai/organization-advisor` از Performance Review ثبت‌شده خروجی advisory و roadmap می‌سازد؛
