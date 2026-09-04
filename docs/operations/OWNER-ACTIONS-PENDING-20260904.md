@@ -1,4 +1,4 @@
-# کارهای لازم از طرف مالک و ادمین — وضعیت ۲۰۲۶-۰۹-۰۴
+# کارهای لازم از طرف مالک و ادمین — وضعیت ۲۰۲۶-۰۹-۰۵
 
 این صفحه فهرست کوتاه اقداماتی است که از داخل Codex قابل انجام نیستند. مقدار Secret نباید برای Codex ارسال شود.
 
@@ -13,7 +13,7 @@
 - schema Test: migrationهای `001` تا `006` و ۱۷ جدول دارای guard append-only در PostgreSQL تأیید شد؛
 - شبکهٔ Test: دسترسی بیرونی به پورت‌های `43101` و `5432` مسدود و مسیر عمومی فقط از HTTPS reverse proxy در دسترس است؛
 - جداسازی: project=`hero-test`، volumeهای `hero-test_*` و network=`hero-test_hero-private` تأیید شد.
-- parity نسخه: hash سه فایل اصلی workspace با image فعلی `hero-test` یکسان نیست؛ برای بستن گام candidate باید CI/ادمین همان source و Artifact دقیق را با SHA ثبت‌شده بسازد و فقط همان را deploy کند.
+- parity نسخه: image فعلی `hero-test` با workspace یکسان نیست؛ artifact تمیز `hero-control-plane:candidate-0aaeaa3` با digest ثبت‌شده ساخته و با source تطبیق شده است. برای بستن گام candidate باید ادمین همین artifact را با env/Secret فعلی فقط به `hero-test` deploy کند و hash/health را دوباره ثبت کند.
 - آدرس production موجود نیز پاسخ می‌دهد: HTTP با `۳۰۸` به HTTPS می‌رود و `/backoffice` بدون احراز هویت `۴۰۱` می‌دهد؛ این به‌معنی انتشار نسخهٔ فعلی workspace نیست.
 - تشخیص دقیق production: credential runtime خود سرویس روی localhost `۲۰۰` می‌گیرد، اما همان credential از دامنهٔ عمومی `۴۰۱` می‌گیرد؛ ادمین باید فقط Basic Auth/Caddy production را با Secret Store همان محیط تطبیق دهد و قبل از reload، config را validate کند.
 - نکتهٔ verification: اجرای تشخیصی `node --test` داخل image runtime معیار acceptance نیست؛ به‌دلیل مرز عمدی image (`.git/.github`) و env واقعی Test، ۱۶ تست محیط‌وابسته شکست خوردند. شمارنده‌های Read Model قبل/بعد تغییری نکردند و مرجع معتبر همچنان `pnpm check` در image verification با `۲۳۹/۲۳۹` است.

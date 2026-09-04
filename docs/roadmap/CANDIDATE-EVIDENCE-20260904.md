@@ -8,7 +8,7 @@
 |---|---|
 | branch | `codex/hero-001-project-charter` |
 | candidate commit محلی | `cdc44bc` — `feat: harden Hero backoffice and audit projections` |
-| evidence commit | `cce6aaa` — `docs: record candidate verification evidence` |
+| evidence chain | `cce6aaa`، `0aaeaa3` و `de4b4c5` — ثبت verification، baseline و artifact |
 | commit پایه | `26cfe549924b0db63eef71db25aeb8dfb5beb4d7` |
 | remote branch pointer | `c445609b301807df1bb50124a92afa31c500a145`؛ از candidate محلی عقب‌تر است |
 | وضعیت | candidate محلی commit شده؛ push و انتشار انجام نشده |
