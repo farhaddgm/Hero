@@ -1,5 +1,14 @@
 # تغییرات رودمپ شرکت
 
+## 2026-09-05 — نمایش دفتر OPEN-50 و گیت‌های مالک در Back Office
+
+- افزوده‌شده: Projection نسخه‌دار `OPEN-50` با ۵۰ ردیف وضعیت و اقدام بعدی؛
+- افزوده‌شده: ۱۴ اقدام امن و غیرمحرمانهٔ مالک/ادمین و ۳ blocker فعلی Pilot در پنل؛
+- افزوده‌شده: نمای responsive برای مرور دفتر roadmap، بدون اعطای authorization، dispatch، secret change یا deployment؛
+- تأییدشده: Commit `c1a1430`، image digest `sha256:e662f73725db07e7a1080922ac549940a417f4dba97418c5e6bd12e61fbbd4c2`، Build `142` و `239/239` تست؛
+- تأییدشده: فقط Control Plane در `hero-test` با همان env/volume/network جایگزین شد؛ PostgreSQL سالم ماند، `/health=200`، `/ready=200`، Back Office بدون auth=`401` و با auth=`200`؛
+- مرز: Production، Provider واقعی، Secret change، recovery عملیاتی و Pilot همچنان جداگانه gated هستند.
+
 ## 2026-09-05 — candidate متصل به Commit و Test نهایی
 
 - ساخته‌شده: image محلی `hero-control-plane:candidate-b590d6e` از Commit `b590d6e` با digest `sha256:f42d32e9816d8113c817b06782322c8b5cc9e07e2ef83c45c844f8ce8c52d5d4`؛

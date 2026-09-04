@@ -15,7 +15,7 @@
 - Provider زنده: عمداً خاموش است؛
 - Production: عمداً فعال نشده است.
 
-Test واقعی سالم است. artifact تمیز `hero-control-plane:candidate-b590d6e` از Commit `b590d6e` ساخته شده و با همان env/Secret فعلی فقط روی Test نصب شده است؛ preflight، health، احراز هویت و restart موفق‌اند. rollback کنترل‌پلیس هم آزموده شده؛ فقط recovery واقعی از backup/checksum و سپس Pilot باقی است.
+Test واقعی سالم است. artifact تمیز `hero-control-plane:candidate-c1a1430` از Commit `c1a1430` ساخته شده و با همان env/Secret فعلی فقط روی Test نصب شده است؛ preflight، health، احراز هویت، payload دفتر `OPEN-50` و restart موفق‌اند. پنل اکنون دفتر کامل ۵۰ گام و ۱۴ اقدام مالک/ادمین را read-only نشان می‌دهد. rollback کنترل‌پلیس هم آزموده شده؛ فقط recovery واقعی از backup/checksum و سپس Pilot باقی است.
 
 نکتهٔ production: خود سرویس با credential runtime سالم است، اما دامنهٔ عمومی production همان credential را قبول نمی‌کند و `401` می‌دهد. ادمین باید Basic Auth/Caddy production را اصلاح و validate کند؛ password یا hash نباید در چت ارسال شود.
 

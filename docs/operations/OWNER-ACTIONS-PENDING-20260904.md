@@ -14,8 +14,8 @@
 - schema Test: migrationهای `001` تا `006` و ۱۷ جدول دارای guard append-only در PostgreSQL تأیید شد؛
 - شبکهٔ Test: دسترسی بیرونی به پورت‌های `43101` و `5432` مسدود و مسیر عمومی فقط از HTTPS reverse proxy در دسترس است؛
 - جداسازی: project=`hero-test`، volumeهای `hero-test_*` و network=`hero-test_hero-private` تأیید شد.
-- parity نسخه: artifact تمیز `hero-control-plane:candidate-b590d6e` از Commit `b590d6e` با digest ثبت‌شده فقط به `hero-test` deploy شده؛ preflight، hash پنج فایل اصلی، health، readiness، احراز هویت و restart دوباره تأیید شده‌اند.
-- پوشش UI Test: Back Office احراز‌شدهٔ page/data/events را `۲۰۰` برگرداند؛ ۱۱ تیم با جزئیات کامل، ۸ Role، تنظیمات کل Hero، راهنمای خواندن پنل و فونت فارسی بررسی شدند.
+- parity نسخه: artifact تمیز `hero-control-plane:candidate-c1a1430` از Commit `c1a1430` با digest `sha256:e662f73725db07e7a1080922ac549940a417f4dba97418c5e6bd12e61fbbd4c2` فقط به `hero-test` deploy شده؛ preflight، hash پنج فایل اصلی، health، readiness، احراز هویت و restart دوباره تأیید شده‌اند.
+- پوشش UI Test: Back Office احراز‌شدهٔ page/data/events را `۲۰۰` برگرداند؛ ۱۱ تیم با جزئیات کامل، ۸ Role، تنظیمات کل Hero، راهنمای خواندن پنل، فونت فارسی، دفتر `OPEN-50` با ۵۰ ردیف و ۱۴ اقدام مالک/ادمین بررسی شدند.
 - کنترل امنیتی HTTP: auth boundary، read-only method guard، CSP، noindex، route ناشناخته و API بدون auth موفق‌اند؛ مرور دستی Caddy، firewall و access policy هنوز برای مالک/ادمین باقی است.
 - APIهای read-only Test: ۱۵ endpoint احراز‌شده برای سطح‌های اصلی پنل همگی `۲۰۰` و ۱۱ تیم/diagnostics حاضر؛ این شاهد جایگزین Pilot واقعی یا Provider زنده نیست.
 - مالکیت Compose: Control Plane candidate اکنون با `compose.yaml` و labelهای `hero-test/control-plane` مدیریت می‌شود؛ volume/network مستقل حفظ شده و rollback container قبلی متوقف است.
