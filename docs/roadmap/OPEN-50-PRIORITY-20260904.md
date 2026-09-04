@@ -48,10 +48,10 @@
 | ۴۲ | ۷۹ | access audit قابل مشاهده برای مالک | تکمیل محلی/نیازمند Test | خروجی audit روی Test تأیید شود |
 | ۴۳ | ۸۱ | install دقیق با lockfile | اکنون/CI | workflow CI اجرا شود |
 | ۴۴ | ۸۳ | Environment تست GitHub | نیازمند ادمین GitHub | reviewer اجباری فعال شود |
-| ۴۵ | ۸۵ | استقرار Candidate در Test | انجام شد؛ parity و health/auth/restart تأیید شد | برای promotion بعدی فقط Commit قابل‌ارجاع، rollback/recovery و مجوزهای جدا باقی است |
+| ۴۵ | ۸۵ | استقرار Candidate در Test | انجام شد؛ Commit، parity و health/auth/restart تأیید شد | برای promotion بعدی فقط rollback/recovery و مجوزهای جدا باقی است |
 | ۴۶ | ۸۶ | smoke و security روی Test | تکمیل smoke؛ نیازمند مرور امنیتی کامل | health، auth و isolation اجرا شود |
 | ۴۷ | ۸۷ | Test Evidence و review مالک | نیازمند تصمیم مالک | Evidence کامل را تأیید کن |
-| ۴۸ | ۸۸ | rollback نسخهٔ Test | blocker محیطی | برگشت Artifact قبلی آزموده شود |
+| ۴۸ | ۸۸ | rollback نسخهٔ Test | انجام شد؛ خطای preflight به نسخهٔ قبلی برگشت و health/auth تأیید شد | recovery از backup/checksum روی Clean Linux هنوز انجام شود |
 | ۴۹ | ۸۹ | recovery روی Clean Linux | blocker خارجی | restore واقعی و checksum ثبت شود |
 | ۵۰ | ۹۱ | انتخاب درخواست کوچک Pilot | نیازمند تصمیم مالک | یک feature کوچک و قابل rollback معرفی کن |
 

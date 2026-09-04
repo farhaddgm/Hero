@@ -13,7 +13,8 @@
 - schema Test: migrationهای `001` تا `006` و ۱۷ جدول دارای guard append-only در PostgreSQL تأیید شد؛
 - شبکهٔ Test: دسترسی بیرونی به پورت‌های `43101` و `5432` مسدود و مسیر عمومی فقط از HTTPS reverse proxy در دسترس است؛
 - جداسازی: project=`hero-test`، volumeهای `hero-test_*` و network=`hero-test_hero-private` تأیید شد.
-- parity نسخه: artifact تمیز `hero-control-plane:candidate-52c53f07cf41` با digest ثبت‌شده فقط به `hero-test` deploy شده؛ preflight، hash پنج فایل اصلی، health، readiness، احراز هویت و restart دوباره تأیید شده‌اند.
+- parity نسخه: artifact تمیز `hero-control-plane:candidate-b590d6e` از Commit `b590d6e` با digest ثبت‌شده فقط به `hero-test` deploy شده؛ preflight، hash پنج فایل اصلی، health، readiness، احراز هویت و restart دوباره تأیید شده‌اند.
+- rollback Test: هنگام مشاهدهٔ env ناقص، candidate حذف و کانتینر قبلی با همان volume/network restore شد؛ health سالم و Back Office بدون احراز هویت دوباره `۴۰۱` شد. این شاهد rollback کنترل‌پلیس است؛ recovery واقعی از backup/checksum هنوز باقی است.
 - آدرس production موجود نیز پاسخ می‌دهد: HTTP با `۳۰۸` به HTTPS می‌رود و `/backoffice` بدون احراز هویت `۴۰۱` می‌دهد؛ این به‌معنی انتشار نسخهٔ فعلی workspace نیست.
 - تشخیص دقیق production: credential runtime خود سرویس روی localhost `۲۰۰` می‌گیرد، اما همان credential از دامنهٔ عمومی `۴۰۱` می‌گیرد؛ ادمین باید فقط Basic Auth/Caddy production را با Secret Store همان محیط تطبیق دهد و قبل از reload، config را validate کند.
 - نکتهٔ verification: اجرای تشخیصی `node --test` داخل image runtime معیار acceptance نیست؛ به‌دلیل مرز عمدی image (`.git/.github`) و env واقعی Test، ۱۶ تست محیط‌وابسته شکست خوردند. شمارنده‌های Read Model قبل/بعد تغییری نکردند و مرجع معتبر همچنان `pnpm check` در image verification با `۲۳۹/۲۳۹` است.

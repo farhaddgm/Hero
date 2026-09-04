@@ -1,5 +1,14 @@
 # تغییرات رودمپ شرکت
 
+## 2026-09-05 — candidate متصل به Commit و Test نهایی
+
+- ساخته‌شده: image محلی `hero-control-plane:candidate-b590d6e` از Commit `b590d6e` با digest `sha256:f42d32e9816d8113c817b06782322c8b5cc9e07e2ef83c45c844f8ce8c52d5d4`؛
+- تأییدشده: build با `239/239` تست موفق، Build `141` ماژول، fingerprint پنج فایل اصلی برابر source و حذف `compose.test.yaml` از image؛
+- انجام‌شده: deploy فقط به `hero-test` با env موجود؛ preflight، `health=200`، `ready=200`، Back Office بدون auth=`401`، با auth=`200` و دامنهٔ Test با auth=`200`؛
+- تأییدشده: restart Control Plane سالم ماند و candidate قبلی به‌عنوان کانتینر rollback متوقف و محفوظ است؛ PostgreSQL و volume حفظ شدند؛
+- آزموده‌شده: rollback کنترل‌پلیس در یک خطای preflight انجام و با health/auth موفق restore شد؛ recovery از backup/checksum هنوز باز است؛
+- مرز: Candidate به Production deploy نشده؛ push هنوز انجام نشده و recovery واقعی از backup/checksum و Pilot گیت‌های جداگانه‌اند.
+
 ## 2026-09-05 — candidate نهایی Test پس از اصلاح env handoff
 
 - ساخته‌شده: image محلی `hero-control-plane:candidate-52c53f07cf41` با digest `sha256:f846ca3da45b0984af8243704681278484670720e4381ef28cda06a0931d88e7`؛

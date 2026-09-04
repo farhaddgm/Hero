@@ -46,6 +46,6 @@
 
 ## ممیزی تکمیلی وضعیت جاری — ۲۰۲۶-۰۹-۰۵
 
-بخش بالا شواهد تاریخی ۴ سپتامبر است. در بررسی جاری، stack مستقل `hero-test` با Control Plane و PostgreSQL هر دو `healthy` مشاهده شد؛ `/health=200`، `/ready=200` و `/backoffice` بدون احراز هویت `401` بودند. دامنهٔ `test.hero.beeproject.ir` نیز TLS معتبر و پاسخ بدون احراز هویت `401` دارد. candidate `candidate-52c53f07cf41` فقط روی Test deploy شد؛ preflight، fingerprint پنج فایل اصلی، احراز هویت و restart موفق‌اند.
+بخش بالا شواهد تاریخی ۴ سپتامبر است. در بررسی جاری، stack مستقل `hero-test` با Control Plane و PostgreSQL هر دو `healthy` مشاهده شد؛ `/health=200`، `/ready=200` و `/backoffice` بدون احراز هویت `401` بودند. دامنهٔ `test.hero.beeproject.ir` نیز TLS معتبر و پاسخ بدون احراز هویت `401` دارد. candidate `candidate-b590d6e` از Commit `b590d6e` فقط روی Test deploy شد؛ preflight، fingerprint پنج فایل اصلی، احراز هویت و restart موفق‌اند.
 
 همچنین Local Hero سالم است (`/health=200`، `/ready=200`، Back Office بدون احراز هویت `401`). در Production، HTTP به HTTPS با `308` redirect می‌شود و HTTPS Back Office بدون احراز هویت `401` می‌دهد؛ رفع اختلاف Basic Auth/Caddy همچنان اقدام ادمین و خارج از این workspace است. هیچ سرویس یا resource متعلق به پروژهٔ دیگری تغییر نکرد.
