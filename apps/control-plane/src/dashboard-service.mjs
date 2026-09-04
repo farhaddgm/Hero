@@ -429,6 +429,7 @@ export function createControlDashboard(options = {}) {
       : [];
     const contracts = projectContractCatalog();
     const projectMemoryRecords = typeof projectMemory.list === "function" ? projectMemory.list() : [];
+    const contextAssemblies = typeof projectMemory.listContextAssemblies === "function" ? projectMemory.listContextAssemblies(100) : [];
     const projectMemoryReadModel = Object.freeze({
       mode: "current-version-only",
       total: projectMemoryRecords.length,
@@ -451,6 +452,21 @@ export function createControlDashboard(options = {}) {
         supersedesMemoryId: record.supersedesMemoryId,
         recordedAt: record.recordedAt,
         eventId: record.eventId
+      }))),
+      contextAssemblies: Object.freeze(contextAssemblies.map(assembly => Object.freeze({
+        contextId: assembly.contextId,
+        projectId: assembly.projectId,
+        taskId: assembly.taskId,
+        stepId: assembly.stepId,
+        documentVersion: assembly.documentVersion,
+        recipientRole: assembly.recipientRole,
+        memoryIds: Object.freeze([...(assembly.memoryIds ?? [])]),
+        maxItems: assembly.maxItems,
+        selectedItems: assembly.selectedItems,
+        status: assembly.status,
+        code: assembly.code,
+        assembledAt: assembly.assembledAt,
+        eventId: assembly.eventId
       }))),
       redacted: Object.freeze(["content", "prompt", "model output", "credential values"])
     });
@@ -490,12 +506,12 @@ export function createControlDashboard(options = {}) {
     return Object.freeze({
       schemaVersion: "1.1",
       generatedAt: timestamp(now),
-      scope: "read-only-development-backoffice",
+      scope: "protected-development-backoffice",
       readOnly: Object.freeze({
         enabled: true,
-        uiMutationControls: false,
+        uiMutationControls: true,
         allowedHttpMethods: Object.freeze(["GET"]),
-        reason: "این projection برای مشاهده و ممیزی است؛ فرمان‌های تغییر فقط از APIهای محافظت‌شده و خارج از بک‌آفیس صادر می‌شوند.",
+        reason: "Projection همچنان فقط‌خواندنی و امن است؛ کنترل‌های UI فقط فرمان‌های محدود را از APIهای محافظت‌شده ارسال می‌کنند.",
         redacted: Object.freeze(["secret values", "credential values", "raw request text", "prompts", "model output", "private feedback"])
       }),
       access: Object.freeze({
@@ -547,7 +563,7 @@ export function createControlDashboard(options = {}) {
         governance: Object.freeze({
           globalStop: current.globalStop,
           fullAutonomy: current.fullAutonomy,
-          mutationFromBackoffice: false,
+          mutationFromBackoffice: true,
           sensitiveActions: Object.freeze(["production-deploy", "secret-change", "external-spend", "external-message", "destructive-data-operation"]),
           decisionBoundary: "read models and evaluations never grant authorization",
           ownerBoundary: "project, release and operational decisions remain owner-gated"

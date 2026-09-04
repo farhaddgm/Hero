@@ -1,5 +1,20 @@
 # تغییرات رودمپ شرکت
 
+## 2026-09-04 — تکمیل read model بازیابی Context
+
+- افزوده‌شده: ثبت metadata امن Contextهای assembled شامل Role، Task/Step، نسخه و memory IDهای انتخاب‌شده؛
+- افزوده‌شده: نگهداری Context retrieval در Snapshot/Hydration بدون محتوای حافظه، prompt، output یا Secret؛
+- افزوده‌شده: نمایش تاریخچهٔ بازیابی Context در Back Office؛
+- شواهد: `pnpm check` در Linux/Node 22 با `231/231` تست، Build `138`، Governance `21` و clean-room با `236` فایل موفق شد.
+
+## 2026-09-04 — فعال‌شدن کنترل‌های محدود و محافظت‌شدهٔ Back Office
+
+- افزوده‌شده: فرم مدیریت نسخه‌دار Provider، Model، Profile، Binding و Default Role Policy؛
+- افزوده‌شده: ویرایش اصول Team و rollback نسخه‌دار از UI با Bearer Session؛
+- تثبیت‌شده: Projection و دادهٔ Back Office فقط‌خواندنی و بدون Secret، Token، Prompt یا Output خام باقی می‌مانند؛
+- تثبیت‌شده: Admin فقط scope محدود دارد؛ تأیید نهایی Team و عملیات حساس همچنان owner-only است؛
+- تثبیت‌شده: live Provider، external spend، Secret، Deploy و Production از UI قابل فعال‌سازی نیستند.
+
 ## 2026-09-04 — تکمیل مشاهدهٔ Projection، حافظه و ظرفیت عملیاتی
 
 - افزوده‌شده: فهرست metadata امن Project Memory فعلی در Back Office؛ محتوای حافظه، prompt، output و credential نمایش داده نمی‌شوند؛

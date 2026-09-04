@@ -1,7 +1,7 @@
 # بک‌آفیس توسعهٔ Hero
 
 - نسخهٔ projection: 1.1
-- وضعیت: نمای کاملاً فقط‌خواندنی برای مشاهده، ممیزی و فهم ساختار Hero
+- وضعیت: نمای مشاهده‌ای با کنترل‌های محدود و محافظت‌شده برای مدیریت Hero
 - مسیر مشاهده: `/backoffice`
 
 ## هدف
@@ -26,12 +26,13 @@
 - نمایش Skillهای ثبت‌شده و bindingهای scoped بدون افشای دادهٔ حساس؛
 - نمایش آخرین Organization Advisor شامل state، recommendation و مرز advisory-only؛
 - خلاصهٔ activityهای Invocation، Evaluation و Decision و وضعیت benchmark synthetic؛
+- تاریخچهٔ امن بازیابی Context شامل Role، Task/Step، نسخه و تعداد رکوردهای انتخاب‌شده؛ بدون محتوای حافظه؛
 - قرارداد correlation سازگار با trace/span برای آماده‌سازی مشاهده‌پذیری آینده؛
 - مسیر بعدی و واژه‌نامهٔ کامل نقش‌ها و مفهوم‌های اصلی پنل؛
-- تاریخچهٔ نسخه‌های Team و Default Role Policy در همان پنل فقط برای مشاهده نمایش داده می‌شود؛ هیچ rollback، تأیید یا ویرایشی از UI صادر نمی‌شود.
-- کاتالوگ Provider/Model/Profile/Role Binding و Policy در همان پنل به‌صورت read-only دیده می‌شود؛ credential فقط با وضعیت امن و بدون مقدار واقعی بازتاب می‌یابد.
+- تاریخچهٔ نسخه‌های Team و Default Role Policy در همان پنل دیده می‌شود؛ rollback و ویرایش محدود فقط با Session معتبر ارسال می‌شود و تأیید نهایی Team همچنان owner-only است.
+- کاتالوگ Provider/Model/Profile/Role Binding و Policy در همان پنل دیده می‌شود؛ فرم مدیریت فقط مقدارهای غیرمحرمانه و ارجاع Credential را می‌پذیرد و Provider زنده را فعال نمی‌کند.
 
-Projection بک‌آفیس فقط فیلدهای مشاهده‌ای و بدون متن درخواست، مقدار Credential، Secret، Token، prompt، output خام، feedback خصوصی یا مسیر میزبان را برمی‌گرداند. خود رابط فقط `GET` می‌فرستد و هیچ فرم یا کنترل mutation ندارد. APIهای `/api/*` و فرمان‌های Owner/Admin خارج از این UI باقی می‌مانند و با احراز هویت و scope مستقل کنترل می‌شوند؛ تأیید نهایی Team، پروژه، release، revocation و عملیات حساس همچنان owner-only هستند. تاریخچهٔ Benchmark synthetic در صورت اتصال PostgreSQL پس از restart hydrate می‌شود و مقایسهٔ آن advisory-only است.
+Projection بک‌آفیس فقط فیلدهای مشاهده‌ای و بدون متن درخواست، مقدار Credential، Secret، Token، prompt، output خام، feedback خصوصی یا مسیر میزبان را برمی‌گرداند. خود Projection همچنان فقط‌خواندنی است، اما رابط می‌تواند فرمان‌های محدود و صریح را فقط از APIهای محافظت‌شده و با Bearer Session ارسال کند. احراز هویت و scope در سرور اعمال می‌شود؛ Admin به کاتالوگ AI و draft/rollback اصول تیم محدود است و تأیید نهایی Team، پروژه، release، revocation و عملیات حساس همچنان owner-only هستند. تاریخچهٔ Benchmark synthetic در صورت اتصال PostgreSQL پس از restart hydrate می‌شود و مقایسهٔ آن advisory-only است.
 
 Diagnostic read model در `/api/operations/diagnostics` پوشش ۱۱ Projection، صحت Snapshot/Event، replay dry-run، digest، freshness دانش و تعارض تخصیص را فقط‌خواندنی گزارش می‌کند.
 
@@ -48,11 +49,12 @@ Diagnostic read model در `/api/operations/diagnostics` پوشش ۱۱ Projectio
 - metadata دسترسی same-host و پیام diagnostic برای خطای اتصال؛
 - جست‌وجو و فیلتر محلی Team بر اساس نام/مسئولیت و آمادگی؛
 - کارت‌های responsive برای مرور قرارداد کامل هر Team و وضعیت آمادگی آن؛
-- نمایش read-only تأییدهای Team، عملیات، تاریخچهٔ نسخه و provenance دانش؛
-- حذف کامل کنترل‌های mutation از UI؛ تغییرات مدیریتی فقط از APIهای محافظت‌شدهٔ خارج از Back Office؛
+- نمایش تأییدهای Team، عملیات، تاریخچهٔ نسخه و provenance دانش؛
+- نمایش metadata تاریخچهٔ بازیابی Context، بدون متن حافظه، prompt، خروجی مدل یا Secret؛
+- کنترل‌های محدود UI برای ویرایش اصول Team، rollback نسخه و ثبت کاتالوگ AI؛ همهٔ فرمان‌ها احراز‌هویت‌شده، نسخه‌دار و auditپذیرند؛
 - timeline امن با cursor `after` و `limit`؛
 - benchmark synthetic از مسیر owner-authenticated با خروجی advisory؛
-- کاتالوگ read-only Provider/Model/Profile/Binding/Policy با نمایش جزئیات امن؛
+- کاتالوگ و فرم مدیریت Provider/Model/Profile/Binding/Policy با نمایش جزئیات امن؛ حالت live و external spend از این فرم قابل فعال‌سازی نیست؛
 - ثبت Skill و Skill Binding و تغییر Role Policy از API owner-authenticated؛
 - ساخت Organization Advisor از آخرین Performance Review کاملِ ۱۱ تیم؛
 - ثبت audit برای نتیجهٔ `accepted` یا `rejected` فرمان.
@@ -69,7 +71,7 @@ Diagnostic read model در `/api/operations/diagnostics` پوشش ۱۱ Projectio
 
 ## مسیرهای این نسخه
 
-- `/backoffice` صفحهٔ HTML مشاهده‌ای را ارائه می‌کند؛
+- `/backoffice` صفحهٔ HTML مشاهده‌ای و کنترل‌شده را ارائه می‌کند؛
 - `/backoffice-data` projection JSON امن و read-only را ارائه می‌کند؛
 - `/backoffice-events?after=0&limit=24` timeline امن و page-based را ارائه می‌کند؛
 - `GET /api/ai/benchmarks` تاریخچهٔ Benchmark synthetic را با منبع `in-memory` یا `postgresql` می‌دهد؛
@@ -77,13 +79,13 @@ Diagnostic read model در `/api/operations/diagnostics` پوشش ۱۱ Projectio
 - `GET /api/audit?after=0&limit=50` timeline فرمان‌های ثبت‌شده را برمی‌گرداند؛ `GET /api/audit/read-access?after=0&limit=50` audit دسترسی read model را فقط برای owner برمی‌گرداند؛
 - `GET /api/operations/diagnostics` گزارش owner/admin-authenticated و فقط‌خواندنی سلامت Projectionها، replay، digest، AI catalog، freshness و تعارض تخصیص را برمی‌گرداند؛
 - `/admin-auth-contract` قرارداد احراز هویت و دامنهٔ محدود Admin را ارائه می‌کند؛ ویرایش/rollback اصول تیم نیز به‌صورت صریح در همین دامنه ثبت شده است؛
-- `GET /api/teams/:teamId/contract-history` diff امن نسخه‌های قرارداد تیم را می‌دهد؛ مسیر rollback در API باقی است اما Back Office آن را مصرف نمی‌کند؛
-- `GET /api/ai/role-policies/:role/history` تاریخچهٔ Policy را می‌دهد؛ rollback در API باقی است اما از UI صادر نمی‌شود؛
+- `GET /api/teams/:teamId/contract-history` diff امن نسخه‌های قرارداد تیم را می‌دهد؛ rollback نسخه‌دار از UI با Owner/Admin مجاز است و تأیید نهایی جداگانه باقی می‌ماند؛
+- `GET /api/ai/role-policies/:role/history` تاریخچهٔ Policy را می‌دهد؛ rollback نسخه‌دار از UI با Owner/Admin مجاز است؛
 - `/admin-auth-contract` مرز احراز هویت و اختیارهای محدود admin را اعلام می‌کند؛
 - `/observability-contract` قرارداد correlation و redaction را ارائه می‌کند؛
 - `/pilot-contract` state و acceptance checkهای پایلوت را ارائه می‌کند؛
 - `POST /api/auth/revoke-session` session مالک را با مرز owner-authenticated قابل‌ابطال می‌کند؛
-- `POST /api/teams/:teamId/principles` اصول تیم را با `expectedVersion` و event نسخه‌دار ویرایش می‌کند؛ این مسیر مدیریتی خارج از Back Office read-only است؛
+- `POST /api/teams/:teamId/principles` اصول تیم را با `expectedVersion` و event نسخه‌دار ویرایش می‌کند؛ از UI با Session معتبر قابل استفاده است؛
 - `GET /api/ai/skills` و `GET /api/ai/organization-advisor` projectionهای امن Skill و Advisor را می‌دهند؛
 - `POST /api/ai/skills`، `POST /api/ai/skill-bindings` و `POST /api/ai/role-policies` تغییرات owner-authenticated و نسخه‌دار را ثبت می‌کنند؛
 - `POST /api/ai/organization-advisor` از Performance Review ثبت‌شده خروجی advisory و roadmap می‌سازد؛

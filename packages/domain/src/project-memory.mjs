@@ -131,6 +131,7 @@ export function createProjectMemory(options = {}) {
   const now = options.now ?? (() => new Date().toISOString());
   const records = new Map();
   const currentByKey = new Map();
+  const contextAssemblies = new Map();
   const idempotency = new Map();
   let nextEvent = 0;
   const eventIdFactory = options.eventIdFactory ?? (() => `evt_memory_${String(++nextEvent).padStart(6, "0")}`);
@@ -259,8 +260,26 @@ export function createProjectMemory(options = {}) {
         stepId: input.stepId,
         documentVersion: input.documentVersion,
         recipientRole: input.recipientRole,
-        memoryIds: selected.map(record => record.memoryId)
+        memoryIds: selected.map(record => record.memoryId),
+        maxItems: input.maxItems,
+        selectedItems: selected.length
       });
+      const assembly = immutableCopy({
+        contextId: input.contextId,
+        projectId: input.projectId,
+        taskId: input.taskId,
+        stepId: input.stepId,
+        documentVersion: input.documentVersion,
+        recipientRole: input.recipientRole,
+        memoryIds: selected.map(record => record.memoryId),
+        maxItems: input.maxItems,
+        selectedItems: selected.length,
+        status: "ready",
+        code: "CONTEXT_READY",
+        assembledAt: event.occurredAt,
+        eventId: event.eventId
+      });
+      contextAssemblies.set(event.eventId, assembly);
       result = {
         status: "ready",
         code: "CONTEXT_READY",
@@ -286,7 +305,8 @@ export function createProjectMemory(options = {}) {
     return immutableCopy({
       schemaVersion: "1.0",
       registryId: "project-memory",
-      records: [...records.values()]
+      records: [...records.values()],
+      contextAssemblies: [...contextAssemblies.values()]
     });
   }
 
@@ -297,12 +317,20 @@ export function createProjectMemory(options = {}) {
       .sort((left, right) => left.projectId.localeCompare(right.projectId) || left.memoryKey.localeCompare(right.memoryKey)));
   }
 
+  function listContextAssemblies(limit = 100) {
+    const normalizedLimit = Number.isInteger(limit) && limit > 0 && limit <= 100 ? limit : 100;
+    return immutableCopy([...contextAssemblies.values()]
+      .sort((left, right) => String(right.assembledAt).localeCompare(String(left.assembledAt)) || String(right.eventId).localeCompare(String(left.eventId)))
+      .slice(0, normalizedLimit));
+  }
+
   function hydrate(input = {}) {
     const state = input.data ?? input;
     if (!state || !Array.isArray(state.records)) throw new ProjectMemorySafetyError("Project Memory hydration requires records.");
     if (Array.isArray(input.events)) eventLog.load(input.events.filter(event => event.aggregateType === "memory"));
     records.clear();
     currentByKey.clear();
+    contextAssemblies.clear();
     idempotency.clear();
     for (const record of state.records) {
       if (!record || typeof record !== "object" || typeof record.memoryId !== "string" || typeof record.projectId !== "string" || typeof record.memoryKey !== "string") throw new ProjectMemorySafetyError("A hydrated memory record is invalid.");
@@ -312,6 +340,32 @@ export function createProjectMemory(options = {}) {
       const current = records.get(currentByKey.get(key));
       if (!current || (stored.recordVersion ?? 0) >= (current.recordVersion ?? 0)) currentByKey.set(key, stored.memoryId);
     }
+    const storedAssemblies = Array.isArray(state.contextAssemblies) ? state.contextAssemblies : [];
+    for (const assembly of storedAssemblies) {
+      if (!assembly || typeof assembly !== "object" || typeof assembly.eventId !== "string" || typeof assembly.contextId !== "string") throw new ProjectMemorySafetyError("A hydrated context assembly is invalid.");
+      contextAssemblies.set(assembly.eventId, immutableCopy(assembly));
+    }
+    if (Array.isArray(input.events)) {
+      for (const event of input.events.filter(item => item?.aggregateType === "memory" && item?.type === "context.assembled")) {
+        if (contextAssemblies.has(event.eventId)) continue;
+        const data = event.data ?? {};
+        contextAssemblies.set(event.eventId, immutableCopy({
+          contextId: data.contextId,
+          projectId: event.aggregateId,
+          taskId: data.taskId,
+          stepId: data.stepId,
+          documentVersion: data.documentVersion,
+          recipientRole: data.recipientRole,
+          memoryIds: Array.isArray(data.memoryIds) ? data.memoryIds : [],
+          maxItems: data.maxItems ?? null,
+          selectedItems: data.selectedItems ?? data.memoryIds?.length ?? 0,
+          status: "ready",
+          code: "CONTEXT_READY",
+          assembledAt: event.occurredAt,
+          eventId: event.eventId
+        }));
+      }
+    }
     return immutableCopy({ registryId: "project-memory", hydrated: true, records: records.size, currentKeys: currentByKey.size });
   }
 
@@ -319,6 +373,7 @@ export function createProjectMemory(options = {}) {
     record,
     assemble,
     list,
+    listContextAssemblies,
     persistenceSnapshot,
     hydrate,
     read: memoryId => records.has(memoryId) ? immutableCopy(records.get(memoryId)) : null,

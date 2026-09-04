@@ -87,6 +87,14 @@ test("latest eligible memory is selected deterministically and context is replay
   assert.equal(first.context.boundary.secretsIncluded, false);
   assert.equal(first.context.artifact.external, false);
   assert.equal(replay.idempotent, true);
+  const assemblies = memory.listContextAssemblies();
+  assert.equal(assemblies.length, 1);
+  assert.deepEqual(assemblies[0].memoryIds, ["MEM-002", "MEM-003"]);
+  assert.equal(assemblies[0].selectedItems, 2);
+  assert.doesNotMatch(JSON.stringify(assemblies), /دامنهٔ نسخه|content|prompt/i);
+  const restored = createProjectMemory({ now: fixedNow });
+  restored.hydrate({ data: memory.persistenceSnapshot(), events: memory.events() });
+  assert.deepEqual(restored.listContextAssemblies(), assemblies);
   assert.throws(() => memory.assemble(contextInput({ maxItems: 3 })), ProjectMemoryIdempotencyConflictError);
 });
 
