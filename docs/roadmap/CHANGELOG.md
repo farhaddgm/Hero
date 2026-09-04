@@ -11,7 +11,7 @@
 - تأیید schema: migrationهای `001` تا `006` و ۱۷ جدول دارای trigger محافظ append-only در PostgreSQL Test مشاهده شد.
 - تأیید شبکه: پورت‌های مستقیم Test (`43101` و `5432`) از بیرون قابل اتصال نیستند و دسترسی عمومی از HTTPS reverse proxy عبور می‌کند.
 - افزوده‌شده: [CANDIDATE-EVIDENCE-20260904.md](./CANDIDATE-EVIDENCE-20260904.md) با commit پایه، fingerprint منبع، شواهد verification و گیت‌های parity قبل از promotion.
-- ممیزی Git: candidate محلی `cdc44bc` commit شد؛ remote branch قدیمی‌تر است و push/Production deploy انجام نشد.
+- ممیزی Git: source candidate `cdc44bc` و evidence commit `cce6aaa` ثبت شدند؛ remote branch قدیمی‌تر است و push/Production deploy انجام نشد.
 
 ## 2026-09-04 — اجرای بستهٔ کم‌ریسک اولویت‌دار از ممیزی ۵۰ گام
 
