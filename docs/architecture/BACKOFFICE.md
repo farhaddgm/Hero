@@ -27,6 +27,7 @@
 - قرارداد correlation سازگار با trace/span برای آماده‌سازی مشاهده‌پذیری آینده؛
 - مسیر بعدی و واژه‌نامهٔ کامل نقش‌ها و مفهوم‌های اصلی پنل؛
 - ویرایش خط‌به‌خط اصول هر تیم با فرمان owner-authenticated و ثبت event نسخه‌دار؛ ویرایش، تأیید قبلی اصول را بازنشانی می‌کند تا تأیید تازه جداگانه انجام شود؛ تاریخچهٔ diff و rollback نیز با نسخهٔ فعلی و idempotency کنترل می‌شود.
+- تاریخچهٔ نسخه‌های Default Role Policy نیز در همان پنل قابل مشاهده است و rollback آن برای Owner/Admin با ثبت نسخهٔ تازه انجام می‌شود.
 - مدیریت پایهٔ کاتالوگ AI در خود پنل: ثبت Provider deterministic/disabled، Model، Profile، Role Binding و Default Role Policy. این بخش credential را فقط به‌صورت reference می‌پذیرد و live/external-spend را فعال نمی‌کند.
 
 Projection بک‌آفیس فقط فیلدهای مشاهده‌ای و بدون متن درخواست، مقدار Credential، Secret، Token یا مسیر میزبان را برمی‌گرداند. عملیات تغییردهنده و APIهای `/api/*` با احراز هویت تفکیک‌شدهٔ Owner/Admin کنترل می‌شوند: admin فقط read modelها و کاتالوگ AI را در فهرست صریح مجاز تغییر می‌دهد؛ تیم، پروژه، release، revocation و عملیات حساس همچنان owner-only هستند. رابط پنل علاوه بر اصول تیم، ثبت Provider/Model/Profile/Role Binding و تغییر Default Role Policy را با نشست احراز‌شده مصرف می‌کند؛ هر تغییر با event نسخه‌دار ثبت می‌شود و Provider زنده از این فرم قابل فعال‌سازی نیست. تاریخچهٔ Benchmark synthetic در صورت اتصال PostgreSQL پس از restart hydrate می‌شود و مقایسهٔ آن advisory-only است.
@@ -61,7 +62,7 @@ Diagnostic read model در `/api/operations/diagnostics` پوشش ۱۱ Projectio
 
 1. افزودن لینک دقیق به Evidence و Sheetهای مرجع؛
 2. افزودن audit دسترسی و policy مشاهده‌ای در محیط Production؛
-3. تکمیل نمایش UI برای diff/rollback قراردادها و نمایش کامل Diagnostic؛ API و احراز هویت نقش admin آماده است؛
+3. تکمیل نمایش UI برای diff/rollback قراردادها و نمایش کامل Diagnostic؛ بخش diff/rollback محلی تکمیل شده و Diagnostic API آماده است؛
 4. تکمیل کنترل‌های تغییردهندهٔ بیشتر فقط پس از worker، Session Revocation و Audit عملیاتی.
 
 ## مسیرهای این نسخه

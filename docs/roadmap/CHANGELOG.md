@@ -8,6 +8,7 @@
 - افزوده‌شده: گزارش provenance/freshness دانش تیم و کشف تعارض Task فعال بین چند تیم؛
 - تکمیل‌شده: احراز هویت امضاشدهٔ Admin با scope محدود به کاتالوگ AI؛ Owner برای Team، Release، Dispatch، Secret و Production باقی می‌ماند؛
 - افزوده‌شده: endpoint owner/admin-authenticated `GET /api/operations/diagnostics` و قرارداد `/admin-auth-contract`؛
+- تکمیل‌شده: rollback نسخه‌دار Policy نقش‌های AI در Back Office با scope Owner/Admin و idempotency؛ شمارش Projection پنل با قرارداد ۱۱ Registry هم‌راستا شد؛
 - شواهد: `pnpm check` با `228/228` تست، Build `138`، Governance `21` و `git diff --check` موفق؛
 - مرز: full domain projection و retrieval کامل همچنان بازند؛ مدل ظرفیت عددی در Planner تکمیل محلی است اما Diagnostic read model آن را گزارش نمی‌کند؛ Test عملیاتی، Provider زنده، recovery مقصد، Pilot و Production همچنان جداگانه باز/مسدود هستند.
 
