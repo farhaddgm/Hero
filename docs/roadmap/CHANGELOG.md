@@ -6,6 +6,7 @@
 - تأییدشده: build با `239/239` تست موفق، Build `141` ماژول، fingerprint پنج فایل اصلی برابر source و حذف `compose.test.yaml` از image؛
 - انجام‌شده: deploy فقط به `hero-test` با env موجود؛ preflight، `health=200`، `ready=200`، Back Office بدون auth=`401`، با auth=`200` و دامنهٔ Test با auth=`200`؛
 - تأییدشده: Back Office احراز‌شدهٔ Test، page/data/events را `۲۰۰` برگرداند؛ ۱۱ تیم، ۸ Role، ۶ route، ۵ دستهٔ تنظیمات، ۲۴ event و markerهای فارسی/IRANSans حاضرند؛
+- تأییدشده: کنترل امنیتی HTTP Test؛ unauth=`۴۰۱`، auth=`۲۰۰`، POST read-only=`۴۰۵` با `Allow: GET`، CSP/noindex حاضر، unknown route=`۴۰۴` و API unauth=`۴۰۱`؛ review دستی Caddy/شبکه باز است؛
 - تأییدشده: restart Control Plane سالم ماند و candidate قبلی به‌عنوان کانتینر rollback متوقف و محفوظ است؛ PostgreSQL و volume حفظ شدند؛
 - آزموده‌شده: rollback کنترل‌پلیس در یک خطای preflight انجام و با health/auth موفق restore شد؛ recovery از backup/checksum هنوز باز است؛
 - مرز: Candidate به Production deploy نشده؛ push هنوز انجام نشده و recovery واقعی از backup/checksum و Pilot گیت‌های جداگانه‌اند.

@@ -49,7 +49,7 @@
 | ۴۳ | ۸۱ | install دقیق با lockfile | اکنون/CI | workflow CI اجرا شود |
 | ۴۴ | ۸۳ | Environment تست GitHub | نیازمند ادمین GitHub | reviewer اجباری فعال شود |
 | ۴۵ | ۸۵ | استقرار Candidate در Test | انجام شد؛ Commit، parity و health/auth/restart تأیید شد | برای promotion بعدی فقط rollback/recovery و مجوزهای جدا باقی است |
-| ۴۶ | ۸۶ | smoke و security روی Test | تکمیل smoke؛ نیازمند مرور امنیتی کامل | health، auth و isolation اجرا شود |
+| ۴۶ | ۸۶ | smoke و security روی Test | smoke و کنترل‌های امنیتی خودکار انجام شد؛ مرور دستی کامل باقی است | review دستی Caddy/شبکه/دسترسی‌ها و ثبت owner evidence انجام شود |
 | ۴۷ | ۸۷ | Test Evidence و review مالک | نیازمند تصمیم مالک | Evidence کامل را تأیید کن |
 | ۴۸ | ۸۸ | rollback نسخهٔ Test | انجام شد؛ خطای preflight به نسخهٔ قبلی برگشت و health/auth تأیید شد | recovery از backup/checksum روی Clean Linux هنوز انجام شود |
 | ۴۹ | ۸۹ | recovery روی Clean Linux | blocker خارجی | restore واقعی و checksum ثبت شود |
