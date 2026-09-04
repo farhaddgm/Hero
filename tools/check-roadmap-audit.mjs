@@ -45,18 +45,24 @@ function validate(name, source, expectedCount) {
   if (parsed.length !== expectedCount) errors.push(`${name} must contain exactly ${expectedCount} numbered rows; found ${parsed.length}.`);
   const references = parsed.map(row => row.reference).filter(Boolean);
   if (new Set(references).size !== references.length) errors.push(`${name} contains duplicate roadmap references.`);
-  return errors;
+  return { errors, parsed };
 }
 
-const errors = [
-  ...validate("OPEN-50", read(files.open50), 50),
-  ...validate("NEXT-100", read(files.next100), 100)
-];
+const open50 = validate("OPEN-50", read(files.open50), 50);
+const next100 = validate("NEXT-100", read(files.next100), 100);
+const nextOrdinals = new Set(next100.parsed.map(row => row.ordinal));
+for (const row of open50.parsed) {
+  const reference = Number(toAsciiDigits(row.reference));
+  if (Number.isInteger(reference) && !nextOrdinals.has(reference)) {
+    open50.errors.push(`OPEN-50 row ${row.ordinal} references missing NEXT-100 step ${row.reference}.`);
+  }
+}
+const errors = [...open50.errors, ...next100.errors];
 
 if (errors.length > 0) {
   console.error("Roadmap audit: FAILED");
   errors.forEach(error => console.error(`- ${error}`));
   process.exitCode = 1;
 } else {
-  console.log("Roadmap audit: PASS — OPEN-50=50, NEXT-100=100, required fields and references are valid.");
+  console.log("Roadmap audit: PASS — OPEN-50=50, NEXT-100=100, required fields and cross-references are valid.");
 }
