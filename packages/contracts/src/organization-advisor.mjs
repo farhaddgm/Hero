@@ -17,7 +17,7 @@ export function getOrganizationAdvisorContractSummary() {
     pipelineRoles: ORGANIZATION_ADVISOR_PIPELINE_ROLES,
     states: ORGANIZATION_ADVISOR_STATES,
     inputs: Object.freeze(["organization snapshot", "eleven team performance evidence records", "owner question", "risks", "prior decisions"]),
-    outputs: Object.freeze(["status", "findings", "options", "recommendation", "roadmap", "uncertainty", "evidence"]),
+    outputs: Object.freeze(["status", "findings", "options", "recommendation", "roadmap", "trainingActions", "uncertainty", "evidence"]),
     decisionBoundary: "advisory-only; no dispatch, authorization, mutation or deployment",
     researcherRule: "Researcher is conditional and is used only when the owner requests research or evidence is insufficient."
   });

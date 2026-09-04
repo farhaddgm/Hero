@@ -94,7 +94,7 @@ export function getPlannerContractSummary() {
     aiRoleRoutes: PLANNER_AI_ROLE_ROUTES,
     decisionCodes: PLANNER_DECISION_CODES,
     input: "simple Persian product request + optional read-only project context",
-    output: "versioned spec, explicit assumptions, acceptance criteria, valid Task Graph, explained provider routing, team-readiness decision and owner-reviewed output advisory",
+    output: "versioned spec, explicit assumptions, acceptance criteria, valid Task Graph, explained provider routing, team-readiness decision, explicit owner escalations and owner-reviewed output advisory",
     capacityModel: "optional team limits and time-bounded resource claims are checked before dispatch; conflicts fail closed",
     routerRule: "ChatGPT analyzes and designs; Codex implements and tests; Claude independently reviews; Cursor receives only a human-controlled handoff. Every task also has a team owner and explicit collaborators.",
     outputBoundary: "the advisory compares multiple product output forms across value, speed, cost, risk, maintainability, scalability and user fit; owner approval or rejection becomes the decision basis.",

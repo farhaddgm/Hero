@@ -93,6 +93,33 @@ function inferPlatforms(requestText) {
   });
 }
 
+function buildEscalations(planningId, inferred, capacity) {
+  const escalations = [];
+  if (inferred.assumption) {
+    escalations.push({
+      escalationId: `ESC-${planningId}-PLATFORM`,
+      type: "clarification",
+      status: "pending-owner",
+      owner: "hero-owner",
+      question: "پلتفرم هدف وب، موبایل یا هر دو است؟",
+      reason: inferred.assumption,
+      decisionBoundary: "بدون تصمیم مالک، این فرض قابل تغییر است و مجوز اجرا ایجاد نمی‌کند."
+    });
+  }
+  if (capacity?.conflicts?.length) {
+    escalations.push({
+      escalationId: `ESC-${planningId}-CAPACITY`,
+      type: "risk",
+      status: "blocked",
+      owner: "hero-owner",
+      question: "تعارض ظرفیت/منبع چگونه رفع یا زمان‌بندی شود؟",
+      reason: "ظرفیت یا resource claim با این برنامه هم‌خوان نیست.",
+      decisionBoundary: "تا رفع تعارض، dispatch مجاز نیست."
+    });
+  }
+  return Object.freeze(escalations.map(immutableCopy));
+}
+
 function normalizeContext(value, projectId) {
   if (value === undefined || value === null) return Object.freeze({ ok: true, artifact: null });
   if (!value || typeof value !== "object" || value.status !== "ready" || !value.context) {
@@ -340,27 +367,32 @@ function buildOutputAdvisory(requestText, platforms, preferredOutputType) {
   });
 }
 
-function withOutputDecision(plan, decision, teamReadiness) {
+function dispatchFor(decision, teamReadiness) {
   const teamsReady = teamReadiness?.ready === true;
   const capacityReady = teamReadiness?.capacityCheck?.ready !== false;
+  return Object.freeze({
+    ready: decision?.state === "approved" && teamsReady && capacityReady,
+    reason: decision?.state !== "approved"
+      ? "تا تأیید گزینهٔ خروجی توسط مالک، تولید آغاز نمی‌شود."
+      : !teamsReady
+        ? "گزینهٔ خروجی تأیید شده، اما آمادگی تیم‌های مالک هنوز کامل نیست."
+        : !capacityReady
+          ? "گزینهٔ خروجی تأیید شده، اما تعارض ظرفیت یا منبع باید رفع شود."
+          : "گزینهٔ خروجی تأیید و تیم‌های مالک آماده‌اند؛ dispatch طبق مجوز مستقل بعدی ممکن است."
+  });
+}
+
+function withOutputDecision(plan, decision, teamReadiness) {
+  const dispatch = dispatchFor(decision, teamReadiness);
   const outputAdvisory = {
     ...plan.outputAdvisory,
     decision,
-    dispatch: {
-      ready: decision.state === "approved" && teamsReady && capacityReady,
-      reason: decision.state !== "approved"
-        ? "تا تأیید گزینهٔ خروجی توسط مالک، تولید آغاز نمی‌شود."
-        : !teamsReady
-          ? "گزینهٔ خروجی تأیید شده، اما آمادگی تیم‌های مالک هنوز کامل نیست."
-          : !capacityReady
-            ? "گزینهٔ خروجی تأیید شده، اما تعارض ظرفیت یا منبع باید رفع شود."
-            : "گزینهٔ خروجی تأیید و تیم‌های مالک آماده‌اند؛ dispatch طبق مجوز مستقل بعدی ممکن است."
-    }
+    dispatch
   };
   return immutableCopy({
     ...plan,
     outputAdvisory,
-    dispatch: outputAdvisory.dispatch
+    dispatch
   });
 }
 
@@ -432,6 +464,32 @@ export function createPlanner(options = {}) {
   let nextEvent = 0;
   const eventIdFactory = options.eventIdFactory ?? (() => `evt_planner_${String(++nextEvent).padStart(6, "0")}`);
 
+  function refreshPlanReadiness(planningId) {
+    const existing = plans.get(planningId);
+    if (!existing || !teamRegistry || !existing.graph) return existing;
+    const currentTeams = assessTeamReadiness(existing.graph, teamRegistry);
+    const teamReadiness = Object.freeze({
+      ...currentTeams,
+      capacityCheck: existing.teamReadiness?.capacityCheck ?? Object.freeze({ status: "not-provided", ready: true, conflicts: Object.freeze([]), teamUsage: Object.freeze([]), resourceClaims: Object.freeze([]) })
+    });
+    const refreshed = existing.outputAdvisory
+      ? immutableCopy({
+        ...existing,
+        teamReadiness,
+        outputAdvisory: { ...existing.outputAdvisory, dispatch: dispatchFor(existing.outputAdvisory.decision, teamReadiness) },
+        dispatch: dispatchFor(existing.outputAdvisory.decision, teamReadiness)
+      })
+      : immutableCopy({ ...existing, teamReadiness });
+    plans.set(planningId, refreshed);
+    for (const stored of idempotency.values()) {
+      if (stored.result?.planningId === planningId) stored.result = refreshed;
+    }
+    for (const stored of outputDecisionIdempotency.values()) {
+      if (stored.result?.planningId === planningId) stored.result = refreshed;
+    }
+    return refreshed;
+  }
+
   function append(planningId, type, actor, data) {
     const event = createOperationalEvent({
       eventId: eventIdFactory(), aggregateType: "planning", aggregateId: planningId, type, occurredAt: now(), actor, data
@@ -467,7 +525,7 @@ export function createPlanner(options = {}) {
       });
       const result = immutableCopy({
         planningId: input.planningId, requestId: input.requestId, projectId: input.projectId, documentVersion: input.documentVersion,
-        state: "blocked", code: "CONTEXT_NOT_READY", reason: context.reason, spec: null, graph: null, teamReadiness: null, outputAdvisory: null, dispatch: { ready: false, reason: "Context آماده نیست." }, idempotent: false, eventId: event.eventId
+        state: "blocked", code: "CONTEXT_NOT_READY", reason: context.reason, spec: null, graph: null, teamReadiness: null, outputAdvisory: null, escalations: Object.freeze([]), dispatch: { ready: false, reason: "Context آماده نیست." }, idempotent: false, eventId: event.eventId
       });
       plans.set(input.planningId, result);
       idempotency.set(replayKey, { fingerprint: inputFingerprint, result });
@@ -502,10 +560,11 @@ export function createPlanner(options = {}) {
     const teamReadiness = assessTeamReadiness(graph, teamRegistry);
     const capacity = assessCapacity(input.capacity, graph);
     const readiness = teamReadiness ? Object.freeze({ ...teamReadiness, capacityCheck: capacity }) : Object.freeze({ source: "team-registry", ready: true, capacityCheck: capacity, teams: Object.freeze([]), blockers: Object.freeze([]) });
+    const escalations = buildEscalations(input.planningId, inferred, capacity);
     const outputAdvisory = buildOutputAdvisory(input.requestText.trim(), inferred.platforms, input.preferredOutputType);
     const created = append(input.planningId, "planning.created", input.actor, {
       requestId: input.requestId, documentVersion: input.documentVersion, state: "ready", specId: spec.specId, targetPlatforms: spec.targetPlatforms,
-      recommendedOutputId: outputAdvisory.recommendation.outputId
+      recommendedOutputId: outputAdvisory.recommendation.outputId, escalationCount: escalations.length
     });
     const graphEvent = append(input.planningId, "task-graph.created", input.actor, {
       specId: spec.specId, taskIds: graph.nodes.map(node => node.taskId)
@@ -532,6 +591,7 @@ export function createPlanner(options = {}) {
       spec,
       graph,
       teamReadiness: readiness,
+      escalations,
       outputAdvisory,
       dispatch: outputAdvisory.dispatch,
       stop: { canHaltBeforeDispatch: true, nextState: "halted" },
@@ -551,7 +611,7 @@ export function createPlanner(options = {}) {
     assertIdentifier("idempotencyKey", input?.idempotencyKey);
     assertActor(input?.actor);
     if (input.actor.kind !== OWNER.kind) throw new PlannerSafetyError("Only project-owner may decide the product output.");
-    const existing = plans.get(input.planningId);
+    const existing = refreshPlanReadiness(input.planningId);
     if (!existing || !existing.outputAdvisory) throw new PlannerSafetyError("A ready plan with an output advisory is required.");
     const decision = input.decision;
     if (!OUTPUT_DECISIONS.includes(decision)) throw new PlannerSafetyError("Output decision must be approved, rejected or rework-requested.");
@@ -619,6 +679,7 @@ export function createPlanner(options = {}) {
   }
 
   function persistenceSnapshot() {
+    for (const planningId of plans.keys()) refreshPlanReadiness(planningId);
     return immutableCopy({
       schemaVersion: "1.0",
       registryId: "planner",
@@ -627,6 +688,7 @@ export function createPlanner(options = {}) {
   }
 
   function capacitySnapshot() {
+    for (const planningId of plans.keys()) refreshPlanReadiness(planningId);
     const checks = [...plans.values()]
       .map(plan => ({ plan, check: plan.teamReadiness?.capacityCheck }))
       .filter(item => item.check && item.check.status !== "not-provided")
@@ -672,7 +734,7 @@ export function createPlanner(options = {}) {
     persistenceSnapshot,
     capacitySnapshot,
     hydrate,
-    get: planningId => plans.has(planningId) ? immutableCopy(plans.get(planningId)) : null,
+    get: planningId => plans.has(planningId) ? immutableCopy(refreshPlanReadiness(planningId)) : null,
     events: () => eventLog.readAfter(),
     contract: () => getPlannerContractSummary()
   });

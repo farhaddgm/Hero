@@ -1,5 +1,40 @@
 # تغییرات رودمپ شرکت
 
+## 2026-09-04 — تأیید محیط Test مستقل و دامنهٔ امن
+
+- تأییدشده: پروژهٔ Compose مستقل `hero-test` با Control Plane و PostgreSQL سالم، volumeهای `hero-test_*`، network مستقل و پورت `127.0.0.1:43101`؛
+- تأییدشده: preflight Test، اتصال PostgreSQL، migration نسخهٔ `1.0`، health/readiness و خاموش‌بودن Provider واقعی؛
+- تأییدشده: پس از restart کنترل‌شدهٔ Control Plane، ۱۱ Projection، ۱۰ event و ۱ request در Read Model باقی ماند؛
+- تأییدشده: دامنهٔ `test.hero.beeproject.ir` با TLS معتبر، پاسخ بدون احراز هویت `401`، پاسخ احراز‌شدهٔ Back Office `200`، noindex و robots؛
+- مرز باقی‌مانده: wrapperهای محدود host، CI و artifact با SHA دقیق، rollback/recovery واقعی، Pilot و Production هنوز جداگانه نیازمند evidence یا مجوز هستند.
+- نکتهٔ نسخه: hash سه فایل اصلی workspace با image فعلی `hero-test` متفاوت است؛ سلامت Test به‌تنهایی اثبات نمی‌کند آخرین workspace در آن deploy شده باشد.
+- تأیید schema: migrationهای `001` تا `006` و ۱۷ جدول دارای trigger محافظ append-only در PostgreSQL Test مشاهده شد.
+- تأیید شبکه: پورت‌های مستقیم Test (`43101` و `5432`) از بیرون قابل اتصال نیستند و دسترسی عمومی از HTTPS reverse proxy عبور می‌کند.
+- افزوده‌شده: [CANDIDATE-EVIDENCE-20260904.md](./CANDIDATE-EVIDENCE-20260904.md) با commit پایه، fingerprint منبع، شواهد verification و گیت‌های parity قبل از promotion.
+- ممیزی Git: remote branch قابل خواندن است اما workspace فعلاً read-only است؛ هیچ push یا commit خودکاری انجام نشد.
+
+## 2026-09-04 — اجرای بستهٔ کم‌ریسک اولویت‌دار از ممیزی ۵۰ گام
+
+- تکمیل‌شده: پوشش مسیر Projection برای همهٔ Aggregate Eventها؛ رویدادهای عمومی در timeline امن کنترل‌داشبورد دیده می‌شوند و رویداد بدون مسیر Diagnostic را به `attention` می‌برد؛
+- تکمیل‌شده: مدارشکن bounded برای Provider با threshold، reset timeout و probe نیمه‌باز؛ بازشدن و recovery به‌صورت event و snapshot امن ثبت می‌شود؛
+- تکمیل‌شده: refresh شدن readiness Planner از وضعیت فعلی Team Registry پیش از تصمیم خروجی و dispatch؛
+- تکمیل‌شده: تبدیل findingهای Performance/Evaluation به اقدام آموزشی advisory با owner review و evidence requirement؛
+- تکمیل‌شده: تشخیص integrity مجموعه‌های Projection، freshness Snapshot و rebuild read model از Snapshot+Event بدون mutation بیرونی؛
+- تکمیل‌شده: کاتالوگ و Binding مستقل Skill در رابط Back Office؛
+- اصلاح‌شده: hydration Policyهای نقش AI دیگر Policy با Role نامعتبر اضافه نمی‌کند؛
+- شواهد: `pnpm check` در کانتینر Linux با `239/239` تست، Build `138` و Governance `21` موفق شد؛ `git diff --check` نیز موفق است. Doctor فقط هشدار نبود Docker تو‌در‌تو را ثبت کرد؛
+- مرز: Provider واقعی، Git/CI، rollback/recovery، Pilot و Production همچنان تغییر نکرده‌اند و طبق فهرست مالک/ادمین نیازمند اقدام بیرونی هستند؛ دامنه و Test مستقل در بخش بعدی تأیید شده‌اند.
+
+## 2026-09-04 — تکمیل ممیزی فرمان‌های Control Plane و سخت‌سازی Read Model
+
+- افزوده‌شده: رویدادهای امن و append-only برای ایجاد، تأیید، رد، توقف و اجرای درخواست‌ها و تغییرات اختیار/توقف اضطراری؛
+- افزوده‌شده: نگهداری رویدادهای Control Dashboard در Snapshot و Hydration و نمایش آن‌ها در Projection یازده‌گانه؛
+- اصلاح‌شده: cursor Timeline محلی اکنون از شمارهٔ صفحهٔ یکتا استفاده می‌کند و به sequenceهای داخلی Registryها وابسته نیست؛
+- افزوده‌شده: سقف پاسخ و rate limit در حافظه برای مسیرهای read-only بک‌آفیس؛
+- افزوده‌شده: دریافت گزارش JSON امن از دادهٔ حاضر پنل، بدون متن درخواست یا اطلاعات حساس؛
+- تثبیت‌شده: نام فرمان در projection مشاهده‌ای با allow-list امن نمایش داده می‌شود و متن درخواست، Secret، Token، Prompt و Output خام همچنان حذف‌اند؛
+- شواهد: تست‌های هدفمند Back Office، Dashboard، Diagnostics و Hydration با `25/25` و `pnpm check` لینوکس با `233/233` تست، Build `138` و Governance `21` موفق شدند؛ Doctor فقط نبود Docker تو‌در‌تو را هشدار داد.
+
 ## 2026-09-04 — تکمیل read model بازیابی Context
 
 - افزوده‌شده: ثبت metadata امن Contextهای assembled شامل Role، Task/Step، نسخه و memory IDهای انتخاب‌شده؛
@@ -185,3 +220,11 @@
 - افزوده‌شده: ثبت outcome ردشدهٔ فرمان، Outbox worker تزریق‌پذیر، قرارداد Pilot و synthetic benchmark endpoint؛
 - شواهد: build لینوکس با Doctor/Governance/Build و ۲۰۲/۲۰۲ تست موفق؛ runtime smoke برای `/backoffice`، `/backoffice-data`، `/backoffice-events` و `/pilot-contract` با HTTP 200.
 - امنیت انتشار: Basic Auth اختیاریِ fail-closed، `robots.txt` و `X-Robots-Tag` اضافه شد؛ راهنمای DNS/TLS/reverse-proxy در `docs/operations/BACKOFFICE-SUBDOMAIN.md` ثبت شد.
+
+# 2026-09-04 — بازطراحی حرفه‌ای Back Office
+
+- تغییر UI: صفحهٔ تجمیعی به شش نمای مستقل و task-based شامل نمای کلی، تیم‌ها، Multi-AI، پروژه و قراردادها، عملیات و شواهد، و راهنما تقسیم شد؛ همهٔ قابلیت‌ها و شناسه‌های قبلی حفظ شدند.
+- افزوده‌شده: ناوبری کناری با وضعیت فعال، عنوان نمای جاری، hash URL برای لینک مستقیم، و چیدمان responsive برای دسکتاپ و موبایل.
+- مبنای طراحی: progressive disclosure، یک سطح تصمیم در هر نما، حفظ وضعیت/دسترسی در سطح بالا و نمایش جزئیات داخل کارت‌ها؛ هیچ وابستگی یا endpoint جدیدی اضافه نشد.
+- شواهد: `pnpm check` با Doctor/Governance/Build موفق و ۲۳۱/۲۳۱ تست سبز؛ Syntax اسکریپت نهایی HTML و وجود شش route/view نیز در کانتینر Node بررسی شد.
+- مرز: این تغییر فقط کد UI، تست و مستندات است و Deploy production، Secret، PostgreSQL و سرویس‌های دیگر را تغییر نمی‌دهد.

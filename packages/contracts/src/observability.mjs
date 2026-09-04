@@ -12,6 +12,7 @@ export const OBSERVABILITY_EVENT_KINDS = Object.freeze([
 ]);
 
 export const OBSERVABILITY_SAFE_DATA_KEYS = Object.freeze([
+  "command",
   "projectId",
   "teamId",
   "role",

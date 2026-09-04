@@ -81,6 +81,29 @@ function findingSeverityRank(severity) {
   return severity === "high" ? 0 : severity === "medium" ? 1 : 2;
 }
 
+const TRAINING_MODULE_BY_METRIC = Object.freeze({
+  delivery: "output-contract",
+  quality: "quality",
+  evidence: "safety",
+  rework: "collaboration",
+  reliability: "mission"
+});
+
+function trainingActionsFor(findings) {
+  return copy(findings.map(finding => ({
+    actionId: `training-action-${finding.teamId}-${finding.metric}`,
+    sourceFindingId: finding.findingId,
+    teamId: finding.teamId,
+    module: TRAINING_MODULE_BY_METRIC[finding.metric] ?? "quality",
+    title: `بازآموزی ${finding.teamId} برای ${finding.metric}`,
+    objective: finding.recommendation,
+    status: "proposed",
+    gate: "owner-review",
+    evidenceRequired: true,
+    decisionBoundary: "advisory-only-no-training-mutation"
+  })));
+}
+
 function normalizeFinding(finding, index) {
   if (!finding || typeof finding !== "object" || Array.isArray(finding)) {
     throw new OrganizationAdvisorError("INVALID_FINDING", `findings[${index}] is invalid.`);
@@ -250,6 +273,7 @@ export function createOrganizationAdvisor({ now = () => new Date().toISOString()
     const evidenceComplete = review.coverage.complete && review.teamCount === TEAM_CATALOG.length && review.teams.length === TEAM_CATALOG.length;
     const options = optionsFor(review, findings);
     const recommendation = options.find(option => option.recommended) ?? options[0];
+    const trainingActions = trainingActionsFor(findings);
     const event = appendEvent({
       advisorId,
       actor,
@@ -283,6 +307,7 @@ export function createOrganizationAdvisor({ now = () => new Date().toISOString()
             : "evidence فعلی نشانهٔ افت عملیاتی نشان نمی‌دهد؛ پایش دوره‌ای ادامه پیدا کند."
       },
       roadmap: roadmapFor(review, findings),
+      trainingActions,
       uncertainty: {
         level: evidenceComplete ? findings.length > 0 ? "medium" : "low" : "high",
         reasons: evidenceComplete ? findings.length > 0 ? ["یافته‌های performance نیازمند evidence اصلاحی هستند."] : ["این پیشنهاد فقط بر اساس یک دورهٔ performance ساخته شده است."] : ["پوشش evidence برای هر ۱۱ تیم کامل نیست."]

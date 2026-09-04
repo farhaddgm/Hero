@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import vm from "node:vm";
 
 import { createControlDashboard } from "../apps/control-plane/src/dashboard-service.mjs";
 import { createHeroServer } from "../apps/control-plane/src/server.mjs";
@@ -16,6 +17,9 @@ test("protected development back office exposes safe data and controlled owner/a
   const pageHtml = await page.text();
   assert.match(pageHtml, /بک‌آفیس توسعهٔ Hero/);
   assert.match(pageHtml, /IRANSans/);
+  assert.match(pageHtml, /<html lang="fa" dir="rtl">/);
+  assert.match(pageHtml, /button:focus-visible/);
+  assert.match(pageHtml, /@media \(max-width: 820px\)/);
   assert.match(pageHtml, /همهٔ AI Roleها/);
   assert.match(pageHtml, /مفاهیم و قراردادها/);
   assert.match(pageHtml, /تنظیمات کل Hero/);
@@ -29,7 +33,31 @@ test("protected development back office exposes safe data and controlled owner/a
   assert.match(pageHtml, /پوشش Projection و حافظهٔ نسخه‌دار/);
   assert.match(pageHtml, /بازیابی Context/);
   assert.match(pageHtml, /تاریخچهٔ Benchmark/);
+  assert.match(pageHtml, /پیکربندی Provider، Role و Skill/);
+  assert.match(pageHtml, /Skill Binding/);
+  assert.match(pageHtml, /Planner و تصمیم خروجی/);
+  assert.match(pageHtml, /planning-list/);
   assert.match(pageHtml, /requestJson/);
+  assert.match(pageHtml, /id="download-report"/);
+  assert.match(pageHtml, /function downloadReport\(\)/);
+  assert.match(pageHtml, /class="app-shell"/);
+  assert.match(pageHtml, /data-view-target="overview"/);
+  assert.match(pageHtml, /data-view-target="teams"/);
+  assert.match(pageHtml, /data-view-target="ai"/);
+  assert.match(pageHtml, /data-view-target="project"/);
+  assert.match(pageHtml, /data-view-target="operations"/);
+  assert.match(pageHtml, /data-view-target="guide"/);
+  assert.match(pageHtml, /data-view-panel="overview"/);
+  assert.match(pageHtml, /data-view-panel="teams"/);
+  assert.match(pageHtml, /data-view-panel="ai"/);
+  assert.match(pageHtml, /data-view-panel="project"/);
+  assert.match(pageHtml, /data-view-panel="operations"/);
+  assert.match(pageHtml, /data-view-panel="guide"/);
+  assert.match(pageHtml, /function setView\(view/);
+  assert.match(pageHtml, /window\.addEventListener\('hashchange'/);
+  const embeddedScript = pageHtml.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+  assert.ok(embeddedScript, "Back Office must contain one executable client script.");
+  assert.doesNotThrow(() => new vm.Script(embeddedScript, { filename: "backoffice-inline.js" }));
 
   const response = await fetch(baseUrl + "/backoffice-data");
   assert.equal(response.status, 200);
@@ -55,6 +83,8 @@ test("protected development back office exposes safe data and controlled owner/a
   assert.equal(backoffice.projections.registries.every(registry => "eventTypes" in registry && "collectionCounts" in registry), true);
   assert.equal(backoffice.projectMemory.total, 0);
   assert.deepEqual(backoffice.projectMemory.contextAssemblies, []);
+  assert.equal(backoffice.planning.total, 0);
+  assert.deepEqual(backoffice.planning.plans, []);
   assert.equal(backoffice.focus.find(item => item.id === "pilot").status, "مسدود");
   assert.equal(backoffice.organization.teams.some(team => "description" in team), false);
   assert.equal(backoffice.organization.teams[0].contract.principles.length >= 5, true);
@@ -74,6 +104,27 @@ test("protected development back office exposes safe data and controlled owner/a
   assert.equal(writeAttempt.status, 405);
   assert.equal(writeAttempt.headers.get("allow"), "GET");
   assert.equal(writeAttempt.headers.get("x-content-type-options"), "nosniff");
+});
+
+test("back office read models have a bounded response and a local rate limit", async t => {
+  const app = createHeroServer({
+    host: "127.0.0.1",
+    port: 0,
+    now: () => "2026-08-30T12:00:00.000Z",
+    backofficeRateLimit: { max: 1, windowMs: 60_000 },
+    backofficeResponseLimitBytes: 1_024
+  });
+  const address = await app.start();
+  t.after(() => app.stop());
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+
+  const oversized = await fetch(baseUrl + "/backoffice-data");
+  assert.equal(oversized.status, 413);
+  assert.equal(oversized.headers.get("x-content-type-options"), "nosniff");
+
+  const limited = await fetch(baseUrl + "/backoffice-events?after=0&limit=1");
+  assert.equal(limited.status, 429);
+  assert.ok(Number(limited.headers.get("retry-after")) >= 1);
 });
 
 test("back office exposes a safe AI configuration catalog without credential references", async () => {
@@ -145,6 +196,24 @@ test("back office exposes current Project Memory metadata while redacting conten
   assert.equal(memory.records[0].source.reference, "hero://docs/spec-v1");
   assert.equal("content" in memory.records[0], false);
   assert.doesNotMatch(JSON.stringify(memory), /این متن باید فقط/);
+});
+
+test("back office exposes safe Planner state without raw request text", () => {
+  const dashboard = createControlDashboard({ now: () => "2026-08-30T12:00:00.000Z" });
+  const requestText = "یک داشبورد وب برای پیگیری وضعیت درخواست‌های کاربران بساز.";
+  dashboard.createPlan({
+    planningId: "PLAN-BACKOFFICE-001",
+    requestId: "REQ-BACKOFFICE-001",
+    projectId: "hero",
+    requestText
+  });
+  const planning = dashboard.backofficeSnapshot().planning;
+  assert.equal(planning.total, 1);
+  assert.equal(planning.plans[0].planningId, "PLAN-BACKOFFICE-001");
+  assert.equal(planning.plans[0].taskCount >= 6, true);
+  assert.ok(Array.isArray(planning.plans[0].escalations));
+  assert.doesNotMatch(JSON.stringify(planning), /پیگیری وضعیت درخواست‌های کاربران/);
+  assert.doesNotMatch(JSON.stringify(planning), /requestText|intent/);
 });
 
 test("back office exposes Context retrieval metadata without memory content", () => {

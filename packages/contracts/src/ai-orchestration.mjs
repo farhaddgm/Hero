@@ -164,9 +164,10 @@ export function getAiOrchestrationContractSummary() {
       "Team != AI Role",
       "Evaluation is evidence; Decision Proposal is not authorization",
       "Provider and model changes never rewrite prior invocations or memory",
-      "Live provider invocation requires a separate active version-bound external-spend authorization",
-      "Timeout, retry and cost limits are evaluated before an invocation can be accepted",
-      "Evaluator and read-only profiles cannot execute tools or mutate code/data"
+  "Live provider invocation requires a separate active version-bound external-spend authorization",
+  "Timeout, retry and cost limits are evaluated before an invocation can be accepted",
+  "Repeated provider failures open a bounded circuit; recovery requires a half-open probe",
+  "Evaluator and read-only profiles cannot execute tools or mutate code/data"
     ],
     safetyBoundary: "AI output is schema-validated and policy-checked before any workflow, tool or runner action.",
     persistenceBoundary: "append-only events plus versioned projections; credential values never enter the domain or event log"

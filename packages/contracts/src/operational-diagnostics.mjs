@@ -17,7 +17,10 @@ export const OPERATIONAL_DIAGNOSTIC_REGISTRY_IDS = Object.freeze([
 export const OPERATIONAL_DIAGNOSTIC_REPORTS = Object.freeze([
   "registry-coverage",
   "snapshot-integrity",
+  "projection-data-integrity",
+  "snapshot-freshness",
   "event-integrity",
+  "event-projection-coverage",
   "replay-check",
   "projection-digest",
   "ai-configuration-history",

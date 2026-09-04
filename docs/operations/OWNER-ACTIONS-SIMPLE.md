@@ -4,16 +4,20 @@
 
 ## وضعیت فعلی
 
-کارهای داخل پروژه انجام شده و آخرین نسخهٔ بررسی‌شده شامل این نتایج است:
+کارهای داخل پروژه انجام شده و محیط مستقل Test نیز اکنون آماده و بررسی شده است:
 
-- تست Linux: `231/231` موفق؛
+- تست Linux: `239/239` موفق؛
 - Build برنامه: موفق؛
-- image اجرایی: ساخته و smoke-test شده؛
-- محیط Test محلی: با project name جدا، پورت `43101` فقط روی localhost، PostgreSQL و volume جدا آزمایش شده؛
+- محیط Test مستقل: project name=`hero-test`، پورت `43101` فقط روی localhost، PostgreSQL، volume و network جدا؛
+- preflight، migration نسخهٔ `1.0`، `pg_isready`، `/health` و `/ready` موفق؛
+- دامنهٔ Test: TLS، احراز هویت، noindex و robots بررسی شده؛
+- hydration: بعد از restart کنترل‌پلیس، Read Model سالم و هم‌ارز باقی مانده؛
 - Provider زنده: عمداً خاموش است؛
 - Production: عمداً فعال نشده است.
 
-برای رسیدن به Test واقعی، فقط مراحل زیر باقی مانده است.
+Test واقعی آماده است. مراحل زیر runbook بازسازی/بررسی مجدد محیط‌اند؛ برای ادامهٔ فعلی فقط CI با commit دقیق، rollback/recovery و Pilot باقی مانده است.
+
+نکتهٔ production: خود سرویس با credential runtime سالم است، اما دامنهٔ عمومی production همان credential را قبول نمی‌کند و `401` می‌دهد. ادمین باید Basic Auth/Caddy production را اصلاح و validate کند؛ password یا hash نباید در چت ارسال شود.
 
 ## کاری که شما یا اپراتور سرور باید انجام دهید
 

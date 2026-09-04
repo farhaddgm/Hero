@@ -83,6 +83,29 @@ test("AI reliability controls enforce retry, timeout/cost boundaries and health 
   assert.equal(overBudget.invocation.code, "COST_LIMIT_REACHED");
 });
 
+test("AI reliability opens and recovers through a bounded provider circuit", async () => {
+  let currentMs = Date.parse("2026-08-30T12:00:00.000Z");
+  let healthy = false;
+  const orchestration = createAiOrchestration({ now: () => new Date(currentMs).toISOString(), clock: () => currentMs, circuitBreaker: { failureThreshold: 2, resetTimeoutMs: 1_000 } });
+  let calls = 0;
+  orchestration.registerProvider({ providerId: "openai", mode: "deterministic", displayName: "Circuit provider", adapter: createDeterministicAiProviderAdapter("openai", input => { calls += 1; if (!healthy) throw new Error("temporary provider failure"); return { schema: input.outputSchema, answer: "recovered" }; }), actor: OWNER, idempotencyKey: "v2-provider-circuit" });
+  orchestration.registerModel({ providerId: "openai", modelId: "chatgpt", actor: OWNER, idempotencyKey: "v2-model-circuit" });
+  orchestration.registerProfile({ profileId: "v2-circuit-profile", role: "analyst", providerId: "openai", modelId: "chatgpt", credentialRef: "runtime:v2-circuit", promptVersion: "analyst-v2", contextPolicy: "approved", toolPolicy: "read-only", outputSchema: "analysis-v1", status: "active", actor: OWNER, idempotencyKey: "v2-profile-circuit" });
+  orchestration.bindRole({ bindingId: "v2-circuit-binding", projectId: "hero", role: "analyst", profileId: "v2-circuit-profile", actor: OWNER, idempotencyKey: "v2-binding-circuit" });
+  const invoke = invocationId => orchestration.invoke({ invocationId, projectId: "hero", role: "analyst", contextSnapshotId: `circuit-context-${invocationId}`, request: "تحلیل کن.", context: { artifact: "hero://artifacts/circuit" }, actor: AGENT, idempotencyKey: `circuit-key-${invocationId}` });
+  assert.equal((await invoke("circuit-failure-1")).invocation.code, "PROVIDER_EXECUTION_FAILED");
+  assert.equal((await invoke("circuit-failure-2")).invocation.code, "PROVIDER_EXECUTION_FAILED");
+  assert.equal((await invoke("circuit-blocked-3")).invocation.code, "PROVIDER_CIRCUIT_OPEN");
+  assert.equal(calls, 2);
+  assert.equal(orchestration.snapshot().circuitBreaker.states[0].state, "open");
+  assert.ok(orchestration.events().some(event => event.type === "ai.provider-circuit-opened"));
+  currentMs += 1_001;
+  healthy = true;
+  assert.equal((await invoke("circuit-recovered-4")).invocation.status, "completed");
+  assert.equal(orchestration.snapshot().circuitBreaker.states[0].state, "closed");
+  assert.ok(orchestration.events().some(event => event.type === "ai.provider-circuit-closed"));
+});
+
 test("organization performance review covers all eleven teams and produces advisory evidence", () => {
   const review = createOrganizationPerformanceReview({ now });
   const teamMetrics = TEAM_CATALOG.map((team, index) => ({ teamId: team.teamId, evidenceRef: `hero://evidence/team-${team.teamId}`, scores: { delivery: 80, quality: 80, evidence: 80, rework: index === 0 ? 50 : 80, reliability: 80 } }));

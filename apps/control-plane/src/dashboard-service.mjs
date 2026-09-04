@@ -14,6 +14,8 @@ import { AiOrchestrationError, createAiOrchestration, createDeterministicAiProvi
 import { OrganizationPerformanceError, createOrganizationPerformanceReview } from "../../../packages/domain/src/organization-performance.mjs";
 import { OrganizationAdvisorError, createOrganizationAdvisor } from "../../../packages/domain/src/organization-advisor.mjs";
 import { SkillRegistryError, createSkillRegistry } from "../../../packages/domain/src/skill-registry.mjs";
+import { createInMemoryEventLog } from "../../../packages/domain/src/event-log.mjs";
+import { createOperationalEvent } from "../../../packages/contracts/src/operational-data.mjs";
 import { getObservabilityContractSummary, projectOperationalEvent } from "../../../packages/contracts/src/observability.mjs";
 import { getAiBenchmarkContractSummary } from "../../../packages/contracts/src/ai-benchmark.mjs";
 import { compareAiBenchmarks, runAiBenchmark } from "../../../packages/domain/src/ai-benchmark.mjs";
@@ -169,6 +171,7 @@ export function createControlDashboard(options = {}) {
   const now = options.now ?? (() => new Date().toISOString());
   const providerAdapters = options.providerAdapters ?? Object.freeze({});
   const eventIdFactories = {
+    control: () => `evt_control_${randomUUID().replaceAll("-", "")}`,
     team: () => `evt_team_${randomUUID().replaceAll("-", "")}`,
     research: () => `evt_research_${randomUUID().replaceAll("-", "")}`,
     principle: () => `evt_principle_${randomUUID().replaceAll("-", "")}`,
@@ -184,8 +187,10 @@ export function createControlDashboard(options = {}) {
   const teamRegistry = options.teamRegistry ?? createTeamRegistry({ now, eventIdFactory: eventIdFactories.team });
   const researchRegistry = options.researchRegistry ?? createTeamResearchRegistry({ now, teamRegistry, eventIdFactory: eventIdFactories.research });
   const requests = new Map();
+  let controlEventLog = createInMemoryEventLog();
   let sequence = 0;
   let teamCommandSequence = 0;
+  let skillCommandSequence = 0;
   let principleCommandSequence = 0;
   let releaseCommandSequence = 0;
   let researchCommandSequence = 0;
@@ -214,6 +219,88 @@ export function createControlDashboard(options = {}) {
     const request = requests.get(requestId);
     if (!request) throw new DashboardCommandError("REQUEST_NOT_FOUND", "درخواست پیدا نشد.");
     return request;
+  }
+
+  const CONTROL_EVENT_TYPES = new Set([
+    "control.command-recorded",
+    "authorization.global-stop-activated",
+    "authorization.global-stop-cleared"
+  ]);
+
+  function isControlEvent(event) {
+    return CONTROL_EVENT_TYPES.has(event?.type);
+  }
+
+  function projectControlEvents(events = []) {
+    const requests = new Map();
+    let fullAutonomy = false;
+    let globalStop = false;
+    const ordered = [...events]
+      .filter(isControlEvent)
+      .sort((left, right) => (left.sequence ?? 0) - (right.sequence ?? 0) || String(left.eventId).localeCompare(String(right.eventId)));
+    for (const event of ordered) {
+      const data = event.data ?? {};
+      if (event.type === "authorization.global-stop-activated") globalStop = true;
+      if (event.type === "authorization.global-stop-cleared") globalStop = false;
+      if (data.command === "authority.update") fullAutonomy = data.state === "enabled";
+      if (!data.requestId) continue;
+      const current = requests.get(data.requestId) ?? {
+        requestId: data.requestId,
+        projectId: data.projectId ?? event.aggregateId,
+        scenario: data.scenario ?? null,
+        status: data.status ?? "نامشخص",
+        lastEventId: event.eventId,
+        lastSequence: event.sequence ?? null
+      };
+      requests.set(data.requestId, {
+        ...current,
+        projectId: data.projectId ?? current.projectId,
+        scenario: data.scenario ?? current.scenario,
+        status: data.status ?? current.status,
+        lastEventId: event.eventId,
+        lastSequence: event.sequence ?? current.lastSequence
+      });
+    }
+    return Object.freeze({
+      source: "append-only-control-events",
+      eventCount: ordered.length,
+      requestCount: requests.size,
+      fullAutonomy,
+      globalStop,
+      requests: Object.freeze([...requests.values()].map(request => Object.freeze(request)))
+    });
+  }
+
+  function recordControlCommand({ command, projectId = "hero", requestId, status, state, scenario, type = "control.command-recorded", aggregateType = "project", aggregateId = projectId } = {}) {
+    const data = { command, projectId };
+    if (requestId) data.requestId = requestId;
+    if (status) data.status = status;
+    if (state) data.state = state;
+    if (scenario) data.scenario = scenario;
+    const event = createOperationalEvent({
+      eventId: eventIdFactories.control(),
+      aggregateType,
+      aggregateId,
+      type,
+      occurredAt: timestamp(now),
+      actor: { kind: "project-owner", id: "hero-owner" },
+      data
+    });
+    return controlEventLog.append(event, { expectedVersion: controlEventLog.currentVersion(aggregateType, aggregateId) });
+  }
+
+  function controlDashboardPersistenceSnapshot() {
+    const commandProjection = projectControlEvents(controlEventLog.readAfter());
+    return Object.freeze({
+      schemaVersion: "1.0",
+      registryId: "control-dashboard",
+      requests: Object.freeze([...requests.values()].map(publicRequest)),
+      fullAutonomy,
+      globalStop,
+      sequence,
+      events: Object.freeze(controlEventLog.readAfter()),
+      commandProjection
+    });
   }
 
   function snapshot() {
@@ -428,6 +515,50 @@ export function createControlDashboard(options = {}) {
         }))
       : [];
     const contracts = projectContractCatalog();
+    const plannerPlans = typeof planner.persistenceSnapshot === "function"
+      ? planner.persistenceSnapshot().plans ?? []
+      : [];
+    const planningReadModel = Object.freeze({
+      total: plannerPlans.length,
+      plans: Object.freeze(plannerPlans.slice(-50).reverse().map(plan => Object.freeze({
+        planningId: plan.planningId,
+        requestId: plan.requestId,
+        projectId: plan.projectId,
+        documentVersion: plan.documentVersion,
+        state: plan.state,
+        code: plan.code,
+        version: plan.version,
+        eventId: plan.eventId,
+        taskCount: Array.isArray(plan.graph?.nodes) ? plan.graph.nodes.length : 0,
+        dispatch: plan.dispatch ? Object.freeze({ ready: plan.dispatch.ready, reason: plan.dispatch.reason }) : null,
+        teamReadiness: plan.teamReadiness ? Object.freeze({
+          ready: plan.teamReadiness.ready,
+          capacity: plan.teamReadiness.capacity,
+          blockers: Object.freeze((plan.teamReadiness.blockers ?? []).map(blocker => Object.freeze({ teamId: blocker.teamId, status: blocker.status, reason: blocker.reason })))
+        }) : null,
+        escalations: Object.freeze((plan.escalations ?? []).map(escalation => Object.freeze({
+          escalationId: escalation.escalationId,
+          type: escalation.type,
+          status: escalation.status,
+          owner: escalation.owner,
+          question: escalation.question,
+          reason: escalation.reason
+        }))),
+        outputAdvisory: plan.outputAdvisory ? Object.freeze({
+          recommendation: plan.outputAdvisory.recommendation,
+          decision: plan.outputAdvisory.decision,
+          dispatch: plan.outputAdvisory.dispatch,
+          options: Object.freeze((plan.outputAdvisory.options ?? []).map(option => Object.freeze({
+            outputId: option.outputId,
+            label: option.label,
+            totalScore: option.totalScore,
+            scores: option.scores
+          })))
+        }) : null,
+        redacted: Object.freeze(["request text", "prompt", "context content", "credential values"])
+      }))),
+      decisionBoundary: "planning is advisory; it never authorizes dispatch"
+    });
     const projectMemoryRecords = typeof projectMemory.list === "function" ? projectMemory.list() : [];
     const contextAssemblies = typeof projectMemory.listContextAssemblies === "function" ? projectMemory.listContextAssemblies(100) : [];
     const projectMemoryReadModel = Object.freeze({
@@ -580,6 +711,7 @@ export function createControlDashboard(options = {}) {
         })
       }),
       projectControls,
+      planning: planningReadModel,
       projectMemory: projectMemoryReadModel,
       contracts,
       routes: Object.freeze([
@@ -726,13 +858,13 @@ export function createControlDashboard(options = {}) {
       ["organization-performance", organizationPerformance],
       ["skill-registry", skillRegistry],
       ["organization-advisor", organizationAdvisor],
-      ["control-dashboard", { events: () => [], persistenceSnapshot, hydrate: hydrateFromPersistence }]
+      ["control-dashboard", { events: () => controlEventLog.readAfter(), persistenceSnapshot: controlDashboardPersistenceSnapshot, hydrate: hydrateFromPersistence }]
     ].map(([registryId, registry]) => {
       const events = registry.events?.() ?? [];
-      const persisted = registryId === "control-dashboard" ? null : registry.persistenceSnapshot?.();
+      const persisted = registryId === "control-dashboard" ? controlDashboardPersistenceSnapshot() : registry.persistenceSnapshot?.();
       const state = persisted?.data ?? persisted ?? {};
       const collectionCounts = Object.fromEntries(Object.entries(state).filter(([, value]) => Array.isArray(value)).map(([key, value]) => [key, value.length]));
-      return Object.freeze({
+      const projection = Object.freeze({
         registryId,
         eventCount: events.length,
         eventTypes: Object.freeze([...new Set(events.map(event => event.type).filter(Boolean))].sort()),
@@ -742,6 +874,9 @@ export function createControlDashboard(options = {}) {
         snapshotSupported: typeof registry.persistenceSnapshot === "function",
         hydrationSupported: typeof registry.hydrate === "function"
       });
+      return registryId === "control-dashboard"
+        ? Object.freeze({ ...projection, commandProjection: Object.freeze({ supported: true, eventCount: persisted?.commandProjection?.eventCount ?? 0, requestCount: persisted?.commandProjection?.requestCount ?? 0 }) })
+        : projection;
     });
     const missing = registries.filter(registry => !registry.snapshotSupported || !registry.hydrationSupported).map(registry => registry.registryId);
     return Object.freeze({
@@ -817,7 +952,7 @@ export function createControlDashboard(options = {}) {
     if (!Number.isInteger(limit) || limit < 1 || limit > 100) throw new DashboardCommandError("INVALID_INPUT", "مقدار limit باید بین ۱ تا ۱۰۰ باشد.");
     const ordered = [...domainEvents()]
       .sort((left, right) => (left.occurredAt ?? "").localeCompare(right.occurredAt ?? "") || (left.eventId ?? "").localeCompare(right.eventId ?? ""));
-    const numbered = ordered.map((event, index) => ({ event, sequence: Number.isInteger(event.sequence) ? event.sequence : index + 1 }));
+    const numbered = ordered.map((event, index) => ({ event, sequence: index + 1 }));
     const page = numbered.filter(item => item.sequence > after).slice(0, limit);
     const nextAfter = page.at(-1)?.sequence ?? after;
     return Object.freeze({
@@ -900,11 +1035,12 @@ export function createControlDashboard(options = {}) {
   }
 
   function runSkillCommand(command, input = {}, actor = { kind: "project-owner", id: "hero-owner" }) {
+    skillCommandSequence += 1;
     try {
       return command({
         ...input,
         actor,
-        idempotencyKey: input.idempotencyKey ?? `dashboard-skill-${aiCommandSequence + 1}`
+        idempotencyKey: input.idempotencyKey ?? `dashboard-skill-${skillCommandSequence}`
       });
     } catch (error) {
       if (error instanceof SkillRegistryError) throw new DashboardCommandError(error.code, error.message);
@@ -964,6 +1100,7 @@ export function createControlDashboard(options = {}) {
       stoppedAt: globalStop ? createdAt : null,
       result: null
     };
+    recordControlCommand({ command: "request.create", projectId, requestId: request.requestId, status: request.status, scenario: request.scenario });
     requests.set(request.requestId, request);
     return publicRequest(request);
   }
@@ -980,9 +1117,11 @@ export function createControlDashboard(options = {}) {
     if (!["نیازمند تأیید", "متوقف"].includes(request.status)) {
       throw new DashboardCommandError("REQUEST_NOT_APPROVABLE", "این درخواست در وضعیت قابل تأیید نیست.");
     }
+    const approvedAt = timestamp(now);
+    recordControlCommand({ command: "request.approve", projectId: request.projectId, requestId, status: "آماده اجرا" });
     request.status = "آماده اجرا";
-    request.approvedAt = timestamp(now);
-    request.updatedAt = request.approvedAt;
+    request.approvedAt = approvedAt;
+    request.updatedAt = approvedAt;
     request.stoppedAt = null;
     return publicRequest(request);
   }
@@ -992,9 +1131,11 @@ export function createControlDashboard(options = {}) {
     if (["تکمیل", "رد شد"].includes(request.status)) {
       throw new DashboardCommandError("REQUEST_NOT_REJECTABLE", "این درخواست دیگر قابل رد نیست.");
     }
+    const rejectedAt = timestamp(now);
+    recordControlCommand({ command: "request.reject", projectId: request.projectId, requestId, status: "رد شد" });
     request.status = "رد شد";
-    request.rejectedAt = timestamp(now);
-    request.updatedAt = request.rejectedAt;
+    request.rejectedAt = rejectedAt;
+    request.updatedAt = rejectedAt;
     return publicRequest(request);
   }
 
@@ -1003,9 +1144,11 @@ export function createControlDashboard(options = {}) {
     if (!["نیازمند تأیید", "آماده اجرا"].includes(request.status)) {
       throw new DashboardCommandError("REQUEST_NOT_STOPPABLE", "فقط درخواست اجرا نشده را می‌توان متوقف کرد.");
     }
+    const stoppedAt = timestamp(now);
+    recordControlCommand({ command: "request.stop", projectId: request.projectId, requestId, status: "متوقف" });
     request.status = "متوقف";
-    request.stoppedAt = timestamp(now);
-    request.updatedAt = request.stoppedAt;
+    request.stoppedAt = stoppedAt;
+    request.updatedAt = stoppedAt;
     return publicRequest(request);
   }
 
@@ -1022,40 +1165,59 @@ export function createControlDashboard(options = {}) {
       if (error instanceof PrincipleCommandError) throw new DashboardCommandError(error.code, error.message);
       throw error;
     }
+    const previous = { status: request.status, updatedAt: request.updatedAt, result: request.result };
     request.status = "در حال اجرا";
     request.updatedAt = timestamp(now);
-    const result = createFakeOrchestrationHarness({ now }).run({
-      runId: `RUN-UI-${request.requestId}`,
-      taskId: `TASK-UI-${request.requestId}`,
-      stepId: "HERO-009",
-      documentVersion: "v1.0",
-      scenario: request.scenario
-    });
-    request.status = "تکمیل";
-    request.updatedAt = timestamp(now);
-    request.result = Object.freeze({
-      status: "تکمیل",
-      scenario: result.scenario,
-      attempts: result.attempts.map(attempt => Object.freeze({
-        attempt: attempt.attempt,
-        outcome: attempt.outcome,
-        tests: attempt.tests
-      })),
-      eventCount: result.events.length,
-      runnerStates: result.runners.map(runner => runner.state),
-      summary: "Fake Agent بدون شبکه، Provider زنده یا هزینه اجرا شد."
-    });
-    return publicRequest(request);
+    try {
+      const result = createFakeOrchestrationHarness({ now }).run({
+        runId: `RUN-UI-${request.requestId}`,
+        taskId: `TASK-UI-${request.requestId}`,
+        stepId: "HERO-009",
+        documentVersion: "v1.0",
+        scenario: request.scenario
+      });
+      const completedAt = timestamp(now);
+      const publicResult = Object.freeze({
+        status: "تکمیل",
+        scenario: result.scenario,
+        attempts: result.attempts.map(attempt => Object.freeze({
+          attempt: attempt.attempt,
+          outcome: attempt.outcome,
+          tests: attempt.tests
+        })),
+        eventCount: result.events.length,
+        runnerStates: result.runners.map(runner => runner.state),
+        summary: "Fake Agent بدون شبکه، Provider زنده یا هزینه اجرا شد."
+      });
+      recordControlCommand({ command: "request.run", projectId: request.projectId, requestId, status: "تکمیل" });
+      request.status = "تکمیل";
+      request.updatedAt = completedAt;
+      request.result = publicResult;
+      return publicRequest(request);
+    } catch (error) {
+      request.status = previous.status;
+      request.updatedAt = previous.updatedAt;
+      request.result = previous.result;
+      throw error;
+    }
   }
 
   function setFullAutonomy(value) {
     if (typeof value !== "boolean") throw new DashboardCommandError("INVALID_INPUT", "وضعیت اختیار کامل باید درست یا نادرست باشد.");
+    recordControlCommand({ command: "authority.update", state: value ? "enabled" : "disabled", aggregateType: "authorization", aggregateId: "hero-full-autonomy" });
     fullAutonomy = value;
     return snapshot();
   }
 
   function setGlobalStop(value) {
     if (typeof value !== "boolean") throw new DashboardCommandError("INVALID_INPUT", "وضعیت توقف اضطراری باید درست یا نادرست باشد.");
+    recordControlCommand({
+      command: "global-stop.update",
+      state: value ? "active" : "cleared",
+      type: value ? "authorization.global-stop-activated" : "authorization.global-stop-cleared",
+      aggregateType: "authorization",
+      aggregateId: "hero-global-stop"
+    });
     globalStop = value;
     return snapshot();
   }
@@ -1267,14 +1429,7 @@ export function createControlDashboard(options = {}) {
       skillRegistry,
       organizationAdvisor
     ];
-    const dashboardState = Object.freeze({
-      schemaVersion: "1.0",
-      registryId: "control-dashboard",
-      requests: Object.freeze([...requests.values()].map(publicRequest)),
-      fullAutonomy,
-      globalStop,
-      sequence
-    });
+    const dashboardState = controlDashboardPersistenceSnapshot();
     return Object.freeze({
       schemaVersion: "1.0",
       source: "hero-control-plane-domain-registries",
@@ -1285,7 +1440,7 @@ export function createControlDashboard(options = {}) {
   function domainEvents() {
     const registries = [teamRegistry, researchRegistry, principlesRegistry, releasePromotion, planner, projectMemory, aiOrchestration, organizationPerformance, skillRegistry, organizationAdvisor];
     const seen = new Set();
-    return Object.freeze(registries.flatMap(registry => registry.events?.() ?? []).filter(event => {
+    return Object.freeze([...registries.flatMap(registry => registry.events?.() ?? []), ...controlEventLog.readAfter()].filter(event => {
       if (seen.has(event.eventId)) return false;
       seen.add(event.eventId);
       return true;
@@ -1298,6 +1453,34 @@ export function createControlDashboard(options = {}) {
       events: domainEvents(),
       capacity: planner.capacitySnapshot?.(),
       now: timestamp(now)
+    });
+  }
+
+  function rebuildReadModel(input = {}) {
+    const source = persistenceSnapshot();
+    const sourceSnapshots = Array.isArray(input.snapshots) && input.snapshots.length > 0
+      ? input.snapshots
+      : source.registries.map(registry => ({ registryId: registry.registryId, schemaVersion: registry.schemaVersion, data: registry }));
+    const sourceEvents = Array.isArray(input.events) ? input.events : domainEvents();
+    const rebuilt = createControlDashboard({ now, providerAdapters });
+    const hydration = rebuilt.hydrateFromPersistence({
+      source: input.source ?? "local-append-only-rebuild",
+      snapshots: sourceSnapshots,
+      events: sourceEvents
+    });
+    const beforeReport = operationalDiagnostics();
+    const afterReport = rebuilt.operationalDiagnostics();
+    const status = hydration.status === "hydrated" && afterReport.status !== "attention" && beforeReport.projectionDigest.value === afterReport.projectionDigest.value
+      ? "rebuilt"
+      : "attention";
+    return Object.freeze({
+      status,
+      source: "append-only-events-plus-versioned-snapshots",
+      hydration,
+      before: Object.freeze({ digest: beforeReport.projectionDigest.value, eventCount: beforeReport.projectionDigest.eventCount }),
+      after: Object.freeze({ digest: afterReport.projectionDigest.value, eventCount: afterReport.projectionDigest.eventCount }),
+      mutation: Object.freeze({ external: false, sourceDashboardChanged: false }),
+      decisionBoundary: "read-only-validation-no-authorization-no-dispatch"
     });
   }
 
@@ -1331,6 +1514,22 @@ export function createControlDashboard(options = {}) {
       fullAutonomy = state.fullAutonomy === true;
       globalStop = state.globalStop === true;
       sequence = Number.isInteger(state.sequence) && state.sequence >= 0 ? state.sequence : requests.size;
+      const storedControlEvents = Array.isArray(state.events) ? state.events : [];
+      const sourceControlEvents = events.length > 0 ? events.filter(isControlEvent) : storedControlEvents.filter(isControlEvent);
+      controlEventLog = createInMemoryEventLog({ events: sourceControlEvents });
+      const eventProjection = projectControlEvents(sourceControlEvents);
+      for (const projectedRequest of eventProjection.requests) {
+        const snapshotRequest = requests.get(projectedRequest.requestId);
+        if (!snapshotRequest || snapshotRequest.projectId !== projectedRequest.projectId || snapshotRequest.status !== projectedRequest.status) {
+          throw new DashboardCommandError("HYDRATION_PROJECTION_MISMATCH", `وضعیت درخواست ${projectedRequest.requestId} با Eventهای append-only هم‌خوان نیست.`);
+        }
+      }
+      if (sourceControlEvents.some(event => event.data?.command === "authority.update") && eventProjection.fullAutonomy !== fullAutonomy) {
+        throw new DashboardCommandError("HYDRATION_PROJECTION_MISMATCH", "وضعیت اختیار کامل با Eventهای append-only هم‌خوان نیست.");
+      }
+      if (sourceControlEvents.some(event => event.type === "authorization.global-stop-activated" || event.type === "authorization.global-stop-cleared") && eventProjection.globalStop !== globalStop) {
+        throw new DashboardCommandError("HYDRATION_PROJECTION_MISMATCH", "وضعیت Global Stop با Eventهای append-only هم‌خوان نیست.");
+      }
       hydrated.push(Object.freeze({ registryId: "control-dashboard", hydrated: true, requests: requests.size }));
     } else {
       missingRegistryIds.push("control-dashboard");
@@ -1528,6 +1727,7 @@ export function createControlDashboard(options = {}) {
     persistenceSnapshot,
     domainEvents,
     domainProjectionStatus,
+    controlCommandProjection: () => projectControlEvents(domainEvents()),
     backofficeEvents,
     hydrateFromPersistence,
     createRequest,
@@ -1541,6 +1741,7 @@ export function createControlDashboard(options = {}) {
     aiOrchestrationSnapshot: () => aiOrchestration.snapshot(),
     aiOrchestrationEvents: after => aiOrchestration.events(after),
     operationalDiagnostics,
+    rebuildReadModel,
     aiOrchestration,
     recordProjectMemory,
     assembleAiContext,

@@ -7,6 +7,7 @@ import {
   getPlannerContractSummary,
   validatePlannerContract
 } from "../packages/contracts/src/planner.mjs";
+import { TEAM_CATALOG } from "../packages/contracts/src/team.mjs";
 import {
   PlannerIdempotencyConflictError,
   PlannerSafetyError,
@@ -88,6 +89,10 @@ test("planner adds an explicit fast-path assumption when the request does not na
   }));
   assert.deepEqual(result.spec.targetPlatforms, ["web"]);
   assert.ok(result.spec.assumptions.some(assumption => assumption.includes("وب به‌عنوان پیش‌فرض")));
+  assert.equal(result.escalations.length, 1);
+  assert.equal(result.escalations[0].type, "clarification");
+  assert.equal(result.escalations[0].status, "pending-owner");
+  assert.equal(result.escalations[0].owner, "hero-owner");
 });
 
 test("planner reports team readiness and blocks dispatch planning until owner teams are trained", () => {
@@ -103,6 +108,31 @@ test("planner reports team readiness and blocks dispatch planning until owner te
   assert.equal(result.teamReadiness.ready, false);
   assert.ok(result.teamReadiness.blockers.some(blocker => blocker.teamId === "developero"));
   assert.equal(result.teamReadiness.capacity, "not-modeled");
+});
+
+test("planner refreshes readiness from the current team registry before owner output approval", () => {
+  const statuses = new Map(TEAM_CATALOG.map(team => [team.teamId, "proposed"]));
+  const teamRegistry = { get: teamId => ({ teamId, status: statuses.get(teamId) ?? "unknown" }) };
+  const planner = createPlanner({ now: fixedNow, teamRegistry });
+  const created = planner.plan(planInput({
+    planningId: "PLAN-READINESS-REFRESH",
+    requestId: "REQ-READINESS-REFRESH",
+    idempotencyKey: "planner-readiness-refresh-once",
+    requestText: "یک داشبورد وب برای پیگیری وضعیت درخواست‌های کاربران بساز."
+  }));
+  assert.equal(created.teamReadiness.ready, false);
+  statuses.forEach((value, teamId) => statuses.set(teamId, "ready"));
+  const refreshed = planner.get("PLAN-READINESS-REFRESH");
+  assert.equal(refreshed.teamReadiness.ready, true);
+  assert.deepEqual(refreshed.teamReadiness.blockers, []);
+  const approved = planner.decideOutput({
+    planningId: "PLAN-READINESS-REFRESH",
+    decision: "approved",
+    selectedOutputId: refreshed.outputAdvisory.recommendation.outputId,
+    actor: { kind: "project-owner", id: "hero-owner" },
+    idempotencyKey: "planner-readiness-refresh-approve"
+  });
+  assert.equal(approved.dispatch.ready, true);
 });
 
 test("planner compares product output options and requires owner decision before dispatch", () => {

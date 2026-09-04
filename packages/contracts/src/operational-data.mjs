@@ -101,6 +101,8 @@ export const EVENT_TYPES = Object.freeze([
   "ai.role-bound",
   "ai.role-policy-updated",
   "ai.provider-health-checked",
+  "ai.provider-circuit-opened",
+  "ai.provider-circuit-closed",
   "ai.invocation-started",
   "ai.invocation-retry-scheduled",
   "ai.invocation-completed",

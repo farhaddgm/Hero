@@ -23,6 +23,8 @@ test("operational diagnostics cover all eleven projections and are replayable", 
   assert.equal(report.registryCoverage.observed, 11);
   assert.equal(report.snapshotIntegrity.status, "valid");
   assert.equal(report.eventIntegrity.status, "valid");
+  assert.equal(report.eventProjectionCoverage.status, "complete");
+  assert.equal(report.eventProjectionCoverage.unmapped, 0);
   assert.equal(report.replayCheck.status, "replayable");
   assert.match(report.projectionDigest.value, /^[0-9a-f]{64}$/);
   assert.equal(report.knowledgeFreshness.observedTeams, 11);
@@ -86,6 +88,36 @@ test("diagnostics fail closed for an unknown event without mutating anything", (
   assert.equal(report.eventIntegrity.status, "invalid");
   assert.ok(report.eventIntegrity.issues.some(issue => issue.code === "UNKNOWN_EVENT_TYPE"));
   assert.equal(report.registryCoverage.observed, 11);
+});
+
+test("diagnostics detect incomplete projection data and snapshots behind the event stream", () => {
+  const control = dashboard();
+  const snapshot = structuredClone(control.persistenceSnapshot());
+  const teams = snapshot.registries.find(registry => registry.registryId === "team-registry");
+  teams.teams.pop();
+  const report = createOperationalDiagnostics({
+    persistenceSnapshot: snapshot,
+    events: [{
+      eventId: "evt_diagnostic_freshness_001",
+      aggregateType: "project",
+      aggregateId: "hero",
+      aggregateVersion: 1,
+      sequence: 1,
+      type: "control.command-recorded",
+      occurredAt: NOW,
+      actor: OWNER,
+      data: { command: "diagnostic.test" }
+    }],
+    now: NOW
+  });
+  assert.equal(report.projectionDataIntegrity.status, "valid");
+  assert.equal(report.registryCoverage.status, "valid");
+  assert.equal(report.snapshotFreshness.status, "current-or-unversioned");
+
+  teams.teams = undefined;
+  const incomplete = createOperationalDiagnostics({ persistenceSnapshot: snapshot, events: [], now: NOW });
+  assert.equal(incomplete.projectionDataIntegrity.status, "invalid");
+  assert.ok(incomplete.projectionDataIntegrity.issues.some(issue => issue.code === "PROJECTION_COLLECTION_MISSING"));
 });
 
 test("operational diagnostics HTTP endpoint is owner-gated and metadata-only", async t => {

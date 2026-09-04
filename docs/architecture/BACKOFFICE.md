@@ -22,6 +22,7 @@
 - سیاست ضدایندکس روی همهٔ پاسخ‌ها (`X-Robots-Tag`، meta robots و `robots.txt`) و نبود sitemap عمومی؛ این کنترل‌ها مرز امنیتی نیستند؛
 - Timeline امن eventهای اخیر، بدون prompt، متن درخواست، خروجی مدل یا Secret؛
 - خلاصهٔ metadata ارزیابی سازمان و مرز تصمیم آن؛
+- خلاصهٔ Planهای ثبت‌شده شامل وضعیت، تعداد Task، readiness تیم، escalation و تصمیم خروجی؛ متن خام درخواست و Context خصوصی حذف می‌شوند؛
 - نمایش Policy پیش‌فرض هر Role شامل Provider، Model، Tool Policy و نسخه؛
 - نمایش Skillهای ثبت‌شده و bindingهای scoped بدون افشای دادهٔ حساس؛
 - نمایش آخرین Organization Advisor شامل state، recommendation و مرز advisory-only؛
@@ -31,10 +32,11 @@
 - مسیر بعدی و واژه‌نامهٔ کامل نقش‌ها و مفهوم‌های اصلی پنل؛
 - تاریخچهٔ نسخه‌های Team و Default Role Policy در همان پنل دیده می‌شود؛ rollback و ویرایش محدود فقط با Session معتبر ارسال می‌شود و تأیید نهایی Team همچنان owner-only است.
 - کاتالوگ Provider/Model/Profile/Role Binding و Policy در همان پنل دیده می‌شود؛ فرم مدیریت فقط مقدارهای غیرمحرمانه و ارجاع Credential را می‌پذیرد و Provider زنده را فعال نمی‌کند.
+- رابط کاربری به شش نمای کاری مستقل تقسیم شده است: نمای کلی، تیم‌ها، Multi-AI، پروژه و قراردادها، عملیات و شواهد، و راهنما؛ ناوبری کناری، عنوان نمای فعال و hash URL مرور هر بخش را کوتاه و قابل‌بوکمارک می‌کند.
 
 Projection بک‌آفیس فقط فیلدهای مشاهده‌ای و بدون متن درخواست، مقدار Credential، Secret، Token، prompt، output خام، feedback خصوصی یا مسیر میزبان را برمی‌گرداند. خود Projection همچنان فقط‌خواندنی است، اما رابط می‌تواند فرمان‌های محدود و صریح را فقط از APIهای محافظت‌شده و با Bearer Session ارسال کند. احراز هویت و scope در سرور اعمال می‌شود؛ Admin به کاتالوگ AI و draft/rollback اصول تیم محدود است و تأیید نهایی Team، پروژه، release، revocation و عملیات حساس همچنان owner-only هستند. تاریخچهٔ Benchmark synthetic در صورت اتصال PostgreSQL پس از restart hydrate می‌شود و مقایسهٔ آن advisory-only است.
 
-Diagnostic read model در `/api/operations/diagnostics` پوشش ۱۱ Projection، صحت Snapshot/Event، replay dry-run، digest، freshness دانش و تعارض تخصیص را فقط‌خواندنی گزارش می‌کند.
+Diagnostic read model در `/api/operations/diagnostics` پوشش ۱۱ Projection، صحت Snapshot/Event، پوشش مسیر Projection هر رویداد، replay dry-run، digest، freshness دانش و تعارض تخصیص را فقط‌خواندنی گزارش می‌کند. متد داخلی `rebuildReadModel` نیز Snapshot و Event را در یک Dashboard تازه hydrate می‌کند و digest/health را بدون تغییر منبع مقایسه می‌کند.
 
 ## چیزهایی که فعلاً عمداً ندارد
 
@@ -48,6 +50,7 @@ Diagnostic read model در `/api/operations/diagnostics` پوشش ۱۱ Projectio
 
 - metadata دسترسی same-host و پیام diagnostic برای خطای اتصال؛
 - جست‌وجو و فیلتر محلی Team بر اساس نام/مسئولیت و آمادگی؛
+- ناوبری task-based با شش نمای مستقل، نمای فعال قابل‌بوکمارک و چیدمان responsive برای دسکتاپ و موبایل؛
 - کارت‌های responsive برای مرور قرارداد کامل هر Team و وضعیت آمادگی آن؛
 - نمایش تأییدهای Team، عملیات، تاریخچهٔ نسخه و provenance دانش؛
 - نمایش metadata تاریخچهٔ بازیابی Context، بدون متن حافظه، prompt، خروجی مدل یا Secret؛
@@ -61,6 +64,12 @@ Diagnostic read model در `/api/operations/diagnostics` پوشش ۱۱ Projectio
 - ذخیره، بازیابی، idempotency و مقایسهٔ Benchmark synthetic در PostgreSQL؛
 - نمایش تاریخچهٔ امن Benchmark در پنل، بدون prompt، output، credential یا token.
 - audit دسترسی به read model با actor، مسیر، outcome و زمان؛ query string، payload و token ذخیره نمی‌شود.
+- ثبت append-only فرمان‌های Control Dashboard با `command`، شناسهٔ پروژه/درخواست و وضعیت؛ دادهٔ خام فرمان وارد Projection نمی‌شود؛
+- بازسازی event-driven متادیتای امن درخواست‌ها، اختیار کامل و Global Stop از فرمان‌های append-only و fail-closed شدن Hydration هنگام اختلاف با Snapshot؛
+- سقف پاسخ و rate limit محلی برای مسیرهای read-only تا پاسخ حجیم یا پرتکرار حافظه و شبکه را اشباع نکند.
+- تشخیص صریح مسیر Projection رویدادها و تفکیک `state` از `timeline` برای Aggregateهایی که هنوز read model تخصصی ندارند؛
+- مدارشکن bounded Provider با recovery نیمه‌باز و ثبت رویدادهای باز/بسته‌شدن؛
+- refresh readiness Planner از Team Registry و خروجی آموزشی advisory برای findingهای Performance Review؛
 
 ## مسیر رشد
 
@@ -74,10 +83,12 @@ Diagnostic read model در `/api/operations/diagnostics` پوشش ۱۱ Projectio
 - `/backoffice` صفحهٔ HTML مشاهده‌ای و کنترل‌شده را ارائه می‌کند؛
 - `/backoffice-data` projection JSON امن و read-only را ارائه می‌کند؛
 - `/backoffice-events?after=0&limit=24` timeline امن و page-based را ارائه می‌کند؛
+- Timeline محلی از cursor ترتیبیِ همان projection استفاده می‌کند؛ sequence داخلی Registryها به‌عنوان cursor عمومی استفاده نمی‌شود؛
 - `GET /api/ai/benchmarks` تاریخچهٔ Benchmark synthetic را با منبع `in-memory` یا `postgresql` می‌دهد؛
 - `GET /api/ai/benchmarks/compare?ids=...&limit=...` مقایسهٔ advisory-only و قابل‌ممیزی را می‌دهد؛
 - `GET /api/audit?after=0&limit=50` timeline فرمان‌های ثبت‌شده را برمی‌گرداند؛ `GET /api/audit/read-access?after=0&limit=50` audit دسترسی read model را فقط برای owner برمی‌گرداند؛
 - `GET /api/operations/diagnostics` گزارش owner/admin-authenticated و فقط‌خواندنی سلامت Projectionها، replay، digest، AI catalog، freshness و تعارض تخصیص را برمی‌گرداند؛
+- گزارش `eventProjectionCoverage` در همین endpoint نشان می‌دهد هر رویداد به state projection یا timeline امن متصل است؛
 - `/admin-auth-contract` قرارداد احراز هویت و دامنهٔ محدود Admin را ارائه می‌کند؛ ویرایش/rollback اصول تیم نیز به‌صورت صریح در همین دامنه ثبت شده است؛
 - `GET /api/teams/:teamId/contract-history` diff امن نسخه‌های قرارداد تیم را می‌دهد؛ rollback نسخه‌دار از UI با Owner/Admin مجاز است و تأیید نهایی جداگانه باقی می‌ماند؛
 - `GET /api/ai/role-policies/:role/history` تاریخچهٔ Policy را می‌دهد؛ rollback نسخه‌دار از UI با Owner/Admin مجاز است؛

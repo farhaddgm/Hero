@@ -20,6 +20,75 @@ const CONFIGURATION_EVENT_PREFIXES = Object.freeze([
   "ai.role-policy-updated"
 ]);
 const EVENT_TYPE_SET = new Set(EVENT_TYPES);
+const REQUIRED_COLLECTIONS = Object.freeze({
+  "team-registry": ["teams", "workflows"],
+  "team-research": ["requests"],
+  "principles-registry": ["principles"],
+  "release-promotion": ["releases"],
+  planner: ["plans"],
+  "project-memory": ["records", "contextAssemblies"],
+  "ai-orchestration": ["providers", "models", "profiles", "bindings", "currentBindings", "rolePolicies", "invocations", "evaluations", "decisions"],
+  "organization-performance": ["reviews"],
+  "skill-registry": ["skills", "bindings"],
+  "organization-advisor": ["records"],
+  "control-dashboard": ["requests", "events"]
+});
+const COLLECTION_ID_KEYS = Object.freeze({
+  teams: "teamId",
+  workflows: "workflowId",
+  requests: "researchId",
+  principles: "principleId",
+  releases: "releaseId",
+  plans: "planningId",
+  records: null,
+  contextAssemblies: "eventId",
+  providers: "providerId",
+  models: null,
+  profiles: "profileId",
+  bindings: "bindingId",
+  currentBindings: "bindingId",
+  rolePolicies: "role",
+  invocations: "invocationId",
+  evaluations: "evaluationId",
+  decisions: "decisionId",
+  skills: "skillId",
+  reviews: "reviewId",
+  events: "eventId"
+});
+const EVENT_PROJECTION_REGISTRY = Object.freeze({
+  team: "team-registry",
+  research: "team-research",
+  principle: "principles-registry",
+  release: "release-promotion",
+  planning: "planner",
+  memory: "project-memory",
+  "ai-provider": "ai-orchestration",
+  "ai-model": "ai-orchestration",
+  "ai-profile": "ai-orchestration",
+  "ai-binding": "ai-orchestration",
+  "ai-role-policy": "ai-orchestration",
+  "ai-invocation": "ai-orchestration",
+  "ai-evaluation": "ai-orchestration",
+  "ai-decision": "ai-orchestration",
+  skill: "skill-registry",
+  "skill-binding": "skill-registry",
+  "organization-performance": "organization-performance",
+  "organization-advisor": "organization-advisor",
+  project: "control-dashboard",
+  "work-item": "control-dashboard",
+  task: "control-dashboard",
+  authorization: "control-dashboard",
+  runner: "control-dashboard",
+  run: "control-dashboard",
+  evidence: "control-dashboard",
+  artifact: "control-dashboard",
+  decision: "control-dashboard",
+  "quality-gate": "control-dashboard",
+  "web-factory": "control-dashboard",
+  "mobile-factory": "control-dashboard",
+  "assurance-gate": "control-dashboard",
+  "portability-gate": "control-dashboard"
+});
 
 function copy(value) {
   return structuredClone(value);
@@ -76,6 +145,81 @@ function snapshotIntegrity(snapshot) {
     }
   });
   return Object.freeze({ status: issues.length === 0 ? "valid" : "invalid", issues: Object.freeze(issues) });
+}
+
+function projectionDataIntegrity(snapshot) {
+  const registries = Array.isArray(snapshot?.registries) ? snapshot.registries : [];
+  const checks = registries.map(registry => {
+    const state = registry?.data && typeof registry.data === "object" ? registry.data : registry;
+    const required = REQUIRED_COLLECTIONS[registry?.registryId] ?? [];
+    const missing = required.filter(key => !Array.isArray(state?.[key]));
+    const duplicateKeys = [];
+    for (const key of required) {
+      if (!Array.isArray(state?.[key])) continue;
+      const idKey = COLLECTION_ID_KEYS[key];
+      const ids = state[key].map(item => {
+        if (key === "models") return item?.providerId && item?.modelId ? `${item.providerId}:${item.modelId}` : null;
+        if (key === "records") return item?.memoryId ?? item?.advisorId ?? item?.recordId ?? null;
+        return idKey ? item?.[idKey] : null;
+      }).filter(Boolean);
+      const duplicates = [...new Set(ids.filter((id, index) => ids.indexOf(id) !== index))];
+      duplicateKeys.push(...duplicates.map(id => ({ collection: key, id })));
+    }
+    return { registryId: registry?.registryId ?? null, status: missing.length === 0 && duplicateKeys.length === 0 ? "valid" : "invalid", missing, duplicates: duplicateKeys };
+  });
+  const issues = checks.flatMap(check => [
+    ...check.missing.map(collection => issue("PROJECTION_COLLECTION_MISSING", `${check.registryId} is missing collection ${collection}.`, { registryId: check.registryId, collection })),
+    ...check.duplicates.map(duplicate => issue("PROJECTION_DUPLICATE_ID", `${check.registryId}.${duplicate.collection} contains duplicate ${duplicate.id}.`, { registryId: check.registryId, ...duplicate }))
+  ]);
+  return Object.freeze({ status: issues.length === 0 ? "valid" : "invalid", checks: Object.freeze(checks), issues: Object.freeze(issues) });
+}
+
+function eventProjectionCoverage(events, snapshot) {
+  const input = Array.isArray(events) ? events : [];
+  const registryIds = new Set((snapshot?.registries ?? []).map(registry => registry?.registryId));
+  const mappings = input.map(event => ({
+    eventId: event?.eventId ?? null,
+    aggregateType: event?.aggregateType ?? null,
+    registryId: EVENT_PROJECTION_REGISTRY[event?.aggregateType] ?? null,
+    projectionMode: EVENT_PROJECTION_REGISTRY[event?.aggregateType] === "control-dashboard" ? "timeline" : "state"
+  }));
+  const issues = mappings
+    .filter(mapping => !mapping.registryId)
+    .map(mapping => issue("EVENT_PROJECTION_MISSING", `Event aggregate ${mapping.aggregateType ?? "unknown"} has no projection path.`, { eventId: mapping.eventId, aggregateType: mapping.aggregateType }))
+    .concat(mappings
+      .filter(mapping => mapping.registryId && !registryIds.has(mapping.registryId))
+      .map(mapping => issue("EVENT_PROJECTION_REGISTRY_MISSING", `Event ${mapping.eventId ?? "unknown"} targets missing registry ${mapping.registryId}.`, { eventId: mapping.eventId, registryId: mapping.registryId })));
+  const byRegistry = mappings.reduce((result, mapping) => {
+    if (mapping.registryId) result[mapping.registryId] = (result[mapping.registryId] ?? 0) + 1;
+    return result;
+  }, {});
+  return Object.freeze({
+    status: issues.length === 0 ? "complete" : "attention",
+    checked: input.length,
+    mapped: mappings.filter(mapping => mapping.registryId).length,
+    unmapped: mappings.filter(mapping => !mapping.registryId).length,
+    byRegistry: Object.freeze(byRegistry),
+    mappings: Object.freeze(mappings),
+    issues: Object.freeze(issues),
+    note: "رویدادهای عملیاتی یا state projection دارند یا در timeline کنترل‌داشبورد به‌صورت metadata امن دیده می‌شوند."
+  });
+}
+
+function snapshotFreshness(snapshot, events) {
+  const domainEvents = Array.isArray(events) ? events : [];
+  const latestSequence = Math.max(0, ...domainEvents.map(event => Number(event?.sequence) || 0));
+  const checks = (snapshot?.registries ?? []).map(registry => {
+    const sourceSequence = registry?.sourceSequence;
+    if (!Number.isInteger(sourceSequence) || sourceSequence < 0) return { registryId: registry?.registryId ?? null, status: "not-comparable", sourceSequence: null, latestEventSequence: latestSequence };
+    return {
+      registryId: registry?.registryId ?? null,
+      status: sourceSequence < latestSequence ? "stale" : "current",
+      sourceSequence,
+      latestEventSequence: latestSequence
+    };
+  });
+  const stale = checks.filter(check => check.status === "stale");
+  return Object.freeze({ status: stale.length === 0 ? "current-or-unversioned" : "attention", latestEventSequence: latestSequence, staleRegistryIds: Object.freeze(stale.map(check => check.registryId)), checks: Object.freeze(checks) });
 }
 
 function eventIntegrity(events) {
@@ -186,9 +330,12 @@ export function createOperationalDiagnostics({ persistenceSnapshot, events, capa
   const domainEvents = Array.isArray(events) ? events : [];
   const coverage = registryCoverage(snapshot);
   const snapshotReport = snapshotIntegrity(snapshot);
+  const projectionReport = projectionDataIntegrity(snapshot);
+  const freshness = snapshotFreshness(snapshot, domainEvents);
   const eventReport = eventIntegrity(domainEvents);
+  const eventProjectionReport = eventProjectionCoverage(domainEvents, snapshot);
   const replay = replayCheck(domainEvents);
-  const replayReady = coverage.status === "valid" && snapshotReport.status === "valid" && eventReport.status === "valid" && replay.status === "replayable";
+  const replayReady = coverage.status === "valid" && snapshotReport.status === "valid" && projectionReport.status === "valid" && freshness.status !== "attention" && eventReport.status === "valid" && eventProjectionReport.status === "complete" && replay.status === "replayable";
   const assignmentReport = assignmentConflicts(snapshot, capacity);
   const projectionDigest = digest({ snapshot, events: domainEvents });
   return Object.freeze({
@@ -198,7 +345,10 @@ export function createOperationalDiagnostics({ persistenceSnapshot, events, capa
     contract: getOperationalDiagnosticsContractSummary(),
     registryCoverage: coverage,
     snapshotIntegrity: snapshotReport,
+    projectionDataIntegrity: projectionReport,
+    snapshotFreshness: freshness,
     eventIntegrity: eventReport,
+    eventProjectionCoverage: eventProjectionReport,
     replayCheck: replay,
     projectionDigest: Object.freeze({ algorithm: "sha256", value: projectionDigest, eventCount: domainEvents.length }),
     aiConfiguration: safeAiConfiguration(snapshot, domainEvents),

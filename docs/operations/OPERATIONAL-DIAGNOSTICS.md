@@ -15,6 +15,8 @@
 7. تازگی دانش تیم: منبع، نسخهٔ منبع و محدودهٔ اعتبار به‌صورت metadata؛
 8. تعارض تخصیص: یک Task فعال که هم‌زمان به چند تیم داده شده باشد؛
 9. بررسی ظرفیت و resource claimهای ثبت‌شده در Planner، شامل سقف هم‌زمانی تیم و هم‌پوشانی زمانی منابع؛ این بخش فقط read-only است.
+10. پوشش مسیر Projection هر Domain Event؛ رویدادهای state به Registry مربوط می‌روند و رویدادهای عمومی حداقل در timeline امن `control-dashboard` ثبت می‌شوند؛
+11. مقایسهٔ event-driven متادیتای Control Dashboard با Snapshot و تشخیص ناسازگاری Hydration قبل از پذیرش وضعیت.
 
 ## استفاده
 
@@ -33,5 +35,6 @@ GET /api/operations/diagnostics
 - ظرفیت از `Planner.capacitySnapshot()` به‌صورت metadata محدود خوانده می‌شود و هیچ تخصیص جدیدی انجام نمی‌دهد؛
 - خروجی API metadata-only است و از الگوی observability امن موجود استفاده می‌کند؛
 - هیچ اصلاح خودکاری انجام نمی‌شود، چون تشخیص خطا نباید اختیار mutation یا authorization بگیرد.
+- `controlCommandProjection` فقط وضعیت امن request، اختیار کامل و Global Stop را از فرمان‌های append-only بازسازی می‌کند؛ متن درخواست و payload خصوصی عمداً وارد آن نمی‌شود.
 
 این قابلیت جایگزین `check:pilot` نیست. گیت‌های Provider زنده، Secret، recovery مقصد، درخواست واقعی Pilot و Production همچنان جداگانه مسدود/مجوزدار هستند.

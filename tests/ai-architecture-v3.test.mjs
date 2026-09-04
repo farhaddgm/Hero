@@ -190,6 +190,8 @@ test("organization advisor turns eleven-team evidence into options and a non-aut
   assert.equal(result.evidence.teamCount, 11);
   assert.equal(result.recommendation.optionId, "targeted-improvement");
   assert.ok(result.roadmap.some(step => step.teamId === "ideh-pardazo"));
+  assert.ok(result.trainingActions.some(action => action.teamId === "ideh-pardazo" && action.module === "quality"));
+  assert.equal(result.trainingActions.every(action => action.status === "proposed" && action.evidenceRequired), true);
   assert.equal(result.decisionBoundary, "advisory-only-no-dispatch-no-authorization-no-mutation");
   assert.equal(advisor.persistenceSnapshot().records.length, 1);
   assert.equal(advisor.latest().advisorId, result.advisorId);

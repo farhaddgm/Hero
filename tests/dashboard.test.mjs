@@ -329,6 +329,72 @@ test("full autonomy prepares only new requests while global stop blocks dispatch
   assert.equal(control.approveRequest(stopped.requestId).status, "آماده اجرا");
 });
 
+test("control commands are append-only, projected safely and restored with the dashboard snapshot", () => {
+  const first = dashboard();
+  first.setFullAutonomy(true);
+  const request = first.createRequest({ title: "درخواست قابل ممیزی", scenario: "success" });
+  first.setGlobalStop(true);
+
+  const controlEvents = first.domainEvents().filter(event => event.type === "control.command-recorded" || event.type.startsWith("authorization.global-stop-"));
+  assert.equal(controlEvents.length, 3);
+  const commandProjection = first.controlCommandProjection();
+  assert.equal(commandProjection.requestCount, 1);
+  assert.equal(commandProjection.requests[0].requestId, request.requestId);
+  assert.equal(commandProjection.requests[0].scenario, "success");
+  assert.equal(commandProjection.requests[0].status, "آماده اجرا");
+  assert.equal(commandProjection.fullAutonomy, true);
+  assert.equal(commandProjection.globalStop, true);
+  assert.deepEqual(controlEvents.map(event => event.data.command).sort(), ["authority.update", "global-stop.update", "request.create"].sort());
+  const controlProjectionStatus = first.domainProjectionStatus().registries.find(item => item.registryId === "control-dashboard");
+  assert.equal(controlProjectionStatus.eventCount, 3);
+  assert.equal(controlProjectionStatus.commandProjection.requestCount, 1);
+  assert.equal(first.backofficeEvents({ limit: 2 }).events.length, 2);
+  assert.equal(first.backofficeEvents({ after: 2, limit: 2 }).events.length, 1);
+  assert.deepEqual(first.backofficeEvents({ limit: 10 }).events.map(event => event.data.command).sort(), ["authority.update", "global-stop.update", "request.create"].sort());
+
+  const second = dashboard();
+  const persisted = first.persistenceSnapshot();
+  const hydration = second.hydrateFromPersistence({
+    source: "test-control-event-replay",
+    snapshots: persisted.registries.map(data => ({ registryId: data.registryId, schemaVersion: data.schemaVersion, sourceSequence: 3, data })),
+    events: controlEvents
+  });
+  assert.equal(hydration.status, "hydrated");
+  assert.equal(second.snapshot().requests[0].requestId, request.requestId);
+  assert.equal(second.domainEvents().filter(event => event.type === "control.command-recorded" || event.type.startsWith("authorization.global-stop-")).length, 3);
+  assert.equal(second.backofficeSnapshot().governance.globalStop, true);
+  assert.equal(JSON.stringify(second.backofficeSnapshot()).includes("درخواست قابل ممیزی"), false);
+});
+
+test("control hydration fails closed when the event projection disagrees with the snapshot", () => {
+  const control = dashboard();
+  const request = control.createRequest({ title: "درخواست ناسازگار", scenario: "success" });
+  const persisted = structuredClone(control.persistenceSnapshot());
+  const dashboardSnapshot = persisted.registries.find(registry => registry.registryId === "control-dashboard");
+  dashboardSnapshot.requests.find(item => item.requestId === request.requestId).status = "تکمیل";
+  const second = dashboard();
+  assert.throws(
+    () => second.hydrateFromPersistence({
+      snapshots: persisted.registries.map(data => ({ registryId: data.registryId, schemaVersion: data.schemaVersion, data })),
+      events: control.domainEvents()
+    }),
+    error => error.code === "HYDRATION_PROJECTION_MISMATCH"
+  );
+});
+
+test("read model rebuild validates all registries from snapshots and append-only events without external mutation", () => {
+  const control = dashboard();
+  control.setFullAutonomy(true);
+  control.createRequest({ title: "بازسازی امن مدل", scenario: "success" });
+  const rebuilt = control.rebuildReadModel();
+  assert.equal(rebuilt.status, "rebuilt");
+  assert.equal(rebuilt.hydration.status, "hydrated");
+  assert.equal(rebuilt.before.digest, rebuilt.after.digest);
+  assert.equal(rebuilt.before.eventCount, rebuilt.after.eventCount);
+  assert.equal(rebuilt.mutation.external, false);
+  assert.equal(rebuilt.decisionBoundary, "read-only-validation-no-authorization-no-dispatch");
+});
+
 test("dashboard rejects secret-shaped input instead of returning it in the snapshot", () => {
   const control = dashboard();
   assert.throws(

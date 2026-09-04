@@ -60,6 +60,9 @@ const READ_MODEL_AUDIT_RESOURCES = new Set([
   "/api/operations/diagnostics"
 ]);
 const BACKOFFICE_PATHS = new Set(["/backoffice", "/backoffice-data", "/backoffice-events"]);
+const DEFAULT_BACKOFFICE_RESPONSE_LIMIT_BYTES = 512 * 1024;
+const DEFAULT_BACKOFFICE_RATE_LIMIT_WINDOW_MS = 60_000;
+const DEFAULT_BACKOFFICE_RATE_LIMIT_MAX = 60;
 const ADMIN_ALLOWED_MUTATIONS = new Set([
   "/api/ai/providers",
   "/api/ai/models",
@@ -70,17 +73,60 @@ const ADMIN_ALLOWED_MUTATIONS = new Set([
   "/api/ai/role-policies"
 ]);
 
-function json(response, statusCode, body) {
+function json(response, statusCode, body, { maxBytes } = {}) {
   const payload = JSON.stringify(body);
+  const payloadBytes = Buffer.byteLength(payload);
+  if (maxBytes !== undefined && payloadBytes > maxBytes) {
+    const message = "Hero Back Office response is too large.";
+    response.writeHead(413, {
+      "content-type": "text/plain; charset=utf-8",
+      "content-length": Buffer.byteLength(message),
+      "cache-control": "no-store",
+      "x-robots-tag": PRIVATE_ROBOTS_POLICY,
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    });
+    response.end(message);
+    return;
+  }
   response.writeHead(statusCode, {
     "content-type": "application/json; charset=utf-8",
-    "content-length": Buffer.byteLength(payload),
+    "content-length": payloadBytes,
     "cache-control": "no-store",
     "x-robots-tag": PRIVATE_ROBOTS_POLICY,
     "x-content-type-options": "nosniff",
     "referrer-policy": "no-referrer"
   });
   response.end(payload);
+}
+
+function createRateLimiter({ windowMs = DEFAULT_BACKOFFICE_RATE_LIMIT_WINDOW_MS, max = DEFAULT_BACKOFFICE_RATE_LIMIT_MAX } = {}) {
+  if (!Number.isInteger(windowMs) || windowMs < 1_000 || windowMs > 86_400_000) throw new Error("Back Office rate-limit window must be between 1000 and 86400000 milliseconds.");
+  if (!Number.isInteger(max) || max < 1 || max > 10_000) throw new Error("Back Office rate-limit max must be between 1 and 10000 requests.");
+  const entries = new Map();
+  return Object.freeze({
+    consume(key, now = Date.now()) {
+      const current = entries.get(key);
+      if (!current || now - current.startedAt >= windowMs) {
+        entries.set(key, { startedAt: now, count: 1 });
+        if (entries.size > 2_000) {
+          for (const [entryKey, entry] of entries) {
+            if (now - entry.startedAt >= windowMs) entries.delete(entryKey);
+          }
+        }
+        return Object.freeze({ allowed: true, remaining: max - 1, retryAfter: 0 });
+      }
+      if (current.count >= max) {
+        return Object.freeze({
+          allowed: false,
+          remaining: 0,
+          retryAfter: Math.max(1, Math.ceil((windowMs - (now - current.startedAt)) / 1000))
+        });
+      }
+      current.count += 1;
+      return Object.freeze({ allowed: true, remaining: max - current.count, retryAfter: 0 });
+    }
+  });
 }
 
 function html(response, body) {
@@ -195,6 +241,11 @@ export function createHeroServer(options = {}) {
   const host = options.host ?? process.env.HERO_HTTP_HOST ?? "127.0.0.1";
   const port = parsePort(options.port ?? process.env.HERO_HTTP_PORT ?? "3100");
   const backofficeAuth = basicAuthConfig(options);
+  const backofficeResponseLimitBytes = options.backofficeResponseLimitBytes ?? DEFAULT_BACKOFFICE_RESPONSE_LIMIT_BYTES;
+  if (!Number.isInteger(backofficeResponseLimitBytes) || backofficeResponseLimitBytes < 1_024 || backofficeResponseLimitBytes > 10 * 1024 * 1024) {
+    throw new Error("Back Office response limit must be between 1024 and 10485760 bytes.");
+  }
+  const backofficeRateLimiter = createRateLimiter(options.backofficeRateLimit);
   const providerAdapterOptions = options.providerAdapterOptions ?? {
     openai: { costUnitsPer1kTokens: optionalCostUnits("HERO_OPENAI_COST_UNITS_PER_1K_TOKENS") },
     anthropic: { costUnitsPer1kTokens: optionalCostUnits("HERO_ANTHROPIC_COST_UNITS_PER_1K_TOKENS") },
@@ -248,7 +299,7 @@ export function createHeroServer(options = {}) {
   }
 
   async function persistNewDomainEvents() {
-    if (!postgresRuntime?.store || typeof dashboard.domainEvents !== "function") return;
+    if (!postgresRuntime?.store || typeof postgresRuntime.store.appendEvent !== "function" || typeof dashboard.domainEvents !== "function") return;
     const events = [...dashboard.domainEvents()].sort((left, right) =>
       `${left.aggregateType}:${left.aggregateId}`.localeCompare(`${right.aggregateType}:${right.aggregateId}`) ||
       (left.aggregateVersion ?? 0) - (right.aggregateVersion ?? 0)
@@ -316,6 +367,22 @@ export function createHeroServer(options = {}) {
 
     try {
       const backofficePath = BACKOFFICE_PATHS.has(url.pathname);
+      if (backofficePath) {
+        const rate = backofficeRateLimiter.consume(request.socket?.remoteAddress ?? "unknown");
+        if (!rate.allowed) {
+          response.writeHead(429, {
+            "content-type": "text/plain; charset=utf-8",
+            "content-length": Buffer.byteLength("Hero Back Office rate limit exceeded."),
+            "cache-control": "no-store",
+            "retry-after": String(rate.retryAfter),
+            "x-robots-tag": PRIVATE_ROBOTS_POLICY,
+            "x-content-type-options": "nosniff",
+            "referrer-policy": "no-referrer"
+          });
+          response.end("Hero Back Office rate limit exceeded.");
+          return;
+        }
+      }
       if (backofficePath && backofficeAuth && !matchesBasicAuth(basicCredentials(request), backofficeAuth)) {
         await recordReadAccess(url.pathname, "rejected");
         response.writeHead(401, {
@@ -351,7 +418,7 @@ export function createHeroServer(options = {}) {
 
       if (request.method === "GET" && url.pathname === "/backoffice-data") {
         await recordReadAccess("/backoffice-data", "accepted", { kind: backofficeAuth ? "backoffice-basic-auth" : "project-owner", id: backofficeAuth ? "backoffice-user" : "development-local" });
-        return json(response, 200, { service: HERO_SERVICE, backoffice: dashboard.backofficeSnapshot() });
+        return json(response, 200, { service: HERO_SERVICE, backoffice: dashboard.backofficeSnapshot() }, { maxBytes: backofficeResponseLimitBytes });
       }
 
       if (request.method === "GET" && url.pathname === "/backoffice-events") {
@@ -370,9 +437,9 @@ export function createHeroServer(options = {}) {
             nextAfter: stored.at(-1)?.sequence ?? after,
             hasMore: allStored.length > limit,
             source: "postgresql-events"
-          });
+          }, { maxBytes: backofficeResponseLimitBytes });
         }
-        return json(response, 200, { service: HERO_SERVICE, ...dashboard.backofficeEvents({ after, limit }) });
+        return json(response, 200, { service: HERO_SERVICE, ...dashboard.backofficeEvents({ after, limit }) }, { maxBytes: backofficeResponseLimitBytes });
       }
 
       const authenticatedOwner = url.pathname.startsWith("/api/")

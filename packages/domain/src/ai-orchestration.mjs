@@ -135,6 +135,25 @@ function withTimeout(promise, timeoutMs) {
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
+function normalizeCircuitBreaker(value) {
+  if (value === false) return null;
+  const input = value && typeof value === "object" ? value : {};
+  const failureThreshold = input.failureThreshold ?? 3;
+  const resetTimeoutMs = input.resetTimeoutMs ?? 30_000;
+  if (!Number.isInteger(failureThreshold) || failureThreshold < 1 || failureThreshold > 20) {
+    throw new AiOrchestrationError("INVALID_NUMBER", "circuitBreaker.failureThreshold must be between 1 and 20.");
+  }
+  if (!Number.isInteger(resetTimeoutMs) || resetTimeoutMs < 1_000 || resetTimeoutMs > 86_400_000) {
+    throw new AiOrchestrationError("INVALID_NUMBER", "circuitBreaker.resetTimeoutMs must be between 1000 and 86400000.");
+  }
+  return Object.freeze({ failureThreshold, resetTimeoutMs });
+}
+
+function circuitFailure(error) {
+  const code = error?.code;
+  return !["COST_LIMIT_REACHED", "OUTPUT_SCHEMA_INVALID", "USAGE_INVALID"].includes(code);
+}
+
 function hasSeparateExternalSpendAuthorization(input, projectId) {
   const authorization = input?.externalSpendAuthorization;
   if (!authorization || typeof authorization !== "object" || Array.isArray(authorization)) return false;
@@ -237,6 +256,8 @@ export function createDeterministicAiProviderAdapter(providerId = "deterministic
 export function createAiOrchestration(options = {}) {
   const eventLog = options.eventLog ?? createInMemoryEventLog();
   const now = options.now ?? (() => new Date().toISOString());
+  const clock = options.clock ?? (() => Date.now());
+  const circuitBreaker = normalizeCircuitBreaker(options.circuitBreaker);
   const projectMemory = options.projectMemory ?? null;
   const providerAdapters = options.providerAdapters ?? Object.freeze({});
   const externalSpendAuthorizer = options.externalSpendAuthorizer ?? null;
@@ -250,7 +271,8 @@ export function createAiOrchestration(options = {}) {
   const invocations = new Map();
   const evaluations = new Map();
   const decisions = new Map();
-  const rolePolicies = new Map(Object.entries(options.defaultRolePolicies ?? AI_DEFAULT_ROLE_POLICIES).map(([role, policy]) => [role, { ...policy, policyVersion: policy.policyVersion ?? 1 }]));
+  const circuitStates = new Map();
+  const rolePolicies = new Map(Object.entries(options.defaultRolePolicies ?? AI_DEFAULT_ROLE_POLICIES).map(([role, policy]) => [role, { ...policy, role, policyVersion: policy.policyVersion ?? 1 }]));
   const idempotency = new Map();
 
   function appendEvent({ aggregateType, aggregateId, type, actor, data, correlationId, causationId }) {
@@ -301,6 +323,70 @@ export function createAiOrchestration(options = {}) {
     if (!skill) throw new AiOrchestrationError("SKILL_NOT_FOUND", `Skill ${skillId} was not registered.`);
     if (skill.status !== "active") throw new AiOrchestrationError("SKILL_NOT_ACTIVE", "Only an active Skill can be bound.");
     return skill;
+  }
+
+  function circuitSnapshot(providerId) {
+    const state = circuitStates.get(providerId) ?? { state: "closed", failureCount: 0, openedAt: null, probeInFlight: false, lastFailureAt: null };
+    return { ...state };
+  }
+
+  function circuitAllowance(providerId) {
+    if (!circuitBreaker) return { allowed: true, probe: false, state: "disabled" };
+    const state = circuitStates.get(providerId) ?? { state: "closed", failureCount: 0, openedAt: null, probeInFlight: false, lastFailureAt: null };
+    if (state.state === "open") {
+      const openedAt = Date.parse(state.openedAt ?? "");
+      if (!Number.isFinite(openedAt) || clock() - openedAt < circuitBreaker.resetTimeoutMs) {
+        return { allowed: false, probe: false, state: "open" };
+      }
+      state.state = "half-open";
+      state.probeInFlight = false;
+    }
+    if (state.state === "half-open") {
+      if (state.probeInFlight) return { allowed: false, probe: false, state: "half-open" };
+      state.probeInFlight = true;
+      circuitStates.set(providerId, state);
+      return { allowed: true, probe: true, state: "half-open" };
+    }
+    circuitStates.set(providerId, state);
+    return { allowed: true, probe: false, state: "closed" };
+  }
+
+  function recordCircuitFailure(providerId, actor, { probe = false, code } = {}) {
+    if (!circuitBreaker) return;
+    const current = circuitStates.get(providerId) ?? { state: "closed", failureCount: 0, openedAt: null, probeInFlight: false, lastFailureAt: null };
+    current.failureCount += 1;
+    current.lastFailureAt = now();
+    current.probeInFlight = false;
+    const opened = probe || current.failureCount >= circuitBreaker.failureThreshold;
+    current.state = opened ? "open" : "closed";
+    if (opened) current.openedAt = current.lastFailureAt;
+    circuitStates.set(providerId, current);
+    if (opened) {
+      appendEvent({
+        aggregateType: "ai-provider",
+        aggregateId: providerId,
+        type: "ai.provider-circuit-opened",
+        actor,
+        data: { providerId, status: "open", code: code ?? "PROVIDER_EXECUTION_FAILED", attempts: current.failureCount }
+      });
+    }
+  }
+
+  function recordCircuitSuccess(providerId, actor, { probe = false } = {}) {
+    if (!circuitBreaker) return;
+    const current = circuitStates.get(providerId);
+    if (!current || (current.failureCount === 0 && current.state === "closed")) return;
+    const wasOpen = current.state === "open" || current.state === "half-open" || probe;
+    circuitStates.set(providerId, { state: "closed", failureCount: 0, openedAt: null, probeInFlight: false, lastFailureAt: null });
+    if (wasOpen) {
+      appendEvent({
+        aggregateType: "ai-provider",
+        aggregateId: providerId,
+        type: "ai.provider-circuit-closed",
+        actor,
+        data: { providerId, status: "closed", code: "PROVIDER_RECOVERED" }
+      });
+    }
   }
 
   function resolveBinding({ projectId, teamId = null, skillId = null, role }) {
@@ -753,6 +839,11 @@ export function createAiOrchestration(options = {}) {
     if (input.toolAction && SENSITIVE_ACTIONS.includes(input.toolAction)) {
       return blockedInvocation({ input, actor, profile, provider, code: "SENSITIVE_ACTION_REQUIRES_SEPARATE_APPROVAL", reason: "Sensitive actions require a separate authorization boundary.", idempotencyKey, value });
     }
+    const circuit = circuitAllowance(provider.providerId);
+    if (!circuit.allowed) {
+      return blockedInvocation({ input, actor, profile, provider, code: "PROVIDER_CIRCUIT_OPEN", reason: "Provider is temporarily blocked after repeated failures; retry after the recovery window.", idempotencyKey, value });
+    }
+    const circuitProbe = circuit.probe === true;
     const adapterInput = {
       request,
       context,
@@ -852,6 +943,7 @@ export function createAiOrchestration(options = {}) {
       const error = failure;
       const reason = safeErrorMessage(error);
       const code = error instanceof AiOrchestrationError ? error.code : "PROVIDER_EXECUTION_FAILED";
+      if (circuitFailure(error)) recordCircuitFailure(provider.providerId, actor, { probe: circuitProbe, code });
       const failedEvent = appendEvent({
         aggregateType: "ai-invocation",
         aggregateId: invocationId,
@@ -866,6 +958,7 @@ export function createAiOrchestration(options = {}) {
       return remember(scope, value, { invocation, idempotent: false });
     }
 
+    recordCircuitSuccess(provider.providerId, actor, { probe: circuitProbe });
     const completed = appendEvent({
       aggregateType: "ai-invocation",
       aggregateId: invocationId,
@@ -1031,6 +1124,7 @@ export function createAiOrchestration(options = {}) {
       profiles: [...profiles.values()],
       bindings: [...currentBindings.values()],
       defaultRolePolicies: [...rolePolicies.values()],
+      circuitBreaker: circuitBreaker ? { ...circuitBreaker, states: [...circuitStates.entries()].map(([providerId, state]) => ({ providerId, ...circuitSnapshot(providerId) })) } : { enabled: false, states: [] },
       counts: { providers: providers.size, models: models.size, profiles: profiles.size, bindings: currentBindings.size, rolePolicies: rolePolicies.size, invocations: invocations.size, evaluations: evaluations.size, decisions: decisions.size },
       activity: activitySnapshot()
     });
@@ -1091,6 +1185,7 @@ export function createAiOrchestration(options = {}) {
       bindings: [...bindings.values()],
       currentBindings: [...currentBindings.values()],
       rolePolicies: [...rolePolicies.values()],
+      circuitBreaker: circuitBreaker ? { ...circuitBreaker, states: [...circuitStates.entries()].map(([providerId, state]) => ({ providerId, ...circuitSnapshot(providerId) })) } : { enabled: false, states: [] },
       invocations: [...invocations.values()],
       evaluations: [...evaluations.values()],
       decisions: [...decisions.values()]
@@ -1103,6 +1198,7 @@ export function createAiOrchestration(options = {}) {
     assertSafePayload(state, "hydratedState");
     if (Array.isArray(input.events)) eventLog.load(input.events.filter(event => event.aggregateType.startsWith("ai-")));
     for (const map of [providers, models, profiles, bindings, currentBindings, rolePolicies, invocations, evaluations, decisions]) map.clear();
+    circuitStates.clear();
     for (const provider of state.providers ?? []) {
       const stored = immutableCopy(provider);
       providers.set(stored.providerId, { ...stored, adapter: providerAdapters[stored.providerId] ?? null });
@@ -1110,12 +1206,27 @@ export function createAiOrchestration(options = {}) {
     for (const model of state.models ?? []) models.set(`${model.providerId}\u0000${model.modelId}`, immutableCopy(model));
     for (const profile of state.profiles ?? []) profiles.set(profile.profileId, immutableCopy(profile));
     for (const binding of state.bindings ?? []) bindings.set(binding.bindingId, immutableCopy(binding));
-    for (const [role, policy] of Object.entries(AI_DEFAULT_ROLE_POLICIES)) rolePolicies.set(role, { ...policy, policyVersion: 1 });
-    for (const policy of state.rolePolicies ?? []) rolePolicies.set(policy.role, immutableCopy(policy));
+    for (const [role, policy] of Object.entries(AI_DEFAULT_ROLE_POLICIES)) rolePolicies.set(role, { ...policy, role, policyVersion: 1 });
+    for (const policy of state.rolePolicies ?? []) {
+      if (typeof policy?.role === "string") rolePolicies.set(policy.role, immutableCopy(policy));
+    }
     for (const binding of state.currentBindings ?? state.bindings ?? []) currentBindings.set(roleBindingKey(binding), immutableCopy(binding));
     for (const invocation of state.invocations ?? []) invocations.set(invocation.invocationId, immutableCopy(invocation));
     for (const evaluation of state.evaluations ?? []) evaluations.set(evaluation.evaluationId, immutableCopy(evaluation));
     for (const decision of state.decisions ?? []) decisions.set(decision.decisionId, immutableCopy(decision));
+    if (circuitBreaker && state.circuitBreaker?.states) {
+      for (const item of state.circuitBreaker.states) {
+        if (typeof item?.providerId === "string" && ["closed", "open", "half-open"].includes(item.state)) {
+          circuitStates.set(item.providerId, {
+            state: item.state,
+            failureCount: Number.isInteger(item.failureCount) && item.failureCount >= 0 ? item.failureCount : 0,
+            openedAt: typeof item.openedAt === "string" ? item.openedAt : null,
+            probeInFlight: false,
+            lastFailureAt: typeof item.lastFailureAt === "string" ? item.lastFailureAt : null
+          });
+        }
+      }
+    }
     return immutableCopy({ registryId: "ai-orchestration", hydrated: true, providers: providers.size, models: models.size, profiles: profiles.size, bindings: currentBindings.size, rolePolicies: rolePolicies.size, invocations: invocations.size, evaluations: evaluations.size, decisions: decisions.size });
   }
 
