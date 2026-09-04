@@ -59,6 +59,7 @@ const READ_MODEL_AUDIT_RESOURCES = new Set([
   "/api/audit",
   "/api/operations/diagnostics"
 ]);
+const BACKOFFICE_PATHS = new Set(["/backoffice", "/backoffice-data", "/backoffice-events"]);
 const ADMIN_ALLOWED_MUTATIONS = new Set([
   "/api/ai/providers",
   "/api/ai/models",
@@ -75,7 +76,9 @@ function json(response, statusCode, body) {
     "content-type": "application/json; charset=utf-8",
     "content-length": Buffer.byteLength(payload),
     "cache-control": "no-store",
-    "x-robots-tag": PRIVATE_ROBOTS_POLICY
+    "x-robots-tag": PRIVATE_ROBOTS_POLICY,
+    "x-content-type-options": "nosniff",
+    "referrer-policy": "no-referrer"
   });
   response.end(payload);
 }
@@ -312,8 +315,8 @@ export function createHeroServer(options = {}) {
     const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
 
     try {
-      const protectedBackofficePath = request.method === "GET" && ["/backoffice", "/backoffice-data", "/backoffice-events"].includes(url.pathname);
-      if (protectedBackofficePath && backofficeAuth && !matchesBasicAuth(basicCredentials(request), backofficeAuth)) {
+      const backofficePath = BACKOFFICE_PATHS.has(url.pathname);
+      if (backofficePath && backofficeAuth && !matchesBasicAuth(basicCredentials(request), backofficeAuth)) {
         await recordReadAccess(url.pathname, "rejected");
         response.writeHead(401, {
           "www-authenticate": 'Basic realm="Hero Back Office", charset="UTF-8"',
@@ -322,6 +325,18 @@ export function createHeroServer(options = {}) {
           "x-content-type-options": "nosniff"
         });
         response.end("Back Office authentication required.");
+        return;
+      }
+      if (backofficePath && request.method !== "GET") {
+        response.writeHead(405, {
+          "allow": "GET",
+          "content-type": "text/plain; charset=utf-8",
+          "cache-control": "no-store",
+          "x-robots-tag": PRIVATE_ROBOTS_POLICY,
+          "x-content-type-options": "nosniff",
+          "referrer-policy": "no-referrer"
+        });
+        response.end("Hero Back Office is read-only; GET is the only allowed method.");
         return;
       }
 

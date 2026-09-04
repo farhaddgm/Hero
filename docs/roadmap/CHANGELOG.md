@@ -1,5 +1,14 @@
 # تغییرات رودمپ شرکت
 
+## 2026-09-04 — تکمیل مشاهدهٔ Projection، حافظه و ظرفیت عملیاتی
+
+- افزوده‌شده: فهرست metadata امن Project Memory فعلی در Back Office؛ محتوای حافظه، prompt، output و credential نمایش داده نمی‌شوند؛
+- افزوده‌شده: جزئیات ۱۱ Projection شامل event type، آخرین event، تعداد collectionها و وضعیت Snapshot/Hydration؛
+- افزوده‌شده: اتصال read-only ظرفیت Planner به Diagnostic برای نمایش سقف تیم و تعارض resource claim؛
+- اصلاح‌شده: مسیرهای Back Office فقط GET را می‌پذیرند و روش‌های دیگر را با `405` رد می‌کنند؛
+- مرز: projection کامل همهٔ commandها و retrieval کامل Context هنوز باز است؛ Provider زنده، Secret، Test عملیاتی با اعتبارنامهٔ واقعی، Pilot و Production همچنان جداگانه gated هستند.
+- شواهد: verification نهایی در Linux container با `230/230` تست، Build `138`، clean-room با `234` فایل و `git diff --check` موفق انجام شد؛ Compose config و smoke-test Test نیز موفق‌اند.
+
 ## 2026-09-04 — تکمیل نمای فقط‌خواندنی Back Office
 
 - افزوده‌شده: projection نسخهٔ `1.1` برای هویت سرویس، runtime، persistence/hydration، امنیت، حاکمیت، مسیرها و کاتالوگ قراردادهای کل Hero؛

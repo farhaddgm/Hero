@@ -22,7 +22,8 @@ export const OPERATIONAL_DIAGNOSTIC_REPORTS = Object.freeze([
   "projection-digest",
   "ai-configuration-history",
   "knowledge-freshness",
-  "assignment-conflicts"
+  "assignment-conflicts",
+  "capacity-and-resource-conflicts"
 ]);
 
 export function getOperationalDiagnosticsContractSummary() {

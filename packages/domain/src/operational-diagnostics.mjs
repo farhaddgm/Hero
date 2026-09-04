@@ -159,17 +159,29 @@ function knowledgeFreshness(snapshot, now) {
   return Object.freeze({ expectedTeams: 11, observedTeams: summaries.length, counts: Object.freeze(counts), teams: Object.freeze(summaries) });
 }
 
-function assignmentConflicts(snapshot) {
+function assignmentConflicts(snapshot, capacity) {
   const teams = snapshot?.registries?.find(registry => registry?.registryId === "team-registry")?.teams ?? [];
   const activeStates = new Set(["assigned", "working", "review", "rework", "blocked", "paused"]);
   const assignments = teams.flatMap(team => (team.assignments ?? []).filter(assignment => activeStates.has(assignment.state)).map(assignment => ({ ...assignment, teamId: team.teamId })));
   const byTask = new Map();
   assignments.forEach(assignment => { const list = byTask.get(assignment.taskId) ?? []; list.push(assignment); byTask.set(assignment.taskId, list); });
   const conflicts = [...byTask.entries()].filter(([, values]) => new Set(values.map(value => value.teamId)).size > 1).map(([taskId, values]) => ({ code: "TASK_ASSIGNED_TO_MULTIPLE_TEAMS", taskId, teamIds: [...new Set(values.map(value => value.teamId))].sort() }));
-  return Object.freeze({ status: conflicts.length === 0 ? "clear" : "attention", capacityModel: "not-configured", activeAssignments: assignments.length, conflicts: Object.freeze(conflicts), note: "No automatic capacity limit or assignment mutation is applied by this report." });
+  const capacityChecks = Array.isArray(capacity?.plans) ? capacity.plans : [];
+  const capacityConflicts = capacityChecks.flatMap(plan => (plan.conflicts ?? []).map(conflict => ({ ...conflict, planningId: plan.planningId })));
+  return Object.freeze({
+    status: conflicts.length === 0 && capacityConflicts.length === 0 ? "clear" : "attention",
+    capacityModel: capacity?.model ?? "not-configured",
+    activeAssignments: assignments.length,
+    conflicts: Object.freeze(conflicts),
+    capacityChecks: Object.freeze(capacityChecks),
+    capacityConflicts: Object.freeze(capacityConflicts),
+    note: capacityChecks.length > 0
+      ? "سقف هم‌زمانی تیم و هم‌پوشانی resource claim از readiness برنامه‌ها خوانده می‌شود؛ این گزارش هیچ تخصیص یا تغییری انجام نمی‌دهد."
+      : "برای این runtime برنامه‌ای با ورودی ظرفیت ثبت نشده است؛ این گزارش هیچ محدودیت خودکاری اعمال نمی‌کند."
+  });
 }
 
-export function createOperationalDiagnostics({ persistenceSnapshot, events, now = new Date().toISOString() } = {}) {
+export function createOperationalDiagnostics({ persistenceSnapshot, events, capacity, now = new Date().toISOString() } = {}) {
   const snapshot = persistenceSnapshot ?? {};
   const domainEvents = Array.isArray(events) ? events : [];
   const coverage = registryCoverage(snapshot);
@@ -177,11 +189,12 @@ export function createOperationalDiagnostics({ persistenceSnapshot, events, now 
   const eventReport = eventIntegrity(domainEvents);
   const replay = replayCheck(domainEvents);
   const replayReady = coverage.status === "valid" && snapshotReport.status === "valid" && eventReport.status === "valid" && replay.status === "replayable";
+  const assignmentReport = assignmentConflicts(snapshot, capacity);
   const projectionDigest = digest({ snapshot, events: domainEvents });
   return Object.freeze({
     schemaVersion: OPERATIONAL_DIAGNOSTICS_CONTRACT_VERSION,
     generatedAt: now,
-    status: replayReady ? "healthy" : "attention",
+    status: replayReady && assignmentReport.status === "clear" ? "healthy" : "attention",
     contract: getOperationalDiagnosticsContractSummary(),
     registryCoverage: coverage,
     snapshotIntegrity: snapshotReport,
@@ -190,7 +203,7 @@ export function createOperationalDiagnostics({ persistenceSnapshot, events, now 
     projectionDigest: Object.freeze({ algorithm: "sha256", value: projectionDigest, eventCount: domainEvents.length }),
     aiConfiguration: safeAiConfiguration(snapshot, domainEvents),
     knowledgeFreshness: knowledgeFreshness(snapshot, now),
-    assignmentConflicts: assignmentConflicts(snapshot),
+    assignmentConflicts: assignmentReport,
     decisionBoundary: "advisory read-only; no authorization, dispatch, provider invocation, deployment or mutation"
   });
 }

@@ -428,6 +428,32 @@ export function createControlDashboard(options = {}) {
         }))
       : [];
     const contracts = projectContractCatalog();
+    const projectMemoryRecords = typeof projectMemory.list === "function" ? projectMemory.list() : [];
+    const projectMemoryReadModel = Object.freeze({
+      mode: "current-version-only",
+      total: projectMemoryRecords.length,
+      records: Object.freeze(projectMemoryRecords.slice(0, 100).map(record => Object.freeze({
+        memoryId: record.memoryId,
+        projectId: record.projectId,
+        memoryKey: record.memoryKey,
+        recordVersion: record.recordVersion,
+        kind: record.kind,
+        scope: record.scope,
+        status: record.status,
+        tags: Object.freeze([...(record.tags ?? [])]),
+        recipientRoles: Object.freeze([...(record.recipientRoles ?? [])]),
+        binding: record.binding,
+        source: record.source ? Object.freeze({
+          kind: record.source.kind,
+          reference: record.source.reference,
+          documentVersion: record.source.documentVersion
+        }) : null,
+        supersedesMemoryId: record.supersedesMemoryId,
+        recordedAt: record.recordedAt,
+        eventId: record.eventId
+      }))),
+      redacted: Object.freeze(["content", "prompt", "model output", "credential values"])
+    });
     const projectControls = Object.freeze({
       criticalPrinciples: Object.freeze((current.principlesControl.principles ?? []).map(principle => Object.freeze({
         projectId: principle.projectId,
@@ -538,6 +564,7 @@ export function createControlDashboard(options = {}) {
         })
       }),
       projectControls,
+      projectMemory: projectMemoryReadModel,
       contracts,
       routes: Object.freeze([
         Object.freeze({ method: "GET", path: "/backoffice", purpose: "رابط فارسی فقط‌خواندنی", access: "same-host Basic Auth" }),
@@ -684,7 +711,22 @@ export function createControlDashboard(options = {}) {
       ["skill-registry", skillRegistry],
       ["organization-advisor", organizationAdvisor],
       ["control-dashboard", { events: () => [], persistenceSnapshot, hydrate: hydrateFromPersistence }]
-    ].map(([registryId, registry]) => Object.freeze({ registryId, eventCount: registry.events?.().length ?? 0, snapshotSupported: typeof registry.persistenceSnapshot === "function", hydrationSupported: typeof registry.hydrate === "function" }));
+    ].map(([registryId, registry]) => {
+      const events = registry.events?.() ?? [];
+      const persisted = registryId === "control-dashboard" ? null : registry.persistenceSnapshot?.();
+      const state = persisted?.data ?? persisted ?? {};
+      const collectionCounts = Object.fromEntries(Object.entries(state).filter(([, value]) => Array.isArray(value)).map(([key, value]) => [key, value.length]));
+      return Object.freeze({
+        registryId,
+        eventCount: events.length,
+        eventTypes: Object.freeze([...new Set(events.map(event => event.type).filter(Boolean))].sort()),
+        lastEventAt: events.at(-1)?.occurredAt ?? null,
+        snapshotSchemaVersion: persisted?.schemaVersion ?? null,
+        collectionCounts: Object.freeze(collectionCounts),
+        snapshotSupported: typeof registry.persistenceSnapshot === "function",
+        hydrationSupported: typeof registry.hydrate === "function"
+      });
+    });
     const missing = registries.filter(registry => !registry.snapshotSupported || !registry.hydrationSupported).map(registry => registry.registryId);
     return Object.freeze({
       contractVersion: "1.0",
@@ -1238,6 +1280,7 @@ export function createControlDashboard(options = {}) {
     return createOperationalDiagnostics({
       persistenceSnapshot: persistenceSnapshot(),
       events: domainEvents(),
+      capacity: planner.capacitySnapshot?.(),
       now: timestamp(now)
     });
   }

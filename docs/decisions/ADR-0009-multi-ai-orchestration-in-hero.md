@@ -42,6 +42,6 @@ The implementation includes runtime-configurable HTTP adapters for OpenAI Respon
 - Existing Workflow, Runner, Quality Gate and Authorization remain authoritative for execution and sensitive actions.
 - AI roles can be mapped to many teams without changing team contracts.
 - Provider, Model and Profile changes do not rewrite previous Invocation, Memory or Evidence records.
-- PostgreSQL keeps append-only events as the source of truth and stores versioned Domain Registry snapshots as restart projections; the Control Plane hydrates its eight Domain registries plus dashboard state at startup and appends a new snapshot after successful commands.
+- PostgreSQL keeps append-only events as the source of truth and stores versioned Domain Registry snapshots as restart projections; the Control Plane hydrates its ten Domain registries plus dashboard state at startup and appends a new snapshot after successful commands.
 - Node.js/ESM and JSON-compatible schemas remain the implementation path; a Python runtime is not introduced only for the proposal's example interface.
 - Live Provider, external connectors, Secret Store integration, spend and Production remain separate authorized work.

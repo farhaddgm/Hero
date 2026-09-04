@@ -36,7 +36,7 @@
 | ۳ | Evaluation و Quality Gate | انجام‌شده؛ async review به revision loop وصل شد، بدون اعطای مجوز |
 | ۴ | Planner routing | انجام‌شده؛ هر Task نقش AI دارد و implementation پیش‌فرض `executor/Codex` است |
 | ۵ | ارزیابی سازمان | انجام‌شده؛ پوشش اجباری دقیقاً ۱۱ تیم و پنج metric |
-| ۶ | persistence/projection | انجام‌شده؛ migration 004، Snapshot Store و startup hydration برای هشت Registry دامنه و وضعیت dashboard |
+| ۶ | persistence/projection | انجام‌شده؛ migration 004، Snapshot Store و startup hydration برای ده Registry دامنه و وضعیت dashboard |
 | ۷ | reliability | انجام‌شده؛ timeout، retry، health، cost، attempt و latency |
 | ۸ | API و audit | انجام‌شده؛ endpointهای owner-gated و pagination event |
 | ۹ | benchmark harness | انجام‌شده؛ synthetic/deterministic و advisory-only |

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { createControlDashboard } from "../apps/control-plane/src/dashboard-service.mjs";
 import { createHeroServer } from "../apps/control-plane/src/server.mjs";
 import { createOwnerAuth } from "../packages/domain/src/owner-auth.mjs";
 
@@ -20,6 +21,7 @@ test("read-only development back office exposes a safe orientation projection", 
   assert.match(pageHtml, /تنظیمات کل Hero/);
   assert.match(pageHtml, /کاتالوگ مشاهده‌ای/);
   assert.match(pageHtml, /کاملاً فقط‌خواندنی/);
+  assert.match(pageHtml, /پوشش Projection و حافظهٔ نسخه‌دار/);
   assert.match(pageHtml, /تاریخچهٔ Benchmark/);
   assert.doesNotMatch(pageHtml, /<form\b|ai-config-form|owner-token|ویرایش اصول|requestJson|method:\s*['"]POST/);
 
@@ -42,6 +44,9 @@ test("read-only development back office exposes a safe orientation projection", 
   assert.deepEqual(backoffice.ai.activity, { invocations: [], evaluations: [], decisions: [] });
   assert.equal(backoffice.benchmark.mode, "synthetic-deterministic");
   assert.equal(backoffice.governance.globalStop, false);
+  assert.equal(backoffice.projections.registries.length, 11);
+  assert.equal(backoffice.projections.registries.every(registry => "eventTypes" in registry && "collectionCounts" in registry), true);
+  assert.equal(backoffice.projectMemory.total, 0);
   assert.equal(backoffice.focus.find(item => item.id === "pilot").status, "مسدود");
   assert.equal(backoffice.organization.teams.some(team => "description" in team), false);
   assert.equal(backoffice.organization.teams[0].contract.principles.length >= 5, true);
@@ -56,10 +61,14 @@ test("read-only development back office exposes a safe orientation projection", 
   assert.deepEqual(backoffice.ai.profiles, []);
   assert.deepEqual(backoffice.ai.bindings, []);
   assert.doesNotMatch(JSON.stringify(backoffice), /api[_-]?key\s*[:=]|access[_-]?token\s*[:=]|password\s*[:=]|Bearer\s+[A-Za-z0-9._-]{12,}|-----BEGIN/i);
+
+  const writeAttempt = await fetch(baseUrl + "/backoffice", { method: "POST" });
+  assert.equal(writeAttempt.status, 405);
+  assert.equal(writeAttempt.headers.get("allow"), "GET");
+  assert.equal(writeAttempt.headers.get("x-content-type-options"), "nosniff");
 });
 
 test("back office exposes a safe AI configuration catalog without credential references", async () => {
-  const { createControlDashboard } = await import("../apps/control-plane/src/dashboard-service.mjs");
   const dashboard = createControlDashboard({ now: () => "2026-08-30T12:00:00.000Z" });
   dashboard.registerAiProvider({ providerId: "openai", mode: "deterministic", displayName: "OpenAI test", idempotencyKey: "backoffice-catalog-provider" });
   dashboard.registerAiModel({ providerId: "openai", modelId: "chatgpt", displayName: "ChatGPT test", idempotencyKey: "backoffice-catalog-model" });
@@ -99,11 +108,33 @@ test("owner can edit team principles through the protected back office command",
 });
 
 test("back office projection contains no mutation controls or raw request text", async () => {
-  const { createControlDashboard } = await import("../apps/control-plane/src/dashboard-service.mjs");
   const dashboard = createControlDashboard({ now: () => "2026-08-30T12:00:00.000Z" });
   const request = dashboard.createRequest({ title: "درخواست خصوصی آزمایشی", description: "این متن نباید در projection بیاید." });
   const projection = dashboard.backofficeSnapshot();
   assert.equal(projection.requests.total, 1);
   assert.equal(JSON.stringify(projection).includes(request.description), false);
   assert.equal(typeof projection.createRequest, "undefined");
+});
+
+test("back office exposes current Project Memory metadata while redacting content", () => {
+  const dashboard = createControlDashboard({ now: () => "2026-08-30T12:00:00.000Z" });
+  dashboard.recordProjectMemory({
+    memoryId: "MEM-BACKOFFICE-001",
+    projectId: "hero",
+    memoryKey: "project.goal",
+    kind: "decision",
+    scope: "project",
+    status: "approved",
+    content: "این متن باید فقط در حافظهٔ داخلی بماند.",
+    tags: ["scope"],
+    recipientRoles: ["planner"],
+    source: { kind: "specification", reference: "hero://docs/spec-v1", documentVersion: "v1.0" },
+    idempotencyKey: "backoffice-memory-001"
+  });
+  const memory = dashboard.backofficeSnapshot().projectMemory;
+  assert.equal(memory.total, 1);
+  assert.equal(memory.records[0].memoryKey, "project.goal");
+  assert.equal(memory.records[0].source.reference, "hero://docs/spec-v1");
+  assert.equal("content" in memory.records[0], false);
+  assert.doesNotMatch(JSON.stringify(memory), /این متن باید فقط/);
 });

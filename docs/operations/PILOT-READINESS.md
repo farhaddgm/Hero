@@ -7,7 +7,7 @@
 | قرارداد و Task Graph نسخه‌دار | آماده | Planner، training benchmark و تست‌های قراردادی موجودند |
 | محیط Linux پاک و Compose مستقل | آمادهٔ test / انتقال مسدود | imageهای verify/runtime با Linux container ساخته و بررسی شده‌اند؛ اجرای مقصد واقعی هنوز مجوز و محیط مقصد می‌خواهد |
 | PostgreSQL migration و command audit | آمادهٔ test | migrationهای `001` تا `005` و `check:postgres` موفق‌اند |
-| Snapshot و hydration رجیستری‌های اصلی | آمادهٔ test | Snapshot Store نسخه‌دار برای ۸ Registry دامنه و Dashboard فعال است؛ دیتابیس فعلی هنوز Snapshot ثبت‌شده ندارد |
+| Snapshot و hydration رجیستری‌های اصلی | آمادهٔ test | Snapshot Store نسخه‌دار برای ۱۰ Registry دامنه و Dashboard فعال است؛ دیتابیس فعلی هنوز Snapshot ثبت‌شده ندارد |
 | projection پایدار همهٔ domain commandها | مسدود | projection کامل همهٔ commandها از in-memory به PostgreSQL منتقل نشده است |
 | session revocation پایدار مالک | آمادهٔ test | revocation در authenticate fail-closed است و migration/store PostgreSQL برای بازسازی بعد از restart اضافه شده؛ اجرای مقصد عملیاتی هنوز جداست |
 | Provider واقعی | مسدود | Adapterهای OpenAI/Anthropic/Google/Compatible آماده‌اند؛ credential، cost policy و verifier مجوز فعال عمداً متصل/اجرا نشده‌اند |

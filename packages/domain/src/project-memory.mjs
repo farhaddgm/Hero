@@ -290,6 +290,13 @@ export function createProjectMemory(options = {}) {
     });
   }
 
+  function list() {
+    return immutableCopy([...currentByKey.values()]
+      .map(memoryId => records.get(memoryId))
+      .filter(Boolean)
+      .sort((left, right) => left.projectId.localeCompare(right.projectId) || left.memoryKey.localeCompare(right.memoryKey)));
+  }
+
   function hydrate(input = {}) {
     const state = input.data ?? input;
     if (!state || !Array.isArray(state.records)) throw new ProjectMemorySafetyError("Project Memory hydration requires records.");
@@ -311,6 +318,7 @@ export function createProjectMemory(options = {}) {
   return Object.freeze({
     record,
     assemble,
+    list,
     persistenceSnapshot,
     hydrate,
     read: memoryId => records.has(memoryId) ? immutableCopy(records.get(memoryId)) : null,

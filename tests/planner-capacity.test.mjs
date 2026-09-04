@@ -33,6 +33,12 @@ test("planner reports capacity and resource conflicts before dispatch", () => {
   assert.equal(result.teamReadiness.capacityCheck.status, "conflict");
   assert.equal(result.teamReadiness.capacityCheck.conflicts.some(item => item.type === "team-capacity"), true);
   assert.equal(result.teamReadiness.capacityCheck.conflicts.some(item => item.type === "resource-overlap"), true);
+  const capacity = planner.capacitySnapshot();
+  assert.equal(capacity.model, "planner-readiness");
+  assert.equal(capacity.status, "attention");
+  assert.equal(capacity.planCount, 1);
+  assert.equal(capacity.conflictCount, 2);
+  assert.equal(capacity.plans[0].resourceClaims[0].claimId, "claim-a");
 
   const noCapacity = planner.plan(base("PLAN-CAPACITY-002"));
   assert.equal(noCapacity.teamReadiness.capacityCheck.status, "not-provided");

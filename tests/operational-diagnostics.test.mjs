@@ -29,6 +29,26 @@ test("operational diagnostics cover all eleven projections and are replayable", 
   assert.equal(report.knowledgeFreshness.counts.untracked, 11);
   assert.equal(report.assignmentConflicts.status, "clear");
   assert.equal(report.assignmentConflicts.capacityModel, "not-configured");
+  assert.deepEqual(report.assignmentConflicts.capacityChecks, []);
+});
+
+test("diagnostics expose planner capacity checks without changing assignments", () => {
+  const control = dashboard();
+  control.createPlan({
+    planningId: "PLAN-DIAGNOSTIC-CAPACITY",
+    requestId: "REQ-DIAGNOSTIC-CAPACITY",
+    requestText: "یک داشبورد وب برای بررسی ظرفیت تیم‌ها بساز.",
+    assumptions: ["ظرفیت توسط مالک پروژه تعیین شده است."],
+    acceptanceCriteria: ["تعارض ظرفیت پیش از dispatch دیده شود."],
+    capacity: { teamLimits: [{ teamId: "tahlilgoro", maxConcurrent: 0, active: 0 }] }
+  });
+  const report = control.operationalDiagnostics();
+
+  assert.equal(report.status, "attention");
+  assert.equal(report.assignmentConflicts.capacityModel, "planner-readiness");
+  assert.equal(report.assignmentConflicts.capacityChecks.length, 1);
+  assert.equal(report.assignmentConflicts.capacityConflicts[0].planningId, "PLAN-DIAGNOSTIC-CAPACITY");
+  assert.equal(report.assignmentConflicts.capacityConflicts[0].type, "team-capacity");
 });
 
 test("diagnostics record safe AI configuration history after a versioned local change", () => {

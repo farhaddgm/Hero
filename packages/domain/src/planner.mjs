@@ -626,6 +626,31 @@ export function createPlanner(options = {}) {
     });
   }
 
+  function capacitySnapshot() {
+    const checks = [...plans.values()]
+      .map(plan => ({ plan, check: plan.teamReadiness?.capacityCheck }))
+      .filter(item => item.check && item.check.status !== "not-provided")
+      .slice(-50)
+      .map(({ plan, check }) => immutableCopy({
+        planningId: plan.planningId,
+        projectId: plan.projectId,
+        state: plan.state,
+        status: check.status,
+        ready: check.ready,
+        conflicts: check.conflicts,
+        teamUsage: check.teamUsage,
+        resourceClaims: check.resourceClaims
+      }));
+    const conflictCount = checks.reduce((count, check) => count + check.conflicts.length, 0);
+    return immutableCopy({
+      status: checks.length === 0 ? "not-configured" : conflictCount === 0 ? "clear" : "attention",
+      model: checks.length === 0 ? "not-configured" : "planner-readiness",
+      planCount: checks.length,
+      conflictCount,
+      plans: checks
+    });
+  }
+
   function hydrate(input = {}) {
     const state = input.data ?? input;
     if (!state || !Array.isArray(state.plans)) throw new PlannerSafetyError("Planner hydration requires plans.");
@@ -645,6 +670,7 @@ export function createPlanner(options = {}) {
     decideOutput,
     halt,
     persistenceSnapshot,
+    capacitySnapshot,
     hydrate,
     get: planningId => plans.has(planningId) ? immutableCopy(plans.get(planningId)) : null,
     events: () => eventLog.readAfter(),

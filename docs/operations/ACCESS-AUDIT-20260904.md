@@ -29,6 +29,7 @@
 - access audit فقط metadata مسیرهای read-model را نگه می‌دارد و outcomeهای accepted/rejected را ثبت می‌کند؛
 - تست HTTP و adapter این مسیر موفق است؛ این قابلیت تا زمان تنظیم `HERO_POSTGRES_URL` در محیط واقعی فعال نمی‌شود.
 - Diagnostic read model با قرارداد نسخه‌دار، پوشش ۱۱ Projection، بررسی Snapshot/Event، replay dry-run، digest، تاریخچهٔ امن AI، freshness دانش و تعارض تخصیص اضافه شد؛
+- در بستهٔ بعدی، مشاهدهٔ metadata حافظهٔ فعلی، ظرفیت Planner در Diagnostic و رد روش‌های غیر GET در Back Office اضافه و با verification Linux `230/230` تست دوباره بررسی شد؛
 - احراز هویت امضاشدهٔ Admin فقط برای کاتالوگ AI فعال است و به Team، Release، Dispatch، Secret یا Production اختیار نمی‌دهد؛
 - شواهد این بسته: `228/228` تست، Build `138`، Governance `21` و `git diff --check` موفق.
 
