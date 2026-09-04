@@ -19,11 +19,12 @@
     "check:governance": "node tools/check-governance.mjs",
     "check:isolation": "node tools/check-isolation.mjs",
     "check:deployment-contract": "node tools/check-deployment-contract.mjs",
+    "check:roadmap-audit": "node tools/check-roadmap-audit.mjs",
     "check:postgres": "node tools/check-postgres.mjs",
     "check:test-config": "node tools/check-test-config.mjs",
     "check:pilot": "node tools/check-pilot-readiness.mjs",
     "build": "node tools/build.mjs",
     "test": "node --test",
-    "check": "node tools/doctor.mjs && node tools/check-governance.mjs && node tools/check-deployment-contract.mjs && node tools/build.mjs && node --test"
+    "check": "node tools/doctor.mjs && node tools/check-governance.mjs && node tools/check-deployment-contract.mjs && node tools/check-roadmap-audit.mjs && node tools/build.mjs && node --test"
   }
 }
