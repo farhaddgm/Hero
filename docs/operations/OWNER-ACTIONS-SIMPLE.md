@@ -35,6 +35,7 @@ HERO_EXPOSE_PORT=43101
 HERO_DATA_DIR=/var/lib/hero
 HERO_LOG_LEVEL=info
 HERO_OWNER_AUTH_SECRET=<یک مقدار تصادفی حداقل ۳۲ نویسه>
+HERO_ADMIN_AUTH_SECRET=<یک مقدار تصادفی حداقل ۳۲ نویسه برای نشست Admin>
 HERO_BACKOFFICE_USER=<نام کاربری انتخابی>
 HERO_BACKOFFICE_PASSWORD=<password تصادفی حداقل ۱۶ نویسه>
 HERO_POSTGRES_URL=postgresql://hero:<همان password دیتابیس>@hero-postgres:5432/hero
