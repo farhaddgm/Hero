@@ -392,7 +392,8 @@ export function createControlDashboard(options = {}) {
       ["ai-orchestration", aiOrchestration],
       ["organization-performance", organizationPerformance],
       ["skill-registry", skillRegistry],
-      ["organization-advisor", organizationAdvisor]
+      ["organization-advisor", organizationAdvisor],
+      ["control-dashboard", { events: () => [], persistenceSnapshot, hydrate: hydrateFromPersistence }]
     ].map(([registryId, registry]) => Object.freeze({ registryId, eventCount: registry.events?.().length ?? 0, snapshotSupported: typeof registry.persistenceSnapshot === "function", hydrationSupported: typeof registry.hydrate === "function" }));
     const missing = registries.filter(registry => !registry.snapshotSupported || !registry.hydrationSupported).map(registry => registry.registryId);
     return Object.freeze({

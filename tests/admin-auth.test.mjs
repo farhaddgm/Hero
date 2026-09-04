@@ -24,6 +24,19 @@ test("owner and admin sessions are separate and admin scope fails closed", async
   assert.equal((await fetch(`${base}/api/requests`, { method: "POST", headers: adminHeaders, body: JSON.stringify({ title: "درخواست ممنوع برای admin", description: "این مسیر باید فقط مالک باشد." }) })).status, 403);
   const provider = await fetch(`${base}/api/ai/providers`, { method: "POST", headers: adminHeaders, body: JSON.stringify({ providerId: "deterministic", mode: "deterministic", displayName: "Deterministic", idempotencyKey: "admin-provider" }) });
   assert.equal(provider.status, 201);
+  const model = await fetch(`${base}/api/ai/models`, { method: "POST", headers: adminHeaders, body: JSON.stringify({ providerId: "deterministic", modelId: "stable", displayName: "Stable", idempotencyKey: "admin-model" }) });
+  assert.equal(model.status, 201);
+  for (const [toolPolicy, idempotencyKey] of [["read-only", "admin-policy-first"], ["owner-gated", "admin-policy-second"]]) {
+    const policy = await fetch(`${base}/api/ai/role-policies`, { method: "POST", headers: adminHeaders, body: JSON.stringify({ role: "analyst", providerId: "deterministic", modelId: "stable", toolPolicy, idempotencyKey }) });
+    assert.equal(policy.status, 201);
+  }
+  const policyHistory = await fetch(`${base}/api/ai/role-policies/analyst/history`, { headers: adminHeaders });
+  assert.equal(policyHistory.status, 200);
+  const history = (await policyHistory.json()).history;
+  assert.equal(history.length, 2);
+  const rollback = await fetch(`${base}/api/ai/role-policies/analyst/rollback`, { method: "POST", headers: adminHeaders, body: JSON.stringify({ targetEventId: history[0].eventId, expectedVersion: 3, idempotencyKey: "admin-policy-rollback" }) });
+  assert.equal(rollback.status, 200);
+  assert.equal((await rollback.json()).result.policy.toolPolicy, "read-only");
   assert.equal((await fetch(`${base}/admin-auth-contract`)).status, 200);
   assert.equal((await fetch(`${base}/api/requests`, { method: "POST", headers: { authorization: `Bearer ${ownerToken}`, "content-type": "application/json" }, body: JSON.stringify({ title: "درخواست مالک", description: "این مسیر برای مالک مجاز است." }) })).status, 201);
 });

@@ -331,7 +331,7 @@ export function createHeroServer(options = {}) {
 
       if (request.method === "GET" && url.pathname === "/backoffice") {
         await recordReadAccess("/backoffice", "accepted", { kind: backofficeAuth ? "backoffice-basic-auth" : "project-owner", id: backofficeAuth ? "backoffice-user" : "development-local" });
-        return html(response, getBackofficeHtml());
+        return html(response, getBackofficeHtml({ initialData: dashboard.backofficeSnapshot() }));
       }
 
       if (request.method === "GET" && url.pathname === "/backoffice-data") {
