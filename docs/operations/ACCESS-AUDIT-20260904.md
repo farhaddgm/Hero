@@ -58,3 +58,9 @@
 بخش تاریخی مربوط به ۴ سپتامبر است. در بررسی جاری، stack مستقل `hero-test` با Control Plane و PostgreSQL هر دو `healthy` مشاهده شد؛ `/health=200`، `/ready=200` و `/backoffice` بدون احراز هویت `401` بودند. دامنهٔ `test.hero.beeproject.ir` نیز TLS معتبر و پاسخ بدون احراز هویت `401` دارد. artifact `hero-control-plane:candidate-985ab8c` با digest `sha256:590efbccac4d7b20df03d4ad14d230003ff646821bef91df9712063648225135` از Commit `985ab8c` فقط روی Test deploy شد؛ preflight، fingerprint فایل‌های اصلی، احراز هویت و restart موفق‌اند؛ Production تغییری نکرده است.
 
 همچنین Local Hero سالم است (`/health=200`، `/ready=200`، Back Office بدون احراز هویت `401`). در Production، HTTP به HTTPS با `308` redirect می‌شود و HTTPS Back Office بدون احراز هویت `401` می‌دهد؛ رفع اختلاف Basic Auth/Caddy همچنان اقدام ادمین و خارج از این workspace است. هیچ سرویس یا resource متعلق به پروژهٔ دیگری تغییر نکرد.
+
+### ممیزی جامع مسیرهای GET — ۲۰۲۶-۰۹-۰۵
+
+- در Test با نشست موقت Owner و Basic Auth runtime، ۵۸ مسیر GET شامل contractها، health/readiness، سه مسیر Back Office، APIهای dashboard/diagnostics/AI/team/audit و مسیرهای جزئیات سه Team بررسی شد؛ همهٔ پاسخ‌ها در بازهٔ `2xx` بودند؛
+- سه مسیر Back Office با Basic Auth و مسیرهای `/api/*` با Bearer Session بررسی شدند؛ هیچ mutation، Provider واقعی یا تغییر داده‌ای در این ممیزی انجام نشد؛
+- نشست ممیزی فقط برای همین بررسی بود و Secret یا token در خروجی یا مستندات ثبت نشد.

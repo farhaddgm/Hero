@@ -47,6 +47,7 @@
 - Back Office Test با احراز هویت: page/data/events همگی `۲۰۰`؛ ۱۱ تیم با جزئیات قرارداد/اصول/ورودی/خروجی، ۸ Role، ۶ route، ۵ دستهٔ تنظیمات، دفتر `OPEN-50` با ۵۰ ردیف و ۱۴ اقدام مالک/ادمین؛ markerهای `تنظیمات کل Hero`، `چطور این پنل را بخوانیم`، `IRANSans` و `lang="fa"` حاضرند.
 - کنترل امنیتی HTTP Test: Back Office بدون auth=`۴۰۱`، با auth=`۲۰۰`، POST روی مسیر read-only=`۴۰۵` با `Allow: GET`، CSP و `X-Robots-Tag` حاضر، route ناشناخته=`۴۰۴` و API بدون auth=`۴۰۱`؛ مرور دستی Caddy/شبکه هنوز جداست.
 - پوشش read-only Test: ۱۷ مسیر احراز‌شده (۳ مسیر Back Office با Basic Auth و ۱۴ مسیر API با نشست Owner) همگی `۲۰۰`؛ ۱۱ تیم و diagnostics کامل حاضرند؛ هیچ mutation یا Provider واقعی اجرا نشد.
+- ممیزی جامع GET پس از آن: ۵۸ مسیر شامل contractها، health/readiness، Back Office، APIهای read-model و مسیرهای جزئیات Team با احراز هویت مناسب بررسی شدند؛ همه `2xx` بودند؛ هیچ mutation یا Provider واقعی اجرا نشد و Secret/token ثبت نشد.
 
 ## fingerprint منبع فعلی
 
