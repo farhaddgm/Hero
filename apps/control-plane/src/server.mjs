@@ -263,6 +263,25 @@ export function createHeroServer(options = {}) {
   let ownsPostgresRuntime = false;
   let persistedDomainEventIds = new Set();
 
+  function backofficeSnapshot() {
+    const snapshot = dashboard.backofficeSnapshot();
+    const settings = snapshot.settings ?? {};
+    const persistence = settings.persistence ?? {};
+    return Object.freeze({
+      ...snapshot,
+      settings: Object.freeze({
+        ...settings,
+        persistence: Object.freeze({
+          ...persistence,
+          runtime: postgresRuntime ? "postgresql" : "in-memory",
+          readiness: requirePostgres
+            ? postgresRuntime ? "ready" : "blocked-persistence-required"
+            : "development-or-optional"
+        })
+      })
+    });
+  }
+
   function authenticateApiPrincipal(authorizationHeader) {
     try {
       const owner = ownerAuth.requireOwner(authorizationHeader);
@@ -414,12 +433,12 @@ export function createHeroServer(options = {}) {
 
       if (request.method === "GET" && url.pathname === "/backoffice") {
         await recordReadAccess("/backoffice", "accepted", { kind: backofficeAuth ? "backoffice-basic-auth" : "project-owner", id: backofficeAuth ? "backoffice-user" : "development-local" });
-        return html(response, getBackofficeHtml({ initialData: dashboard.backofficeSnapshot() }));
+        return html(response, getBackofficeHtml({ initialData: backofficeSnapshot() }));
       }
 
       if (request.method === "GET" && url.pathname === "/backoffice-data") {
         await recordReadAccess("/backoffice-data", "accepted", { kind: backofficeAuth ? "backoffice-basic-auth" : "project-owner", id: backofficeAuth ? "backoffice-user" : "development-local" });
-        return json(response, 200, { service: HERO_SERVICE, backoffice: dashboard.backofficeSnapshot() }, { maxBytes: backofficeResponseLimitBytes });
+        return json(response, 200, { service: HERO_SERVICE, backoffice: backofficeSnapshot() }, { maxBytes: backofficeResponseLimitBytes });
       }
 
       if (request.method === "GET" && url.pathname === "/backoffice-events") {

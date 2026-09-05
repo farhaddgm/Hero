@@ -77,6 +77,8 @@ test("protected development back office exposes safe data and controlled owner/a
   assert.equal(backoffice.schemaVersion, "1.1");
   assert.equal(backoffice.readOnly.enabled, true);
   assert.equal(backoffice.readOnly.uiMutationControls, true);
+  assert.equal(backoffice.settings.persistence.runtime, "in-memory");
+  assert.equal(backoffice.settings.persistence.readiness, "development-or-optional");
   assert.deepEqual(backoffice.readOnly.allowedHttpMethods, ["GET"]);
   assert.equal(backoffice.project.service, "hero-control-plane");
   assert.equal(backoffice.project.boundary, "clean-room");
