@@ -3,9 +3,9 @@
 ## 2026-09-05 — تکمیل راهنمای مفاهیم و هم‌راستاسازی با runtime Test
 
 - اصلاح‌شده: چهار status در Projection `OPEN-50` و مستندات با آخرین شواهد Test یکسان شدند؛ راهنمای ۳۹ مفهوم با مدخل‌های Project، Task، Evidence، Authorization، Dispatch، Gate، Projection، Release، Pilot و CI تکمیل و assertionهای Back Office اضافه شد؛
-- ساخته‌شده: image runtime `hero-test-control-plane:latest` با digest `sha256:19ac4add8d699bc7cf4aa7fa06598ff15178cf76a6b4a4fafcbb4c67fb3cb7d8` از workspace جاری؛
+- ساخته‌شده: artifact `hero-control-plane:candidate-031ef18` با digest `sha256:a94252111f793331e3511c528a57224aa9a0fec1669392d6a0a2284e9462033e` از Commit `031ef18`؛
 - تأییدشده: فقط `hero-test-control-plane-1` با حفظ volume/network جایگزین شد؛ PostgreSQL سالم ماند، preflight/health/readiness/auth و ۱۷ مسیر read-only موفق شدند؛
-- مرز: deltaٔ guide/source/test و هشت سند هنوز به‌دلیل read-only بودن `.git` commit نشده‌اند؛ Production، Provider واقعی و Pilot تغییر نکرده‌اند.
+- مرز: Commit ثبت شده و فقط Test با artifact آن به‌روزرسانی شده است؛ Production، Provider واقعی و Pilot تغییر نکرده‌اند.
 
 ## 2026-09-05 — نمایش دفتر OPEN-50 و گیت‌های مالک در Back Office
 

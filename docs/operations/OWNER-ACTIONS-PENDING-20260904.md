@@ -14,7 +14,7 @@
 - schema Test: migrationهای `001` تا `006` و ۱۷ جدول دارای guard append-only در PostgreSQL تأیید شد؛
 - شبکهٔ Test: دسترسی بیرونی به پورت‌های `43101` و `5432` مسدود و مسیر عمومی فقط از HTTPS reverse proxy در دسترس است؛
 - جداسازی: project=`hero-test`، volumeهای `hero-test_*` و network=`hero-test_hero-private` تأیید شد.
-- parity نسخه: image runtime `hero-test-control-plane:latest` با digest `sha256:19ac4add8d699bc7cf4aa7fa06598ff15178cf76a6b4a4fafcbb4c67fb3cb7d8` از workspace جاری (پایهٔ `c1a1430` + deltaٔ uncommitted roadmap/guide/test و سندها) فقط به `hero-test` deploy شده؛ preflight، hash فایل‌های اصلی، health، readiness، احراز هویت و restart دوباره تأیید شده‌اند؛ commit جدید هنوز به‌دلیل read-only بودن `.git` ثبت نشده است.
+- parity نسخه: artifact `hero-control-plane:candidate-031ef18` با digest `sha256:a94252111f793331e3511c528a57224aa9a0fec1669392d6a0a2284e9462033e` از Commit `031ef18` فقط به `hero-test` deploy شده؛ preflight، hash فایل‌های اصلی، health، readiness، احراز هویت و restart دوباره تأیید شده‌اند؛ Production تغییری نکرده است.
 - پوشش UI Test: Back Office احراز‌شدهٔ page/data/events را `۲۰۰` برگرداند؛ ۱۱ تیم با جزئیات کامل، ۸ Role، تنظیمات کل Hero، راهنمای خواندن پنل، فونت فارسی، دفتر `OPEN-50` با ۵۰ ردیف و ۱۴ اقدام مالک/ادمین بررسی شدند.
 - کنترل امنیتی HTTP: auth boundary، read-only method guard، CSP، noindex، route ناشناخته و API بدون auth موفق‌اند؛ مرور دستی Caddy، firewall و access policy هنوز برای مالک/ادمین باقی است.
 - APIهای read-only Test: ۱۷ مسیر احراز‌شده (۳ مسیر Back Office با Basic Auth و ۱۴ مسیر API با نشست Owner) همگی `۲۰۰` و ۱۱ تیم/diagnostics حاضر؛ این شاهد جایگزین Pilot واقعی یا Provider زنده نیست.

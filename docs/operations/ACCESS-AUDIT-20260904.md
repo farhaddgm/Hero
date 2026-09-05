@@ -48,13 +48,13 @@
 
 ### ممیزی UI و دفتر گام‌ها — ۲۰۲۶-۰۹-۰۵
 
-- image runtime `hero-test-control-plane:latest` با digest `sha256:19ac4add8d699bc7cf4aa7fa06598ff15178cf76a6b4a4fafcbb4c67fb3cb7d8` از workspace جاری (پایهٔ `c1a1430` + deltaٔ uncommitted roadmap/guide/test) فقط روی `hero-test` مستقر شد؛
+- artifact `hero-control-plane:candidate-031ef18` با digest `sha256:a94252111f793331e3511c528a57224aa9a0fec1669392d6a0a2284e9462033e` از Commit `031ef18` فقط روی `hero-test` مستقر شد؛
 - Back Office اکنون Projection نسخه‌دار `OPEN-50` را با ۵۰ ردیف، وضعیت، اقدام بعدی، راهنمای ۳۹ مفهوم و ۱۴ اقدام مالک/ادمین نشان می‌دهد؛ ۳ blocker Pilot جداگانه مشخص‌اند؛
 - payload احراز‌شدهٔ `/backoffice-data` شامل `ledger=OPEN-50` و `total=50` است؛ HTML شامل عنوان دفتر و فهرست گیت‌هاست؛
 - ۱۷ مسیر read-only Test احراز شد: ۳ مسیر Back Office با Basic Auth و ۱۴ مسیر API با نشست Owner؛ همه `۲۰۰` و بدون mutation بودند؛
 - بعد از restart کنترل‌شده، `/ready=200` و Back Office با auth=`200` باقی ماند؛ PostgreSQL و namespace `hero-test` تغییر نکردند؛ ۱۷ مسیر read-only نیز `200` شدند؛
 - `compose.test.yaml` همچنان untracked و خارج از image/فرآیند deploy است و خوانده یا استفاده نشد.
 
-بخش تاریخی مربوط به ۴ سپتامبر است. در بررسی جاری، stack مستقل `hero-test` با Control Plane و PostgreSQL هر دو `healthy` مشاهده شد؛ `/health=200`، `/ready=200` و `/backoffice` بدون احراز هویت `401` بودند. دامنهٔ `test.hero.beeproject.ir` نیز TLS معتبر و پاسخ بدون احراز هویت `401` دارد. image runtime `hero-test-control-plane:latest` با digest `sha256:19ac4add8d699bc7cf4aa7fa06598ff15178cf76a6b4a4fafcbb4c67fb3cb7d8` از workspace جاری (پایهٔ `c1a1430` + deltaٔ uncommitted roadmap/guide/test) فقط روی Test deploy شد؛ preflight، fingerprint فایل‌های اصلی، احراز هویت و restart موفق‌اند؛ تا ثبت Commit جدید، این image commit-bound نیست.
+بخش تاریخی مربوط به ۴ سپتامبر است. در بررسی جاری، stack مستقل `hero-test` با Control Plane و PostgreSQL هر دو `healthy` مشاهده شد؛ `/health=200`، `/ready=200` و `/backoffice` بدون احراز هویت `401` بودند. دامنهٔ `test.hero.beeproject.ir` نیز TLS معتبر و پاسخ بدون احراز هویت `401` دارد. artifact `hero-control-plane:candidate-031ef18` با digest `sha256:a94252111f793331e3511c528a57224aa9a0fec1669392d6a0a2284e9462033e` از Commit `031ef18` فقط روی Test deploy شد؛ preflight، fingerprint فایل‌های اصلی، احراز هویت و restart موفق‌اند؛ Production تغییری نکرده است.
 
 همچنین Local Hero سالم است (`/health=200`، `/ready=200`، Back Office بدون احراز هویت `401`). در Production، HTTP به HTTPS با `308` redirect می‌شود و HTTPS Back Office بدون احراز هویت `401` می‌دهد؛ رفع اختلاف Basic Auth/Caddy همچنان اقدام ادمین و خارج از این workspace است. هیچ سرویس یا resource متعلق به پروژهٔ دیگری تغییر نکرد.
