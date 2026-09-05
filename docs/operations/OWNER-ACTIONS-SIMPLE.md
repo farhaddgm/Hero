@@ -2,6 +2,10 @@
 
 این صفحه فقط کارهایی را می‌گوید که خارج از repository هستند. مقدار واقعی password یا API key را در چت، Google Sheet، Git یا ticket عمومی ننویسید.
 
+## وضعیت مهم فعلی
+
+artifact جدید Test نصب شده و Control Plane و PostgreSQL از نظر container healthy هستند؛ اما دو Secret اتصال PostgreSQL در env runtime خالی‌اند. تا تکمیل آن‌ها، `/ready` در حالت strict باید آماده اعلام نشود و Test را persistence-ready در نظر نگیرید. دادهٔ PostgreSQL حذف یا تغییر نکرده است.
+
 ## وضعیت فعلی
 
 کارهای داخل پروژه انجام شده و محیط مستقل Test نیز اکنون آماده و بررسی شده است:

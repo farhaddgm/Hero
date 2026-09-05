@@ -64,3 +64,10 @@
 - در Test با نشست موقت Owner و Basic Auth runtime، ۵۸ مسیر GET شامل contractها، health/readiness، سه مسیر Back Office، APIهای dashboard/diagnostics/AI/team/audit و مسیرهای جزئیات سه Team بررسی شد؛ همهٔ پاسخ‌ها در بازهٔ `2xx` بودند؛
 - سه مسیر Back Office با Basic Auth و مسیرهای `/api/*` با Bearer Session بررسی شدند؛ هیچ mutation، Provider واقعی یا تغییر داده‌ای در این ممیزی انجام نشد؛
 - نشست ممیزی فقط برای همین بررسی بود و Secret یا token در خروجی یا مستندات ثبت نشد.
+
+### ممیزی پس از اصلاح persistence — ۲۰۲۶-۰۹-۰۵
+
+- اصلاح empty-state Benchmark در Commit `d854966` و guard اجباری PostgreSQL در Commit `b379109` با artifact `hero-control-plane:candidate-b379109` و digest `sha256:f3105572fed55c3df981bd9016b833d6a0ff1c900228e2bab8e05ba532574520` ساخته و فقط روی Control Plane محیط `hero-test` نصب شد؛
+- هر دو کانتینر Test `healthy` هستند و bind سرویس همچنان `127.0.0.1:43101` است؛ PostgreSQL، volume، network و Production تغییر نکرده‌اند؛
+- preflight سخت‌گیرانه با bind/port صحیح فقط دو blocker گزارش کرد: `HERO_POSTGRES_URL` و `HERO_POSTGRES_PASSWORD` در env امن runtime حاضر نیستند؛ بنابراین Test فعلی از نظر persistence هنوز تأیید نهایی نشده است؛
+- ممیزی ۵۸ مسیر در تست تکرارپذیرِ in-process با persistence تزریقی کامل پاس شد؛ ممیزی runtime واقعی تا زمان اتصال Secretهای PostgreSQL، دو مسیر audit را عمداً `503` نگه می‌دارد و باید پس از تنظیم env دوباره اجرا شود.

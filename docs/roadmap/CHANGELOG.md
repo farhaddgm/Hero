@@ -299,3 +299,9 @@
 - مبنای طراحی: progressive disclosure، یک سطح تصمیم در هر نما، حفظ وضعیت/دسترسی در سطح بالا و نمایش جزئیات داخل کارت‌ها؛ هیچ وابستگی یا endpoint جدیدی اضافه نشد.
 - شواهد: `pnpm check` با Doctor/Governance/Build موفق و ۲۳۱/۲۳۱ تست سبز؛ Syntax اسکریپت نهایی HTML و وجود شش route/view نیز در کانتینر Node بررسی شد.
 - مرز: این تغییر فقط کد UI، تست و مستندات است و Deploy production، Secret، PostgreSQL و سرویس‌های دیگر را تغییر نمی‌دهد.
+# ۲۰۲۶-۰۹-۰۵ — guard persistence و ممیزی مسیرها
+
+- اصلاح‌شده: مقایسهٔ Benchmark بدون داده اکنون پاسخ advisory خالی و `200` می‌دهد؛
+- افزوده‌شده: guard `HERO_REQUIRE_POSTGRES=true` تا Test بدون PostgreSQL آماده اعلام نشود؛
+- افزوده‌شده: تست تکرارپذیر ممیزی ۵۸ مسیر GET؛
+- artifact ساخته‌شده: `hero-control-plane:candidate-b379109` با digest `sha256:f3105572fed55c3df981bd9016b833d6a0ff1c900228e2bab8e05ba532574520`؛ فقط Test، بدون Production.

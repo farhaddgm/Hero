@@ -2,6 +2,10 @@
 
 این سند شناسنامهٔ قابل‌بازبینیِ source و candidate فعلی است؛ به‌معنی tag یا انتشار نیست و هیچ Secretی در آن وجود ندارد.
 
+## ممیزی آخرین اصلاح — ۲۰۲۶-۰۹-۰۵
+
+Commit `b379109` guard اجباری PostgreSQL برای Test و تست جامع ۵۸ مسیر را اضافه کرد. artifact `hero-control-plane:candidate-b379109` با digest `sha256:f3105572fed55c3df981bd9016b833d6a0ff1c900228e2bab8e05ba532574520` فقط روی `hero-test` مستقر است؛ هر دو کانتینر healthy و bind روی `127.0.0.1:43101` هستند. بااین‌حال preflight سخت‌گیرانهٔ Test دو مقدار `HERO_POSTGRES_URL` و `HERO_POSTGRES_PASSWORD` را خالی تشخیص داد؛ تا ورود آن‌ها از Secret Store، persistence و مسیرهای audit runtime تأییدشده محسوب نمی‌شوند.
+
 ## ممیزی جاری — ۲۰۲۶-۰۹-۰۵
 
 پس از candidate پایهٔ `c1a1430`، چهار برچسب وضعیت roadmap، راهنمای ۳۹ مفهوم، assertionهای UI و کنترل parity در Commit نهایی `985ab8c` ثبت شدند. image runtime جاری `hero-test-control-plane:latest` با artifact tag `hero-control-plane:candidate-985ab8c` و digest `sha256:590efbccac4d7b20df03d4ad14d230003ff646821bef91df9712063648225135` فقط در `hero-test` مستقر است؛ Production تغییری نکرده است.
