@@ -100,7 +100,7 @@ TEST_ENV_FILE=/etc/hero/hero-test.env
 test -f "$TEST_ENV_FILE"
 chmod 600 "$TEST_ENV_FILE"
 docker compose --project-name hero-test --env-file "$TEST_ENV_FILE" --profile postgres config --quiet
-docker compose --project-name hero-test --env-file "$TEST_ENV_FILE" --profile postgres run --rm --build control-plane node tools/check-test-config.mjs
+docker compose --project-name hero-test --env-file "$TEST_ENV_FILE" --profile postgres run --rm --build -e HERO_BIND_ADDRESS=127.0.0.1 -e HERO_EXPOSE_PORT=43101 control-plane node tools/check-test-config.mjs
 docker compose --project-name hero-test --env-file "$TEST_ENV_FILE" --profile postgres up -d --build
 docker compose --project-name hero-test --env-file "$TEST_ENV_FILE" --profile postgres ps
 ```
