@@ -1,5 +1,11 @@
 # تغییرات رودمپ شرکت
 
+## 2026-09-05 — استقرار ledger هم‌راستا با evidence جاری Test
+
+- اصلاح‌شده: statusهای persistence که فقط شاهد قبلی داشتند برای candidate جاری pending شدند و preflight متوقف‌شده به‌عنوان blocker خارجی ثبت شد؛
+- تأییدشده: Commit `b7f0247`، artifact `hero-control-plane:candidate-b7f0247` با digest `sha256:4f6f8f5766246e548ae46a736d8ea5dc8659ad9604be6d9c9131e051bf596e6d`، شمارش دفتر `pending=39`، `blocked=9`، `evidence=2`؛
+- مرز: فقط Control Plane Test با حفظ PostgreSQL/volume/network جایگزین شد؛ Production، Provider واقعی و اپلیکیشن‌های دیگر تغییری نکردند.
+
 ## 2026-09-05 — اصلاح وضعیت جاری دفتر OPEN-50 پس از ممیزی persistence
 
 - اصلاح‌شده: ردیف‌های migration، readiness، Event Store، Snapshot، hydration، access audit و CI که فقط شاهد قبلی داشتند، دیگر به‌عنوان تکمیل Test نمایش داده نمی‌شوند؛

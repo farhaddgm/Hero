@@ -4,7 +4,7 @@
 
 ## ممیزی آخرین اصلاح — ۲۰۲۶-۰۹-۰۵
 
-Commit `c804a5a` وضعیت واقعی persistence را به projection امن Back Office اضافه کرد و guard اجباری PostgreSQL، اصلاح empty-state Benchmark و تست جامع ۵۸ مسیر را حفظ کرد. artifact `hero-control-plane:candidate-c804a5a` با digest `sha256:2d25ca11293a2f017bc8d62553da7ac7dbfb3037d664b2e24161e8356604994b` فقط روی `hero-test` مستقر است؛ هر دو کانتینر healthy و bind روی `127.0.0.1:43101` هستند. smoke-test فعلی `/health=200`، `/ready=200` و Back Office احراز‌شده=`200` است؛ پنل صریحاً `runtime=in-memory` و `readiness=development-or-optional` را نشان می‌دهد. preflight سخت‌گیرانهٔ Test هنوز دو مقدار `HERO_POSTGRES_URL` و `HERO_POSTGRES_PASSWORD` را خالی تشخیص می‌دهد؛ تا ورود آن‌ها از Secret Store، persistence و مسیرهای audit runtime تأییدشده محسوب نمی‌شوند.
+Commit `b7f0247` وضعیت جاری دفتر Roadmap را با evidence واقعی persistence هم‌راستا کرد و وضعیت runtime را در Back Office حفظ کرد. artifact `hero-control-plane:candidate-b7f0247` با digest `sha256:4f6f8f5766246e548ae46a736d8ea5dc8659ad9604be6d9c9131e051bf596e6d` فقط روی `hero-test` مستقر است؛ هر دو کانتینر healthy و bind روی `127.0.0.1:43101` هستند. smoke-test فعلی `/health=200`، `/ready=200` و Back Office احراز‌شده=`200` است؛ پنل `OPEN-50` نسخهٔ `2026-09-05` با شمارش `pending=39`، `blocked=9`، `evidence=2` و وضعیت `runtime=in-memory`/`readiness=development-or-optional` را نشان می‌دهد. preflight سخت‌گیرانهٔ Test هنوز دو مقدار `HERO_POSTGRES_URL` و `HERO_POSTGRES_PASSWORD` را خالی تشخیص می‌دهد؛ تا ورود آن‌ها از Secret Store، persistence و مسیرهای audit runtime تأییدشده محسوب نمی‌شوند.
 
 ## سابقهٔ candidate قبلی و ممیزی UI — ۲۰۲۶-۰۹-۰۵
 
@@ -15,15 +15,15 @@ Commit `c804a5a` وضعیت واقعی persistence را به projection امن B
 | مورد | مقدار |
 |---|---|
 | branch | `codex/hero-001-project-charter` |
-| source snapshot | Commit کاربردی `c804a5a` شامل وضعیت runtime persistence، guard persistence، اصلاح empty-state Benchmark و تست جامع route؛ `compose.test.yaml` خارج از artifact و untracked باقی مانده است |
+| source snapshot | Commit کاربردی `b7f0247` شامل اصلاح وضعیت جاری Roadmap، وضعیت runtime persistence، guard persistence، اصلاح empty-state Benchmark و تست جامع route؛ `compose.test.yaml` خارج از artifact و untracked باقی مانده است |
 | roadmap validator commit | `923a0f3` — `chore: validate roadmap audit ledgers` |
 | deployment-contract commit | `2b3d5b8` — `chore: enforce deployment contract` |
 | implementation commit | `cdc44bc` — `feat: harden Hero backoffice and audit projections` |
 | evidence chain | `cce6aaa`، `0aaeaa3`، `de4b4c5`، `79b0977` و `e865e5b` — ثبت verification، baseline، artifact و runtime audit |
 | commit پایه | `26cfe549924b0db63eef71db25aeb8dfb5beb4d7` |
 | remote branch pointer | `c445609b301807df1bb50124a92afa31c500a145`؛ از candidate محلی عقب‌تر است |
-| وضعیت | candidate جاری از Commit `c804a5a` ساخته شد؛ همان artifact فقط به Test مستقل deploy شده؛ push انجام نشده و Production تغییری نکرده است |
-| Git در workspace | سه اصلاح source/test و هشت سند ثبت شده‌اند؛ فقط `compose.test.yaml` ناشناخته و untracked است و stage/commit نشده |
+| وضعیت | candidate جاری از Commit `b7f0247` ساخته شد؛ همان artifact فقط به Test مستقل deploy شده؛ push انجام نشده و Production تغییری نکرده است |
+| Git در workspace | اصلاحات source/test و مستندات ثبت شده‌اند؛ فقط `compose.test.yaml` ناشناخته و untracked است و stage/commit نشده |
 | مرز | فقط repository Hero؛ بدون تغییر اپلیکیشن‌های دیگر |
 
 ## artifact کاندیدای تمیز
@@ -32,13 +32,13 @@ Commit `c804a5a` وضعیت واقعی persistence را به projection امن B
 |---|---|
 | image tag پایه | `hero-control-plane:candidate-c1a1430` |
 | image digest پایه | `sha256:e662f73725db07e7a1080922ac549940a417f4dba97418c5e6bd12e61fbbd4c2` |
-| image runtime جاری Test | `hero-control-plane:candidate-c804a5a` (alias: `hero-test-control-plane:latest`) — `sha256:2d25ca11293a2f017bc8d62553da7ac7dbfb3037d664b2e24161e8356604994b` |
-| مبنای build | build استاندارد Docker از Commit `c804a5a`؛ `.dockerignore` فایل‌های Secret و `compose.test.yaml` را از context حذف کرد |
+| image runtime جاری Test | `hero-control-plane:candidate-b7f0247` (alias: `hero-test-control-plane:latest`) — `sha256:4f6f8f5766246e548ae46a736d8ea5dc8659ad9604be6d9c9131e051bf596e6d` |
+| مبنای build | build استاندارد Docker از Commit `b7f0247`؛ `.dockerignore` فایل‌های Secret و `compose.test.yaml` را از context حذف کرد |
 | نتیجهٔ verify داخل build | `pnpm check`: ۲۴۱/۲۴۱ تست موفق؛ Build: ۱۴۳ ماژول و ۷ فایل JSON |
-| parity با source | hash پنج فایل fingerprint‌شده با source Commit `c804a5a` برابر است |
+| parity با source | hash شش فایل fingerprint‌شده با source Commit `b7f0247` برابر است |
 | کنترل roadmap | `OPEN-50=50` و `NEXT-100=100`؛ ستون‌های الزامی و cross-referenceها معتبرند |
 | وضعیت دفتر جاری | نسخهٔ `2026-09-05`؛ `pending=39`، `blocked=9`، `evidence=2`؛ ردیف‌های persistence که فقط شاهد قبلی دارند برای candidate جاری نیازمند تکرار علامت‌گذاری شده‌اند |
-| runtime smoke مستقل | artifact `candidate-c804a5a` در Test با پورت loopback `43101`؛ `/health=200`، `/ready=200` و Back Office با auth=`200`؛ `/backoffice-data` شامل `OPEN-50` با ۵۰ ردیف، `runtime=in-memory` و `readiness=development-or-optional`؛ HTML فارسی/IRANSans/noindex و راهنمای ۳۹ مفهوم حاضر؛ strict preflight دو مقدار PostgreSQL را missing تشخیص داد و persistence runtime هنوز تأیید نشده است |
+| runtime smoke مستقل | artifact `candidate-b7f0247` در Test با پورت loopback `43101`؛ `/health=200`، `/ready=200` و Back Office با auth=`200`؛ `/backoffice-data` شامل `OPEN-50` نسخهٔ `2026-09-05` با ۵۰ ردیف و شمارش `39/9/2`، `runtime=in-memory` و `readiness=development-or-optional`؛ HTML فارسی/IRANSans/noindex و راهنمای ۳۹ مفهوم حاضر؛ strict preflight دو مقدار PostgreSQL را missing تشخیص داد و persistence runtime هنوز تأیید نشده است |
 | وضعیت انتشار | همان digest فقط به stack ایزولهٔ `hero-test` deploy شده؛ به Production deploy نشده است |
 
 ## شواهد verification
@@ -59,14 +59,15 @@ Commit `c804a5a` وضعیت واقعی persistence را به projection امن B
 ```text
 0d1302b049f4eab802b3247766b29ff40725561bd240dbb6b3d5c651ab4f0732  apps/control-plane/src/backoffice-view.mjs
 85331fc2e07a1fbbadd6a5e16e4b606b2062cd8d2903cad2be2e5023998dabe2  apps/control-plane/src/dashboard-service.mjs
-9b5793c3c6ac8ede50a505430a61009dafba2469fd61079264992d2202c097ac  apps/control-plane/src/server.mjs
+83980eb3fadbf62cc6fb16b97c882b95e5ed8fb78e17f74a4c3dc913689d7118  apps/control-plane/src/server.mjs
+1b9bba3c6e7a1931e68cdbf19026599f656dcf7e1af9e4c6b6471c29b00c56dd  packages/contracts/src/roadmap.mjs
 073e0d4a5031d98f55533db359fe6ab685d1b4dfed5276eb1b5a505cdb86a1ba  packages/domain/src/operational-diagnostics.mjs
 fa16ce5ef898670bb138d17554290626d4f6005753ccfa3b38f104a6ccb21f15  packages/domain/src/planner.mjs
 ```
 
 ## وضعیت image فعلی Test
 
-artifact جاری `hero-control-plane:candidate-c804a5a` با digest `sha256:2d25ca11293a2f017bc8d62553da7ac7dbfb3037d664b2e24161e8356604994b` فقط روی Control Plane محیط `hero-test` deploy شده است؛ کانتینرها healthy و bind روی `127.0.0.1:43101` است، اما پنل و preflight سخت‌گیرانه به‌ترتیب runtime را `in-memory`/اختیاری و دو Secret PostgreSQL را missing گزارش می‌کنند. این artifact فقط در Test است و تا تکمیل گیت‌های recovery، Pilot و production-deploy نباید promotion شود.
+artifact جاری `hero-control-plane:candidate-b7f0247` با digest `sha256:4f6f8f5766246e548ae46a736d8ea5dc8659ad9604be6d9c9131e051bf596e6d` فقط روی Control Plane محیط `hero-test` deploy شده است؛ کانتینرها healthy و bind روی `127.0.0.1:43101` است، اما پنل و preflight سخت‌گیرانه به‌ترتیب runtime را `in-memory`/اختیاری و دو Secret PostgreSQL را missing گزارش می‌کنند. این artifact فقط در Test است و تا تکمیل گیت‌های recovery، Pilot و production-deploy نباید promotion شود.
 
 ## ممیزی runtime آخر — ۲۰۲۶-۰۹-۰۵
 

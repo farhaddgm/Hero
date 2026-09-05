@@ -23,11 +23,11 @@
 - آدرس production موجود نیز پاسخ می‌دهد: HTTP با `۳۰۸` به HTTPS می‌رود و `/backoffice` بدون احراز هویت `۴۰۱` می‌دهد؛ این به‌معنی انتشار نسخهٔ فعلی workspace نیست.
 - تشخیص دقیق production: credential runtime خود سرویس روی localhost `۲۰۰` می‌گیرد، اما همان credential از دامنهٔ عمومی `۴۰۱` می‌گیرد؛ ادمین باید فقط Basic Auth/Caddy production را با Secret Store همان محیط تطبیق دهد و قبل از reload، config را validate کند.
 - نکتهٔ verification: اجرای تشخیصی `node --test` داخل image runtime معیار acceptance نیست؛ به‌دلیل مرز عمدی image (`.git/.github`) و env واقعی Test، ۱۶ تست محیط‌وابسته شکست خوردند. شمارنده‌های Read Model قبل/بعد تغییری نکردند و مرجع معتبر همچنان `pnpm check` در image verification با `۲۳۹/۲۳۹` است.
-- آخرین artifact اصلاح‌شده `hero-control-plane:candidate-c804a5a` با digest `sha256:2d25ca11293a2f017bc8d62553da7ac7dbfb3037d664b2e24161e8356604994b` فقط روی Control Plane Test نصب شد؛ کانتینرها healthy هستند و پنل وضعیت `runtime=in-memory`/`readiness=development-or-optional` را نشان می‌دهد، اما preflight سخت‌گیرانه با bind/port صحیح به‌علت خالی‌بودن `HERO_POSTGRES_URL` و `HERO_POSTGRES_PASSWORD` متوقف شد. PostgreSQL و داده‌های آن تغییر نکرده‌اند؛ تا تنظیم این دو مقدار، Test از نظر persistence نهایی نیست.
+- آخرین artifact اصلاح‌شده `hero-control-plane:candidate-b7f0247` با digest `sha256:4f6f8f5766246e548ae46a736d8ea5dc8659ad9604be6d9c9131e051bf596e6d` فقط روی Control Plane Test نصب شد؛ کانتینرها healthy هستند و پنل وضعیت `runtime=in-memory`/`readiness=development-or-optional` و شمارش `pending=39`، `blocked=9`، `evidence=2` را نشان می‌دهد، اما preflight سخت‌گیرانه با bind/port صحیح به‌علت خالی‌بودن `HERO_POSTGRES_URL` و `HERO_POSTGRES_PASSWORD` متوقف شد. PostgreSQL و داده‌های آن تغییر نکرده‌اند؛ تا تنظیم این دو مقدار، Test از نظر persistence نهایی نیست.
 
 ## ممیزی جاری — ۲۰۲۶-۰۹-۰۵
 
-- Commit جاری `c804a5a` است و image دقیق آن فقط در `hero-test` deploy شده؛ `pnpm check` با `241/241` تست و Build `143` ماژول موفق است؛
+- Commit جاری `b7f0247` است و image دقیق آن فقط در `hero-test` deploy شده؛ `pnpm check` با `241/241` تست و Build `143` ماژول موفق است؛
 - `/health=200`، `/ready=200`، `/backoffice=200` و `/backoffice-data=200` با احراز هویت؛ دفتر `OPEN-50` دارای ۵۰ ردیف است؛
 - شمارش جاری دفتر: `pending=39`، `blocked=9` و `evidence=2`؛ ردیف‌های persistence با شاهد قبلی تا تکرار روی candidate جاری pending هستند؛
 - وضعیت امن داخل پنل: `runtime=in-memory` و `readiness=development-or-optional`؛ دو Secret PostgreSQL هنوز blocker هستند؛

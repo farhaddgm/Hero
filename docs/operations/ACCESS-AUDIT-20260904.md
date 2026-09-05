@@ -6,7 +6,7 @@
 
 ## وضعیت جاری — ۲۰۲۶-۰۹-۰۵
 
-- artifact جاری `hero-control-plane:candidate-c804a5a` با digest `sha256:2d25ca11293a2f017bc8d62553da7ac7dbfb3037d664b2e24161e8356604994b` فقط روی `hero-test` مستقر است؛
+- artifact جاری `hero-control-plane:candidate-b7f0247` با digest `sha256:4f6f8f5766246e548ae46a736d8ea5dc8659ad9604be6d9c9131e051bf596e6d` فقط روی `hero-test` مستقر است؛
 - `hero-test-control-plane-1` و `hero-test-hero-postgres-1` هر دو healthy هستند؛ فقط Control Plane recreate شد و bind همچنان `127.0.0.1:43101` است؛
 - smoke-test داخلی: `/health=200`، `/ready=200`، `/backoffice=200` و `/backoffice-data=200` با احراز هویت؛ payload شامل ۵۰ ردیف `OPEN-50` و وضعیت `runtime=in-memory`/`readiness=development-or-optional` است؛
 - شمارش وضعیت دفتر جاری: `pending=39`، `blocked=9` و `evidence=2`؛ شواهد persistence قبلی عمداً از وضعیت candidate جاری جدا نگه داشته شده‌اند؛
@@ -76,7 +76,7 @@
 
 ### ممیزی پس از اصلاح persistence — ۲۰۲۶-۰۹-۰۵
 
-- اصلاح empty-state Benchmark در Commit `d854966`، guard اجباری PostgreSQL در Commit `b379109` و نمایش وضعیت persistence در Commit `c804a5a` با artifact `hero-control-plane:candidate-c804a5a` و digest `sha256:2d25ca11293a2f017bc8d62553da7ac7dbfb3037d664b2e24161e8356604994b` ساخته و فقط روی Control Plane محیط `hero-test` نصب شد؛
+- اصلاح empty-state Benchmark در Commit `d854966`، guard اجباری PostgreSQL در Commit `b379109`، نمایش وضعیت persistence در Commit `c804a5a` و هم‌راستاسازی ledger در Commit `b7f0247` با artifact `hero-control-plane:candidate-b7f0247` و digest `sha256:4f6f8f5766246e548ae46a736d8ea5dc8659ad9604be6d9c9131e051bf596e6d` ساخته و فقط روی Control Plane محیط `hero-test` نصب شد؛
 - هر دو کانتینر Test `healthy` هستند و bind سرویس همچنان `127.0.0.1:43101` است؛ PostgreSQL، volume، network و Production تغییر نکرده‌اند؛
 - preflight سخت‌گیرانه با bind/port صحیح فقط دو blocker گزارش کرد: `HERO_POSTGRES_URL` و `HERO_POSTGRES_PASSWORD` در env امن runtime حاضر نیستند؛ بنابراین Test فعلی از نظر persistence هنوز تأیید نهایی نشده است؛
 - ممیزی ۵۸ مسیر در تست تکرارپذیرِ in-process با persistence تزریقی کامل پاس شد؛ در runtime جاری مسیرهای اصلی سالم‌اند و دو مسیر audit تا زمان اتصال Secretهای PostgreSQL عمداً `503` می‌مانند و باید پس از تنظیم env دوباره اجرا شوند.
