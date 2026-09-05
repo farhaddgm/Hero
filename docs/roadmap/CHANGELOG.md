@@ -1,5 +1,12 @@
 # تغییرات رودمپ شرکت
 
+## 2026-09-05 — تکمیل راهنمای مفاهیم و هم‌راستاسازی با runtime Test
+
+- اصلاح‌شده: چهار status در Projection `OPEN-50` و مستندات با آخرین شواهد Test یکسان شدند؛ راهنمای ۳۹ مفهوم با مدخل‌های Project، Task، Evidence، Authorization، Dispatch، Gate، Projection، Release، Pilot و CI تکمیل و assertionهای Back Office اضافه شد؛
+- ساخته‌شده: image runtime `hero-test-control-plane:latest` با digest `sha256:19ac4add8d699bc7cf4aa7fa06598ff15178cf76a6b4a4fafcbb4c67fb3cb7d8` از workspace جاری؛
+- تأییدشده: فقط `hero-test-control-plane-1` با حفظ volume/network جایگزین شد؛ PostgreSQL سالم ماند، preflight/health/readiness/auth و ۱۷ مسیر read-only موفق شدند؛
+- مرز: deltaٔ guide/source/test و هشت سند هنوز به‌دلیل read-only بودن `.git` commit نشده‌اند؛ Production، Provider واقعی و Pilot تغییر نکرده‌اند.
+
 ## 2026-09-05 — نمایش دفتر OPEN-50 و گیت‌های مالک در Back Office
 
 - افزوده‌شده: Projection نسخه‌دار `OPEN-50` با ۵۰ ردیف وضعیت و اقدام بعدی؛

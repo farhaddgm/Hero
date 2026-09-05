@@ -2,33 +2,38 @@
 
 این سند شناسنامهٔ قابل‌بازبینیِ source و candidate فعلی است؛ به‌معنی tag یا انتشار نیست و هیچ Secretی در آن وجود ندارد.
 
+## ممیزی جاری — ۲۰۲۶-۰۹-۰۵
+
+پس از candidate پایهٔ `c1a1430`، چهار برچسب وضعیت roadmap، راهنمای ۳۹ مفهوم و assertionهای مربوط به آن‌ها در workspace اصلاح شدند. این تغییرها هنوز به‌دلیل read-only بودن `.git` commit نشده‌اند؛ بنابراین image جاری Test یک working-tree follow-up است و نباید به‌عنوان artifact commit-bound معرفی شود. image runtime جاری `hero-test-control-plane:latest` با digest `sha256:19ac4add8d699bc7cf4aa7fa06598ff15178cf76a6b4a4fafcbb4c67fb3cb7d8` فقط در `hero-test` مستقر است.
+
 ## منبع
 
 | مورد | مقدار |
 |---|---|
 | branch | `codex/hero-001-project-charter` |
-| source snapshot | Commit `c1a1430` — `feat: expose roadmap and owner gates in backoffice` |
+| source snapshot | Commit پایهٔ `c1a1430` + deltaٔ uncommitted شامل سه اصلاح source/test و هشت سند roadmap/operations |
 | roadmap validator commit | `923a0f3` — `chore: validate roadmap audit ledgers` |
 | deployment-contract commit | `2b3d5b8` — `chore: enforce deployment contract` |
 | implementation commit | `cdc44bc` — `feat: harden Hero backoffice and audit projections` |
 | evidence chain | `cce6aaa`، `0aaeaa3`، `de4b4c5`، `79b0977` و `e865e5b` — ثبت verification، baseline، artifact و runtime audit |
 | commit پایه | `26cfe549924b0db63eef71db25aeb8dfb5beb4d7` |
 | remote branch pointer | `c445609b301807df1bb50124a92afa31c500a145`؛ از candidate محلی عقب‌تر است |
-| وضعیت | candidate از Commit `c1a1430` ساخته و بررسی شد؛ فقط به Test مستقل deploy شده؛ push انجام نشده و Production تغییری نکرده است |
-| Git در workspace | commit محلی موفق؛ push هنوز انجام نشده |
+| وضعیت | candidate پایه از Commit `c1a1430` ساخته شد؛ image جاری follow-up از workspace ساخته و فقط به Test مستقل deploy شده؛ push انجام نشده و Production تغییری نکرده است |
+| Git در workspace | هشت سند و سه اصلاح source/test commit نشده‌اند؛ `.git` read-only است؛ push انجام نشده |
 | مرز | فقط repository Hero؛ بدون تغییر اپلیکیشن‌های دیگر |
 
 ## artifact کاندیدای تمیز
 
 | مورد | مقدار |
 |---|---|
-| image tag محلی | `hero-control-plane:candidate-c1a1430` |
-| image digest | `sha256:e662f73725db07e7a1080922ac549940a417f4dba97418c5e6bd12e61fbbd4c2` |
+| image tag پایه | `hero-control-plane:candidate-c1a1430` |
+| image digest پایه | `sha256:e662f73725db07e7a1080922ac549940a417f4dba97418c5e6bd12e61fbbd4c2` |
+| image runtime جاری Test | `hero-test-control-plane:latest` — `sha256:19ac4add8d699bc7cf4aa7fa06598ff15178cf76a6b4a4fafcbb4c67fb3cb7d8` |
 | مبنای build | build استاندارد Docker از Commit `c1a1430`؛ `.dockerignore` فایل‌های Secret و `compose.test.yaml` را از context حذف کرد |
 | نتیجهٔ verify داخل build | `pnpm check`: ۲۳۹/۲۳۹ تست موفق؛ Build: ۱۴۲ ماژول و ۷ فایل JSON |
 | parity با source | hash هر پنج فایل fingerprint‌شده برابر است |
 | کنترل roadmap | `OPEN-50=50` و `NEXT-100=100`؛ ستون‌های الزامی و cross-referenceها معتبرند |
-| runtime smoke مستقل | `candidate-c1a1430` در Test با پورت loopback `43101`؛ `/health=200`، `/ready=200`، Back Office بدون auth=`401` و با auth=`200`، payload شامل `OPEN-50` با ۵۰ ردیف و گیت‌های مالک؛ HTML فارسی/IRANSans/noindex حاضر؛ `compose.test.yaml` داخل image نبود |
+| runtime smoke مستقل | image جاری `hero-test-control-plane:latest` در Test با پورت loopback `43101`؛ `/health=200`، `/ready=200`، Back Office بدون auth=`401` و با auth=`200`، payload شامل `OPEN-50` با ۵۰ ردیف و گیت‌های مالک؛ HTML فارسی/IRANSans/noindex و راهنمای ۳۹ مفهوم حاضر؛ `compose.test.yaml` داخل image نبود |
 | وضعیت انتشار | همان digest فقط به stack ایزولهٔ `hero-test` deploy شده؛ به Production deploy نشده است |
 
 ## شواهد verification
@@ -46,7 +51,7 @@
 ## fingerprint منبع فعلی
 
 ```text
-1dd61e5709ee1b011675780342ffd2c0aba4429cf45016ee8f914b7c2b05d592  apps/control-plane/src/backoffice-view.mjs
+0d1302b049f4eab802b3247766b29ff40725561bd240dbb6b3d5c651ab4f0732  apps/control-plane/src/backoffice-view.mjs
 d470213f2e00e5a0330653c68c062c860fc8344dc94025e87338a5ede382d927  apps/control-plane/src/dashboard-service.mjs
 81b565f44f9d7fa17b042e803c2c22134adc2f4fe141ecd4ca991fdafeb2b575  apps/control-plane/src/server.mjs
 073e0d4a5031d98f55533db359fe6ab685d1b4dfed5276eb1b5a505cdb86a1ba  packages/domain/src/operational-diagnostics.mjs
@@ -55,7 +60,7 @@ fa16ce5ef898670bb138d17554290626d4f6005753ccfa3b38f104a6ccb21f15  packages/domai
 
 ## وضعیت image فعلی Test
 
-محیط `hero-test` سالم است و اکنون digest `candidate-c1a1430` با همان Secret/env فعلی روی آن deploy شده است؛ fingerprint هر پنج فایل اصلی با candidate برابر است و preflight، health، readiness، احراز هویت و restart دوباره موفق شدند. این artifact فقط در Test است و نباید بدون گیت‌های بعدی به Production promotion شود.
+محیط `hero-test` سالم است و اکنون image `hero-test-control-plane:latest` با digest `sha256:19ac4add8d699bc7cf4aa7fa06598ff15178cf76a6b4a4fafcbb4c67fb3cb7d8` و همان Secret/env فعلی روی آن deploy شده است؛ fingerprint فایل‌های اصلی با workspace برابر است و preflight، health، readiness، احراز هویت و restart دوباره موفق شدند. این artifact working-tree follow-up است، فقط در Test است و نباید بدون commit جدید و گیت‌های بعدی به Production promotion شود.
 
 ## ممیزی runtime آخر — ۲۰۲۶-۰۹-۰۵
 

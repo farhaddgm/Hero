@@ -14,12 +14,12 @@
 | ۸ | ۱۳ | بررسی wrapperهای Test | blocker خارجی | `hero-test-*` با `sudo -n` بررسی شود |
 | ۹ | ۱۴ | تعیین تکلیف `compose.test.yaml` | blocker خارجی | مالکیت و محتوای فایل بررسی و تصمیم‌گیری شود |
 | ۱۰ | ۱۸ | Secret runtime Test | تأیید Test؛ نیازمند audit محل نگهداری | فقط در Secret Store یا فایل `600` ساخته شود |
-| ۱۱ | ۱۹ | preflight کانفیگ Test | تکمیل Test | `check-test-config` روی مقصد اجرا شود |
+| ۱۱ | ۱۹ | preflight کانفیگ Test | تکمیل Test؛ preflight واقعی دوباره موفق شد | `check-test-config` روی مقصد اجرا شود |
 | ۱۲ | ۲۰ | Evidence ایزولاسیون | تکمیل Test | project/volume/network، bind localhost و بسته‌بودن بیرونی پورت‌های `43101`/`5432` ثبت شد |
 | ۱۳ | ۲۱ | migrationهای ۰۰۱ تا ۰۰۶ در Test | تکمیل Test | روی PostgreSQL مستقل اجرا شود |
 | ۱۴ | ۲۲ | readiness PostgreSQL و Hero | تکمیل Test | `pg_isready` و `/ready` هر دو موفق شوند |
 | ۱۵ | ۲۳ | append-only Event Store | تکمیل Test | migrationهای `001` تا `006` و guardهای append-only تأیید شد؛ دادهٔ عملیاتی بیشتر جداست |
-| ۱۶ | ۲۷ | Snapshot یازده Registry و Dashboard | تأیید Test | Snapshot در Test ذخیره شود |
+| ۱۶ | ۲۷ | Snapshot یازده Registry و Dashboard | تکمیل Test؛ ۱۱ Projection در runtime تأیید شد | Snapshot در Test ذخیره شود |
 | ۱۷ | ۲۸ | hydration بعد از restart | تکمیل Test | قبل/بعد restart مقایسه شود |
 | ۱۸ | ۲۹ | تشخیص Snapshot ناقص/قدیمی | تأیید Test؛ نیازمند سناریوی خرابی | در Test با دادهٔ واقعی اجرا شود |
 | ۱۹ | ۳۰ | Backup/Restore با checksum | synthetic backup/restore با checksum موفق؛ Clean Linux مقصد همچنان blocker خارجی | restore واقعی روی مقصد Clean Linux و backup عملیاتی ثبت شود |
@@ -45,11 +45,11 @@
 | ۳۹ | ۶۸ | اتصال Advisor به Evidence واقعی | تکمیل محلی/نیازمند Test | توصیهٔ مبتنی بر Evidence تأییدشده در Test تأیید شود |
 | ۴۰ | ۷۲ | آزمون keyboard، focus و RTL | تکمیل automated/نیازمند مرورگر Test | مسیرهای اصلی با مرورگر Test بدون mouse بررسی شود |
 | ۴۱ | ۷۳ | آزمون responsive موبایل/دسکتاپ | تکمیل automated/نیازمند مرورگر Test | اندازه‌های واقعی مرورگر Test بررسی شود |
-| ۴۲ | ۷۹ | access audit قابل مشاهده برای مالک | تکمیل محلی/نیازمند Test | خروجی audit روی Test تأیید شود |
+| ۴۲ | ۷۹ | access audit قابل مشاهده برای مالک | تأیید Test؛ ۱۷ مسیر read-only احراز شد | خروجی audit روی Test تأیید شود |
 | ۴۳ | ۸۱ | install دقیق با lockfile | اکنون/CI | workflow CI اجرا شود |
 | ۴۴ | ۸۳ | Environment تست GitHub | نیازمند ادمین GitHub | reviewer اجباری فعال شود |
 | ۴۵ | ۸۵ | استقرار Candidate در Test | انجام شد؛ Commit، parity و health/auth/restart تأیید شد | برای promotion بعدی فقط rollback/recovery و مجوزهای جدا باقی است |
-| ۴۶ | ۸۶ | smoke و security روی Test | smoke و کنترل‌های امنیتی خودکار انجام شد؛ مرور دستی کامل باقی است | review دستی Caddy/شبکه/دسترسی‌ها و ثبت owner evidence انجام شود |
+| ۴۶ | ۸۶ | smoke و security روی Test | smoke و کنترل‌های امنیتی خودکار انجام شد؛ ۱۷ مسیر read-only تأیید شد؛ مرور دستی کامل باقی است | review دستی Caddy/شبکه/دسترسی‌ها و ثبت owner evidence انجام شود |
 | ۴۷ | ۸۷ | Test Evidence و review مالک | نیازمند تصمیم مالک | Evidence کامل را تأیید کن |
 | ۴۸ | ۸۸ | rollback نسخهٔ Test | انجام شد؛ خطای preflight به نسخهٔ قبلی برگشت و health/auth تأیید شد | recovery از backup/checksum روی Clean Linux هنوز انجام شود |
 | ۴۹ | ۸۹ | recovery روی Clean Linux | blocker خارجی | restore واقعی و checksum ثبت شود |

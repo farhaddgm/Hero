@@ -21,7 +21,7 @@
 - Backup/Restore ایزولهٔ PostgreSQL با artifact موقت `hero-recovery-check`: موفق؛ checksum و sentinel پس از restore تطبیق داشتند.
 - آخرین backup/restore disposable در ۲۰۲۶-۰۹-۰۵ با artifact `hero-recovery-check-20260905` و checksum `sha256:1ce262c482e6096d7c315d62c3483ba012a9f1e813e57f2d0fcfe5c29ccffb04` نیز موفق شد؛ منابع موقت خودکار حذف شدند.
 - این شواهد، آزمون portability را تقویت می‌کنند اما جایگزین restore روی مقصد پاکِ مصوب، volume عملیاتی `hero-data` و مجوز انتقال نیستند.
-- candidate `c1a1430` با image digest ثبت‌شده فقط روی stack مستقل `hero-test` مستقر است؛ Control Plane و PostgreSQL healthy، پورت مستقیم فقط روی localhost و Provider واقعی خاموش است.
+- image runtime `hero-test-control-plane:latest` با digest `sha256:19ac4add8d699bc7cf4aa7fa06598ff15178cf76a6b4a4fafcbb4c67fb3cb7d8` از workspace جاری (پایهٔ `c1a1430` + deltaٔ uncommitted roadmap/guide/test) فقط روی stack مستقل `hero-test` مستقر است؛ Control Plane و PostgreSQL healthy، پورت مستقیم فقط روی localhost و Provider واقعی خاموش است؛ تا ثبت Commit جدید، این image commit-bound نیست.
 - Back Office Test شامل ۱۱ تیم، ۸ Role، تنظیمات کل پروژه، راهنمای Role/مفهوم و دفتر `OPEN-50` با ۵۰ ردیف است؛ این projection read-only هیچ authorization یا dispatch ایجاد نمی‌کند.
 
 ## فرمان بررسی

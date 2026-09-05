@@ -22,6 +22,12 @@ test("protected development back office exposes safe data and controlled owner/a
   assert.match(pageHtml, /@media \(max-width: 820px\)/);
   assert.match(pageHtml, /همهٔ AI Roleها/);
   assert.match(pageHtml, /مفاهیم و قراردادها/);
+  assert.match(pageHtml, /concept-guide/);
+  assert.match(pageHtml, /concept-count/);
+  assert.match(pageHtml, /۳۹ مفهوم/);
+  assert.match(pageHtml, /Project/);
+  assert.match(pageHtml, /Authorization/);
+  assert.match(pageHtml, /Projection \/ Read Model/);
   assert.match(pageHtml, /تنظیمات کل Hero/);
   assert.match(pageHtml, /مدیریت کنترل‌شده/);
   assert.match(pageHtml, /دسترسی مالک یا Admin/);
@@ -38,6 +44,7 @@ test("protected development back office exposes safe data and controlled owner/a
   assert.match(pageHtml, /Planner و تصمیم خروجی/);
   assert.match(pageHtml, /planning-list/);
   assert.match(pageHtml, /۵۰ گام اولویت‌دار و گیت‌های باز/);
+  assert.match(pageHtml, /roadmap-summary/);
   assert.match(pageHtml, /roadmap-list/);
   assert.match(pageHtml, /اقدام‌هایی که قبل از ادامه به مالک یا ادمین نیاز دارند/);
   assert.match(pageHtml, /requestJson/);
@@ -91,7 +98,12 @@ test("protected development back office exposes safe data and controlled owner/a
   assert.equal(backoffice.roadmap.ledger, "OPEN-50");
   assert.equal(backoffice.roadmap.total, 50);
   assert.equal(backoffice.roadmap.rows.length, 50);
+  assert.deepEqual(backoffice.roadmap.statusCounts, { pending: 32, blocked: 8, evidence: 10 });
   assert.equal(backoffice.roadmap.ownerActions.length >= 10, true);
+  assert.match(backoffice.roadmap.rows.find(row => row.reference === 19).status, /preflight واقعی دوباره موفق شد/);
+  assert.match(backoffice.roadmap.rows.find(row => row.reference === 27).status, /۱۱ Projection در runtime تأیید شد/);
+  assert.match(backoffice.roadmap.rows.find(row => row.reference === 79).status, /۱۷ مسیر read-only احراز شد/);
+  assert.match(backoffice.roadmap.rows.find(row => row.reference === 86).status, /۱۷ مسیر read-only تأیید شد/);
   assert.equal(backoffice.roadmap.pilotBlockers.length, 3);
   assert.doesNotMatch(JSON.stringify(backoffice.roadmap), /api[_-]?key|password|Bearer|private key/i);
   assert.equal(backoffice.focus.find(item => item.id === "pilot").status, "مسدود");

@@ -8,13 +8,13 @@
 - `check:test-config`: موفق داخل `hero-test`؛ شش مقدار host-only با bind واقعی پورت و هر پنج Secret لازم حاضر و معتبر هستند؛
 - `check:pilot`: مسدود؛ شاهد recovery لینوکس، مجوز مستقل Provider واقعی و درخواست/معیار پذیرش Pilot ثبت نشده است؛
 - recovery disposable: backup/restore synthetic با checksum `sha256:1ce262c482e6096d7c315d62c3483ba012a9f1e813e57f2d0fcfe5c29ccffb04` و sentinel موفق شد؛ این جایگزین restore روی Clean Linux و backup عملیاتی نیست.
-- `pnpm check`: موفق؛ ۲۳۹ تست، Build با ۱۴۱ ماژول و Governance با ۲۱ گام؛ Owner handoff audit موفق؛ Roadmap audit برابر `50/50` و `100/100`.
+- `pnpm check`: موفق؛ ۲۳۹ تست، Build با ۱۴۲ ماژول و Governance با ۲۱ گام؛ Owner handoff audit موفق؛ Roadmap audit برابر `50/50` و `100/100`.
 - smoke Test مستقل: هر دو سرویس healthy؛ `/health` و `/ready` با کد ۲۰۰؛ Back Office بدون احراز هویت `۴۰۱` و با credential runtime `۲۰۰`؛ DNS/TLS، robots و noindex موفق؛
 - persistence Test: بعد از restart فقط Control Plane، migration، readiness و Read Model سالم ماندند و ۱۱ Projection/۱۰ event/۱ request حفظ شد؛
 - schema Test: migrationهای `001` تا `006` و ۱۷ جدول دارای guard append-only در PostgreSQL تأیید شد؛
 - شبکهٔ Test: دسترسی بیرونی به پورت‌های `43101` و `5432` مسدود و مسیر عمومی فقط از HTTPS reverse proxy در دسترس است؛
 - جداسازی: project=`hero-test`، volumeهای `hero-test_*` و network=`hero-test_hero-private` تأیید شد.
-- parity نسخه: artifact تمیز `hero-control-plane:candidate-c1a1430` از Commit `c1a1430` با digest `sha256:e662f73725db07e7a1080922ac549940a417f4dba97418c5e6bd12e61fbbd4c2` فقط به `hero-test` deploy شده؛ preflight، hash پنج فایل اصلی، health، readiness، احراز هویت و restart دوباره تأیید شده‌اند.
+- parity نسخه: image runtime `hero-test-control-plane:latest` با digest `sha256:19ac4add8d699bc7cf4aa7fa06598ff15178cf76a6b4a4fafcbb4c67fb3cb7d8` از workspace جاری (پایهٔ `c1a1430` + deltaٔ uncommitted roadmap/guide/test و سندها) فقط به `hero-test` deploy شده؛ preflight، hash فایل‌های اصلی، health، readiness، احراز هویت و restart دوباره تأیید شده‌اند؛ commit جدید هنوز به‌دلیل read-only بودن `.git` ثبت نشده است.
 - پوشش UI Test: Back Office احراز‌شدهٔ page/data/events را `۲۰۰` برگرداند؛ ۱۱ تیم با جزئیات کامل، ۸ Role، تنظیمات کل Hero، راهنمای خواندن پنل، فونت فارسی، دفتر `OPEN-50` با ۵۰ ردیف و ۱۴ اقدام مالک/ادمین بررسی شدند.
 - کنترل امنیتی HTTP: auth boundary، read-only method guard، CSP، noindex، route ناشناخته و API بدون auth موفق‌اند؛ مرور دستی Caddy، firewall و access policy هنوز برای مالک/ادمین باقی است.
 - APIهای read-only Test: ۱۷ مسیر احراز‌شده (۳ مسیر Back Office با Basic Auth و ۱۴ مسیر API با نشست Owner) همگی `۲۰۰` و ۱۱ تیم/diagnostics حاضر؛ این شاهد جایگزین Pilot واقعی یا Provider زنده نیست.
