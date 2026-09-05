@@ -45,11 +45,11 @@
 | ۳۹ | ۶۸ | اتصال Advisor به Evidence واقعی | تکمیل محلی/نیازمند Test | توصیهٔ مبتنی بر Evidence تأییدشده در Test تأیید شود |
 | ۴۰ | ۷۲ | آزمون keyboard، focus و RTL | تکمیل automated/نیازمند مرورگر Test | مسیرهای اصلی با مرورگر Test بدون mouse بررسی شود |
 | ۴۱ | ۷۳ | آزمون responsive موبایل/دسکتاپ | تکمیل automated/نیازمند مرورگر Test | اندازه‌های واقعی مرورگر Test بررسی شود |
-| ۴۲ | ۷۹ | access audit قابل مشاهده برای مالک | تأیید Test؛ ۱۷ مسیر read-only احراز شد | خروجی audit روی Test تأیید شود |
+| ۴۲ | ۷۹ | access audit قابل مشاهده برای مالک | تأیید Test؛ ۱۷ مسیر read-only احراز شد | خروجی audit روی Test تأیید شود؛ ممیزی جامع ۵۸ مسیر GET نیز موفق شد |
 | ۴۳ | ۸۱ | install دقیق با lockfile | اکنون/CI | workflow CI اجرا شود |
 | ۴۴ | ۸۳ | Environment تست GitHub | نیازمند ادمین GitHub | reviewer اجباری فعال شود |
 | ۴۵ | ۸۵ | استقرار Candidate در Test | انجام شد؛ parity و health/auth/restart تأیید شد | برای promotion بعدی فقط rollback/recovery و مجوزهای جدا باقی است |
-| ۴۶ | ۸۶ | smoke و security روی Test | smoke خودکار انجام شد؛ ۱۷ مسیر read-only تأیید شد؛ مرور دستی کامل باقی است | review دستی Caddy/شبکه/دسترسی‌ها و ثبت owner evidence انجام شود |
+| ۴۶ | ۸۶ | smoke و security روی Test | smoke خودکار انجام شد؛ ۱۷ مسیر read-only تأیید شد؛ مرور دستی کامل باقی است | review دستی Caddy/شبکه/دسترسی‌ها و ثبت owner evidence انجام شود؛ ممیزی جامع ۵۸ مسیر GET نیز موفق شد |
 | ۴۷ | ۸۷ | Test Evidence و review مالک | نیازمند تصمیم مالک | Evidence کامل را تأیید کن |
 | ۴۸ | ۸۸ | rollback نسخهٔ Test | انجام شد؛ recovery عملیاتی باقی است | recovery از backup/checksum روی Clean Linux هنوز انجام شود |
 | ۴۹ | ۸۹ | recovery روی Clean Linux | blocker خارجی | restore واقعی و checksum ثبت شود |
