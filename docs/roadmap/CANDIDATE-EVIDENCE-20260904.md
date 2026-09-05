@@ -4,21 +4,21 @@
 
 ## ممیزی جاری — ۲۰۲۶-۰۹-۰۵
 
-پس از candidate پایهٔ `c1a1430`، چهار برچسب وضعیت roadmap، راهنمای ۳۹ مفهوم و assertionهای مربوط به آن‌ها در Commit نهایی `031ef18` ثبت شدند. image runtime جاری `hero-test-control-plane:latest` با artifact tag `hero-control-plane:candidate-031ef18` و digest `sha256:a94252111f793331e3511c528a57224aa9a0fec1669392d6a0a2284e9462033e` فقط در `hero-test` مستقر است؛ Production تغییری نکرده است.
+پس از candidate پایهٔ `c1a1430`، چهار برچسب وضعیت roadmap، راهنمای ۳۹ مفهوم، assertionهای UI و کنترل parity در Commit نهایی `985ab8c` ثبت شدند. image runtime جاری `hero-test-control-plane:latest` با artifact tag `hero-control-plane:candidate-985ab8c` و digest `sha256:590efbccac4d7b20df03d4ad14d230003ff646821bef91df9712063648225135` فقط در `hero-test` مستقر است؛ Production تغییری نکرده است.
 
 ## منبع
 
 | مورد | مقدار |
 |---|---|
 | branch | `codex/hero-001-project-charter` |
-| source snapshot | Commit نهایی `031ef18` شامل سه اصلاح source/test و هشت سند roadmap/operations؛ `compose.test.yaml` خارج از artifact و untracked باقی مانده است |
+| source snapshot | Commit نهایی `985ab8c` شامل اصلاحات source/test، کنترل parity و اسناد roadmap/operations؛ `compose.test.yaml` خارج از artifact و untracked باقی مانده است |
 | roadmap validator commit | `923a0f3` — `chore: validate roadmap audit ledgers` |
 | deployment-contract commit | `2b3d5b8` — `chore: enforce deployment contract` |
 | implementation commit | `cdc44bc` — `feat: harden Hero backoffice and audit projections` |
 | evidence chain | `cce6aaa`، `0aaeaa3`، `de4b4c5`، `79b0977` و `e865e5b` — ثبت verification، baseline، artifact و runtime audit |
 | commit پایه | `26cfe549924b0db63eef71db25aeb8dfb5beb4d7` |
 | remote branch pointer | `c445609b301807df1bb50124a92afa31c500a145`؛ از candidate محلی عقب‌تر است |
-| وضعیت | candidate نهایی از Commit `031ef18` ساخته شد؛ همان artifact فقط به Test مستقل deploy شده؛ push انجام نشده و Production تغییری نکرده است |
+| وضعیت | candidate نهایی از Commit `985ab8c` ساخته شد؛ همان artifact فقط به Test مستقل deploy شده؛ push انجام نشده و Production تغییری نکرده است |
 | Git در workspace | سه اصلاح source/test و هشت سند ثبت شده‌اند؛ فقط `compose.test.yaml` ناشناخته و untracked است و stage/commit نشده |
 | مرز | فقط repository Hero؛ بدون تغییر اپلیکیشن‌های دیگر |
 
@@ -28,12 +28,12 @@
 |---|---|
 | image tag پایه | `hero-control-plane:candidate-c1a1430` |
 | image digest پایه | `sha256:e662f73725db07e7a1080922ac549940a417f4dba97418c5e6bd12e61fbbd4c2` |
-| image runtime جاری Test | `hero-control-plane:candidate-031ef18` (alias: `hero-test-control-plane:latest`) — `sha256:a94252111f793331e3511c528a57224aa9a0fec1669392d6a0a2284e9462033e` |
+| image runtime جاری Test | `hero-control-plane:candidate-985ab8c` (alias: `hero-test-control-plane:latest`) — `sha256:590efbccac4d7b20df03d4ad14d230003ff646821bef91df9712063648225135` |
 | مبنای build | build استاندارد Docker از Commit `c1a1430`؛ `.dockerignore` فایل‌های Secret و `compose.test.yaml` را از context حذف کرد |
 | نتیجهٔ verify داخل build | `pnpm check`: ۲۳۹/۲۳۹ تست موفق؛ Build: ۱۴۲ ماژول و ۷ فایل JSON |
 | parity با source | hash هر پنج فایل fingerprint‌شده برابر است |
 | کنترل roadmap | `OPEN-50=50` و `NEXT-100=100`؛ ستون‌های الزامی و cross-referenceها معتبرند |
-| runtime smoke مستقل | artifact `candidate-031ef18` در Test با پورت loopback `43101`؛ `/health=200`، `/ready=200`، Back Office بدون auth=`401` و با auth=`200`، payload شامل `OPEN-50` با ۵۰ ردیف و گیت‌های مالک؛ HTML فارسی/IRANSans/noindex و راهنمای ۳۹ مفهوم حاضر؛ `compose.test.yaml` داخل image نبود |
+| runtime smoke مستقل | artifact `candidate-985ab8c` در Test با پورت loopback `43101`؛ `/health=200`، `/ready=200`، Back Office بدون auth=`401` و با auth=`200`، payload شامل `OPEN-50` با ۵۰ ردیف و گیت‌های مالک؛ HTML فارسی/IRANSans/noindex و راهنمای ۳۹ مفهوم حاضر؛ `compose.test.yaml` داخل image نبود |
 | وضعیت انتشار | همان digest فقط به stack ایزولهٔ `hero-test` deploy شده؛ به Production deploy نشده است |
 
 ## شواهد verification
@@ -60,7 +60,7 @@ fa16ce5ef898670bb138d17554290626d4f6005753ccfa3b38f104a6ccb21f15  packages/domai
 
 ## وضعیت image فعلی Test
 
-محیط `hero-test` سالم است و اکنون artifact `hero-control-plane:candidate-031ef18` با digest `sha256:a94252111f793331e3511c528a57224aa9a0fec1669392d6a0a2284e9462033e` و همان Secret/env فعلی روی آن deploy شده است؛ fingerprint فایل‌های اصلی با Commit `031ef18` برابر است و preflight، health، readiness، احراز هویت و restart دوباره موفق شدند. این artifact فقط در Test است و تا تکمیل گیت‌های recovery، Pilot و production-deploy نباید promotion شود.
+محیط `hero-test` سالم است و اکنون artifact `hero-control-plane:candidate-985ab8c` با digest `sha256:590efbccac4d7b20df03d4ad14d230003ff646821bef91df9712063648225135` و همان Secret/env فعلی روی آن deploy شده است؛ fingerprint فایل‌های اصلی با Commit `985ab8c` برابر است و preflight، health، readiness، احراز هویت و restart دوباره موفق شدند. این artifact فقط در Test است و تا تکمیل گیت‌های recovery، Pilot و production-deploy نباید promotion شود.
 
 ## ممیزی runtime آخر — ۲۰۲۶-۰۹-۰۵
 

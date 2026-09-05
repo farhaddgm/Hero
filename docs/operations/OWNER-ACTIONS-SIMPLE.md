@@ -15,7 +15,7 @@
 - Provider زنده: عمداً خاموش است؛
 - Production: عمداً فعال نشده است.
 
-Test واقعی سالم است. artifact تمیز `hero-control-plane:candidate-031ef18` با digest `sha256:a94252111f793331e3511c528a57224aa9a0fec1669392d6a0a2284e9462033e` از Commit `031ef18` ساخته شده و با همان env/Secret فعلی فقط روی Test نصب شده است؛ preflight، health، احراز هویت، payload دفتر `OPEN-50` و restart موفق‌اند. پنل اکنون دفتر کامل ۵۰ گام، راهنمای ۳۹ مفهوم و ۱۴ اقدام مالک/ادمین را read-only نشان می‌دهد. rollback کنترل‌پلیس هم آزموده شده؛ فقط recovery واقعی از backup/checksum و سپس Pilot باقی است. این image commit-bound است، اما تا تکمیل گیت‌های recovery، Pilot و production-deploy نباید به Production promotion شود.
+Test واقعی سالم است. artifact تمیز `hero-control-plane:candidate-985ab8c` با digest `sha256:590efbccac4d7b20df03d4ad14d230003ff646821bef91df9712063648225135` از Commit `985ab8c` ساخته شده و با همان env/Secret فعلی فقط روی Test نصب شده است؛ preflight، health، احراز هویت، payload دفتر `OPEN-50` و restart موفق‌اند. پنل اکنون دفتر کامل ۵۰ گام، راهنمای ۳۹ مفهوم و ۱۴ اقدام مالک/ادمین را read-only نشان می‌دهد. rollback کنترل‌پلیس هم آزموده شده؛ فقط recovery واقعی از backup/checksum و سپس Pilot باقی است. این image commit-bound است، اما تا تکمیل گیت‌های recovery، Pilot و production-deploy نباید به Production promotion شود.
 
 نکتهٔ production: خود سرویس با credential runtime سالم است، اما دامنهٔ عمومی production همان credential را قبول نمی‌کند و `401` می‌دهد. ادمین باید Basic Auth/Caddy production را اصلاح و validate کند؛ password یا hash نباید در چت ارسال شود.
 
