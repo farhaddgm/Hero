@@ -1,6 +1,6 @@
 # پنجاه گام باز و اولویت‌دار Hero
 
-مبنای این فهرست: ۲۰۲۶-۰۹-۰۴. این ۵۰ گام از دفتر کامل [NEXT-100-STEPS-20260904.md](./NEXT-100-STEPS-20260904.md) انتخاب شده‌اند و به‌ترتیب ریسک و وابستگی مرتب شده‌اند. وضعیت «نیازمند Test» یعنی پیاده‌سازی محلی انجام شده اما هنوز روی محیط عملیاتی Test شاهد واقعی ندارد.
+مبنای این فهرست: ۲۰۲۶-۰۹-۰۴؛ snapshot وضعیت جاری: ۲۰۲۶-۰۹-۰۵. این ۵۰ گام از دفتر کامل [NEXT-100-STEPS-20260904.md](./NEXT-100-STEPS-20260904.md) انتخاب شده‌اند و به‌ترتیب ریسک و وابستگی مرتب شده‌اند. وضعیت «نیازمند Test» یعنی پیاده‌سازی محلی انجام شده اما هنوز روی محیط عملیاتی Test شاهد واقعی ندارد.
 
 | # | مرجع | گام | وضعیت فعلی | اقدام بعدی |
 |---:|---:|---|---|---|
@@ -14,13 +14,13 @@
 | ۸ | ۱۳ | بررسی wrapperهای Test | blocker خارجی | `hero-test-*` با `sudo -n` بررسی شود |
 | ۹ | ۱۴ | تعیین تکلیف `compose.test.yaml` | blocker خارجی | مالکیت و محتوای فایل بررسی و تصمیم‌گیری شود |
 | ۱۰ | ۱۸ | Secret runtime Test | تأیید Test؛ نیازمند audit محل نگهداری | فقط در Secret Store یا فایل `600` ساخته شود |
-| ۱۱ | ۱۹ | preflight کانفیگ Test | تکمیل Test؛ preflight واقعی دوباره موفق شد | `check-test-config` روی مقصد اجرا شود |
+| ۱۱ | ۱۹ | preflight کانفیگ Test | blocker خارجی؛ preflight جاری به‌علت Secretهای PostgreSQL متوقف است | Secretهای Test را ثبت و preflight را دوباره اجرا کن |
 | ۱۲ | ۲۰ | Evidence ایزولاسیون | تکمیل Test | project/volume/network، bind localhost و بسته‌بودن بیرونی پورت‌های `43101`/`5432` ثبت شد |
-| ۱۳ | ۲۱ | migrationهای ۰۰۱ تا ۰۰۶ در Test | تکمیل Test | روی PostgreSQL مستقل اجرا شود |
-| ۱۴ | ۲۲ | readiness PostgreSQL و Hero | تکمیل Test | `pg_isready` و `/ready` هر دو موفق شوند |
-| ۱۵ | ۲۳ | append-only Event Store | تکمیل Test | migrationهای `001` تا `006` و guardهای append-only تأیید شد؛ دادهٔ عملیاتی بیشتر جداست |
-| ۱۶ | ۲۷ | Snapshot یازده Registry و Dashboard | تکمیل Test؛ ۱۱ Projection در runtime تأیید شد | Snapshot در Test ذخیره شود |
-| ۱۷ | ۲۸ | hydration بعد از restart | تکمیل Test | قبل/بعد restart مقایسه شود |
+| ۱۳ | ۲۱ | migrationهای ۰۰۱ تا ۰۰۶ در Test | تأیید قبلی؛ نیازمند تکرار با candidate جاری | پس از اتصال PostgreSQL مستقل، migrationها را دوباره ثبت کن |
+| ۱۴ | ۲۲ | readiness PostgreSQL و Hero | تأیید health قبلی؛ نیازمند تکرار readiness پایدار | `pg_isready` و `/ready` سخت‌گیرانه را پس از اتصال DB تأیید کن |
+| ۱۵ | ۲۳ | append-only Event Store | تأیید قبلی؛ نیازمند تکرار با candidate جاری | guardهای append-only را با persistence جاری تأیید کن |
+| ۱۶ | ۲۷ | Snapshot یازده Registry و Dashboard | تأیید قبلی؛ نیازمند تکرار با candidate جاری | ۱۱ Projection را پس از اتصال DB در Test ذخیره کن |
+| ۱۷ | ۲۸ | hydration بعد از restart | تأیید قبلی؛ نیازمند تکرار با candidate جاری | قبل/بعد restart را با persistence جاری مقایسه کن |
 | ۱۸ | ۲۹ | تشخیص Snapshot ناقص/قدیمی | تأیید Test؛ نیازمند سناریوی خرابی | در Test با دادهٔ واقعی اجرا شود |
 | ۱۹ | ۳۰ | Backup/Restore با checksum | synthetic موفق؛ Clean Linux مقصد blocker خارجی | restore واقعی روی مقصد Clean Linux و backup عملیاتی ثبت شود |
 | ۲۰ | ۳۲ | mapping همهٔ Domain Eventها | تکمیل محلی/نیازمند Test | پوشش mapping در Test با دادهٔ واقعی تأیید شود |
@@ -45,8 +45,8 @@
 | ۳۹ | ۶۸ | اتصال Advisor به Evidence واقعی | تکمیل محلی/نیازمند Test | توصیهٔ مبتنی بر Evidence تأییدشده در Test تأیید شود |
 | ۴۰ | ۷۲ | آزمون keyboard، focus و RTL | تکمیل automated/نیازمند مرورگر Test | مسیرهای اصلی با مرورگر Test بدون mouse بررسی شود |
 | ۴۱ | ۷۳ | آزمون responsive موبایل/دسکتاپ | تکمیل automated/نیازمند مرورگر Test | اندازه‌های واقعی مرورگر Test بررسی شود |
-| ۴۲ | ۷۹ | access audit قابل مشاهده برای مالک | تأیید Test؛ ۱۷ مسیر read-only احراز شد | خروجی audit روی Test تأیید شود؛ ممیزی جامع ۵۸ مسیر GET نیز موفق شد |
-| ۴۳ | ۸۱ | install دقیق با lockfile | اکنون/CI | workflow CI اجرا شود |
+| ۴۲ | ۷۹ | access audit قابل مشاهده برای مالک | تأیید قبلی؛ نیازمند اجرای audit با persistence جاری | خروجی audit را پس از اتصال DB روی Test تأیید کن |
+| ۴۳ | ۸۱ | install دقیق با lockfile | تأیید محلی؛ نیازمند اجرای CI | workflow CI اجرا شود |
 | ۴۴ | ۸۳ | Environment تست GitHub | نیازمند ادمین GitHub | reviewer اجباری فعال شود |
 | ۴۵ | ۸۵ | استقرار Candidate در Test | انجام شد؛ parity و health/auth/restart تأیید شد | برای promotion بعدی فقط rollback/recovery و مجوزهای جدا باقی است |
 | ۴۶ | ۸۶ | smoke و security روی Test | smoke خودکار انجام شد؛ ۱۷ مسیر read-only تأیید شد؛ مرور دستی کامل باقی است | review دستی Caddy/شبکه/دسترسی‌ها و ثبت owner evidence انجام شود؛ ممیزی جامع ۵۸ مسیر GET نیز موفق شد |

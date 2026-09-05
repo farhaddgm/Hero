@@ -37,6 +37,7 @@ Commit `c804a5a` وضعیت واقعی persistence را به projection امن B
 | نتیجهٔ verify داخل build | `pnpm check`: ۲۴۱/۲۴۱ تست موفق؛ Build: ۱۴۳ ماژول و ۷ فایل JSON |
 | parity با source | hash پنج فایل fingerprint‌شده با source Commit `c804a5a` برابر است |
 | کنترل roadmap | `OPEN-50=50` و `NEXT-100=100`؛ ستون‌های الزامی و cross-referenceها معتبرند |
+| وضعیت دفتر جاری | نسخهٔ `2026-09-05`؛ `pending=39`، `blocked=9`، `evidence=2`؛ ردیف‌های persistence که فقط شاهد قبلی دارند برای candidate جاری نیازمند تکرار علامت‌گذاری شده‌اند |
 | runtime smoke مستقل | artifact `candidate-c804a5a` در Test با پورت loopback `43101`؛ `/health=200`، `/ready=200` و Back Office با auth=`200`؛ `/backoffice-data` شامل `OPEN-50` با ۵۰ ردیف، `runtime=in-memory` و `readiness=development-or-optional`؛ HTML فارسی/IRANSans/noindex و راهنمای ۳۹ مفهوم حاضر؛ strict preflight دو مقدار PostgreSQL را missing تشخیص داد و persistence runtime هنوز تأیید نشده است |
 | وضعیت انتشار | همان digest فقط به stack ایزولهٔ `hero-test` deploy شده؛ به Production deploy نشده است |
 

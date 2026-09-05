@@ -29,6 +29,7 @@
 
 - Commit جاری `c804a5a` است و image دقیق آن فقط در `hero-test` deploy شده؛ `pnpm check` با `241/241` تست و Build `143` ماژول موفق است؛
 - `/health=200`، `/ready=200`، `/backoffice=200` و `/backoffice-data=200` با احراز هویت؛ دفتر `OPEN-50` دارای ۵۰ ردیف است؛
+- شمارش جاری دفتر: `pending=39`، `blocked=9` و `evidence=2`؛ ردیف‌های persistence با شاهد قبلی تا تکرار روی candidate جاری pending هستند؛
 - وضعیت امن داخل پنل: `runtime=in-memory` و `readiness=development-or-optional`؛ دو Secret PostgreSQL هنوز blocker هستند؛
 - تنها Control Plane جایگزین شد؛ PostgreSQL، volume، network، Production و اپلیکیشن‌های دیگر تغییر نکردند.
 

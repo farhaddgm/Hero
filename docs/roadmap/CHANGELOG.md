@@ -1,5 +1,12 @@
 # تغییرات رودمپ شرکت
 
+## 2026-09-05 — اصلاح وضعیت جاری دفتر OPEN-50 پس از ممیزی persistence
+
+- اصلاح‌شده: ردیف‌های migration، readiness، Event Store، Snapshot، hydration، access audit و CI که فقط شاهد قبلی داشتند، دیگر به‌عنوان تکمیل Test نمایش داده نمی‌شوند؛
+- اصلاح‌شده: preflight فعلی که به‌علت دو Secret PostgreSQL متوقف است، در دفتر به‌عنوان blocker خارجی ثبت شد؛
+- تأییدشده: دفتر نسخهٔ `2026-09-05` دارای ۵۰ ردیف با شمارش `pending=39`، `blocked=9` و `evidence=2` است و `OPEN-50`/`NEXT-100` parity دارد؛
+- مرز: فقط ledger، تست و مستندات اصلاح شدند؛ هیچ Secret، دادهٔ PostgreSQL، Production یا اپلیکیشن دیگری تغییر نکرد.
+
 ## 2026-09-05 — نمایش صریح وضعیت persistence در Back Office
 
 - افزوده‌شده: metadata امن `runtime` و `readiness` در snapshot صفحه و دادهٔ Back Office؛ پنل تفاوت `in-memory` و PostgreSQL را روشن نشان می‌دهد؛

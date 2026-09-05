@@ -100,11 +100,11 @@ test("protected development back office exposes safe data and controlled owner/a
   assert.equal(backoffice.roadmap.ledger, "OPEN-50");
   assert.equal(backoffice.roadmap.total, 50);
   assert.equal(backoffice.roadmap.rows.length, 50);
-  assert.deepEqual(backoffice.roadmap.statusCounts, { pending: 32, blocked: 8, evidence: 10 });
+  assert.deepEqual(backoffice.roadmap.statusCounts, { pending: 39, blocked: 9, evidence: 2 });
   assert.equal(backoffice.roadmap.ownerActions.length >= 10, true);
-  assert.match(backoffice.roadmap.rows.find(row => row.reference === 19).status, /preflight واقعی دوباره موفق شد/);
-  assert.match(backoffice.roadmap.rows.find(row => row.reference === 27).status, /۱۱ Projection در runtime تأیید شد/);
-  assert.match(backoffice.roadmap.rows.find(row => row.reference === 79).status, /۱۷ مسیر read-only احراز شد/);
+  assert.match(backoffice.roadmap.rows.find(row => row.reference === 19).status, /preflight جاری/);
+  assert.match(backoffice.roadmap.rows.find(row => row.reference === 27).status, /تأیید قبلی/);
+  assert.match(backoffice.roadmap.rows.find(row => row.reference === 79).status, /نیازمند اجرای audit/);
   assert.match(backoffice.roadmap.rows.find(row => row.reference === 86).status, /۱۷ مسیر read-only تأیید شد/);
   assert.equal(backoffice.roadmap.pilotBlockers.length, 3);
   assert.doesNotMatch(JSON.stringify(backoffice.roadmap), /api[_-]?key|password|Bearer|private key/i);

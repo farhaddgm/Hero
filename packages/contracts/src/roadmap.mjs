@@ -4,7 +4,7 @@
  * This is intentionally metadata only: it contains no credentials, request
  * text, prompts, model output, or authorization material.
  */
-export const HERO_OPEN_ROADMAP_VERSION = "2026-09-04";
+export const HERO_OPEN_ROADMAP_VERSION = "2026-09-05";
 
 export const HERO_OPEN_ROADMAP = Object.freeze([
   [1, 2, "یکسان‌سازی دامنهٔ Test", "تأیید Test؛ نیازمند ثبت تصمیم مالک", "تصمیم رسمی دامنه را ثبت کن"],
@@ -17,13 +17,13 @@ export const HERO_OPEN_ROADMAP = Object.freeze([
   [8, 13, "بررسی wrapperهای Test", "blocker خارجی", "hero-test-* با sudo -n بررسی شود"],
   [9, 14, "تعیین تکلیف compose.test.yaml", "blocker خارجی", "مالکیت و محتوای فایل بررسی و تصمیم‌گیری شود"],
   [10, 18, "Secret runtime Test", "تأیید Test؛ نیازمند audit محل نگهداری", "فقط در Secret Store یا فایل 600 ساخته شود"],
-  [11, 19, "preflight کانفیگ Test", "تکمیل Test؛ preflight واقعی دوباره موفق شد", "check-test-config روی مقصد اجرا شود"],
+  [11, 19, "preflight کانفیگ Test", "blocker خارجی؛ preflight جاری به‌علت Secretهای PostgreSQL متوقف است", "Secretهای Test را ثبت و preflight را دوباره اجرا کن"],
   [12, 20, "Evidence ایزولاسیون", "تکمیل Test", "project/volume/network و bind localhost ثبت شد"],
-  [13, 21, "migrationهای 001 تا 006 در Test", "تکمیل Test", "روی PostgreSQL مستقل اجرا شود"],
-  [14, 22, "readiness PostgreSQL و Hero", "تکمیل Test", "pg_isready و /ready هر دو موفق شوند"],
-  [15, 23, "append-only Event Store", "تکمیل Test", "migrationها و guardهای append-only تأیید شد"],
-  [16, 27, "Snapshot یازده Registry و Dashboard", "تکمیل Test؛ ۱۱ Projection در runtime تأیید شد", "Snapshot در Test ذخیره شود"],
-  [17, 28, "hydration بعد از restart", "تکمیل Test", "قبل/بعد restart مقایسه شود"],
+  [13, 21, "migrationهای 001 تا 006 در Test", "تأیید قبلی؛ نیازمند تکرار با candidate جاری", "پس از اتصال PostgreSQL مستقل، migrationها را دوباره ثبت کن"],
+  [14, 22, "readiness PostgreSQL و Hero", "تأیید health قبلی؛ نیازمند تکرار readiness پایدار", "pg_isready و /ready سخت‌گیرانه را پس از اتصال DB تأیید کن"],
+  [15, 23, "append-only Event Store", "تأیید قبلی؛ نیازمند تکرار با candidate جاری", "guardهای append-only را با persistence جاری تأیید کن"],
+  [16, 27, "Snapshot یازده Registry و Dashboard", "تأیید قبلی؛ نیازمند تکرار با candidate جاری", "۱۱ Projection را پس از اتصال DB در Test ذخیره کن"],
+  [17, 28, "hydration بعد از restart", "تأیید قبلی؛ نیازمند تکرار با candidate جاری", "قبل/بعد restart را با persistence جاری مقایسه کن"],
   [18, 29, "تشخیص Snapshot ناقص/قدیمی", "تأیید Test؛ نیازمند سناریوی خرابی", "در Test با دادهٔ واقعی اجرا شود"],
   [19, 30, "Backup/Restore با checksum", "synthetic موفق؛ Clean Linux مقصد blocker خارجی", "restore واقعی روی مقصد Clean Linux ثبت شود"],
   [20, 32, "mapping همهٔ Domain Eventها", "تکمیل محلی/نیازمند Test", "پوشش mapping در Test تأیید شود"],
@@ -48,8 +48,8 @@ export const HERO_OPEN_ROADMAP = Object.freeze([
   [39, 68, "اتصال Advisor به Evidence واقعی", "تکمیل محلی/نیازمند Test", "توصیهٔ مبتنی بر Evidence در Test تأیید شود"],
   [40, 72, "آزمون keyboard، focus و RTL", "تکمیل automated/نیازمند مرورگر Test", "مسیرهای اصلی با مرورگر بدون mouse بررسی شود"],
   [41, 73, "آزمون responsive موبایل/دسکتاپ", "تکمیل automated/نیازمند مرورگر Test", "اندازه‌های واقعی مرورگر بررسی شود"],
-  [42, 79, "access audit قابل مشاهده برای مالک", "تأیید Test؛ ۱۷ مسیر read-only احراز شد", "خروجی audit روی Test تأیید شود"],
-  [43, 81, "install دقیق با lockfile", "اکنون/CI", "workflow CI اجرا شود"],
+  [42, 79, "access audit قابل مشاهده برای مالک", "تأیید قبلی؛ نیازمند اجرای audit با persistence جاری", "خروجی audit را پس از اتصال DB روی Test تأیید کن"],
+  [43, 81, "install دقیق با lockfile", "تأیید محلی؛ نیازمند اجرای CI", "workflow CI اجرا شود"],
   [44, 83, "Environment تست GitHub", "نیازمند ادمین GitHub", "reviewer اجباری فعال شود"],
   [45, 85, "استقرار Candidate در Test", "انجام شد؛ parity و health/auth/restart تأیید شد", "برای promotion فقط rollback/recovery و مجوزهای جدا باقی است"],
   [46, 86, "smoke و security روی Test", "smoke خودکار انجام شد؛ ۱۷ مسیر read-only تأیید شد؛ مرور دستی کامل باقی است", "review دستی Caddy/شبکه/دسترسی ثبت شود"],
@@ -64,7 +64,7 @@ export const HERO_OWNER_ACTIONS = Object.freeze([
   Object.freeze({ id: "OWNER-02", title: "مالک عملیات و مسیر escalation", status: "نیازمند تصمیم مالک", action: "مالک، جانشین و مسیر تماس اضطراری را مشخص کن.", references: Object.freeze([7, 8]) }),
   Object.freeze({ id: "ADMIN-01", title: "Runner محدود Hero روی host", status: "نیازمند ادمین سرور", action: "hero-ops و wrapperهای hero-test-* را بدون Docker یا sudo عمومی آماده کن.", references: Object.freeze([11, 12, 13]) }),
   Object.freeze({ id: "ADMIN-02", title: "تعیین تکلیف compose.test.yaml", status: "نیازمند بررسی ادمین", action: "مالکیت و محتوای فایل را بررسی کن؛ تا آن زمان فقط compose.yaml تأییدشده را اجرا کن.", references: Object.freeze([14]) }),
-  Object.freeze({ id: "ADMIN-03", title: "Secret Store و محل نگهداری Test", status: "نیازمند اقدام ادمین", action: "Secretها را فقط در Secret Store یا فایل 600 قرار بده؛ مقدارها را نمایش نده.", references: Object.freeze([18]) }),
+  Object.freeze({ id: "ADMIN-03", title: "Secret Store و محل نگهداری Test", status: "نیازمند اقدام ادمین", action: "Secretها را فقط در Secret Store یا فایل 600 قرار بده؛ مقدارها را نمایش نده.", references: Object.freeze([18, 19]) }),
   Object.freeze({ id: "OWNER-03", title: "Provider، Model، allow-list و سقف هزینه", status: "نیازمند تصمیم مالک", action: "Provider/Model مجاز، مدل‌های deprecated، cap عددی و رفتار توقف را نسخه‌دار تعیین کن.", references: Object.freeze([41, 45, 48]) }),
   Object.freeze({ id: "OWNER-04", title: "Binding و freshness دانش تیم‌ها", status: "نیازمند تصمیم مالک", action: "override هر تیم، دورهٔ اعتبار و سیاست stale را مشخص کن.", references: Object.freeze([52, 54]) }),
   Object.freeze({ id: "OWNER-05", title: "Golden Dataset یازده تیم", status: "blocker مالک", action: "برای هر تیم ورودی، خروجی مطلوب و خطاهای قابل‌قبول را بده.", references: Object.freeze([56]) }),

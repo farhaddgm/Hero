@@ -9,6 +9,7 @@
 - artifact جاری `hero-control-plane:candidate-c804a5a` با digest `sha256:2d25ca11293a2f017bc8d62553da7ac7dbfb3037d664b2e24161e8356604994b` فقط روی `hero-test` مستقر است؛
 - `hero-test-control-plane-1` و `hero-test-hero-postgres-1` هر دو healthy هستند؛ فقط Control Plane recreate شد و bind همچنان `127.0.0.1:43101` است؛
 - smoke-test داخلی: `/health=200`، `/ready=200`، `/backoffice=200` و `/backoffice-data=200` با احراز هویت؛ payload شامل ۵۰ ردیف `OPEN-50` و وضعیت `runtime=in-memory`/`readiness=development-or-optional` است؛
+- شمارش وضعیت دفتر جاری: `pending=39`، `blocked=9` و `evidence=2`؛ شواهد persistence قبلی عمداً از وضعیت candidate جاری جدا نگه داشته شده‌اند؛
 - preflight سخت‌گیرانه فقط دو blocker واقعی دارد: `HERO_POSTGRES_URL` و `HERO_POSTGRES_PASSWORD` در env امن runtime خالی‌اند؛ تا رفع آن‌ها persistence و دو مسیر audit نهایی نیستند؛
 - Production، PostgreSQL، volume، network و اپلیکیشن‌های دیگر تغییر نکرده‌اند.
 
