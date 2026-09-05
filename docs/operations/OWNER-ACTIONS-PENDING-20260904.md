@@ -73,6 +73,7 @@ HERO_BACKOFFICE_USER
 HERO_BACKOFFICE_PASSWORD
 HERO_POSTGRES_URL
 HERO_POSTGRES_PASSWORD
+HERO_REQUIRE_POSTGRES=true
 ```
 
 دو مقدار زیر برای preflight حداقلی بالا لازم نیستند، اما برای فعال‌شدن کامل مسیرهای Admin و Caddy باید جداگانه در محل امن مقصد تنظیم شوند:

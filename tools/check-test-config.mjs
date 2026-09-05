@@ -24,6 +24,7 @@ export function validateTestEnvironment(env = process.env) {
     ["HERO_BIND_ADDRESS", "127.0.0.1"],
     ["HERO_EXPOSE_PORT", "43101"],
     ["HERO_DATA_DIR", "/var/lib/hero"],
+    ["HERO_REQUIRE_POSTGRES", "true"],
     ["HERO_ENABLE_REAL_PROVIDERS", "false"]
   ];
 

@@ -9,6 +9,7 @@ const valid = {
   HERO_BIND_ADDRESS: "127.0.0.1",
   HERO_EXPOSE_PORT: "43101",
   HERO_DATA_DIR: "/var/lib/hero",
+  HERO_REQUIRE_POSTGRES: "true",
   HERO_ENABLE_REAL_PROVIDERS: "false",
   HERO_OWNER_AUTH_SECRET: "owner-secret-that-is-at-least-32-characters-long",
   HERO_BACKOFFICE_USER: "hero-admin",

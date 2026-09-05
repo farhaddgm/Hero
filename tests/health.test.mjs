@@ -127,6 +127,22 @@ test("readiness reports the configured persistence boundary", async t => {
   assert.equal((await response.json()).persistence, "postgresql");
 });
 
+test("required PostgreSQL keeps readiness fail-closed when persistence is missing", async t => {
+  const app = createHeroServer({ host: "127.0.0.1", port: 0, requirePostgres: true });
+  const address = await app.start();
+  t.after(() => app.stop());
+
+  const response = await fetch("http://127.0.0.1:" + address.port + "/ready");
+  assert.equal(response.status, 503);
+  assert.deepEqual(await response.json(), {
+    service: "hero-control-plane",
+    status: "not_ready",
+    code: "PERSISTENCE_NOT_CONFIGURED",
+    boundary: "clean-room",
+    persistence: "postgresql-required"
+  });
+});
+
 test("training contract is public while team training plans stay owner-authenticated", async t => {
   const app = createHeroServer({ host: "127.0.0.1", port: 0 });
   const address = await app.start();

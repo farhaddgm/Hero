@@ -44,6 +44,8 @@ Secret Store یعنی محل امنی که مقدارهای حساس را فقط
 
 Test نباید به database یا volume Production وصل شود. گزینهٔ مناسب برای شروع، سرویس `hero-postgres` همین Compose با project name `hero-test` است؛ Compose volume و network آن را جدا namespace می‌کند. `HERO_POSTGRES_URL` Test باید به همین سرویس Test اشاره کند و کاربر، password و database آن مستقل باشند.
 
+در محیط Test مقدار `HERO_REQUIRE_POSTGRES=true` الزامی است؛ اگر URL یا password اتصال جا افتاده باشد، `/ready` باید fail-closed شود و سرویس آماده اعلام نشود. حالت in-memory فقط برای توسعهٔ محلی مجاز است.
+
 قبل از استفاده، migration، ping، ثبت event و hydration باید در Test موفق شوند. backup/restore واقعی نیز باید برای Test به‌صورت جداگانه شواهد داشته باشد.
 
 ## کارهایی که مالک/اپراتور باید انجام دهد

@@ -241,6 +241,7 @@ export function createHeroServer(options = {}) {
   const host = options.host ?? process.env.HERO_HTTP_HOST ?? "127.0.0.1";
   const port = parsePort(options.port ?? process.env.HERO_HTTP_PORT ?? "3100");
   const backofficeAuth = basicAuthConfig(options);
+  const requirePostgres = options.requirePostgres ?? process.env.HERO_REQUIRE_POSTGRES === "true";
   const backofficeResponseLimitBytes = options.backofficeResponseLimitBytes ?? DEFAULT_BACKOFFICE_RESPONSE_LIMIT_BYTES;
   if (!Number.isInteger(backofficeResponseLimitBytes) || backofficeResponseLimitBytes < 1_024 || backofficeResponseLimitBytes > 10 * 1024 * 1024) {
     throw new Error("Back Office response limit must be between 1024 and 10485760 bytes.");
@@ -879,6 +880,15 @@ export function createHeroServer(options = {}) {
     }
 
     if (request.method === "GET" && url.pathname === "/ready") {
+      if (requirePostgres && !postgresRuntime) {
+        return json(response, 503, {
+          service: HERO_SERVICE,
+          status: "not_ready",
+          code: "PERSISTENCE_NOT_CONFIGURED",
+          boundary: "clean-room",
+          persistence: "postgresql-required"
+        });
+      }
       return json(response, 200, {
         service: HERO_SERVICE,
         status: "ready",
