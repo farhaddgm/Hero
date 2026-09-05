@@ -966,6 +966,9 @@ export function createControlDashboard(options = {}) {
     const runs = Array.isArray(input.benchmarkIds) && input.benchmarkIds.length > 0
       ? input.benchmarkIds.map(id => benchmarkRuns.get(id)).filter(Boolean)
       : [...benchmarkRuns.values()];
+    if (runs.length === 0) {
+      return Object.freeze({ compared: 0, eligible: 0, winner: null, decision: "advisory-only", runs: Object.freeze([]) });
+    }
     return compareAiBenchmarks(runs);
   }
 
