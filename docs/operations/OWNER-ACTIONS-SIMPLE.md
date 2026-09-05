@@ -4,7 +4,7 @@
 
 ## وضعیت مهم فعلی
 
-artifact جدید Test نصب شده و Control Plane و PostgreSQL از نظر container healthy هستند؛ اما دو Secret اتصال PostgreSQL در env runtime خالی‌اند. تا تکمیل آن‌ها، `/ready` در حالت strict باید آماده اعلام نشود و Test را persistence-ready در نظر نگیرید. دادهٔ PostgreSQL حذف یا تغییر نکرده است.
+artifact جدید Test نصب شده و Control Plane و PostgreSQL از نظر container healthy هستند؛ اما با env/Secret فعلیِ runtime، دو Secret اتصال PostgreSQL خالی‌اند. تا تکمیل آن‌ها، `/ready` در حالت strict باید آماده اعلام نشود و Test را persistence-ready در نظر نگیرید. دادهٔ PostgreSQL حذف یا تغییر نکرده است.
 
 ## وضعیت فعلی
 
@@ -19,7 +19,7 @@ artifact جدید Test نصب شده و Control Plane و PostgreSQL از نظر 
 - Provider زنده: عمداً خاموش است؛
 - Production: عمداً فعال نشده است.
 
-artifact جاری `hero-control-plane:candidate-b379109` با digest `sha256:f3105572fed55c3df981bd9016b833d6a0ff1c900228e2bab8e05ba532574520` از Commit `b379109` ساخته و فقط روی Test نصب شده است؛ health و UI سالم‌اند، اما `HERO_POSTGRES_URL` و `HERO_POSTGRES_PASSWORD` خالی‌اند و persistence هنوز تأیید نشده است. پنل دفتر ۵۰ گام، راهنمای ۳۹ مفهوم و ۱۴ اقدام مالک/ادمین را read-only نشان می‌دهد. این image تا تکمیل recovery، Pilot و مجوزهای جدا نباید به Production promotion شود.
+artifact تمیز جاری `hero-control-plane:candidate-b379109` با digest `sha256:f3105572fed55c3df981bd9016b833d6a0ff1c900228e2bab8e05ba532574520` از Commit `b379109` ساخته و فقط روی Test نصب شده است؛ health و UI سالم‌اند، اما `HERO_POSTGRES_URL` و `HERO_POSTGRES_PASSWORD` خالی‌اند و persistence هنوز تأیید نشده است. پنل دفتر ۵۰ گام، راهنمای ۳۹ مفهوم و ۱۴ اقدام مالک/ادمین را read-only نشان می‌دهد. این image تا تکمیل recovery، Pilot و مجوزهای جدا نباید به Production promotion شود.
 
 نکتهٔ production: خود سرویس با credential runtime سالم است، اما دامنهٔ عمومی production همان credential را قبول نمی‌کند و `401` می‌دهد. ادمین باید Basic Auth/Caddy production را اصلاح و validate کند؛ password یا hash نباید در چت ارسال شود.
 
