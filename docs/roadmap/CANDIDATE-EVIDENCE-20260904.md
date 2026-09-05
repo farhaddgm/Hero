@@ -6,7 +6,7 @@
 
 Commit `b379109` guard اجباری PostgreSQL برای Test و تست جامع ۵۸ مسیر را اضافه کرد. artifact `hero-control-plane:candidate-b379109` با digest `sha256:f3105572fed55c3df981bd9016b833d6a0ff1c900228e2bab8e05ba532574520` فقط روی `hero-test` مستقر است؛ هر دو کانتینر healthy و bind روی `127.0.0.1:43101` هستند. بااین‌حال preflight سخت‌گیرانهٔ Test دو مقدار `HERO_POSTGRES_URL` و `HERO_POSTGRES_PASSWORD` را خالی تشخیص داد؛ تا ورود آن‌ها از Secret Store، persistence و مسیرهای audit runtime تأییدشده محسوب نمی‌شوند.
 
-## ممیزی جاری — ۲۰۲۶-۰۹-۰۵
+## سابقهٔ candidate قبلی و ممیزی UI — ۲۰۲۶-۰۹-۰۵
 
 پس از candidate پایهٔ `c1a1430`، چهار برچسب وضعیت roadmap، راهنمای ۳۹ مفهوم، assertionهای UI و کنترل parity در Commit نهایی `985ab8c` ثبت شدند. image runtime جاری `hero-test-control-plane:latest` با artifact tag `hero-control-plane:candidate-985ab8c` و digest `sha256:590efbccac4d7b20df03d4ad14d230003ff646821bef91df9712063648225135` فقط در `hero-test` مستقر است؛ Production تغییری نکرده است.
 
@@ -15,14 +15,14 @@ Commit `b379109` guard اجباری PostgreSQL برای Test و تست جامع 
 | مورد | مقدار |
 |---|---|
 | branch | `codex/hero-001-project-charter` |
-| source snapshot | Commit نهایی `985ab8c` شامل اصلاحات source/test، کنترل parity و اسناد roadmap/operations؛ `compose.test.yaml` خارج از artifact و untracked باقی مانده است |
+| source snapshot | Commit کاربردی `b379109` شامل guard persistence، اصلاح empty-state Benchmark و تست جامع route؛ `compose.test.yaml` خارج از artifact و untracked باقی مانده است |
 | roadmap validator commit | `923a0f3` — `chore: validate roadmap audit ledgers` |
 | deployment-contract commit | `2b3d5b8` — `chore: enforce deployment contract` |
 | implementation commit | `cdc44bc` — `feat: harden Hero backoffice and audit projections` |
 | evidence chain | `cce6aaa`، `0aaeaa3`، `de4b4c5`، `79b0977` و `e865e5b` — ثبت verification، baseline، artifact و runtime audit |
 | commit پایه | `26cfe549924b0db63eef71db25aeb8dfb5beb4d7` |
 | remote branch pointer | `c445609b301807df1bb50124a92afa31c500a145`؛ از candidate محلی عقب‌تر است |
-| وضعیت | candidate نهایی از Commit `985ab8c` ساخته شد؛ همان artifact فقط به Test مستقل deploy شده؛ push انجام نشده و Production تغییری نکرده است |
+| وضعیت | candidate جاری از Commit `b379109` ساخته شد؛ همان artifact فقط به Test مستقل deploy شده؛ push انجام نشده و Production تغییری نکرده است |
 | Git در workspace | سه اصلاح source/test و هشت سند ثبت شده‌اند؛ فقط `compose.test.yaml` ناشناخته و untracked است و stage/commit نشده |
 | مرز | فقط repository Hero؛ بدون تغییر اپلیکیشن‌های دیگر |
 
@@ -32,22 +32,22 @@ Commit `b379109` guard اجباری PostgreSQL برای Test و تست جامع 
 |---|---|
 | image tag پایه | `hero-control-plane:candidate-c1a1430` |
 | image digest پایه | `sha256:e662f73725db07e7a1080922ac549940a417f4dba97418c5e6bd12e61fbbd4c2` |
-| image runtime جاری Test | `hero-control-plane:candidate-985ab8c` (alias: `hero-test-control-plane:latest`) — `sha256:590efbccac4d7b20df03d4ad14d230003ff646821bef91df9712063648225135` |
-| مبنای build | build استاندارد Docker از Commit `c1a1430`؛ `.dockerignore` فایل‌های Secret و `compose.test.yaml` را از context حذف کرد |
-| نتیجهٔ verify داخل build | `pnpm check`: ۲۳۹/۲۳۹ تست موفق؛ Build: ۱۴۲ ماژول و ۷ فایل JSON |
-| parity با source | hash هر پنج فایل fingerprint‌شده برابر است |
+| image runtime جاری Test | `hero-control-plane:candidate-b379109` (alias: `hero-test-control-plane:latest`) — `sha256:f3105572fed55c3df981bd9016b833d6a0ff1c900228e2bab8e05ba532574520` |
+| مبنای build | build استاندارد Docker از Commit `b379109`؛ `.dockerignore` فایل‌های Secret و `compose.test.yaml` را از context حذف کرد |
+| نتیجهٔ verify داخل build | `pnpm check`: ۲۴۱/۲۴۱ تست موفق؛ Build: ۱۴۳ ماژول و ۷ فایل JSON |
+| parity با source | hash پنج فایل fingerprint‌شده با source Commit `b379109` برابر است |
 | کنترل roadmap | `OPEN-50=50` و `NEXT-100=100`؛ ستون‌های الزامی و cross-referenceها معتبرند |
-| runtime smoke مستقل | artifact `candidate-985ab8c` در Test با پورت loopback `43101`؛ `/health=200`، `/ready=200`، Back Office بدون auth=`401` و با auth=`200`، payload شامل `OPEN-50` با ۵۰ ردیف و گیت‌های مالک؛ HTML فارسی/IRANSans/noindex و راهنمای ۳۹ مفهوم حاضر؛ `compose.test.yaml` داخل image نبود |
+| runtime smoke مستقل | artifact `candidate-b379109` در Test با پورت loopback `43101`؛ `/health=200` و Back Office بدون auth=`401`/با auth=`200`؛ payload شامل `OPEN-50` با ۵۰ ردیف و گیت‌های مالک؛ HTML فارسی/IRANSans/noindex و راهنمای ۳۹ مفهوم حاضر؛ strict preflight دو مقدار PostgreSQL را missing تشخیص داد و persistence runtime هنوز تأیید نشده است |
 | وضعیت انتشار | همان digest فقط به stack ایزولهٔ `hero-test` deploy شده؛ به Production deploy نشده است |
 
 ## شواهد verification
 
-- `pnpm check`: ۲۳۹/۲۳۹ تست موفق؛
-- Build: ۱۴۲ ماژول و ۷ فایل JSON موفق؛
+- `pnpm check`: ۲۴۱/۲۴۱ تست موفق؛
+- Build: ۱۴۳ ماژول و ۷ فایل JSON موفق؛
 - Governance: ۲۱ گام نسخه‌مند موفق؛
 - clean-room داخل build: ۲۴۴ فایل؛ `check:isolation` روی workspace جاری: ۲۴۵ فایل، هر دو بدون خطا؛
 - `git diff --check`: موفق؛
-- Test مستقل: health/readiness، PostgreSQL/migration، preflight، احراز هویت، hydration بعد از restart و isolation موفق؛ fingerprint پنج فایل اصلی با candidate برابر است.
+- شواهد persistence/migration/hydration کامل مربوط به candidate قبلی و env کامل Test است؛ candidate جاری تا ورود دو Secret PostgreSQL فقط health و UI را تأیید کرده و persistence نهایی ندارد.
 - Back Office Test با احراز هویت: page/data/events همگی `۲۰۰`؛ ۱۱ تیم با جزئیات قرارداد/اصول/ورودی/خروجی، ۸ Role، ۶ route، ۵ دستهٔ تنظیمات، دفتر `OPEN-50` با ۵۰ ردیف و ۱۴ اقدام مالک/ادمین؛ markerهای `تنظیمات کل Hero`، `چطور این پنل را بخوانیم`، `IRANSans` و `lang="fa"` حاضرند.
 - کنترل امنیتی HTTP Test: Back Office بدون auth=`۴۰۱`، با auth=`۲۰۰`، POST روی مسیر read-only=`۴۰۵` با `Allow: GET`، CSP و `X-Robots-Tag` حاضر، route ناشناخته=`۴۰۴` و API بدون auth=`۴۰۱`؛ مرور دستی Caddy/شبکه هنوز جداست.
 - پوشش read-only Test: ۱۷ مسیر احراز‌شده (۳ مسیر Back Office با Basic Auth و ۱۴ مسیر API با نشست Owner) همگی `۲۰۰`؛ ۱۱ تیم و diagnostics کامل حاضرند؛ هیچ mutation یا Provider واقعی اجرا نشد.
@@ -57,15 +57,15 @@ Commit `b379109` guard اجباری PostgreSQL برای Test و تست جامع 
 
 ```text
 0d1302b049f4eab802b3247766b29ff40725561bd240dbb6b3d5c651ab4f0732  apps/control-plane/src/backoffice-view.mjs
-d470213f2e00e5a0330653c68c062c860fc8344dc94025e87338a5ede382d927  apps/control-plane/src/dashboard-service.mjs
-81b565f44f9d7fa17b042e803c2c22134adc2f4fe141ecd4ca991fdafeb2b575  apps/control-plane/src/server.mjs
+85331fc2e07a1fbbadd6a5e16e4b606b2062cd8d2903cad2be2e5023998dabe2  apps/control-plane/src/dashboard-service.mjs
+9b5793c3c6ac8ede50a505430a61009dafba2469fd61079264992d2202c097ac  apps/control-plane/src/server.mjs
 073e0d4a5031d98f55533db359fe6ab685d1b4dfed5276eb1b5a505cdb86a1ba  packages/domain/src/operational-diagnostics.mjs
 fa16ce5ef898670bb138d17554290626d4f6005753ccfa3b38f104a6ccb21f15  packages/domain/src/planner.mjs
 ```
 
 ## وضعیت image فعلی Test
 
-محیط `hero-test` سالم است و اکنون artifact `hero-control-plane:candidate-985ab8c` با digest `sha256:590efbccac4d7b20df03d4ad14d230003ff646821bef91df9712063648225135` و همان Secret/env فعلی روی آن deploy شده است؛ fingerprint فایل‌های اصلی با Commit `985ab8c` برابر است و preflight، health، readiness، احراز هویت و restart دوباره موفق شدند. این artifact فقط در Test است و تا تکمیل گیت‌های recovery، Pilot و production-deploy نباید promotion شود.
+artifact جاری `hero-control-plane:candidate-b379109` با digest `sha256:f3105572fed55c3df981bd9016b833d6a0ff1c900228e2bab8e05ba532574520` فقط روی Control Plane محیط `hero-test` deploy شده است؛ کانتینرها healthy و bind روی `127.0.0.1:43101` است، اما preflight سخت‌گیرانه به‌علت خالی‌بودن `HERO_POSTGRES_URL` و `HERO_POSTGRES_PASSWORD` persistence را تأیید نکرده است. این artifact فقط در Test است و تا تکمیل گیت‌های recovery، Pilot و production-deploy نباید promotion شود.
 
 ## ممیزی runtime آخر — ۲۰۲۶-۰۹-۰۵
 

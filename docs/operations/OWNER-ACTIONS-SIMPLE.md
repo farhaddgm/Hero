@@ -8,18 +8,18 @@ artifact جدید Test نصب شده و Control Plane و PostgreSQL از نظر 
 
 ## وضعیت فعلی
 
-کارهای داخل پروژه انجام شده و محیط مستقل Test نیز اکنون آماده و بررسی شده است:
+کارهای داخل پروژه انجام شده و محیط مستقل Test بالا است؛ اما تا تنظیم PostgreSQL، آمادهٔ نهاییِ persistence محسوب نمی‌شود:
 
-- تست Linux: `239/239` موفق؛ Roadmap audit برابر `OPEN-50=50` و `NEXT-100=100`؛
+- تست Linux: `241/241` موفق؛ Roadmap audit برابر `OPEN-50=50` و `NEXT-100=100`؛
 - Build برنامه: موفق؛
 - محیط Test مستقل: project name=`hero-test`، پورت `43101` فقط روی localhost، PostgreSQL، volume و network جدا؛
-- preflight، migration نسخهٔ `1.0`، `pg_isready`، `/health` و `/ready` موفق؛
+- preflight/migration/پایداری مربوط به اجرای قبلی با env کامل ثبت شده؛ preflight فعلی دو Secret PostgreSQL را کم دارد؛
 - دامنهٔ Test: TLS، احراز هویت، noindex و robots بررسی شده؛
-- hydration: بعد از restart کنترل‌پلیس، Read Model سالم و هم‌ارز باقی مانده؛
+- hydration بعد از restart در اجرای قبلی موفق ثبت شده و پس از اتصال env باید برای candidate جاری تکرار شود؛
 - Provider زنده: عمداً خاموش است؛
 - Production: عمداً فعال نشده است.
 
-Test واقعی سالم است. artifact تمیز `hero-control-plane:candidate-985ab8c` با digest `sha256:590efbccac4d7b20df03d4ad14d230003ff646821bef91df9712063648225135` از Commit `985ab8c` ساخته شده و با همان env/Secret فعلی فقط روی Test نصب شده است؛ preflight، health، احراز هویت، payload دفتر `OPEN-50` و restart موفق‌اند. پنل اکنون دفتر کامل ۵۰ گام، راهنمای ۳۹ مفهوم و ۱۴ اقدام مالک/ادمین را read-only نشان می‌دهد. rollback کنترل‌پلیس هم آزموده شده؛ فقط recovery واقعی از backup/checksum و سپس Pilot باقی است. این image commit-bound است، اما تا تکمیل گیت‌های recovery، Pilot و production-deploy نباید به Production promotion شود.
+artifact جاری `hero-control-plane:candidate-b379109` با digest `sha256:f3105572fed55c3df981bd9016b833d6a0ff1c900228e2bab8e05ba532574520` از Commit `b379109` ساخته و فقط روی Test نصب شده است؛ health و UI سالم‌اند، اما `HERO_POSTGRES_URL` و `HERO_POSTGRES_PASSWORD` خالی‌اند و persistence هنوز تأیید نشده است. پنل دفتر ۵۰ گام، راهنمای ۳۹ مفهوم و ۱۴ اقدام مالک/ادمین را read-only نشان می‌دهد. این image تا تکمیل recovery، Pilot و مجوزهای جدا نباید به Production promotion شود.
 
 نکتهٔ production: خود سرویس با credential runtime سالم است، اما دامنهٔ عمومی production همان credential را قبول نمی‌کند و `401` می‌دهد. ادمین باید Basic Auth/Caddy production را اصلاح و validate کند؛ password یا hash نباید در چت ارسال شود.
 
@@ -48,6 +48,7 @@ HERO_BACKOFFICE_USER=<نام کاربری انتخابی>
 HERO_BACKOFFICE_PASSWORD=<password تصادفی حداقل ۱۶ نویسه>
 HERO_POSTGRES_URL=postgresql://hero:<همان password دیتابیس>@hero-postgres:5432/hero
 HERO_POSTGRES_PASSWORD=<password تصادفی حداقل ۱۶ نویسه>
+HERO_REQUIRE_POSTGRES=true
 HERO_ENABLE_REAL_PROVIDERS=false
 ```
 
