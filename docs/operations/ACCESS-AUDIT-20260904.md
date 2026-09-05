@@ -46,7 +46,7 @@
 
 ## ممیزی تکمیلی وضعیت جاری — ۲۰۲۶-۰۹-۰۵
 
-### ممیزی UI و دفتر گام‌ها — ۲۰۲۶-۰۹-۰۵
+### سابقهٔ ممیزی UI و candidate قبلی — ۲۰۲۶-۰۹-۰۵
 
 - artifact `hero-control-plane:candidate-985ab8c` با digest `sha256:590efbccac4d7b20df03d4ad14d230003ff646821bef91df9712063648225135` از Commit `985ab8c` فقط روی `hero-test` مستقر شد؛
 - Back Office اکنون Projection نسخه‌دار `OPEN-50` را با ۵۰ ردیف، وضعیت، اقدام بعدی، راهنمای ۳۹ مفهوم و ۱۴ اقدام مالک/ادمین نشان می‌دهد؛ ۳ blocker Pilot جداگانه مشخص‌اند؛
