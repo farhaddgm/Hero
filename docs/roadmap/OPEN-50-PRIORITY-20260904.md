@@ -22,9 +22,9 @@
 | ۱۶ | ۲۷ | Snapshot یازده Registry و Dashboard | تکمیل Test؛ ۱۱ Projection در runtime تأیید شد | Snapshot در Test ذخیره شود |
 | ۱۷ | ۲۸ | hydration بعد از restart | تکمیل Test | قبل/بعد restart مقایسه شود |
 | ۱۸ | ۲۹ | تشخیص Snapshot ناقص/قدیمی | تأیید Test؛ نیازمند سناریوی خرابی | در Test با دادهٔ واقعی اجرا شود |
-| ۱۹ | ۳۰ | Backup/Restore با checksum | synthetic backup/restore با checksum موفق؛ Clean Linux مقصد همچنان blocker خارجی | restore واقعی روی مقصد Clean Linux و backup عملیاتی ثبت شود |
+| ۱۹ | ۳۰ | Backup/Restore با checksum | synthetic موفق؛ Clean Linux مقصد blocker خارجی | restore واقعی روی مقصد Clean Linux و backup عملیاتی ثبت شود |
 | ۲۰ | ۳۲ | mapping همهٔ Domain Eventها | تکمیل محلی/نیازمند Test | پوشش mapping در Test با دادهٔ واقعی تأیید شود |
-| ۲۱ | ۳۳ | replay کامل Registryها | تکمیل محلیِ Snapshot+Event/نیازمند Test | rebuild واقعی read model در Test اجرا شود |
+| ۲۱ | ۳۳ | replay کامل Registryها | تکمیل محلی/نیازمند Test | rebuild واقعی read model در Test اجرا شود |
 | ۲۲ | ۳۴ | rebuild dry-run و digest | تکمیل محلی/نیازمند Test | digest در Test بازتولید شود |
 | ۲۳ | ۳۷ | projection پایدار commandهای باقی‌مانده | تکمیل محلی/نیازمند Test | درخواست و state از Eventهای append-only بازسازی و در Test تأیید شود |
 | ۲۴ | ۳۸ | pagination و cursor همهٔ read modelها | تکمیل محلی/نیازمند Test | روی حجم واقعی Test بررسی شود |
@@ -48,10 +48,10 @@
 | ۴۲ | ۷۹ | access audit قابل مشاهده برای مالک | تأیید Test؛ ۱۷ مسیر read-only احراز شد | خروجی audit روی Test تأیید شود |
 | ۴۳ | ۸۱ | install دقیق با lockfile | اکنون/CI | workflow CI اجرا شود |
 | ۴۴ | ۸۳ | Environment تست GitHub | نیازمند ادمین GitHub | reviewer اجباری فعال شود |
-| ۴۵ | ۸۵ | استقرار Candidate در Test | انجام شد؛ Commit، parity و health/auth/restart تأیید شد | برای promotion بعدی فقط rollback/recovery و مجوزهای جدا باقی است |
-| ۴۶ | ۸۶ | smoke و security روی Test | smoke و کنترل‌های امنیتی خودکار انجام شد؛ ۱۷ مسیر read-only تأیید شد؛ مرور دستی کامل باقی است | review دستی Caddy/شبکه/دسترسی‌ها و ثبت owner evidence انجام شود |
+| ۴۵ | ۸۵ | استقرار Candidate در Test | انجام شد؛ parity و health/auth/restart تأیید شد | برای promotion بعدی فقط rollback/recovery و مجوزهای جدا باقی است |
+| ۴۶ | ۸۶ | smoke و security روی Test | smoke خودکار انجام شد؛ ۱۷ مسیر read-only تأیید شد؛ مرور دستی کامل باقی است | review دستی Caddy/شبکه/دسترسی‌ها و ثبت owner evidence انجام شود |
 | ۴۷ | ۸۷ | Test Evidence و review مالک | نیازمند تصمیم مالک | Evidence کامل را تأیید کن |
-| ۴۸ | ۸۸ | rollback نسخهٔ Test | انجام شد؛ خطای preflight به نسخهٔ قبلی برگشت و health/auth تأیید شد | recovery از backup/checksum روی Clean Linux هنوز انجام شود |
+| ۴۸ | ۸۸ | rollback نسخهٔ Test | انجام شد؛ recovery عملیاتی باقی است | recovery از backup/checksum روی Clean Linux هنوز انجام شود |
 | ۴۹ | ۸۹ | recovery روی Clean Linux | blocker خارجی | restore واقعی و checksum ثبت شود |
 | ۵۰ | ۹۱ | انتخاب درخواست کوچک Pilot | نیازمند تصمیم مالک | یک feature کوچک و قابل rollback معرفی کن |
 
