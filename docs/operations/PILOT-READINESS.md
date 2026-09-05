@@ -23,7 +23,7 @@
 - این شواهد، آزمون portability را تقویت می‌کنند اما جایگزین restore روی مقصد پاکِ مصوب، volume عملیاتی `hero-data` و مجوز انتقال نیستند.
 - artifact `hero-control-plane:candidate-985ab8c` با digest `sha256:590efbccac4d7b20df03d4ad14d230003ff646821bef91df9712063648225135` از Commit `985ab8c` فقط روی stack مستقل `hero-test` مستقر است؛ Control Plane و PostgreSQL healthy، پورت مستقیم فقط روی localhost و Provider واقعی خاموش است؛ recovery عملیاتی، Provider واقعی و Pilot هنوز گیت دارند.
 - Back Office Test شامل ۱۱ تیم، ۸ Role، تنظیمات کل پروژه، راهنمای Role/مفهوم و دفتر `OPEN-50` با ۵۰ ردیف است؛ این projection read-only هیچ authorization یا dispatch ایجاد نمی‌کند.
-- آخرین اصلاح Test در artifact `hero-control-plane:candidate-b379109` با digest `sha256:f3105572fed55c3df981bd9016b833d6a0ff1c900228e2bab8e05ba532574520` مستقر شده است؛ تا ورود `HERO_POSTGRES_URL` و `HERO_POSTGRES_PASSWORD`، persistence runtime و دو مسیر audit تأیید نهایی ندارند.
+- آخرین اصلاح Test در artifact `hero-control-plane:candidate-c804a5a` با digest `sha256:2d25ca11293a2f017bc8d62553da7ac7dbfb3037d664b2e24161e8356604994b` مستقر شده است؛ پنل runtime را `in-memory` و readiness را `development-or-optional` گزارش می‌کند. تا ورود `HERO_POSTGRES_URL` و `HERO_POSTGRES_PASSWORD`، persistence runtime و دو مسیر audit تأیید نهایی ندارند.
 
 ## فرمان بررسی
 

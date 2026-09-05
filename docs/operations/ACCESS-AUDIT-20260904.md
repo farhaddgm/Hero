@@ -4,7 +4,15 @@
 
 این بررسی فقط روی repository خود Hero در `/opt/hero` و namespace مجزای Docker با نام `hero-test` انجام شد. هیچ فایل، کانتینر، volume، database یا پورت متعلق به پروژهٔ دیگری خوانده یا تغییر داده نشد.
 
-## نتیجهٔ دسترسی
+## وضعیت جاری — ۲۰۲۶-۰۹-۰۵
+
+- artifact جاری `hero-control-plane:candidate-c804a5a` با digest `sha256:2d25ca11293a2f017bc8d62553da7ac7dbfb3037d664b2e24161e8356604994b` فقط روی `hero-test` مستقر است؛
+- `hero-test-control-plane-1` و `hero-test-hero-postgres-1` هر دو healthy هستند؛ فقط Control Plane recreate شد و bind همچنان `127.0.0.1:43101` است؛
+- smoke-test داخلی: `/health=200`، `/ready=200`، `/backoffice=200` و `/backoffice-data=200` با احراز هویت؛ payload شامل ۵۰ ردیف `OPEN-50` و وضعیت `runtime=in-memory`/`readiness=development-or-optional` است؛
+- preflight سخت‌گیرانه فقط دو blocker واقعی دارد: `HERO_POSTGRES_URL` و `HERO_POSTGRES_PASSWORD` در env امن runtime خالی‌اند؛ تا رفع آن‌ها persistence و دو مسیر audit نهایی نیستند؛
+- Production، PostgreSQL، volume، network و اپلیکیشن‌های دیگر تغییر نکرده‌اند.
+
+## نتیجهٔ دسترسیِ baseline تاریخی
 
 - repository قابل دسترسی است؛ تغییر قبلی کاربر در `.dockerignore` حفظ شده و به آن دست زده نشد.
 - baseline بررسی قبلی commit `f48dda6` بود؛ تغییرات این بسته پس از verification در commitهای `8d18bd4` و `4118cce` ثبت شده‌اند.
@@ -12,7 +20,7 @@
 - `hero-test` فعلاً هیچ کانتینری ندارد؛ بنابراین Test هنوز deploy نشده است.
 - پیکربندی Compose داخل repository معتبر است و تغییری ایجاد نمی‌کند.
 
-## شواهد تست
+## شواهد تستِ baseline تاریخی
 
 - `pnpm check`: موفق؛ `228/228` تست، Build با `138` ماژول و `7` فایل JSON، Governance با `21` گام و Doctor با `10/10` check.
 - `pnpm check:pilot`: مسدود با سه گیت واقعی:
@@ -67,7 +75,7 @@
 
 ### ممیزی پس از اصلاح persistence — ۲۰۲۶-۰۹-۰۵
 
-- اصلاح empty-state Benchmark در Commit `d854966` و guard اجباری PostgreSQL در Commit `b379109` با artifact `hero-control-plane:candidate-b379109` و digest `sha256:f3105572fed55c3df981bd9016b833d6a0ff1c900228e2bab8e05ba532574520` ساخته و فقط روی Control Plane محیط `hero-test` نصب شد؛
+- اصلاح empty-state Benchmark در Commit `d854966`، guard اجباری PostgreSQL در Commit `b379109` و نمایش وضعیت persistence در Commit `c804a5a` با artifact `hero-control-plane:candidate-c804a5a` و digest `sha256:2d25ca11293a2f017bc8d62553da7ac7dbfb3037d664b2e24161e8356604994b` ساخته و فقط روی Control Plane محیط `hero-test` نصب شد؛
 - هر دو کانتینر Test `healthy` هستند و bind سرویس همچنان `127.0.0.1:43101` است؛ PostgreSQL، volume، network و Production تغییر نکرده‌اند؛
 - preflight سخت‌گیرانه با bind/port صحیح فقط دو blocker گزارش کرد: `HERO_POSTGRES_URL` و `HERO_POSTGRES_PASSWORD` در env امن runtime حاضر نیستند؛ بنابراین Test فعلی از نظر persistence هنوز تأیید نهایی نشده است؛
-- ممیزی ۵۸ مسیر در تست تکرارپذیرِ in-process با persistence تزریقی کامل پاس شد؛ ممیزی runtime واقعی تا زمان اتصال Secretهای PostgreSQL، دو مسیر audit را عمداً `503` نگه می‌دارد و باید پس از تنظیم env دوباره اجرا شود.
+- ممیزی ۵۸ مسیر در تست تکرارپذیرِ in-process با persistence تزریقی کامل پاس شد؛ در runtime جاری مسیرهای اصلی سالم‌اند و دو مسیر audit تا زمان اتصال Secretهای PostgreSQL عمداً `503` می‌مانند و باید پس از تنظیم env دوباره اجرا شوند.

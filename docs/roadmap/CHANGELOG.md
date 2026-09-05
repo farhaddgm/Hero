@@ -1,5 +1,12 @@
 # تغییرات رودمپ شرکت
 
+## 2026-09-05 — نمایش صریح وضعیت persistence در Back Office
+
+- افزوده‌شده: metadata امن `runtime` و `readiness` در snapshot صفحه و دادهٔ Back Office؛ پنل تفاوت `in-memory` و PostgreSQL را روشن نشان می‌دهد؛
+- تأییدشده: Commit `c804a5a`، `pnpm check` با `241/241` تست، Build با `143` ماژول و Roadmap audit برابر `OPEN-50=50` و `NEXT-100=100`؛
+- ساخته‌شده: artifact `hero-control-plane:candidate-c804a5a` با digest `sha256:2d25ca11293a2f017bc8d62553da7ac7dbfb3037d664b2e24161e8356604994b`؛ فقط Control Plane در `hero-test` جایگزین شد؛
+- وضعیت: `/health`، `/ready` و Back Office احراز‌شده موفق‌اند؛ PostgreSQL و دو مسیر audit تا تنظیم Secretهای اتصال، persistence-ready نیستند؛ Production و اپلیکیشن‌های دیگر تغییری نکردند.
+
 ## 2026-09-05 — تکمیل راهنمای مفاهیم و هم‌راستاسازی با runtime Test
 
 - اصلاح‌شده: چهار status در Projection `OPEN-50` و مستندات با آخرین شواهد Test یکسان شدند؛ راهنمای ۳۹ مفهوم با مدخل‌های Project، Task، Evidence، Authorization، Dispatch، Gate، Projection، Release، Pilot و CI تکمیل و assertionهای Back Office اضافه شد؛

@@ -2,7 +2,7 @@
 
 این صفحه فهرست کوتاه اقداماتی است که از داخل Codex قابل انجام نیستند. مقدار Secret نباید برای Codex ارسال شود.
 
-## آخرین ممیزی واقعی
+## شواهد baseline و ممیزی‌های قبلی
 
 - `check:isolation`: موفق؛ ۲۴۵ فایل در مرز `/opt/hero` بررسی شد و خطایی نداشت؛
 - `check:test-config`: موفق داخل `hero-test`؛ شش مقدار host-only با bind واقعی پورت و هر پنج Secret لازم حاضر و معتبر هستند؛
@@ -23,7 +23,14 @@
 - آدرس production موجود نیز پاسخ می‌دهد: HTTP با `۳۰۸` به HTTPS می‌رود و `/backoffice` بدون احراز هویت `۴۰۱` می‌دهد؛ این به‌معنی انتشار نسخهٔ فعلی workspace نیست.
 - تشخیص دقیق production: credential runtime خود سرویس روی localhost `۲۰۰` می‌گیرد، اما همان credential از دامنهٔ عمومی `۴۰۱` می‌گیرد؛ ادمین باید فقط Basic Auth/Caddy production را با Secret Store همان محیط تطبیق دهد و قبل از reload، config را validate کند.
 - نکتهٔ verification: اجرای تشخیصی `node --test` داخل image runtime معیار acceptance نیست؛ به‌دلیل مرز عمدی image (`.git/.github`) و env واقعی Test، ۱۶ تست محیط‌وابسته شکست خوردند. شمارنده‌های Read Model قبل/بعد تغییری نکردند و مرجع معتبر همچنان `pnpm check` در image verification با `۲۳۹/۲۳۹` است.
-- آخرین artifact اصلاح‌شده `hero-control-plane:candidate-b379109` با digest `sha256:f3105572fed55c3df981bd9016b833d6a0ff1c900228e2bab8e05ba532574520` فقط روی Control Plane Test نصب شد؛ کانتینرها healthy هستند، اما preflight سخت‌گیرانه با bind/port صحیح به‌علت خالی‌بودن `HERO_POSTGRES_URL` و `HERO_POSTGRES_PASSWORD` متوقف شد. PostgreSQL و داده‌های آن تغییر نکرده‌اند؛ تا تنظیم این دو مقدار، Test از نظر persistence نهایی نیست.
+- آخرین artifact اصلاح‌شده `hero-control-plane:candidate-c804a5a` با digest `sha256:2d25ca11293a2f017bc8d62553da7ac7dbfb3037d664b2e24161e8356604994b` فقط روی Control Plane Test نصب شد؛ کانتینرها healthy هستند و پنل وضعیت `runtime=in-memory`/`readiness=development-or-optional` را نشان می‌دهد، اما preflight سخت‌گیرانه با bind/port صحیح به‌علت خالی‌بودن `HERO_POSTGRES_URL` و `HERO_POSTGRES_PASSWORD` متوقف شد. PostgreSQL و داده‌های آن تغییر نکرده‌اند؛ تا تنظیم این دو مقدار، Test از نظر persistence نهایی نیست.
+
+## ممیزی جاری — ۲۰۲۶-۰۹-۰۵
+
+- Commit جاری `c804a5a` است و image دقیق آن فقط در `hero-test` deploy شده؛ `pnpm check` با `241/241` تست و Build `143` ماژول موفق است؛
+- `/health=200`، `/ready=200`، `/backoffice=200` و `/backoffice-data=200` با احراز هویت؛ دفتر `OPEN-50` دارای ۵۰ ردیف است؛
+- وضعیت امن داخل پنل: `runtime=in-memory` و `readiness=development-or-optional`؛ دو Secret PostgreSQL هنوز blocker هستند؛
+- تنها Control Plane جایگزین شد؛ PostgreSQL، volume، network، Production و اپلیکیشن‌های دیگر تغییر نکردند.
 
 ## کاری که مالک انجام می‌دهد
 
