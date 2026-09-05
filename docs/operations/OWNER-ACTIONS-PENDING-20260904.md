@@ -74,7 +74,7 @@ HERO_DATA_DIR=/var/lib/hero
 HERO_ENABLE_REAL_PROVIDERS=false
 ```
 
-و این پنج مقدار را فقط در Secret Store می‌گذارد؛ مقدار واقعی نباید نمایش داده یا ارسال شود:
+و این مقدارها را فقط در Secret Store می‌گذارد؛ مقدار واقعی نباید نمایش داده یا ارسال شود:
 
 ```text
 HERO_OWNER_AUTH_SECRET
@@ -96,13 +96,13 @@ HERO_BACKOFFICE_PASSWORD_HASH
 
 پس از آن، از ریشهٔ `/opt/hero` ابتدا `pnpm check:test-config` یا `node tools/check-test-config.mjs` را اجرا کند؛ اگر نتیجهٔ `PASS` نبود، سرویس را بالا نیاورد. سپس با project name `hero-test` و فقط فایل Compose تأییدشدهٔ Hero اجرا کند.
 
-## کاری که Codex پس از فراهم‌شدن دسترسی انجام داد
+## کاری که Codex در ممیزی قبلی با env کامل انجام داده است
 
 ۱. دسترسی و جداسازی را با فرمان‌های read-only بررسی کرد.
 
-۲. config و Test را اجرا و صحت PostgreSQL، migration، hydration و persistence را تأیید کرد.
+۲. در اجرای قبلی با env کامل، config و Test را اجرا و صحت PostgreSQL، migration، hydration و persistence را تأیید کرد؛ این شاهد برای candidate جاری باید پس از تنظیم دو Secret PostgreSQL تکرار شود.
 
-۳. Back Office، auth، redaction، isolation، DNS/TLS و smoke test را تأیید کرد.
+۳. در اجرای قبلی Back Office، auth، redaction، isolation، DNS/TLS و smoke test را تأیید کرد؛ smoke اصلی candidate جاری نیز موفق است، اما persistence هنوز pending است.
 
 ۴. خطاهای داخل کد را اصلاح کرد، تست گرفت و Evidence را به‌روزرسانی کرد.
 
