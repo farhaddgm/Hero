@@ -101,11 +101,13 @@ test -f "$TEST_ENV_FILE"
 chmod 600 "$TEST_ENV_FILE"
 docker compose --project-name hero-test --env-file "$TEST_ENV_FILE" --profile postgres config --quiet
 docker compose --project-name hero-test --env-file "$TEST_ENV_FILE" --profile postgres run --rm --build -e HERO_BIND_ADDRESS=127.0.0.1 -e HERO_EXPOSE_PORT=43101 control-plane node tools/check-test-config.mjs
-docker compose --project-name hero-test --env-file "$TEST_ENV_FILE" --profile postgres up -d --build
+docker compose --project-name hero-test --env-file "$TEST_ENV_FILE" --profile postgres ps
+docker compose --project-name hero-test --env-file "$TEST_ENV_FILE" up -d --build control-plane
 docker compose --project-name hero-test --env-file "$TEST_ENV_FILE" --profile postgres ps
 ```
 
 اگر یکی از دو دستور `config` یا `check-test-config` خطا داد، دستور `up` را اجرا نکنید و فقط متن خطا را بدون secret ارسال کنید.
+دستور `up` عمداً فقط `control-plane` را هدف می‌گیرد؛ PostgreSQL و volume آن را recreate یا migrate نکنید.
 
 ### ۵. نتیجه را برای من بفرستید
 
