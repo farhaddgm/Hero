@@ -49,7 +49,7 @@ export function validateNotionSyncMapping(mapping) {
   return errors;
 }
 
-export function createNotionWorkspaceBlueprint({ rootTitle = "Hero Product OS" } = {}) {
+export function createNotionWorkspaceBlueprint({ rootTitle = "Hero Product Development" } = {}) {
   return Object.freeze({
     contractVersion: NOTION_PRODUCT_DEVELOPMENT_CONTRACT_VERSION,
     rootTitle,

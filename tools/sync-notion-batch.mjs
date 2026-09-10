@@ -27,6 +27,12 @@ async function main() {
   const catalog = createProductDevelopmentCatalog({ root: process.cwd(), sourceCommit: process.env.HERO_SOURCE_COMMIT || "workspace-uncommitted" });
   const snapshot = catalog.snapshot();
   const documents = snapshot.documents.map(document => ({ ...document, content: catalog.document(document.id).content }));
+  const defaultedClassifications = documents.filter(document => document.classificationSource !== "explicit");
+  const classificationReviewed = policy.classification_review?.status === "approved" &&
+    policy.classification_review.catalog_digest === snapshot.digest &&
+    policy.classification_review.candidate_count === documents.length &&
+    policy.classification_review.default_classification === "internal" &&
+    Array.isArray(policy.classification_review.excluded_document_ids);
   const adapter = createNotionApiAdapter();
   const mappingStore = createNotionSyncRegistry();
   const service = createNotionBatchSyncService({ adapter, mappingStore });
@@ -37,6 +43,7 @@ async function main() {
     return;
   }
   if (policy.bulk_write_approved !== true || process.env.HERO_NOTION_BULK_WRITE_APPROVED !== "true") throw new Error("Bulk Notion write requires policy bulk_write_approved=true and HERO_NOTION_BULK_WRITE_APPROVED=true.");
+  if (defaultedClassifications.length > 0 && !classificationReviewed) throw new Error(`Bulk Notion write requires explicit classification or a matching owner-approved review; ${defaultedClassifications.length} document(s) still use default-internal classification.`);
   if (!process.env.HERO_POSTGRES_URL) throw new Error("Bulk Notion execution requires HERO_POSTGRES_URL for durable mapping storage.");
   const runtime = await createPostgresRuntime();
   try {

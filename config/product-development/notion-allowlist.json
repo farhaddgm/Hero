@@ -4,6 +4,21 @@
   "bulk_write_approved": false,
   "batch_size": 10,
   "allowed_classifications": ["internal"],
+  "classification_review": {
+    "status": "approved",
+    "reviewer": "project-owner",
+    "reviewed_at": "2026-09-10",
+    "catalog_digest": "d46709611a0eebbb37dbc8830c793370e05402fb1d79630f6fda26f02eeaa726",
+    "candidate_count": 105,
+    "default_classification": "internal",
+    "excluded_document_ids": [],
+    "scan": {
+      "secret_shaped": 0,
+      "pii_shaped": 0,
+      "production_or_live_endpoint_shaped": 0
+    },
+    "notes": "Owner-approved review of the current catalog snapshot; no sensitive-content flags were found. Re-review is required when the catalog digest changes."
+  },
   "documents": [
     {
       "document_id": "HERO-PRODUCT-HERO-BRIEF",

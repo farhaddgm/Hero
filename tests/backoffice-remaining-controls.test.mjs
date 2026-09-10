@@ -1,0 +1,31 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { createInfrastructureControl } from "../packages/domain/src/infrastructure-control.mjs";
+import { createDeliveryControl } from "../packages/domain/src/delivery-control.mjs";
+import { createOperationalHardening } from "../packages/domain/src/operational-hardening.mjs";
+import { createFinalReadiness } from "../packages/domain/src/final-readiness.mjs";
+const owner={role:"project-owner",subject:"owner-one"}, admin={role:"admin",subject:"admin-one"}, viewer={role:"viewer",subject:"viewer-one"}; const projectId="project-one"; const clock=()=>"2026-09-10T00:00:00.000Z";
+
+test("infrastructure control has only three environments and fails closed for impersonation, replay, secret values and unsafe reconciliation",()=>{
+ const control=createInfrastructureControl({now:clock}); assert.deepEqual(control.environments(),["development","test","production"]);
+ control.registerRepository({actor:admin,projectId,repositoryId:"repo-one",name:"Repository"}); control.onboardServer({actor:admin,projectId,serverId:"server-one",address:"10.0.0.4",credentialReference:"secret-ref:ssh-one",environment:"test"});
+ const enrollment=control.createEnrollment({actor:admin,projectId,nodeId:"node-one",serverId:"server-one",expiresAt:"2026-09-11T00:00:00.000Z"}); const node=control.registerNode({projectId,nodeId:"node-one",enrollmentNonce:enrollment.enrollmentNonce,identityFingerprint:"fingerprint-123456",capabilities:["runner"]}); assert.equal(node.state,"registered");
+ assert.throws(()=>control.registerNode({projectId,nodeId:"node-one",enrollmentNonce:enrollment.enrollmentNonce,identityFingerprint:"fingerprint-123456"}),/Enrollment/); assert.throws(()=>control.heartbeat({projectId,nodeId:"node-one",identityFingerprint:"attacker-fingerprint"}),/identity/);
+ control.registerSecret({actor:admin,projectId,secretId:"secret-one",reference:"secret-ref:api-one"}); const reveal=control.requestReveal({actor:owner,projectId,secretId:"secret-one",mfaFresh:true,reAuthenticated:true,reason:"Investigate recovery incident"}); assert.equal(reveal.value,"not-returned-by-control-plane");
+ control.setState({actor:admin,projectId,environment:"test",desiredState:{version:"one"},observedState:{version:"two"}}); assert.equal(control.reconcile({actor:viewer,projectId,environment:"test"}).decision,"proposal-required");
+});
+
+test("delivery control accepts sanitized telemetry, secret-free bundles and records deployment as separately gated",()=>{
+ const delivery=createDeliveryControl({now:clock}); assert.throws(()=>delivery.ingestTelemetry({actor:admin,projectId,telemetryId:"telemetry-one",kind:"sanitized-log",metadata:{payload:"bad"}}),/allowlisted/);
+ delivery.ingestTelemetry({actor:admin,projectId,telemetryId:"telemetry-one",kind:"metric",metadata:{latency:10}}); delivery.createRelease({actor:admin,projectId,releaseId:"release-one",testedCommit:"abc1234"}); delivery.transitionRelease({actor:admin,projectId,releaseId:"release-one",state:"approved"}); delivery.transitionRelease({actor:admin,projectId,releaseId:"release-one",state:"ready"}); const deployed=delivery.transitionRelease({actor:admin,projectId,releaseId:"release-one",state:"deployed"}); assert.equal(deployed.deploy,"record-only-separate-dispatch-required");
+ const artifact=delivery.registerArtifact({actor:admin,projectId,artifactId:"artifact-one",digest:`sha256:${"a".repeat(64)}`,provenance:"hero://prov",attestationRef:"hero://att",sbomRef:"hero://sbom"}); const bundle=delivery.createBundle({actor:admin,projectId,bundleId:"bundle-one",artifactIds:[artifact.artifactId],sourceRef:"hero://source",configRef:"hero://config",migrationRef:"hero://migration",deployRef:"hero://deploy",docsRef:"hero://docs",reportsRef:"hero://reports"}); assert.equal(bundle.state,"manifest-only-no-export"); delivery.verifyPortability({actor:admin,projectId,bundleId:"bundle-one",targetId:"target-one",result:"passed"}); assert.equal(delivery.accept({actor:admin,projectId,acceptanceId:"accept-one",bundleId:"bundle-one"}).delivery,"accepted-not-deployed");
+});
+
+test("hardening preserves non-weakenable retention, dry-runs cleanup and reports bounded coverage",()=>{
+ const hardening=createOperationalHardening({now:clock}); assert.throws(()=>hardening.setRetention({actor:admin,projectId,retention:{auditDays:2}}),/cannot be below/); hardening.setRetention({actor:admin,projectId,retention:{auditDays:400,evidenceDays:400,securityDays:800}}); const cleanup=hardening.planCleanup({actor:admin,projectId,jobId:"cleanup-one",candidates:[{id:"record-one",digest:"sha256:abc"}],hold:true}); assert.equal(cleanup.dryRun,true); assert.throws(()=>hardening.page({actor:viewer,projectId,records:[],limit:101}),/Query/); hardening.recordAudit({actor:admin,projectId,auditId:"audit-one",kind:"accessibility",passed:true}); assert.ok(hardening.report({actor:viewer,projectId}).coverage.missing.includes("security"));
+});
+
+test("final readiness keeps migration compatible, requires isolated scenarios and requires explicit owner acceptance before a pilot proposal",()=>{
+ const readiness=createFinalReadiness({now:clock}); readiness.planMigration({actor:admin,projectId,migrationId:"migration-one",oldRoute:"/old",newRoute:"/new",compatibilityUntil:"2026-10-01T00:00:00.000Z"}); assert.equal(readiness.rebuildReadModel({actor:admin,projectId,modelId:"model-one",beforeState:{a:1},afterState:{a:1}}).equal,true);
+ for(const kind of ["e2e-multi-project","adversarial-access","crash-resume","test-transfer"]) readiness.recordScenario({actor:admin,projectId,scenarioId:`scenario-${kind}`,kind,details:{safe:true}}); const review=readiness.readinessReview({actor:admin,projectId,reviewId:"review-one",rollbackRef:"hero://rollback"}); assert.equal(review.state,"ready-for-owner-acceptance"); assert.throws(()=>readiness.pilotProposal({actor:owner,projectId,proposalId:"pilot-one",reviewId:"review-one",scope:"pilot"}),/acceptance/); readiness.accept({actor:owner,projectId,reviewId:"review-one",artifactIdentity:"artifact-identity-001"}); assert.equal(readiness.pilotProposal({actor:owner,projectId,proposalId:"pilot-one",reviewId:"review-one",scope:"narrow Test-only proposal"}).execution,"forbidden-without-separate-pilot-authorization");
+});

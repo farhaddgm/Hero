@@ -1,0 +1,10 @@
+-- Metadata-only foundations for infrastructure, delivery, hardening and final readiness.
+CREATE TABLE IF NOT EXISTS infrastructure_control_records (record_id text PRIMARY KEY, project_id text NOT NULL, record jsonb NOT NULL, recorded_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS delivery_control_records (record_id text PRIMARY KEY, project_id text NOT NULL, record jsonb NOT NULL, recorded_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS hardening_control_records (record_id text PRIMARY KEY, project_id text NOT NULL, record jsonb NOT NULL, recorded_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS final_readiness_records (record_id text PRIMARY KEY, project_id text NOT NULL, record jsonb NOT NULL, recorded_at timestamptz NOT NULL DEFAULT now());
+DROP TRIGGER IF EXISTS infrastructure_control_records_append_only_guard ON infrastructure_control_records; CREATE TRIGGER infrastructure_control_records_append_only_guard BEFORE UPDATE OR DELETE ON infrastructure_control_records FOR EACH ROW EXECUTE FUNCTION hero_reject_append_only_mutation();
+DROP TRIGGER IF EXISTS delivery_control_records_append_only_guard ON delivery_control_records; CREATE TRIGGER delivery_control_records_append_only_guard BEFORE UPDATE OR DELETE ON delivery_control_records FOR EACH ROW EXECUTE FUNCTION hero_reject_append_only_mutation();
+DROP TRIGGER IF EXISTS hardening_control_records_append_only_guard ON hardening_control_records; CREATE TRIGGER hardening_control_records_append_only_guard BEFORE UPDATE OR DELETE ON hardening_control_records FOR EACH ROW EXECUTE FUNCTION hero_reject_append_only_mutation();
+DROP TRIGGER IF EXISTS final_readiness_records_append_only_guard ON final_readiness_records; CREATE TRIGGER final_readiness_records_append_only_guard BEFORE UPDATE OR DELETE ON final_readiness_records FOR EACH ROW EXECUTE FUNCTION hero_reject_append_only_mutation();
+INSERT INTO hero_schema_migrations (migration_id) VALUES ('014') ON CONFLICT (migration_id) DO NOTHING;

@@ -13,14 +13,32 @@ const counts = candidates.reduce((result, document) => {
   result[document.editClass] = (result[document.editClass] ?? 0) + 1;
   return result;
 }, {});
+const classificationReview = {
+  explicitCount: candidates.filter(document => document.classificationSource === "explicit").length,
+  defaultedCount: candidates.filter(document => document.classificationSource !== "explicit").length,
+  policyReviewed: policy.classification_review?.status === "approved" &&
+    policy.classification_review.catalog_digest === snapshot.digest &&
+    policy.classification_review.candidate_count === candidates.length &&
+    policy.classification_review.default_classification === "internal" &&
+    Array.isArray(policy.classification_review.excluded_document_ids),
+  ready: candidates.every(document => document.classificationSource === "explicit") || (
+    policy.classification_review?.status === "approved" &&
+    policy.classification_review.catalog_digest === snapshot.digest &&
+    policy.classification_review.candidate_count === candidates.length &&
+    policy.classification_review.default_classification === "internal" &&
+    Array.isArray(policy.classification_review.excluded_document_ids)
+  )
+};
+const policyBulkWriteApproved = policy.bulk_write_approved === true;
+const runtimeBulkWriteApproved = process.env.HERO_NOTION_BULK_WRITE_APPROVED === "true";
 
 console.log(JSON.stringify({
   mode: policy.mode,
   externalRequests: 0,
   source: { documentCount: snapshot.documents.length, catalogDigest: snapshot.digest },
-  candidates: { count: candidates.length, allowlistedCount: allowlisted.size, remainingCount: remaining.length, editClassCounts: counts },
+  candidates: { count: candidates.length, allowlistedCount: allowlisted.size, remainingCount: remaining.length, editClassCounts: counts, classificationReview },
   excluded: excluded.map(document => ({ documentId: document.id, classification: document.classification, reason: document.notionEligible ? "classification-not-allowed" : "restricted" })),
   batching: { batchSize: policy.batch_size, estimatedBatches: Math.ceil(candidates.length / policy.batch_size), estimatedRemainingBatches: Math.ceil(remaining.length / policy.batch_size) },
-  writeGate: { policyBulkWriteApproved: policy.bulk_write_approved === true, runtimeBulkWriteApproved: process.env.HERO_NOTION_BULK_WRITE_APPROVED === "true", ready: policy.bulk_write_approved === true && process.env.HERO_NOTION_BULK_WRITE_APPROVED === "true" },
-  nextAction: policy.bulk_write_approved === true ? "run-test-batch-after-runtime-approval" : "owner-approval-required-for-all-internal-batch"
+  writeGate: { policyBulkWriteApproved, runtimeBulkWriteApproved, ready: policyBulkWriteApproved && runtimeBulkWriteApproved && classificationReview.ready },
+  nextAction: !classificationReview.ready ? "owner-classification-review-required-before-bulk" : policyBulkWriteApproved ? "run-test-batch-after-runtime-approval" : "owner-approval-required-for-all-internal-batch"
 }, null, 2));

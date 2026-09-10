@@ -62,6 +62,23 @@ export {
 } from "./postgresql-outbox-worker.mjs";
 
 export {
+  BackofficeAggregateVersionConflictError,
+  BackofficeEntityVersionConflictError,
+  BackofficeFoundationStoreError,
+  createPostgresBackofficeFoundationStore
+} from "./postgresql-backoffice-foundation-store.mjs";
+
+export {
+  ProjectIdentityStoreError,
+  createPostgresProjectIdentityStore
+} from "./postgresql-project-identity-store.mjs";
+
+export {
+  ProjectWorkspaceStoreError,
+  createPostgresProjectWorkspaceStore
+} from "./postgresql-project-workspace-store.mjs";
+
+export {
   AiProviderAdapterError,
   createAnthropicMessagesAdapter,
   createConfiguredAiProviderAdapters,

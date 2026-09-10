@@ -48,6 +48,7 @@ export function createNotionApiAdapter({ token = process.env.HERO_NOTION_API_TOK
     configured,
     async getPage(pageId) { return request(`/pages/${assertId(pageId, "pageId")}`); },
     async createPage(payload) { return request("/pages", { method: "POST", body: payload }); },
+    async createDatabase(payload) { return request("/databases", { method: "POST", body: payload }); },
     async createMarkdownPage({ parentPageId, markdown, properties } = {}) {
       return request("/pages", {
         method: "POST",

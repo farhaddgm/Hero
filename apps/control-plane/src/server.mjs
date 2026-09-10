@@ -38,14 +38,42 @@ import {
   projectOperationalEvent,
   getWebFactoryContractSummary,
   getWorkflowContractSummary,
-  getProductDevelopmentContractSummary
+  getProductDevelopmentContractSummary,
+  getProjectIdentityContractSummary,
+  getProjectSettingsContractSummary,
+  getProjectWorkspaceContractSummary,
+  getBackofficeCollaborationContractSummary,
+  getBackofficeCommandCenterContractSummary,
+  getSystemCatalogContractSummary,
+  getPerformanceIntelligenceContractSummary,
+  getNotificationObservabilityContractSummary,
+  getInfrastructureControlContractSummary,
+  getDeliveryControlContractSummary,
+  getOperationalHardeningContractSummary,
+  getFinalReadinessContractSummary
 } from "../../../packages/contracts/src/index.mjs";
 import { DashboardCommandError, createControlDashboard } from "./dashboard-service.mjs";
 import { getDashboardHtml } from "./dashboard-view.mjs";
 import { getBackofficeHtml } from "./backoffice-view.mjs";
 import { getProductStudioHtml } from "./product-studio-view.mjs";
+import { getPortfolioHtml } from "./portfolio-view.mjs";
 import { OwnerAuthError, createOwnerAuth } from "../../../packages/domain/src/owner-auth.mjs";
 import { AdminAuthError, createAdminAuth } from "../../../packages/domain/src/admin-auth.mjs";
+import { createHumanIdentity, HumanIdentityError } from "../../../packages/domain/src/human-identity.mjs";
+import { createProjectAccessMiddleware } from "../../../packages/domain/src/project-access-middleware.mjs";
+import { createProjectAccessRegistry, ProjectAccessError } from "../../../packages/domain/src/project-access.mjs";
+import { createProjectSettingsRegistry, ProjectSettingsError } from "../../../packages/domain/src/project-settings.mjs";
+import { createProjectWorkspace, ProjectWorkspaceError } from "../../../packages/domain/src/project-workspace.mjs";
+import { createProjectCollaboration, CollaborationError } from "../../../packages/domain/src/project-collaboration.mjs";
+import { createCommandCenter, CommandCenterError } from "../../../packages/domain/src/command-center.mjs";
+import { createSystemCatalog, SystemCatalogError } from "../../../packages/domain/src/system-catalog.mjs";
+import { createPerformanceIntelligence, PerformanceError } from "../../../packages/domain/src/performance-intelligence.mjs";
+import { createNotificationObservability, NotificationError } from "../../../packages/domain/src/notification-observability.mjs";
+import { createInfrastructureControl, InfrastructureError } from "../../../packages/domain/src/infrastructure-control.mjs";
+import { createDeliveryControl, DeliveryError } from "../../../packages/domain/src/delivery-control.mjs";
+import { createOperationalHardening, HardeningError } from "../../../packages/domain/src/operational-hardening.mjs";
+import { createFinalReadiness, FinalReadinessError } from "../../../packages/domain/src/final-readiness.mjs";
+import { rebuildPortfolioReadModel, rebuildProjectReadModel } from "../../../packages/domain/src/backoffice-read-models.mjs";
 import { ProductDevelopmentError, createProductDevelopmentCatalog } from "../../../packages/domain/src/product-development.mjs";
 import { createConfiguredAiProviderAdapters, createNotionApiAdapter, createPostgresRuntime, createPricingCatalogRegistry, createRuntimeExternalSpendAuthorizer } from "../../../packages/adapters/src/index.mjs";
 
@@ -67,6 +95,7 @@ const READ_MODEL_AUDIT_RESOURCES = new Set([
 ]);
 const BACKOFFICE_PATHS = new Set(["/backoffice", "/backoffice-data", "/backoffice-events"]);
 const PRODUCT_STUDIO_PATHS = new Set(["/product-studio", "/product-studio-data", "/product-studio-document"]);
+const PORTFOLIO_PATHS = new Set(["/portfolio", "/portfolio-data"]);
 const DEFAULT_BACKOFFICE_RESPONSE_LIMIT_BYTES = 512 * 1024;
 const DEFAULT_BACKOFFICE_RATE_LIMIT_WINDOW_MS = 60_000;
 const DEFAULT_BACKOFFICE_RATE_LIMIT_MAX = 60;
@@ -78,6 +107,12 @@ const ADMIN_ALLOWED_MUTATIONS = new Set([
   "/api/ai/skills",
   "/api/ai/skill-bindings",
   "/api/ai/role-policies"
+]);
+const PUBLIC_IDENTITY_PATHS = new Set([
+  "/api/identity/login",
+  "/api/identity/login/mfa",
+  "/api/identity/recovery/request",
+  "/api/identity/recovery/complete"
 ]);
 
 function json(response, statusCode, body, { maxBytes } = {}) {
@@ -196,12 +231,12 @@ function matchesBasicAuth(credentials, expected) {
     timingSafeEqual(actualUser, expectedUser) && timingSafeEqual(actualPassword, expectedPassword);
 }
 
-async function readJson(request) {
+async function readJson(request, maxBytes = 16_384) {
   const chunks = [];
   let size = 0;
   for await (const chunk of request) {
     size += chunk.length;
-    if (size > 16_384) throw new DashboardCommandError("PAYLOAD_TOO_LARGE", "درخواست بیش از حد بزرگ است.");
+    if (size > maxBytes) throw new DashboardCommandError("PAYLOAD_TOO_LARGE", "درخواست بیش از حد بزرگ است.");
     chunks.push(chunk);
   }
   if (chunks.length === 0) return {};
@@ -269,6 +304,40 @@ export function createHeroServer(options = {}) {
   const notionAdapter = options.notionAdapter ?? createNotionApiAdapter();
   const ownerAuth = options.ownerAuth ?? createOwnerAuth({ secret: process.env.HERO_OWNER_AUTH_SECRET, now: options.now });
   const adminAuth = options.adminAuth ?? createAdminAuth({ secret: process.env.HERO_ADMIN_AUTH_SECRET, now: options.now });
+  const identityOwner = {
+    userId: process.env.HERO_IDENTITY_OWNER_USER_ID ?? "hero-owner",
+    email: process.env.HERO_OWNER_EMAIL,
+    displayName: process.env.HERO_OWNER_DISPLAY_NAME ?? "Hero Owner",
+    password: process.env.HERO_OWNER_PASSWORD,
+    mfaSecret: process.env.HERO_OWNER_MFA_SECRET
+  };
+  const identityConfiguredFromEnvironment = [process.env.HERO_IDENTITY_SESSION_SECRET, identityOwner.email, identityOwner.password, identityOwner.mfaSecret].every(value => typeof value === "string" && value.length > 0);
+  const projectAccessRegistry = options.projectAccessRegistry ?? (identityConfiguredFromEnvironment
+    ? createProjectAccessRegistry({ ownerUserId: identityOwner.userId, ownerUser: identityOwner, now: options.now })
+    : null);
+  const humanIdentity = options.humanIdentity ?? (identityConfiguredFromEnvironment
+    ? createHumanIdentity({ accessRegistry: projectAccessRegistry, sessionSecret: process.env.HERO_IDENTITY_SESSION_SECRET, owner: identityOwner, now: options.now })
+    : null);
+  const projectAccessMiddleware = options.projectAccessMiddleware ?? (projectAccessRegistry && humanIdentity
+    ? createProjectAccessMiddleware({ accessRegistry: projectAccessRegistry, identity: humanIdentity })
+    : null);
+  const projectSettings = options.projectSettings ?? createProjectSettingsRegistry({ now: options.now });
+  const projectWorkspace = options.projectWorkspace ?? createProjectWorkspace({
+    ownerUserId: identityOwner.userId,
+    now: options.now,
+    settings: projectSettings,
+    scanner: options.uploadScanner,
+    parser: options.projectInputParser
+  });
+  const projectCollaboration = options.projectCollaboration ?? createProjectCollaboration({ now: options.now });
+  const commandCenter = options.commandCenter ?? createCommandCenter({ now: options.now });
+  const systemCatalog = options.systemCatalog ?? createSystemCatalog({ now: options.now });
+  const performanceIntelligence = options.performanceIntelligence ?? createPerformanceIntelligence({ now: options.now });
+  const notificationObservability = options.notificationObservability ?? createNotificationObservability({ now: options.now });
+  const infrastructureControl = options.infrastructureControl ?? createInfrastructureControl({ now: options.now });
+  const deliveryControl = options.deliveryControl ?? createDeliveryControl({ now: options.now });
+  const operationalHardening = options.operationalHardening ?? createOperationalHardening({ now: options.now });
+  const finalReadiness = options.finalReadiness ?? createFinalReadiness({ now: options.now });
   let postgresRuntime = options.postgresRuntime ?? null;
   let ownsPostgresRuntime = false;
   let persistedDomainEventIds = new Set();
@@ -307,23 +376,99 @@ export function createHeroServer(options = {}) {
     });
   }
 
+  function projectOverview(projectId) {
+    const project = projectWorkspace.getProject(projectId);
+    const inputs = projectWorkspace.listInputs({ projectId });
+    const foundation = projectWorkspace.foundationProposal({ projectId });
+    const settings = projectSettings.effectiveProject({ projectId }).map(item => ({ path: item.path, value: item.value, source: item.provenance, layer: item.layer, version: item.version }));
+    const model = rebuildProjectReadModel({ project: {
+      ...project,
+      health: "unknown",
+      tokenUsage: null,
+      latestCompletedTask: null,
+      nextTasks: foundation?.suggested?.roadmap ?? [],
+      latestOutput: null
+    } });
+    return Object.freeze({ ...model, intake: project.intake, foundationProposal: foundation, inputCount: inputs.length, settings });
+  }
+
+  function portfolioSnapshot(principal = null) {
+    const accessible = principal?.source === "human-identity" ? projectAccessRegistry.listAccessibleProjectIds({ principal }) : null;
+    const projects = projectWorkspace.listProjects().filter(project => accessible === null || accessible.includes(project.projectId));
+    const model = rebuildPortfolioReadModel({ projects });
+    const cards = model.projects.map(project => ({
+      projectId: project.projectId,
+      name: project.name,
+      lifecycle: project.lifecycle,
+      health: project.health,
+      roadmap: project.nextTasks,
+      tokenUsage: project.tokenUsage,
+      latestCompletedTask: project.latestCompletedTask,
+      latestOutput: project.latestOutput,
+      drillDown: { href: `/api/projects/${encodeURIComponent(project.projectId)}/overview`, projectId: project.projectId }
+    }));
+    return Object.freeze({ ...model, cards, informationArchitecture: ["Portfolio", "Project Studio", "Overview", "Roadmap", "Inputs", "Settings", "Outputs"] });
+  }
+
+  function searchPortfolio({ principal = null, query = "" } = {}) {
+    const needle = String(query).trim().toLowerCase();
+    if (needle.length < 2 || needle.length > 120) throw new ProjectWorkspaceError("SEARCH_QUERY_INVALID", "Search query must be 2-120 characters.", 400);
+    const accessible = principal?.source === "human-identity" ? projectAccessRegistry.listAccessibleProjectIds({ principal }) : null;
+    const results = [];
+    for (const project of projectWorkspace.listProjects()) {
+      if (accessible !== null && !accessible.includes(project.projectId)) continue;
+      const haystack = `${project.projectId} ${project.name} ${project.description} ${project.intake.intent} ${project.intake.goal}`.toLowerCase();
+      if (haystack.includes(needle)) results.push({ kind: "project", projectId: project.projectId, label: project.name, href: `/api/projects/${encodeURIComponent(project.projectId)}/workspace-overview` });
+      for (const entity of systemCatalog.list({ projectId: project.projectId })) {
+        if (`${entity.entityId} ${entity.name} ${entity.type}`.toLowerCase().includes(needle)) results.push({ kind: "system-entity", projectId: project.projectId, entityId: entity.entityId, label: entity.name, href: `/api/projects/${encodeURIComponent(project.projectId)}/catalog` });
+      }
+    }
+    return Object.freeze(results.slice(0, 100));
+  }
+
   function authenticateApiPrincipal(authorizationHeader) {
     try {
       const owner = ownerAuth.requireOwner(authorizationHeader);
       return Object.freeze({ ...owner, actor: Object.freeze({ kind: "project-owner", id: owner.subject }) });
     } catch (ownerError) {
-      if (!adminAuth.configured) throw ownerError;
-      try {
-        const admin = adminAuth.requireAdmin(authorizationHeader);
-        return Object.freeze({ ...admin, actor: Object.freeze({ kind: "admin", id: admin.subject }) });
-      } catch (adminError) {
-        if (adminError instanceof AdminAuthError && adminError.code === "ADMIN_AUTH_NOT_CONFIGURED") throw ownerError;
-        throw ownerError;
+      if (adminAuth.configured) {
+        try {
+          const admin = adminAuth.requireAdmin(authorizationHeader);
+          return Object.freeze({ ...admin, actor: Object.freeze({ kind: "admin", id: admin.subject }) });
+        } catch {
+          // A different valid identity scheme may still authenticate this request.
+        }
       }
+      if (humanIdentity?.configured) {
+        try {
+          return projectAccessMiddleware.authenticate(authorizationHeader);
+        } catch (identityError) {
+          if (identityError instanceof HumanIdentityError) throw identityError;
+        }
+      }
+      throw ownerError;
     }
   }
 
   function assertApiPermission(request, url, principal) {
+    if (principal.source === "human-identity") {
+      if (url.pathname.startsWith("/api/identity/")) return;
+      if (url.pathname === "/api/projects" && request.method === "POST") {
+        projectAccessRegistry.authorize({ principal, projectId: "hero", action: "project.create" });
+        return;
+      }
+      if (url.pathname === "/api/project-clones" && request.method === "POST") {
+        projectAccessRegistry.authorize({ principal, projectId: "hero", action: "project.create" });
+        return;
+      }
+      if (["/api/portfolio", "/api/portfolio/search"].includes(url.pathname) && request.method === "GET") return;
+      const projectMatch = url.pathname.match(/^\/api\/projects\/([A-Za-z][A-Za-z0-9._:-]{2,127})(?:\/|$)/);
+      const projectId = projectMatch?.[1] ?? url.searchParams.get("projectId");
+      if (!projectId) throw new ProjectAccessError("PROJECT_SCOPE_REQUIRED", "A projectId is required for human-identity API access.", 403);
+      const action = request.method === "GET" ? "project.read" : "project.write";
+      projectAccessMiddleware.requireProject({ principal, projectId, action });
+      return;
+    }
     if (principal.role !== "admin") return;
     if (request.method === "GET" || (request.method === "POST" && isAdminAllowedMutation(url.pathname))) return;
     throw new OwnerAuthError("ADMIN_SCOPE_FORBIDDEN", "این عملیات فقط با دسترسی مالک پروژه مجاز است.", 403);
@@ -413,7 +558,8 @@ export function createHeroServer(options = {}) {
     try {
       const backofficePath = BACKOFFICE_PATHS.has(url.pathname);
       const productStudioPath = PRODUCT_STUDIO_PATHS.has(url.pathname);
-      if (backofficePath || productStudioPath) {
+      const portfolioPath = PORTFOLIO_PATHS.has(url.pathname);
+      if (backofficePath || productStudioPath || portfolioPath) {
         const rate = backofficeRateLimiter.consume(request.socket?.remoteAddress ?? "unknown");
         if (!rate.allowed) {
           response.writeHead(429, {
@@ -429,7 +575,7 @@ export function createHeroServer(options = {}) {
           return;
         }
       }
-      if ((backofficePath || productStudioPath) && backofficeAuth && !matchesBasicAuth(basicCredentials(request), backofficeAuth)) {
+      if ((backofficePath || productStudioPath || portfolioPath) && backofficeAuth && !matchesBasicAuth(basicCredentials(request), backofficeAuth)) {
         await recordReadAccess(url.pathname, "rejected");
         response.writeHead(401, {
           "www-authenticate": 'Basic realm="Hero Back Office", charset="UTF-8"',
@@ -440,7 +586,7 @@ export function createHeroServer(options = {}) {
         response.end("Back Office authentication required.");
         return;
       }
-      if ((backofficePath || productStudioPath) && request.method !== "GET") {
+      if ((backofficePath || productStudioPath || portfolioPath) && request.method !== "GET") {
         response.writeHead(405, {
           "allow": "GET",
           "content-type": "text/plain; charset=utf-8",
@@ -505,7 +651,15 @@ export function createHeroServer(options = {}) {
         return json(response, 200, { service: HERO_SERVICE, document: productDevelopment.document(documentId) }, { maxBytes: backofficeResponseLimitBytes });
       }
 
-      const authenticatedOwner = url.pathname.startsWith("/api/")
+      if (request.method === "GET" && url.pathname === "/portfolio") {
+        return html(response, getPortfolioHtml({ portfolio: portfolioSnapshot() }));
+      }
+
+      if (request.method === "GET" && url.pathname === "/portfolio-data") {
+        return json(response, 200, { service: HERO_SERVICE, portfolio: portfolioSnapshot() }, { maxBytes: backofficeResponseLimitBytes });
+      }
+
+      const authenticatedOwner = url.pathname.startsWith("/api/") && !PUBLIC_IDENTITY_PATHS.has(url.pathname)
         ? authenticateApiPrincipal(request.headers.authorization)
         : null;
       if (authenticatedOwner) assertApiPermission(request, url, authenticatedOwner);
@@ -559,6 +713,253 @@ export function createHeroServer(options = {}) {
           await postgresRuntime.ownerSessions.revoke(revocation);
         }
         return json(response, 200, { service: HERO_SERVICE, revocation });
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/identity/login") {
+        if (!humanIdentity?.configured) throw new HumanIdentityError("IDENTITY_NOT_CONFIGURED", "Human identity is not configured.", 503);
+        const input = await readJson(request);
+        return json(response, 200, { service: HERO_SERVICE, login: humanIdentity.beginLogin(input) });
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/identity/login/mfa") {
+        if (!humanIdentity?.configured) throw new HumanIdentityError("IDENTITY_NOT_CONFIGURED", "Human identity is not configured.", 503);
+        const input = await readJson(request);
+        return json(response, 200, { service: HERO_SERVICE, session: humanIdentity.completeLogin(input) });
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/identity/recovery/request") {
+        if (!humanIdentity?.configured) throw new HumanIdentityError("IDENTITY_NOT_CONFIGURED", "Human identity is not configured.", 503);
+        const input = await readJson(request);
+        return json(response, 202, { service: HERO_SERVICE, recovery: humanIdentity.requestOwnerRecovery(input) });
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/identity/recovery/complete") {
+        if (!humanIdentity?.configured) throw new HumanIdentityError("IDENTITY_NOT_CONFIGURED", "Human identity is not configured.", 503);
+        const input = await readJson(request);
+        return json(response, 200, { service: HERO_SERVICE, recovery: humanIdentity.completeOwnerRecovery(input) });
+      }
+
+      if (request.method === "GET" && url.pathname === "/api/identity/me") {
+        if (!humanIdentity?.configured || !authenticatedOwner?.source) throw new HumanIdentityError("IDENTITY_AUTH_REQUIRED", "Human authentication is required.", 401);
+        return json(response, 200, { service: HERO_SERVICE, principal: authenticatedOwner, user: humanIdentity.getUser(authenticatedOwner.subject) });
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/identity/step-up") {
+        if (!humanIdentity?.configured || !authenticatedOwner?.source) throw new HumanIdentityError("IDENTITY_AUTH_REQUIRED", "Human authentication is required.", 401);
+        const input = await readJson(request);
+        return json(response, 200, { service: HERO_SERVICE, session: humanIdentity.stepUp({ principal: authenticatedOwner, mfaCode: input.mfaCode }) });
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/identity/sessions/revoke") {
+        if (!humanIdentity?.configured || !authenticatedOwner?.source) throw new HumanIdentityError("IDENTITY_AUTH_REQUIRED", "Human authentication is required.", 401);
+        const input = await readJson(request);
+        return json(response, 200, { service: HERO_SERVICE, revocation: humanIdentity.revokeSession({ actor: authenticatedOwner, sessionId: input.sessionId, reason: input.reason }) });
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/identity/users") {
+        if (!humanIdentity?.configured || !authenticatedOwner) throw new HumanIdentityError("IDENTITY_NOT_CONFIGURED", "Human identity is not configured.", 503);
+        const input = await readJson(request);
+        return json(response, 201, { service: HERO_SERVICE, user: humanIdentity.createUser({ actor: authenticatedOwner, user: input }) });
+      }
+
+      if (request.method === "GET" && url.pathname === "/api/portfolio") {
+        return json(response, 200, { service: HERO_SERVICE, portfolio: portfolioSnapshot(authenticatedOwner) });
+      }
+
+      if (request.method === "GET" && url.pathname === "/api/portfolio/search") {
+        return json(response, 200, { service: HERO_SERVICE, query: url.searchParams.get("q") ?? "", results: searchPortfolio({ principal: authenticatedOwner, query: url.searchParams.get("q") ?? "" }) });
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/projects") {
+        const input = await readJson(request);
+        const created = projectWorkspace.createProject({ actor: authenticatedOwner, projectId: input.projectId, name: input.name, description: input.description, intake: input.intake });
+        return json(response, 201, { service: HERO_SERVICE, ...created });
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/project-clones") {
+        if (authenticatedOwner?.role !== "project-owner") throw new ProjectWorkspaceError("OWNER_REQUIRED", "Only the owner may clone a project template.", 403);
+        const input = await readJson(request);
+        const cloned = projectWorkspace.cloneFromTemplate({ actor: authenticatedOwner, sourceProjectId: input.sourceProjectId, projectId: input.projectId, name: input.name, description: input.description });
+        return json(response, 201, { service: HERO_SERVICE, ...cloned });
+      }
+
+      const projectArchiveMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/archive$/);
+      if (projectArchiveMatch && request.method === "POST") {
+        const input = await readJson(request);
+        return json(response, 200, { service: HERO_SERVICE, project: projectWorkspace.archiveProject({ actor: authenticatedOwner, projectId: projectArchiveMatch[1], expectedVersion: input.expectedVersion, reason: input.reason }) });
+      }
+
+      const projectDeletionMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/deletion-request$/);
+      if (projectDeletionMatch && request.method === "POST") {
+        const input = await readJson(request);
+        return json(response, 202, { service: HERO_SERVICE, deletionRequest: projectWorkspace.requestDeletion({ actor: authenticatedOwner, projectId: projectDeletionMatch[1], expectedVersion: input.expectedVersion, reason: input.reason }) });
+      }
+
+      const projectIntakeMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/intake$/);
+      if (projectIntakeMatch && request.method === "POST") {
+        const input = await readJson(request);
+        return json(response, 200, { service: HERO_SERVICE, result: projectWorkspace.submitIntake({ actor: authenticatedOwner, projectId: projectIntakeMatch[1], expectedVersion: input.expectedVersion, intake: input.intake }) });
+      }
+
+      const projectUploadMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/inputs\/upload$/);
+      if (projectUploadMatch && request.method === "POST") {
+        const input = await readJson(request, 5 * 1024 * 1024);
+        return json(response, 201, { service: HERO_SERVICE, input: projectWorkspace.upload({ actor: authenticatedOwner, projectId: projectUploadMatch[1], type: input.type, filename: input.filename, content: input.content, mimeType: input.mimeType, zipExpandedBytes: input.zipExpandedBytes }) });
+      }
+
+      const projectLinkMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/inputs\/link$/);
+      if (projectLinkMatch && request.method === "POST") {
+        const input = await readJson(request);
+        return json(response, 201, { service: HERO_SERVICE, input: projectWorkspace.registerLink({ actor: authenticatedOwner, projectId: projectLinkMatch[1], url: input.url, label: input.label }) });
+      }
+
+      const projectFoundationMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/foundation$/);
+      if (projectFoundationMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, proposal: projectWorkspace.foundationProposal({ projectId: projectFoundationMatch[1] }) });
+      const projectFoundationReviseMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/foundation\/revise$/);
+      if (projectFoundationReviseMatch && request.method === "POST") {
+        const input = await readJson(request);
+        return json(response, 200, { service: HERO_SERVICE, proposal: projectWorkspace.reviseFoundation({ actor: authenticatedOwner, projectId: projectFoundationReviseMatch[1], proposalId: input.proposalId, expectedVersion: input.expectedVersion, changes: input.changes, reason: input.reason }) });
+      }
+      const projectFoundationApproveMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/foundation\/approve$/);
+      if (projectFoundationApproveMatch && request.method === "POST") {
+        const input = await readJson(request);
+        return json(response, 200, { service: HERO_SERVICE, proposal: projectWorkspace.approveFoundation({ actor: authenticatedOwner, projectId: projectFoundationApproveMatch[1], proposalId: input.proposalId, expectedVersion: input.expectedVersion }) });
+      }
+
+      const projectImportMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/import\/github$/);
+      if (projectImportMatch && request.method === "POST") {
+        const input = await readJson(request);
+        return json(response, 202, { service: HERO_SERVICE, importPlan: projectWorkspace.importGithubReadOnly({ actor: authenticatedOwner, projectId: projectImportMatch[1], repositoryUrl: input.repositoryUrl, inventory: input.inventory }) });
+      }
+
+      const projectSettingsMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/settings$/);
+      if (projectSettingsMatch && request.method === "GET") {
+        return json(response, 200, { service: HERO_SERVICE, projectId: projectSettingsMatch[1], settings: projectSettings.effectiveProject({ projectId: projectSettingsMatch[1], runId: url.searchParams.get("runId") }) });
+      }
+      if (projectSettingsMatch && request.method === "POST") {
+        const input = await readJson(request);
+        return json(response, 200, { service: HERO_SERVICE, setting: projectSettings.setValue({ actor: authenticatedOwner, projectId: projectSettingsMatch[1], path: input.path, value: input.value, layer: input.layer, runId: input.runId ?? null, expectedVersion: input.expectedVersion ?? null, reason: input.reason, impact: input.impact, rollbackReference: input.rollbackReference }) });
+      }
+      const projectPolicyApplyMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/settings\/policy-pack\/apply$/);
+      if (projectPolicyApplyMatch && request.method === "POST") {
+        const input = await readJson(request);
+        return json(response, 200, { service: HERO_SERVICE, settings: projectSettings.applyPolicyPack({ actor: authenticatedOwner, projectId: projectPolicyApplyMatch[1], reason: input.reason }) });
+      }
+      const projectSettingRollbackMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/settings\/rollback$/);
+      if (projectSettingRollbackMatch && request.method === "POST") {
+        const input = await readJson(request);
+        return json(response, 200, { service: HERO_SERVICE, setting: projectSettings.rollback({ actor: authenticatedOwner, projectId: projectSettingRollbackMatch[1], path: input.path, toVersion: input.toVersion, reason: input.reason }) });
+      }
+
+      const projectWorkspaceOverviewMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/workspace-overview$/);
+      if (projectWorkspaceOverviewMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, overview: projectOverview(projectWorkspaceOverviewMatch[1]) });
+
+      const projectTeamsMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/teams$/);
+      if (projectTeamsMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, teams: projectCollaboration.listTeams({ actor: authenticatedOwner, projectId: projectTeamsMatch[1] }) });
+      if (projectTeamsMatch && request.method === "POST") { const input = await readJson(request); return json(response, 201, { service: HERO_SERVICE, assignment: projectCollaboration.assignTeam({ actor: authenticatedOwner, projectId: projectTeamsMatch[1], teamId: input.teamId, principles: input.principles, kpis: input.kpis }) }); }
+
+      const projectConversationsMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/conversations$/);
+      if (projectConversationsMatch && request.method === "POST") { const input = await readJson(request); return json(response, 201, { service: HERO_SERVICE, conversation: projectCollaboration.bindContext({ actor: authenticatedOwner, projectId: projectConversationsMatch[1], contextType: input.contextType, teamId: input.teamId, roleId: input.roleId, entityId: input.entityId, model: input.model, retentionDays: input.retentionDays }) }); }
+      const projectConversationMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/conversations\/([A-Za-z][A-Za-z0-9._:-]{2,127})$/);
+      if (projectConversationMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, conversation: projectCollaboration.readConversation({ actor: authenticatedOwner, projectId: projectConversationMatch[1], conversationId: projectConversationMatch[2] }) });
+      const projectConversationMessageMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/conversations\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/messages$/);
+      if (projectConversationMessageMatch && request.method === "POST") { const input = await readJson(request); return json(response, 201, { service: HERO_SERVICE, message: projectCollaboration.appendMessage({ actor: authenticatedOwner, projectId: projectConversationMessageMatch[1], conversationId: projectConversationMessageMatch[2], content: input.content, citations: input.citations }) }); }
+
+      const projectMemoryMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/memory$/);
+      if (projectMemoryMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, memory: projectCollaboration.retrieveMemory({ actor: authenticatedOwner, projectId: projectMemoryMatch[1], level: url.searchParams.get("level"), query: url.searchParams.get("q") ?? "" }) });
+      if (projectMemoryMatch && request.method === "POST") { const input = await readJson(request); return json(response, 201, { service: HERO_SERVICE, memory: projectCollaboration.recordMemory({ actor: authenticatedOwner, projectId: projectMemoryMatch[1], ...input }) }); }
+
+      const projectCommandsMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/commands$/);
+      if (projectCommandsMatch && request.method === "POST") { const input = await readJson(request); return json(response, 201, { service: HERO_SERVICE, command: commandCenter.createIntent({ actor: authenticatedOwner, projectId: projectCommandsMatch[1], ...input }) }); }
+      const projectCommandAuthorizeMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/commands\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/authorize$/);
+      if (projectCommandAuthorizeMatch && request.method === "POST") { const input = await readJson(request); return json(response, 200, { service: HERO_SERVICE, command: commandCenter.authorize({ actor: authenticatedOwner, commandId: projectCommandAuthorizeMatch[2], authorizationSnapshotId: input.authorizationSnapshotId }) }); }
+      const projectCommandApproveMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/commands\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/approve$/);
+      if (projectCommandApproveMatch && request.method === "POST") { const input = await readJson(request); return json(response, 200, { service: HERO_SERVICE, command: commandCenter.approve({ actor: authenticatedOwner, commandId: projectCommandApproveMatch[2], templateId: input.templateId, reason: input.reason }) }); }
+      const projectCommandQueueMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/commands\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/queue$/);
+      if (projectCommandQueueMatch && request.method === "POST") { const input = await readJson(request); return json(response, 202, { service: HERO_SERVICE, queue: commandCenter.queue({ actor: authenticatedOwner, commandId: projectCommandQueueMatch[2], heavy: input.heavy, resourceClaim: input.resourceClaim, priority: input.priority }) }); }
+      const projectOperationsMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/operations$/);
+      if (projectOperationsMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, operations: commandCenter.operations({ actor: authenticatedOwner, projectId: projectOperationsMatch[1] }) });
+      const projectDispatchMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/operations\/dispatch-next$/);
+      if (projectDispatchMatch && request.method === "POST") return json(response, 202, { service: HERO_SERVICE, dispatch: commandCenter.dispatchNext({ actor: authenticatedOwner }) });
+      const projectApprovalTemplateMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/approval-templates$/);
+      if (projectApprovalTemplateMatch && request.method === "POST") { const input = await readJson(request); return json(response, 201, { service: HERO_SERVICE, template: commandCenter.createApprovalTemplate({ actor: authenticatedOwner, projectId: projectApprovalTemplateMatch[1], ...input }) }); }
+      const projectProductionPreauthMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/production-preauthorizations$/);
+      if (projectProductionPreauthMatch && request.method === "POST") { const input = await readJson(request); return json(response, 201, { service: HERO_SERVICE, preauthorization: commandCenter.preauthorizeProduction({ actor: authenticatedOwner, projectId: projectProductionPreauthMatch[1], ...input }) }); }
+
+      const projectCatalogMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/catalog$/);
+      if (projectCatalogMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, entities: systemCatalog.list({ projectId: projectCatalogMatch[1], type: url.searchParams.get("type") }) });
+      if (projectCatalogMatch && request.method === "POST") { const input = await readJson(request); return json(response, 201, { service: HERO_SERVICE, entity: systemCatalog.register({ actor: authenticatedOwner, projectId: projectCatalogMatch[1], ...input }) }); }
+      const projectCatalogSearchMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/catalog\/search$/);
+      if (projectCatalogSearchMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, results: systemCatalog.search({ projectId: projectCatalogSearchMatch[1], query: url.searchParams.get("q") }) });
+      const projectCatalogDriftMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/catalog\/drift$/);
+      if (projectCatalogDriftMatch && request.method === "POST") { const input = await readJson(request); return json(response, 201, { service: HERO_SERVICE, proposal: systemCatalog.detectDrift({ actor: authenticatedOwner, projectId: projectCatalogDriftMatch[1], ...input }) }); }
+
+      const projectUsageMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/usage$/);
+      if (projectUsageMatch && request.method === "POST") { const input = await readJson(request); return json(response, 201, { service: HERO_SERVICE, usage: performanceIntelligence.recordUsage({ actor: authenticatedOwner, projectId: projectUsageMatch[1], ...input }) }); }
+      const projectBudgetMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/budget$/);
+      if (projectBudgetMatch && request.method === "POST") { const input = await readJson(request); return json(response, 200, { service: HERO_SERVICE, budget: performanceIntelligence.setBudget({ actor: authenticatedOwner, projectId: projectBudgetMatch[1], ...input }) }); }
+      const projectLedgerMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/ledger$/);
+      if (projectLedgerMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, ledger: performanceIntelligence.ledger({ actor: authenticatedOwner, projectId: projectLedgerMatch[1], groupBy: url.searchParams.get("groupBy") ?? "project" }) });
+      const projectEvaluationMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/evaluations$/);
+      if (projectEvaluationMatch && request.method === "POST") { const input = await readJson(request); return json(response, 201, { service: HERO_SERVICE, evaluation: performanceIntelligence.recordEvaluation({ actor: authenticatedOwner, projectId: projectEvaluationMatch[1], ...input }) }); }
+      const projectHealthMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/health$/);
+      if (projectHealthMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, health: performanceIntelligence.health({ actor: authenticatedOwner, projectId: projectHealthMatch[1] }) });
+
+      const projectNotificationsMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/notifications$/);
+      if (projectNotificationsMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, notifications: notificationObservability.inbox({ actor: authenticatedOwner, projectId: projectNotificationsMatch[1], view: url.searchParams.get("view") ?? "all" }) });
+      if (projectNotificationsMatch && request.method === "POST") { const input = await readJson(request); return json(response, 201, { service: HERO_SERVICE, notification: notificationObservability.createNotification({ actor: authenticatedOwner, projectId: projectNotificationsMatch[1], ...input }) }); }
+      const projectAuditMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/audit-log$/);
+      if (projectAuditMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, audit: notificationObservability.audit({ actor: authenticatedOwner, projectId: projectAuditMatch[1], kind: url.searchParams.get("kind") }) });
+      const projectObservabilityMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/observability$/);
+      if (projectObservabilityMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, observability: notificationObservability.observability({ actor: authenticatedOwner, projectId: projectObservabilityMatch[1] }) });
+
+      const projectInfrastructureMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/infrastructure$/);
+      if (projectInfrastructureMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, infrastructure: infrastructureControl.view({ actor: authenticatedOwner, projectId: projectInfrastructureMatch[1] }) });
+      if (projectInfrastructureMatch && request.method === "POST") { const input = await readJson(request); const projectId = projectInfrastructureMatch[1]; const actions = { "register-repository": () => infrastructureControl.registerRepository({ actor: authenticatedOwner, projectId, ...input }), "onboard-server": () => infrastructureControl.onboardServer({ actor: authenticatedOwner, projectId, ...input }), "connectivity-plan": () => infrastructureControl.connectivityPlan({ actor: authenticatedOwner, projectId, ...input }), "create-enrollment": () => infrastructureControl.createEnrollment({ actor: authenticatedOwner, projectId, ...input }), "rotate-node": () => infrastructureControl.rotateNodeIdentity({ actor: authenticatedOwner, projectId, ...input }), "revoke-node": () => infrastructureControl.revokeNode({ actor: authenticatedOwner, projectId, ...input }), "set-state": () => infrastructureControl.setState({ actor: authenticatedOwner, projectId, ...input }), "reconcile": () => infrastructureControl.reconcile({ actor: authenticatedOwner, projectId, ...input }), "register-secret-metadata": () => infrastructureControl.registerSecret({ actor: authenticatedOwner, projectId, ...input }), "request-secret-reveal": () => infrastructureControl.requestReveal({ actor: authenticatedOwner, projectId, ...input }), "set-egress-policy": () => infrastructureControl.setEgressPolicy({ actor: authenticatedOwner, projectId, ...input }) }; if (!actions[input.action]) throw new InfrastructureError("INFRASTRUCTURE_ACTION_INVALID", "Infrastructure action is invalid.", 400); return json(response, 201, { service: HERO_SERVICE, result: actions[input.action]() }); }
+
+      const projectDeliveryMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/delivery$/);
+      if (projectDeliveryMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, delivery: deliveryControl.view({ actor: authenticatedOwner, projectId: projectDeliveryMatch[1] }) });
+      if (projectDeliveryMatch && request.method === "POST") { const input = await readJson(request); const projectId = projectDeliveryMatch[1]; const actions = { "ingest-telemetry": () => deliveryControl.ingestTelemetry({ actor: authenticatedOwner, projectId, ...input }), "request-break-glass": () => deliveryControl.requestBreakGlass({ actor: authenticatedOwner, projectId, ...input }), "create-release": () => deliveryControl.createRelease({ actor: authenticatedOwner, projectId, ...input }), "transition-release": () => deliveryControl.transitionRelease({ actor: authenticatedOwner, projectId, ...input }), "register-artifact": () => deliveryControl.registerArtifact({ actor: authenticatedOwner, projectId, ...input }), "delivery-matrix": () => deliveryControl.deliveryMatrix({ actor: authenticatedOwner, projectId, ...input }), "create-bundle": () => deliveryControl.createBundle({ actor: authenticatedOwner, projectId, ...input }), "verify-portability": () => deliveryControl.verifyPortability({ actor: authenticatedOwner, projectId, ...input }), "rehearse-recovery": () => deliveryControl.rehearseRecovery({ actor: authenticatedOwner, projectId, ...input }), accept: () => deliveryControl.accept({ actor: authenticatedOwner, projectId, ...input }) }; if (!actions[input.action]) throw new DeliveryError("DELIVERY_ACTION_INVALID", "Delivery action is invalid.", 400); return json(response, 201, { service: HERO_SERVICE, result: actions[input.action]() }); }
+
+      const projectHardeningMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/hardening$/);
+      if (projectHardeningMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, hardening: operationalHardening.report({ actor: authenticatedOwner, projectId: projectHardeningMatch[1] }) });
+      if (projectHardeningMatch && request.method === "POST") { const input = await readJson(request); const projectId = projectHardeningMatch[1]; const actions = { "set-retention": () => operationalHardening.setRetention({ actor: authenticatedOwner, projectId, ...input }), "plan-cleanup": () => operationalHardening.planCleanup({ actor: authenticatedOwner, projectId, ...input }), "set-locale": () => operationalHardening.locale({ actor: authenticatedOwner, projectId, ...input }), "record-audit": () => operationalHardening.recordAudit({ actor: authenticatedOwner, projectId, ...input }) }; if (!actions[input.action]) throw new HardeningError("HARDENING_ACTION_INVALID", "Hardening action is invalid.", 400); return json(response, 201, { service: HERO_SERVICE, result: actions[input.action]() }); }
+
+      const projectReadinessMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/final-readiness$/);
+      if (projectReadinessMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, readiness: finalReadiness.view({ actor: authenticatedOwner, projectId: projectReadinessMatch[1] }) });
+      if (projectReadinessMatch && request.method === "POST") { const input = await readJson(request); const projectId = projectReadinessMatch[1]; const actions = { "plan-migration": () => finalReadiness.planMigration({ actor: authenticatedOwner, projectId, ...input }), "rebuild-read-model": () => finalReadiness.rebuildReadModel({ actor: authenticatedOwner, projectId, ...input }), "record-scenario": () => finalReadiness.recordScenario({ actor: authenticatedOwner, projectId, ...input }), "set-traceability": () => finalReadiness.setTraceability({ actor: authenticatedOwner, projectId, ...input }), "prepare-notion-projection": () => finalReadiness.prepareNotionProjection({ actor: authenticatedOwner, projectId, ...input }), "readiness-review": () => finalReadiness.readinessReview({ actor: authenticatedOwner, projectId, ...input }), accept: () => finalReadiness.accept({ actor: authenticatedOwner, projectId, ...input }), "pilot-proposal": () => finalReadiness.pilotProposal({ actor: authenticatedOwner, projectId, ...input }) }; if (!actions[input.action]) throw new FinalReadinessError("READINESS_ACTION_INVALID", "Readiness action is invalid.", 400); return json(response, 201, { service: HERO_SERVICE, result: actions[input.action]() }); }
+
+      const projectAccessMatch = url.pathname.match(/^\/api\/projects\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/access$/);
+      if (projectAccessMatch && request.method === "GET") {
+        if (!projectAccessRegistry) throw new HumanIdentityError("IDENTITY_NOT_CONFIGURED", "Project identity is not configured.", 503);
+        const projectId = projectAccessMatch[1];
+        return json(response, 200, { service: HERO_SERVICE, projectId, grants: projectAccessRegistry.listProjectGrants({ principal: authenticatedOwner, projectId }) });
+      }
+
+      if (projectAccessMatch && request.method === "POST") {
+        if (!projectAccessRegistry) throw new HumanIdentityError("IDENTITY_NOT_CONFIGURED", "Project identity is not configured.", 503);
+        const input = await readJson(request);
+        if (input.role === "admin" && humanIdentity) {
+          const user = humanIdentity.getUser(input.userId);
+          if (!user?.mfaEnabled) throw new HumanIdentityError("MFA_REQUIRED", "An admin ProjectGrant requires enrolled MFA before it can be granted.", 409);
+        }
+        const grant = projectAccessRegistry.upsertGrant({ actor: authenticatedOwner, grant: { projectId: projectAccessMatch[1], userId: input.userId, role: input.role } });
+        if (grant.role === "admin" && humanIdentity) humanIdentity.setMfaRequired({ actor: authenticatedOwner, userId: grant.userId, required: true });
+        return json(response, 201, { service: HERO_SERVICE, grant });
+      }
+
+      const projectAccessRevokeMatch = url.pathname.match(/^\/api\/projects\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/access\/revoke$/);
+      if (projectAccessRevokeMatch && request.method === "POST") {
+        if (!projectAccessRegistry) throw new HumanIdentityError("IDENTITY_NOT_CONFIGURED", "Project identity is not configured.", 503);
+        const input = await readJson(request);
+        return json(response, 200, { service: HERO_SERVICE, grant: projectAccessRegistry.revokeGrant({ actor: authenticatedOwner, projectId: projectAccessRevokeMatch[1], userId: input.userId }) });
+      }
+
+      const projectOverviewMatch = url.pathname.match(/^\/api\/projects\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/overview$/);
+      if (projectOverviewMatch && request.method === "GET") {
+        if (!projectAccessMiddleware) throw new HumanIdentityError("IDENTITY_NOT_CONFIGURED", "Project identity is not configured.", 503);
+        const scope = projectAccessMiddleware.requireProject({ principal: authenticatedOwner, projectId: projectOverviewMatch[1], action: "project.read" });
+        return json(response, 200, { service: HERO_SERVICE, projectId: projectOverviewMatch[1], access: scope, state: "project-read-model-not-yet-populated" });
       }
 
       if (request.method === "GET" && url.pathname === "/") {
@@ -807,6 +1208,28 @@ export function createHeroServer(options = {}) {
       if (request.method === "GET" && url.pathname === "/admin-auth-contract") {
         return json(response, 200, { service: HERO_SERVICE, adminAuthContract: getAdminAuthContractSummary() });
       }
+
+      if (request.method === "GET" && url.pathname === "/project-identity-contract") {
+        return json(response, 200, { service: HERO_SERVICE, projectIdentityContract: getProjectIdentityContractSummary() });
+      }
+
+      if (request.method === "GET" && url.pathname === "/project-workspace-contract") {
+        return json(response, 200, { service: HERO_SERVICE, projectWorkspaceContract: getProjectWorkspaceContractSummary() });
+      }
+
+      if (request.method === "GET" && url.pathname === "/project-settings-contract") {
+        return json(response, 200, { service: HERO_SERVICE, projectSettingsContract: getProjectSettingsContractSummary() });
+      }
+
+      if (request.method === "GET" && url.pathname === "/backoffice-collaboration-contract") return json(response, 200, { service: HERO_SERVICE, collaborationContract: getBackofficeCollaborationContractSummary() });
+      if (request.method === "GET" && url.pathname === "/backoffice-command-center-contract") return json(response, 200, { service: HERO_SERVICE, commandCenterContract: getBackofficeCommandCenterContractSummary() });
+      if (request.method === "GET" && url.pathname === "/system-catalog-contract") return json(response, 200, { service: HERO_SERVICE, systemCatalogContract: getSystemCatalogContractSummary() });
+      if (request.method === "GET" && url.pathname === "/performance-intelligence-contract") return json(response, 200, { service: HERO_SERVICE, performanceIntelligenceContract: getPerformanceIntelligenceContractSummary() });
+      if (request.method === "GET" && url.pathname === "/notification-observability-contract") return json(response, 200, { service: HERO_SERVICE, notificationObservabilityContract: getNotificationObservabilityContractSummary() });
+      if (request.method === "GET" && url.pathname === "/infrastructure-control-contract") return json(response, 200, { service: HERO_SERVICE, infrastructureControlContract: getInfrastructureControlContractSummary() });
+      if (request.method === "GET" && url.pathname === "/delivery-control-contract") return json(response, 200, { service: HERO_SERVICE, deliveryControlContract: getDeliveryControlContractSummary() });
+      if (request.method === "GET" && url.pathname === "/operational-hardening-contract") return json(response, 200, { service: HERO_SERVICE, operationalHardeningContract: getOperationalHardeningContractSummary() });
+      if (request.method === "GET" && url.pathname === "/final-readiness-contract") return json(response, 200, { service: HERO_SERVICE, finalReadinessContract: getFinalReadinessContractSummary() });
 
       if (request.method === "GET" && url.pathname === "/ai-orchestration-contract") {
         return json(response, 200, { service: HERO_SERVICE, aiOrchestrationContract: getAiOrchestrationContractSummary() });
@@ -1137,8 +1560,8 @@ export function createHeroServer(options = {}) {
       if (error instanceof OwnerAuthError && rejectedReadResource) {
         await recordReadAccess(rejectedReadResource, "rejected");
       }
-      const known = error instanceof DashboardCommandError || error instanceof ProductDevelopmentError;
-      const auth = error instanceof OwnerAuthError;
+      const known = error instanceof DashboardCommandError || error instanceof ProductDevelopmentError || error instanceof ProjectAccessError || error instanceof ProjectWorkspaceError || error instanceof ProjectSettingsError || error instanceof CollaborationError || error instanceof CommandCenterError || error instanceof SystemCatalogError || error instanceof PerformanceError || error instanceof NotificationError || error instanceof InfrastructureError || error instanceof DeliveryError || error instanceof HardeningError || error instanceof FinalReadinessError;
+      const auth = error instanceof OwnerAuthError || error instanceof HumanIdentityError;
       return json(response, auth ? error.statusCode : known ? (error.statusCode ?? 409) : 500, {
         service: HERO_SERVICE,
         status: auth ? "authentication_required" : known ? "command_rejected" : "internal_error",

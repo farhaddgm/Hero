@@ -41,7 +41,36 @@ test("PostgreSQL schema contract covers append-only audit and release boundaries
     "pricing_catalogs",
     "pricing_catalog_entries",
     "pricing_catalog_activations",
-    "notion_document_mappings"
+    "notion_document_mappings",
+    "backoffice_entity_versions",
+    "backoffice_event_envelopes",
+    "backoffice_inbox_receipts",
+    "backoffice_outbox",
+    "backoffice_read_model_snapshots",
+    "human_users",
+    "project_grant_versions",
+    "human_session_revocations",
+    "human_identity_audit",
+    "project_registry_versions",
+    "project_input_metadata",
+    "foundation_proposal_versions",
+    "project_setting_versions",
+    "project_import_plans",
+    "collaboration_records",
+    "command_decision_records",
+    "approval_records",
+    "system_catalog_entities",
+    "system_catalog_dependencies",
+    "usage_events",
+    "evaluation_records",
+    "health_records",
+    "notification_records",
+    "observability_audit_records",
+    "catalog_drift_proposals",
+    "infrastructure_control_records",
+    "delivery_control_records",
+    "hardening_control_records",
+    "final_readiness_records"
   ]);
   const sql = readPostgresMigration("001");
   assert.match(sql, /sequence bigint GENERATED ALWAYS AS IDENTITY/);
@@ -74,6 +103,33 @@ test("PostgreSQL schema contract covers append-only audit and release boundaries
   const notionSql = readPostgresMigration("008");
   assert.match(notionSql, /CREATE TABLE IF NOT EXISTS notion_document_mappings/);
   assert.match(notionSql, /sync_state text NOT NULL/);
+  const foundationSql = readPostgresMigration("009");
+  assert.match(foundationSql, /CREATE TABLE IF NOT EXISTS backoffice_entity_versions/);
+  assert.match(foundationSql, /CREATE TABLE IF NOT EXISTS backoffice_event_envelopes/);
+  assert.match(foundationSql, /backoffice_inbox_receipts_append_only_guard/);
+  assert.match(foundationSql, /CREATE TABLE IF NOT EXISTS backoffice_outbox/);
+  assert.match(foundationSql, /backoffice_read_model_snapshots_append_only_guard/);
+  const identitySql = readPostgresMigration("010");
+  assert.match(identitySql, /CREATE TABLE IF NOT EXISTS human_users/);
+  assert.match(identitySql, /mfa_secret_ref text/);
+  assert.match(identitySql, /CREATE TABLE IF NOT EXISTS project_grant_versions/);
+  assert.match(identitySql, /human_identity_audit_append_only_guard/);
+  const workspaceSql = readPostgresMigration("011");
+  assert.match(workspaceSql, /CREATE TABLE IF NOT EXISTS project_registry_versions/);
+  assert.match(workspaceSql, /CREATE TABLE IF NOT EXISTS project_input_metadata/);
+  assert.match(workspaceSql, /project_setting_versions_append_only_guard/);
+  const collaborationSql = readPostgresMigration("012");
+  assert.match(collaborationSql, /CREATE TABLE IF NOT EXISTS collaboration_records/);
+  assert.match(collaborationSql, /CREATE TABLE IF NOT EXISTS command_decision_records/);
+  assert.match(collaborationSql, /system_catalog_entities_append_only_guard/);
+  const intelligenceSql = readPostgresMigration("013");
+  assert.match(intelligenceSql, /CREATE TABLE IF NOT EXISTS usage_events/);
+  assert.match(intelligenceSql, /CREATE TABLE IF NOT EXISTS notification_records/);
+  assert.match(intelligenceSql, /observability_audit_records_append_only_guard/);
+  const deliveryHardeningSql = readPostgresMigration("014");
+  assert.match(deliveryHardeningSql, /CREATE TABLE IF NOT EXISTS infrastructure_control_records/);
+  assert.match(deliveryHardeningSql, /CREATE TABLE IF NOT EXISTS final_readiness_records/);
+  assert.match(deliveryHardeningSql, /final_readiness_records_append_only_guard/);
 });
 
 test("PostgreSQL migration runner is transaction-bound and requires an injected client", async () => {

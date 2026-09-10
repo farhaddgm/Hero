@@ -14,16 +14,17 @@
 
 ## وضعیت فعلی
 
-Catalog فعلی ۱۰۵ سند دارد. بر اساس policy فعلی و classification پیش‌فرض امن `internal`، هر ۱۰۵ سند از نظر نمایش قابلیت mirror دارند؛ یک سند هم‌اکنون در Notion همگام است و ۱۰۴ سند باقی مانده‌اند.
+Catalog فعلی ۱۰۵ سند دارد. بر اساس default امن `internal`، هر ۱۰۵ سند از نظر فنی قابلیت mirror دارند؛ یک سند هم‌اکنون در Notion همگام است و ۱۰۴ سند باقی مانده‌اند. classification review مالک انجام شد و ممیزی خودکار هیچ مورد Secret، PII یا endpoint زنده پیدا نکرد؛ این review به checksum همین snapshot مقید است. Blueprint شش‌بخشی و ۱۱ Database نیز در Notion ساخته و verify شده‌اند. بررسی زندهٔ PostgreSQL Test نشان داد فقط migrationهای `001` تا `004` ثبت شده‌اند؛ `005` تا `008`، از جمله mapping Notion، هنوز به‌دلیل خطای احراز هویت PostgreSQL اجرا نشده‌اند.
 
 ## ترتیب اجرا
 
-1. ساخت و بررسی Workspace Blueprint؛
-2. ثبت mapping پایدار در PostgreSQL؛
-3. اجرای batch شمارهٔ ۱ با ۱۰ سند کم‌ریسک؛
-4. بررسی checksum، duplicate، rate-limit و conflict؛
-5. ادامهٔ batchها فقط پس از موفقیت batch قبلی؛
-6. ثبت Evidence و owner review پس از batch یازدهم.
+1. ثبت صریح classification برای هر سند کاندید و تأیید نبودن `restricted`؛
+2. ساخت و بررسی Workspace Blueprint؛
+3. ثبت mapping پایدار در PostgreSQL؛
+4. اجرای batch شمارهٔ ۱ با ۱۰ سند کم‌ریسک؛
+5. بررسی checksum، duplicate، rate-limit و conflict؛
+6. ادامهٔ batchها فقط پس از موفقیت batch قبلی؛
+7. ثبت Evidence و owner review پس از batch یازدهم.
 
 ## زمان‌بندی واقعی
 

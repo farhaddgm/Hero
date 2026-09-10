@@ -1,0 +1,51 @@
+{
+  "schema": "hero.authorization-snapshot/v1",
+  "authorizationId": "BATCH-BACKOFFICE-20260910-001",
+  "status": "active",
+  "grantedBy": "project-owner",
+  "grantedAt": "2026-09-10",
+  "grantSource": "owner-request-to-start-backoffice-development",
+  "validUntil": "owner-revocation",
+  "globalStop": false,
+  "operations": [
+    "design",
+    "document",
+    "version",
+    "develop",
+    "test",
+    "review"
+  ],
+  "excludedOperations": [
+    "production-deploy",
+    "destructive-data-operation",
+    "external-spend",
+    "secret-change",
+    "external-message",
+    "irreversible-operation",
+    "pilot-execution",
+    "notion-write"
+  ],
+  "documents": [
+    {
+      "documentId": "HERO-SPEC-022",
+      "documentVersion": "1.0.0"
+    },
+    {
+      "documentId": "HERO-ROADMAP-BACKOFFICE-COMMAND-CENTER-V1",
+      "documentVersion": "1.0.0"
+    }
+  ],
+  "steps": [
+    { "stepId": "BO-001", "documentVersion": "1.0.0" },
+    { "stepId": "BO-002", "documentVersion": "1.0.0" },
+    { "stepId": "BO-003", "documentVersion": "1.0.0" },
+    { "stepId": "BO-004", "documentVersion": "1.0.0" },
+    { "stepId": "BO-005", "documentVersion": "1.0.0" },
+    { "stepId": "BO-006", "documentVersion": "1.0.0" },
+    { "stepId": "BO-007", "documentVersion": "1.0.0" },
+    { "stepId": "BO-008", "documentVersion": "1.0.0" },
+    { "stepId": "BO-009", "documentVersion": "1.0.0" },
+    { "stepId": "BO-010", "documentVersion": "1.0.0" }
+  ],
+  "note": "Owner-authorized foundation batch only. No pilot, production, external write, secret operation, destructive action, external spend or external message is granted."
+}

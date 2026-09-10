@@ -8,7 +8,7 @@
 
 ## وضعیت فعلی
 
-Product Studio و Catalog محلی فعال‌اند و بدون Notion کار می‌کنند. Adapter رسمی Notion در کد آماده است، اما اتصال بیرونی عمداً تا زمان تعیین Workspace، مجوزها و Secret فعال نشده است. هیچ محتوایی از مخزن هنوز به Notion ارسال نشده است.
+Product Studio و Catalog محلی فعال‌اند. اتصال رسمی Notion در Test برقرار است و صفحهٔ ریشهٔ `Hero Product Development` قابل‌خواندن است؛ اولین سند کنترل‌شدهٔ `HERO-PRODUCT-HERO-BRIEF` نیز در آن ساخته و با checksum تأیید شده است. Blueprint شش‌بخشی و ۱۱ Database طبق تأیید مالک ساخته و verify شده‌اند. mapping پایدار PostgreSQL برای bulk هنوز تا اصلاح رمز اتصال PostgreSQL Test آماده نیست.
 
 ## کارهای لازم مالک، به زبان ساده
 

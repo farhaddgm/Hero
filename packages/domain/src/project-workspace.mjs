@@ -1,0 +1,96 @@
+import { createHash, randomUUID } from "node:crypto";
+import { FOUNDATION_PROPOSAL_STATES, PROJECT_INPUT_TYPES, PROJECT_LIFECYCLES } from "../../contracts/src/project-workspace.mjs";
+
+const ID = /^[A-Za-z][A-Za-z0-9._:-]{2,127}$/;
+const PROJECT_SLUG = /^[a-z][a-z0-9-]{2,62}$/;
+const URL = /^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+(?:\.git)?\/?$/;
+const DANGEROUS = /(?:ignore (?:all|previous) instructions|system prompt|jailbreak|exfiltrat(?:e|ion)|reveal (?:secret|credential|password))/i;
+const PRIVATE_HOST = /(?:localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]|10\.|192\.168\.|169\.254\.|172\.(?:1[6-9]|2\d|3[01])\.)/i;
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+const MAX_TEXT_BYTES = 512 * 1024;
+const MAX_ZIP_EXPANDED_BYTES = 50 * 1024 * 1024;
+
+function copy(value) { return Object.freeze(structuredClone(value)); }
+function assertId(label, value) { if (typeof value !== "string" || !ID.test(value)) throw new ProjectWorkspaceError("INVALID_IDENTIFIER", `${label} is invalid.`, 400); return value; }
+function assertProjectId(value) { if (typeof value !== "string" || !PROJECT_SLUG.test(value)) throw new ProjectWorkspaceError("INVALID_PROJECT_ID", "projectId must be a lower-case stable slug.", 400); return value; }
+function assertOwner(actor) { if (actor?.role !== "project-owner") throw new ProjectWorkspaceError("OWNER_REQUIRED", "Only the owner may create, archive or request deletion of projects.", 403); return actor; }
+function assertProjectEditor(actor) { if (!actor || !["project-owner", "admin"].includes(actor.role)) throw new ProjectWorkspaceError("PROJECT_WRITE_REQUIRED", "Project admin or owner access is required.", 403); return actor; }
+function string(value, label, max = 500) { if (typeof value !== "string" || value.trim().length === 0 || value.trim().length > max) throw new ProjectWorkspaceError("INVALID_INPUT", `${label} is invalid.`, 400); return value.trim(); }
+function noSensitive(value, path = "data") {
+  if (Array.isArray(value)) return value.forEach((item, index) => noSensitive(item, `${path}[${index}]`));
+  if (!value || typeof value !== "object") return;
+  for (const [key, child] of Object.entries(value)) {
+    if (/(?:api[_-]?key|access[_-]?token|refresh[_-]?token|secret|password|credential|authorization)/i.test(key)) throw new ProjectWorkspaceError("SENSITIVE_INPUT_FORBIDDEN", `${path}.${key} is not allowed.`, 400);
+    noSensitive(child, `${path}.${key}`);
+  }
+}
+function asBuffer(content) { if (Buffer.isBuffer(content)) return Buffer.from(content); if (typeof content === "string") return Buffer.from(content, "utf8"); throw new ProjectWorkspaceError("UPLOAD_CONTENT_REQUIRED", "Upload content must be text or binary.", 400); }
+function signatureValid(type, value) {
+  if (type === "text" || type === "link" || type === "github-repository") return true;
+  if (type === "pdf") return value.subarray(0, 5).toString("ascii") === "%PDF-";
+  if (["word", "excel", "zip"].includes(type)) return value.length >= 4 && value.subarray(0, 2).toString("ascii") === "PK";
+  if (type === "image") return value.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) || value.subarray(0, 3).toString("ascii") === "\xff\xd8\xff";
+  return false;
+}
+function previewText(type, data) { return type === "text" ? data.toString("utf8").slice(0, 4096) : null; }
+
+export class ProjectWorkspaceError extends Error {
+  constructor(code, message, statusCode = 409) { super(message); this.name = "ProjectWorkspaceError"; this.code = code; this.statusCode = statusCode; }
+}
+
+/** A private, no-network project workspace. Adapters for real AV, document
+ * parsing, object storage and GitHub are injected later; missing adapters fail
+ * closed rather than silently carrying out external work. */
+export function createProjectWorkspace({ ownerUserId = "hero-owner", now = () => new Date().toISOString(), settings = null, scanner = ({ bytes }) => ({ state: "clean", engine: "deterministic-static", bytes }), parser = null, uploadQuotaBytes = MAX_UPLOAD_BYTES } = {}) {
+  assertId("ownerUserId", ownerUserId);
+  if (!Number.isInteger(uploadQuotaBytes) || uploadQuotaBytes < 1024 || uploadQuotaBytes > 100 * 1024 * 1024) throw new Error("uploadQuotaBytes must be a safe integer quota.");
+  const projects = new Map(); const uploads = new Map(); const proposals = new Map(); const imports = new Map(); const deletionRequests = new Map(); const objectStore = new Map();
+  function project(projectId) { const row = projects.get(assertProjectId(projectId)); if (!row) throw new ProjectWorkspaceError("PROJECT_NOT_FOUND", "Project was not found.", 404); return row; }
+  function assertVersion(row, expectedVersion) { if (expectedVersion !== undefined && expectedVersion !== row.version) throw new ProjectWorkspaceError("STALE_PROJECT_VERSION", "Project changed before this command was applied.", 409); }
+  function update(row, patch) { const next = copy({ ...row, ...patch, version: row.version + 1, updatedAt: now() }); projects.set(row.projectId, next); return next; }
+  function projectUploads(projectId) { return [...uploads.values()].filter(item => item.projectId === projectId); }
+  function makeFoundationProposal(row, actor) {
+    const existing = [...proposals.values()].find(item => item.projectId === row.projectId && ["proposed", "revision-requested"].includes(item.state));
+    if (existing) return existing;
+    const policyPack = settings?.suggestPolicyPack({ projectId: row.projectId, projectType: row.intake.projectType, riskLevel: row.intake.riskLevel, actor }) ?? null;
+    const proposal = copy({ proposalId: `foundation-${randomUUID()}`, projectId: row.projectId, version: 1, state: "proposed", createdAt: now(), createdBy: actor?.subject ?? ownerUserId, brief: { intent: row.intake.intent, goal: row.intake.goal, users: row.intake.users, constraints: row.intake.constraints, expectedOutputs: row.intake.expectedOutputs, autonomy: row.intake.autonomy }, suggested: { roadmap: [{ id: "research", status: "proposed" }, { id: "analysis", status: "proposed" }, { id: "implementation", status: "proposed" }, { id: "test", status: "proposed" }], team: ["راهبرو", "محصولو", "تحلیلگرو", "معمارو", "دولوپرو", "تسترو"], models: policyPack?.values ?? {}, budget: policyPack?.values?.["budget.tokenHardCap"] ?? null, environments: ["development", "test", "production"], gates: ["foundation-approval", "test-evidence", "production-separate-approval"] }, revisions: [] });
+    proposals.set(proposal.proposalId, proposal); return proposal;
+  }
+  return Object.freeze({
+    createProject({ actor, projectId, name, description = "", intake = {} }) {
+      assertOwner(actor); const id = assertProjectId(projectId); if (projects.has(id)) throw new ProjectWorkspaceError("PROJECT_EXISTS", "ProjectId already exists.", 409);
+      noSensitive(intake);
+      const normalized = { intent: string(intake.intent ?? name, "intake.intent"), goal: string(intake.goal ?? "Define the desired product outcome", "intake.goal"), users: string(intake.users ?? "Owner-defined users", "intake.users"), constraints: Array.isArray(intake.constraints) ? intake.constraints.map(item => string(item, "constraint", 240)) : [], expectedOutputs: Array.isArray(intake.expectedOutputs) ? intake.expectedOutputs.map(item => string(item, "expected output", 240)) : [], autonomy: ["approval-each-stage", "approved-autonomous"].includes(intake.autonomy) ? intake.autonomy : "approval-each-stage", projectType: intake.projectType ?? "application", riskLevel: intake.riskLevel ?? "standard" };
+      noSensitive(normalized); const row = copy({ projectId: id, name: string(name, "name", 160), description: String(description).slice(0, 2000), lifecycle: "intake", status: "active", version: 1, createdAt: now(), updatedAt: now(), createdBy: actor.subject, intake: normalized }); projects.set(id, row);
+      const foundation = makeFoundationProposal(row, actor); return copy({ project: row, foundationProposal: foundation, policyPack: settings?.policyPack(id) ?? null });
+    },
+    getProject(projectId) { return copy(project(projectId)); },
+    listProjects() { return Object.freeze([...projects.values()].sort((a, b) => a.projectId.localeCompare(b.projectId)).map(copy)); },
+    archiveProject({ actor, projectId, expectedVersion, reason }) { assertOwner(actor); const row = project(projectId); assertVersion(row, expectedVersion); return update(row, { lifecycle: "archived", status: "archived", archiveReason: string(reason, "reason", 500), archivedBy: actor.subject, archivedAt: now() }); },
+    requestDeletion({ actor, projectId, expectedVersion, reason }) { assertOwner(actor); const row = project(projectId); assertVersion(row, expectedVersion); const request = copy({ deletionRequestId: `deletion-${randomUUID()}`, projectId: row.projectId, state: "requested", reason: string(reason, "reason", 500), requestedBy: actor.subject, requestedAt: now(), historyPreserved: true }); deletionRequests.set(row.projectId, request); update(row, { lifecycle: "deletion-requested", status: "deletion-requested" }); return request; },
+    submitIntake({ actor, projectId, expectedVersion, intake }) { assertProjectEditor(actor); const row = project(projectId); assertVersion(row, expectedVersion); noSensitive(intake); const next = update(row, { intake: { ...row.intake, ...intake }, lifecycle: "foundation-review" }); return copy({ project: next, foundationProposal: makeFoundationProposal(next, actor) }); },
+    upload({ actor, projectId, type, filename, content, mimeType = "application/octet-stream", zipExpandedBytes = null }) {
+      assertProjectEditor(actor); const row = project(projectId); if (!PROJECT_INPUT_TYPES.includes(type) || type === "link" || type === "github-repository") throw new ProjectWorkspaceError("INVALID_UPLOAD_TYPE", "This input type cannot use binary upload.", 400);
+      const bytes = asBuffer(content); if (bytes.length === 0 || bytes.length > uploadQuotaBytes) throw new ProjectWorkspaceError("UPLOAD_QUOTA_EXCEEDED", "Upload exceeds the private project quota.", 413);
+      if (type === "text" && bytes.length > MAX_TEXT_BYTES) throw new ProjectWorkspaceError("TEXT_UPLOAD_TOO_LARGE", "Text input exceeds the safe parser limit.", 413);
+      if (!signatureValid(type, bytes)) throw new ProjectWorkspaceError("FILE_SIGNATURE_INVALID", "File signature does not match its declared type.", 415);
+      if (type === "zip" && (!Number.isInteger(zipExpandedBytes) || zipExpandedBytes < 0 || zipExpandedBytes > MAX_ZIP_EXPANDED_BYTES || zipExpandedBytes > bytes.length * 100)) throw new ProjectWorkspaceError("ZIP_BOMB_REJECTED", "ZIP declared expansion exceeds the sandbox limit.", 413);
+      const scan = scanner({ projectId: row.projectId, type, bytes, filename, mimeType }); if (!scan || scan.state !== "clean") throw new ProjectWorkspaceError("MALWARE_SCAN_REJECTED", "Upload was not confirmed clean by the scanner.", 422);
+      const text = previewText(type, bytes); const suspicious = Boolean(text && DANGEROUS.test(text)); const uploadId = `upload-${randomUUID()}`; const checksum = createHash("sha256").update(bytes).digest("hex"); const objectKey = `hero/uploads/${row.projectId}/${uploadId}/${checksum}`;
+      objectStore.set(objectKey, Buffer.from(bytes)); const parse = parser ? parser({ type, bytes: Buffer.from(bytes), mimeType }) : { state: type === "text" ? "parsed" : "deferred-adapter-required", text: type === "text" ? text : null };
+      const entry = copy({ uploadId, projectId: row.projectId, type, filename: string(filename, "filename", 240), mimeType: string(mimeType, "mimeType", 160), byteLength: bytes.length, checksum, objectKey, scan: { state: "clean", engine: String(scan.engine ?? "configured").slice(0, 80) }, parse: { state: parse?.state ?? "deferred-adapter-required", text: suspicious ? null : (parse?.text ?? null), reviewRequired: suspicious, reason: suspicious ? "untrusted-instruction-pattern" : null }, createdAt: now(), createdBy: actor.subject }); uploads.set(uploadId, entry); return entry;
+    },
+    registerLink({ actor, projectId, url, label }) {
+      assertProjectEditor(actor); project(projectId); if (typeof url !== "string" || !/^https:\/\//.test(url) || PRIVATE_HOST.test(url) || /@/.test(new globalThis.URL(url).host)) throw new ProjectWorkspaceError("SSRF_URL_REJECTED", "Only public HTTPS links without embedded credentials are accepted.", 400);
+      const uploadId = `link-${randomUUID()}`; const entry = copy({ uploadId, projectId, type: "link", label: string(label ?? url, "label", 240), url, fetchState: "pending-separate-authorization", createdAt: now(), createdBy: actor.subject }); uploads.set(uploadId, entry); return entry;
+    },
+    listInputs({ projectId }) { project(projectId); return Object.freeze(projectUploads(projectId).map(copy)); },
+    foundationProposal({ projectId }) { project(projectId); return [...proposals.values()].filter(item => item.projectId === projectId).sort((a, b) => b.version - a.version)[0] ?? null; },
+    reviseFoundation({ actor, projectId, proposalId, expectedVersion, changes, reason }) { assertProjectEditor(actor); project(projectId); const prior = proposals.get(assertId("proposalId", proposalId)); if (!prior || prior.projectId !== projectId) throw new ProjectWorkspaceError("FOUNDATION_NOT_FOUND", "Foundation proposal was not found.", 404); if (prior.version !== expectedVersion || !["proposed", "revision-requested"].includes(prior.state)) throw new ProjectWorkspaceError("STALE_FOUNDATION", "Foundation proposal is not editable in this version/state.", 409); noSensitive(changes); const next = copy({ ...prior, ...changes, state: "revision-requested", version: prior.version + 1, updatedAt: now(), revisions: [...prior.revisions, { actor: actor.subject, reason: string(reason, "reason", 500), at: now() }] }); proposals.set(proposalId, next); return next; },
+    approveFoundation({ actor, projectId, proposalId, expectedVersion }) { assertProjectEditor(actor); const row = project(projectId); const proposal = proposals.get(assertId("proposalId", proposalId)); if (!proposal || proposal.projectId !== projectId || proposal.version !== expectedVersion || !["proposed", "revision-requested"].includes(proposal.state)) throw new ProjectWorkspaceError("FOUNDATION_APPROVAL_INVALID", "Foundation proposal cannot be approved.", 409); const approved = copy({ ...proposal, state: "approved", approvedAt: now(), approvedBy: actor.subject }); proposals.set(proposalId, approved); settings?.applyPolicyPack({ actor, projectId, reason: "Foundation proposal approved" }); update(row, { lifecycle: "active", foundationProposalId: proposalId }); return approved; },
+    importGithubReadOnly({ actor, projectId, repositoryUrl, inventory = {} }) { assertProjectEditor(actor); project(projectId); if (typeof repositoryUrl !== "string" || !URL.test(repositoryUrl)) throw new ProjectWorkspaceError("GITHUB_REPOSITORY_INVALID", "Only a public-form GitHub repository URL is accepted for read-only import planning.", 400); noSensitive(inventory); const plan = copy({ importId: `github-import-${randomUUID()}`, projectId, repositoryUrl: repositoryUrl.replace(/\.git\/?$/, ""), mode: "read-only-inventory", state: "awaiting-separate-fetch-authorization", inventory: { branches: Array.isArray(inventory.branches) ? inventory.branches.map(String) : [], dependencies: Array.isArray(inventory.dependencies) ? inventory.dependencies.map(String) : [], workflows: Array.isArray(inventory.workflows) ? inventory.workflows.map(String) : [], documents: Array.isArray(inventory.documents) ? inventory.documents.map(String) : [] }, adoptionPlan: { actions: ["inspect repository metadata", "compare catalog", "prepare adoption proposal"], prohibited: ["commit", "refactor", "secret change", "deploy"] }, createdAt: now(), createdBy: actor.subject }); imports.set(plan.importId, plan); return plan; },
+    cloneFromTemplate({ actor, sourceProjectId, projectId, name, description = "" }) { assertOwner(actor); const source = project(sourceProjectId); const created = this.createProject({ actor, projectId, name, description, intake: structuredClone(source.intake) }); return copy({ ...created, clone: { sourceProjectId, exclusions: ["secret", "production-data", "memory", "private-history", "sessions", "uploads"] } }); },
+    privateObjectMetadata({ actor, projectId, uploadId }) { assertProjectEditor(actor); project(projectId); const item = uploads.get(assertId("uploadId", uploadId)); if (!item || item.projectId !== projectId) throw new ProjectWorkspaceError("UPLOAD_NOT_FOUND", "Upload was not found.", 404); return copy({ uploadId: item.uploadId, objectKey: item.objectKey, checksum: item.checksum, byteLength: item.byteLength }); },
+    deletionRequest(projectId) { project(projectId); return deletionRequests.get(projectId) ?? null; }
+  });
+}

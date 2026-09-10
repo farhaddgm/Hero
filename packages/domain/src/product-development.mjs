@@ -25,6 +25,12 @@ function hash(value) {
   return crypto.createHash("sha256").update(value).digest("hex");
 }
 
+function withoutVolatileIndexTimestamps(value) {
+  if (Array.isArray(value)) return value.map(withoutVolatileIndexTimestamps);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(Object.entries(value).filter(([key]) => key !== "lastIndexedAt").map(([key, nested]) => [key, withoutVolatileIndexTimestamps(nested)]));
+}
+
 function isInsideRoot(candidate, root) {
   const relative = path.relative(root, candidate);
   return relative !== "" && !relative.startsWith("..") && !path.isAbsolute(relative);
@@ -60,6 +66,10 @@ function documentRole(document) {
 
 function documentClassification(document) {
   return ["public", "internal", "restricted"].includes(document.classification) ? document.classification : "internal";
+}
+
+function documentClassificationSource(document) {
+  return ["public", "internal", "restricted"].includes(document.classification) ? "explicit" : "default-internal";
 }
 
 function readSourceCommit() {
@@ -125,6 +135,7 @@ export function createProductDevelopmentCatalog({ root = process.cwd(), sourceCo
         editClass: editClassFor(entry),
         role: documentRole(entry),
         classification: documentClassification(entry),
+        classificationSource: documentClassificationSource(entry),
         notionEligible: documentClassification(entry) !== "restricted",
         sourceCommit,
         checksum: hash(content),
@@ -215,7 +226,7 @@ export function createProductDevelopmentCatalog({ root = process.cwd(), sourceCo
         errorCount: errors.length
       }
     };
-    snapshot.digest = hash(JSON.stringify({ products: snapshot.products, documents: snapshot.documents, roadmap: snapshot.roadmap, roadmapGraph: snapshot.roadmapGraph, errors: snapshot.errors }));
+    snapshot.digest = hash(JSON.stringify(withoutVolatileIndexTimestamps({ products: snapshot.products, documents: snapshot.documents, roadmap: snapshot.roadmap, roadmapGraph: snapshot.roadmapGraph, errors: snapshot.errors })));
     return immutableCopy(snapshot);
   }
 

@@ -1,7 +1,7 @@
 # فهرست مرکزی مستندات Hero
 
 - Document ID: `HERO-DOC-INDEX`
-- Version: `1.1.0`
+- Version: `1.2.0`
 - Status: `active`
 - Owner: `hero-documentation`
 - Scope: `hero`
@@ -43,7 +43,7 @@ Product ابتدا با owner و Evidence در Product registry ثبت می‌ش
 | `HERO-ARCH-AI-ORCHESTRATION` | `active` | [معماری یکپارچهٔ Multi-AI در Hero](architecture/AI_ORCHESTRATION.md) |
 | `HERO-ARCH-ASSURANCE-GATE` | `active` | [Assurance Gate](architecture/ASSURANCE_GATE.md) |
 | `HERO-ARCH-AUTHORIZATION-ENGINE` | `active` | [Hero authorization engine](architecture/AUTHORIZATION_ENGINE.md) |
-| `HERO-ARCH-BACKOFFICE` | `active` | [بک‌آفیس توسعهٔ Hero](architecture/BACKOFFICE.md) |
+| `HERO-ARCH-BACKOFFICE` | `superseded` | [بک‌آفیس توسعهٔ Hero — وضعیت تاریخی](architecture/BACKOFFICE.md)؛ جایگزین: `HERO-SPEC-022` |
 | `HERO-ARCH-CRITICAL-PRINCIPLES` | `active` | [اصول حیاتی Hero و محصولات](architecture/CRITICAL_PRINCIPLES.md) |
 | `HERO-ARCH-DATA-MODEL` | `active` | [Hero operational data model](architecture/DATA_MODEL.md) |
 | `HERO-ARCH-ENVIRONMENT-AND-PRODUCT-RELEASE-MODEL` | `active` | [مدل محیط و انتشار Hero و محصولات](architecture/ENVIRONMENT-AND-PRODUCT-RELEASE-MODEL.md) |
@@ -73,6 +73,11 @@ Product ابتدا با owner و Evidence در Product registry ثبت می‌ش
 | `HERO-ADR-0007` | `active` | [ADR-0007 — تیم به‌عنوان واحد عملیاتیِ قابل‌کنترل](decisions/ADR-0007-team-as-governed-operating-unit.md) |
 | `HERO-ADR-0008` | `proposed` | [ADR-0008 — اصول حیاتی و Promotion از test به production](decisions/ADR-0008-critical-principles-and-test-production-promotion.md) |
 | `HERO-ADR-0009` | `active` | [ADR-0009 — Multi-AI orchestration inside Hero](decisions/ADR-0009-multi-ai-orchestration-in-hero.md) |
+| `HERO-ADR-0011` | `active` | [ADR-0011 — مرز Control Plane، Execution Plane و Data Plane](decisions/ADR-0011-backoffice-control-execution-data-planes.md) |
+| `HERO-ADR-0012` | `active` | [ADR-0012 — هویت انسانی و ProjectGrant با deny-by-default](decisions/ADR-0012-human-identity-and-project-grants.md) |
+| `HERO-ADR-0013` | `active` | [ADR-0013 — Project Workspace، Settings و Portfolio API-backed](decisions/ADR-0013-project-workspace-settings-and-portfolio.md) |
+| `HERO-ADR-0014` | `active` | [ADR-0014 — Collaboration، Command Center و System Catalog](decisions/ADR-0014-collaboration-command-center-and-system-catalog.md) |
+| `HERO-ADR-0015` | `active` | [ADR-0015 — Catalog Intelligence، Token Ledger و Notification Inbox](decisions/ADR-0015-catalog-intelligence-and-inbox.md) |
 | `HERO-GOV-AUTHORITY` | `active` | [سیاست اختیار و توقف](governance/AUTHORITY.md) |
 | `HERO-GOV-CHANGE-CONTROL` | `active` | [کنترل تغییر](governance/CHANGE_CONTROL.md) |
 | `HERO-GOV-DEFINITION-OF-DONE` | `active` | [تعریف Done](governance/DEFINITION_OF_DONE.md) |
@@ -128,6 +133,7 @@ Product ابتدا با owner و Evidence در Product registry ثبت می‌ش
 | `HERO-SPEC-019` | `active` | [HERO-019 v1.0 — امنیت، CI، مشاهده‌پذیری و کنترل هزینه](specs/HERO-019-v1.0.md) |
 | `HERO-SPEC-020` | `active` | [HERO-020 v1.0 — انتقال‌پذیری، Backup و بازیابی](specs/HERO-020-v1.0.md) |
 | `HERO-SPEC-021` | `active` | [HERO-021 v1.0 — پایلوت انتهابه‌انتها](specs/HERO-021-v1.0.md) |
+| `HERO-SPEC-022` | `active` | [HERO-022 v1.0 — Back Office Command Center و Control Plane جامع Hero](specs/HERO-022-v1.0.md) |
 
 ## Evidence
 
@@ -135,6 +141,16 @@ Product ابتدا با owner و Evidence در Product registry ثبت می‌ش
 |---|---|---|
 | `HERO-OPS-ACCESS-AUDIT-20260904` | `active` | [شواهد بررسی دسترسی و محیط Test — ۲۰۲۶-۰۹-۰۴](operations/ACCESS-AUDIT-20260904.md) |
 | `HERO-OPS-RECOVERY-EVIDENCE-20260830` | `active` | [Recovery evidence — 2026-08-30](operations/RECOVERY-EVIDENCE-20260830.md) |
+| `HERO-EVIDENCE-BACKOFFICE-BASELINE-BO-001-010` | `active` | [Baseline و Gap Register بک‌آفیس — BO-001 تا BO-010](roadmap/BACKOFFICE-BASELINE-BO-001-010.md) |
+| `HERO-EVIDENCE-BACKOFFICE-FOUNDATION-BO-011-020` | `active` | [Evidence زیرساخت داده و رویداد بک‌آفیس — BO-011 تا BO-020](roadmap/BACKOFFICE-FOUNDATION-BO-011-020.md) |
+| `HERO-EVIDENCE-BACKOFFICE-IDENTITY-BO-021-030` | `active` | [Evidence Identity و ProjectGrant — BO-021 تا BO-030](roadmap/BACKOFFICE-IDENTITY-BO-021-030.md) |
+| `HERO-EVIDENCE-BACKOFFICE-WORKSPACE-POLICY-PORTFOLIO-BO-031-060` | `active` | [Evidence Project Workspace، Policy و Portfolio — BO-031 تا BO-060](roadmap/BACKOFFICE-WORKSPACE-POLICY-PORTFOLIO-BO-031-060.md) |
+| `HERO-EVIDENCE-BACKOFFICE-COLLABORATION-COMMAND-CATALOG-BO-061-090` | `active` | [Evidence Collaboration، Command Center و System Catalog — BO-061 تا BO-090](roadmap/BACKOFFICE-COLLABORATION-COMMAND-CATALOG-BO-061-090.md) |
+| `HERO-EVIDENCE-BACKOFFICE-CATALOG-INTELLIGENCE-INBOX-BO-091-120` | `active` | [Evidence Catalog، Intelligence و Inbox — BO-091 تا BO-120](roadmap/BACKOFFICE-CATALOG-INTELLIGENCE-INBOX-BO-091-120.md) |
+| `HERO-EVIDENCE-BACKOFFICE-ENVIRONMENT-DELIVERY-HARDENING-FINAL-BO-121-170` | `active` | [Evidence Environment تا Final Readiness — BO-121 تا BO-170](roadmap/BACKOFFICE-ENVIRONMENT-DELIVERY-HARDENING-FINAL-BO-121-170.md) |
+| `HERO-ADR-0016` | `active` | [ADR-0016 — Infrastructure، Delivery، Hardening و Final Readiness](decisions/ADR-0016-infrastructure-delivery-hardening-and-final-readiness.md) |
+| `HERO-OPS-BACKOFFICE-RUNBOOK` | `active` | [Runbook بک‌آفیس](operations/BACKOFFICE-RUNBOOK.md) |
+| `HERO-REF-BACKOFFICE-GLOSSARY` | `active` | [واژه‌نامهٔ Back Office](reference/BACKOFFICE-GLOSSARY.md) |
 | `HERO-ROADMAP-BASELINE-20260904` | `active` | [Baseline ممیزی Hero — ۲۰۲۶-۰۹-۰۴](roadmap/BASELINE-20260904.md) |
 | `HERO-ROADMAP-CANDIDATE-EVIDENCE-20260904` | `active` | [شناسنامهٔ Candidate Hero — ۲۰۲۶-۰۹-۰۴](roadmap/CANDIDATE-EVIDENCE-20260904.md) |
 | `HERO-ROADMAP-EXECUTION-20260909-100-STEPS` | `active` | [گزارش اجرای ۱۰۰ گام Hero — ۲۰۲۶-۰۹-۰۹](roadmap/EXECUTION-20260909-100-STEPS.md) |
@@ -153,6 +169,7 @@ Product ابتدا با owner و Evidence در Product registry ثبت می‌ش
 | `HERO-ROADMAP-OPEN-50-PRIORITY-20260904` | `active` | [پنجاه گام باز و اولویت‌دار Hero](roadmap/OPEN-50-PRIORITY-20260904.md) |
 | `HERO-ROADMAP-ROADMAP-2-0-TEAM-OPERATING-MODEL` | `active` | [رودمپ ۲.۰ Hero — شرکت نرم‌افزاری چندتیمی](roadmap/ROADMAP-2.0-TEAM-OPERATING-MODEL.md) |
 | `HERO-ROADMAP-FUTURE-REQUIRED-PRICING-CATALOG` | `active` | [قابلیت ضروری آینده: Pricing Catalog نسخه‌دار Hero](roadmap/FUTURE-REQUIRED-PRICING-CATALOG.md) |
+| `HERO-ROADMAP-BACKOFFICE-COMMAND-CENTER-V1` | `active` | [برنامهٔ جامع توسعهٔ Back Office Command Center — v1.0](roadmap/BACKOFFICE-COMMAND-CENTER-IMPLEMENTATION-v1.0.md) |
 
 ## Templateها
 

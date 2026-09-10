@@ -41,6 +41,29 @@ const OPERATIONS_TABLES = Object.freeze(["owner_session_revocations"]);
 const ACCESS_AUDIT_TABLES = Object.freeze(["read_model_access_audit"]);
 const PRICING_CATALOG_TABLES = Object.freeze(["pricing_catalogs", "pricing_catalog_entries", "pricing_catalog_activations"]);
 const NOTION_SYNC_TABLES = Object.freeze(["notion_document_mappings"]);
+const BACKOFFICE_FOUNDATION_TABLES = Object.freeze([
+  "backoffice_entity_versions",
+  "backoffice_event_envelopes",
+  "backoffice_inbox_receipts",
+  "backoffice_outbox",
+  "backoffice_read_model_snapshots"
+]);
+const PROJECT_IDENTITY_TABLES = Object.freeze([
+  "human_users",
+  "project_grant_versions",
+  "human_session_revocations",
+  "human_identity_audit"
+]);
+const PROJECT_WORKSPACE_TABLES = Object.freeze([
+  "project_registry_versions",
+  "project_input_metadata",
+  "foundation_proposal_versions",
+  "project_setting_versions",
+  "project_import_plans"
+]);
+const COLLABORATION_COMMAND_CATALOG_TABLES = Object.freeze(["collaboration_records", "command_decision_records", "approval_records", "system_catalog_entities", "system_catalog_dependencies"]);
+const INTELLIGENCE_NOTIFICATION_TABLES = Object.freeze(["usage_events", "evaluation_records", "health_records", "notification_records", "observability_audit_records", "catalog_drift_proposals"]);
+const DELIVERY_HARDENING_READINESS_TABLES = Object.freeze(["infrastructure_control_records", "delivery_control_records", "hardening_control_records", "final_readiness_records"]);
 
 export const POSTGRES_TABLES = Object.freeze([
   ...INITIAL_TABLES,
@@ -50,7 +73,13 @@ export const POSTGRES_TABLES = Object.freeze([
   ...OPERATIONS_TABLES,
   ...ACCESS_AUDIT_TABLES,
   ...PRICING_CATALOG_TABLES,
-  ...NOTION_SYNC_TABLES
+  ...NOTION_SYNC_TABLES,
+  ...BACKOFFICE_FOUNDATION_TABLES,
+  ...PROJECT_IDENTITY_TABLES,
+  ...PROJECT_WORKSPACE_TABLES,
+  ...COLLABORATION_COMMAND_CATALOG_TABLES,
+  ...INTELLIGENCE_NOTIFICATION_TABLES,
+  ...DELIVERY_HARDENING_READINESS_TABLES
 ]);
 
 export const POSTGRES_MIGRATIONS = Object.freeze([
@@ -101,6 +130,42 @@ export const POSTGRES_MIGRATIONS = Object.freeze([
     name: "notion-document-mappings",
     file: "008_notion_document_mappings.sql",
     tables: NOTION_SYNC_TABLES
+  }),
+  Object.freeze({
+    id: "009",
+    name: "backoffice-data-foundation",
+    file: "009_backoffice_data_foundation.sql",
+    tables: BACKOFFICE_FOUNDATION_TABLES
+  }),
+  Object.freeze({
+    id: "010",
+    name: "project-identity-and-grants",
+    file: "010_project_identity_and_grants.sql",
+    tables: PROJECT_IDENTITY_TABLES
+  }),
+  Object.freeze({
+    id: "011",
+    name: "project-workspace-and-settings",
+    file: "011_project_workspace_and_settings.sql",
+    tables: PROJECT_WORKSPACE_TABLES
+  }),
+  Object.freeze({
+    id: "012",
+    name: "collaboration-command-catalog",
+    file: "012_collaboration_command_catalog.sql",
+    tables: COLLABORATION_COMMAND_CATALOG_TABLES
+  }),
+  Object.freeze({
+    id: "013",
+    name: "catalog-intelligence-notifications",
+    file: "013_catalog_intelligence_notifications.sql",
+    tables: INTELLIGENCE_NOTIFICATION_TABLES
+  }),
+  Object.freeze({
+    id: "014",
+    name: "backoffice-delivery-hardening-readiness",
+    file: "014_backoffice_delivery_hardening_readiness.sql",
+    tables: DELIVERY_HARDENING_READINESS_TABLES
   })
 ]);
 
