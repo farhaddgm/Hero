@@ -159,7 +159,21 @@ test("provider cost accounting supports separate input and output rates", async 
   const readiness = await adapter.assertDispatchReady({ credentialRef: "env:TEST_OPENAI_KEY", modelId: "gpt-test-split", role: "analyst", outputSchema: "analysis-v1", maxOutputTokens: 100, maxCostUnits: 1_000, request: "تحلیل کن.", context: {} });
   assert.ok(readiness.worstCaseCostUnits <= 1_000);
   const result = await adapter.generate({ credentialRef: "env:TEST_OPENAI_KEY", modelId: "gpt-test-split", role: "analyst", outputSchema: "analysis-v1", maxOutputTokens: 100, maxCostUnits: 1_000, request: "تحلیل کن.", context: {} });
-  assert.equal(result.usage.costUnits, 1);
+  assert.equal(result.usage.costUnits, 3);
+});
+
+test("incomplete live-provider usage fails closed instead of becoming zero cost", async () => {
+  const adapter = createOpenAiResponsesAdapter({
+    endpoint: "https://api.example.test/v1/responses",
+    credentialEnv: "TEST_OPENAI_KEY",
+    env: { TEST_OPENAI_KEY: "runtime-secret" },
+    pricingCatalog: testPricingCatalog(),
+    fetchImpl: async () => ({ ok: true, status: 200, async json() { return { output_text: '{"schema":"analysis-v1"}', usage: {} }; } })
+  });
+  await assert.rejects(
+    () => adapter.generate({ credentialRef: "env:TEST_OPENAI_KEY", modelId: "gpt-test", role: "analyst", outputSchema: "analysis-v1", maxOutputTokens: 100, maxCostUnits: 1_000, request: "تحلیل کن.", context: {} }),
+    error => error.code === "USAGE_INVALID"
+  );
 });
 
 test("external-spend budget is cumulative, conservative and persisted across invocations", async () => {

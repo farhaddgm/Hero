@@ -1,7 +1,7 @@
 # معماری یکپارچهٔ Multi-AI در Hero
 
 - نسخهٔ قرارداد: 1.0
-- وضعیت: هستهٔ deterministic، role routing، Skill Registry، Organization Advisor، Quality Gate، ارزیابی ۱۱ تیم، reliability، benchmark مصنوعی، transport adapterهای واقعی و hydration نسخه‌دار پیاده‌سازی شده؛ Provider زنده همچنان جداگانه gated است
+- وضعیت: هستهٔ deterministic، role routing، Skill Registry، Organization Advisor، Quality Gate، ارزیابی ۱۱ تیم، reliability، benchmark مصنوعی، Pricing Catalog نسخه‌دار، transport adapterهای واقعی و hydration نسخه‌دار پیاده‌سازی شده؛ Provider زنده همچنان جداگانه gated است
 - دامنه: ادغام معماری `ai-assistant/Wepod` با پلتفرم Hero
 
 ## تصمیم معماری
@@ -139,6 +139,7 @@ Diagnostic read model در `/api/operations/diagnostics` سلامت ۱۱ Project
 - projection adapter متصل به Event Store و migration افزایشی 003؛
 - benchmark مصنوعی نسخه‌دار برای مقایسهٔ Provider/Profile بدون شبکه و بدون اختیاردهی؛
 - گیت live invocation با external-spend authorization نسخه‌مند، تطبیق Step ID/Document Version، active authorization verifier، timeout/retry و cost accounting؛
+- Pricing Catalog نسخه‌دار با Registry، migration 007، Token/Request-Unit Adapter، sync خارج از مسیر درخواست، fail-closed و تست synthetic؛ نرخ دستی Environment منبع هزینه نیست؛
 - migration 004 و hydration نسخه‌دار ده Registry دامنه و وضعیت Control Dashboard از PostgreSQL؛ Snapshotها append-only هستند و مقدار خام credential را نمی‌پذیرند؛
 - endpointهای `/api/ai/events`، `/api/ai/skills`، `/api/ai/skill-bindings`، `/api/ai/role-policies`، `/api/ai/organization-evaluations` و `/api/ai/organization-advisor`، به‌همراه قراردادهای Skill و Advisor؛
 - endpoint عمومی `/ai-orchestration-contract`.

@@ -46,17 +46,28 @@ function resolveCredential({ credentialRef, credentialEnv, env }) {
   return credential;
 }
 
-function numberOrZero(value) {
-  return Number.isFinite(Number(value)) && Number(value) >= 0 ? Math.floor(Number(value)) : 0;
+function usageInteger(value, label, { optional = false } = {}) {
+  if (value === undefined || value === null) {
+    if (optional) return 0;
+    throw new AiProviderAdapterError("USAGE_INVALID", `Provider usage.${label} is required for cost accounting.`);
+  }
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw new AiProviderAdapterError("USAGE_INVALID", `Provider usage.${label} must be a non-negative safe integer.`);
+  }
+  return value;
 }
 
 function buildUsage(raw, costAccounting) {
   if (!costAccounting || typeof costAccounting.estimate !== "function") throw new AiProviderAdapterError("COST_ACCOUNTING_NOT_CONFIGURED", "The provider pricing catalog is not configured.");
   const value = raw && typeof raw === "object" ? raw : {};
-  const inputTokens = numberOrZero(value.input_tokens ?? value.prompt_tokens ?? value.inputTokens);
-  const outputTokens = numberOrZero(value.output_tokens ?? value.completion_tokens ?? value.outputTokens);
-  const cachedInputTokens = numberOrZero(value.cached_input_tokens ?? value.cachedInputTokens ?? value.prompt_tokens_details?.cached_tokens ?? value.input_token_details?.cached_tokens);
-  const totalTokens = numberOrZero(value.total_tokens ?? value.totalTokens) || inputTokens + outputTokens;
+  const inputTokens = usageInteger(value.input_tokens ?? value.prompt_tokens ?? value.inputTokens, "inputTokens");
+  const outputTokens = usageInteger(value.output_tokens ?? value.completion_tokens ?? value.outputTokens, "outputTokens");
+  const cachedInputTokens = usageInteger(value.cached_input_tokens ?? value.cachedInputTokens ?? value.prompt_tokens_details?.cached_tokens ?? value.input_token_details?.cached_tokens, "cachedInputTokens", { optional: true });
+  const reportedTotal = value.total_tokens ?? value.totalTokens;
+  const totalTokens = reportedTotal === undefined || reportedTotal === null
+    ? inputTokens + outputTokens
+    : usageInteger(reportedTotal, "totalTokens");
+  if (totalTokens < inputTokens + outputTokens) throw new AiProviderAdapterError("USAGE_INVALID", "Provider usage.totalTokens cannot be lower than input plus output tokens.");
   const estimate = costAccounting.estimate({ inputTokens, outputTokens, cachedInputTokens, totalTokens });
   const costUnits = estimate.costUnits;
   if (!Number.isInteger(costUnits) || costUnits < 0 || costUnits > 100_000) {

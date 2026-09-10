@@ -6,10 +6,11 @@ Test آماده است: سه سرویس healthy، PostgreSQL واقعی، readin
 
 تصمیم فعلی مالک: خرید سرور دوم و Recovery فعلاً انجام نمی‌شود. این مورد در مرحلهٔ توسعه و Test مانع نیست؛ اما قبل از استفادهٔ عملیاتی نهایی یا Production باید انجام شود.
 
-یادآوری ضروری آینده: Pricing Catalog نسخه‌دار باید قبل از فعال‌سازی Provider پولی
-پیاده‌سازی شود. نرخ‌ها نباید دستی از Environment خوانده شوند؛ جزئیات، تست‌ها، migration
-و شرط تأیید در [FUTURE-REQUIRED-PRICING-CATALOG.md](../roadmap/FUTURE-REQUIRED-PRICING-CATALOG.md)
-ثبت شده است. فعلاً شما هیچ کاری برای این مورد انجام ندهید و API Key واقعی را فعال نکنید.
+یادآوری ضروری آینده: هستهٔ synthetic Pricing Catalog نسخه‌دار پیاده‌سازی و تست شده است.
+نرخ‌ها نباید دستی از Environment خوانده شوند؛ جزئیات، migration و گیت rollout در
+[FUTURE-REQUIRED-PRICING-CATALOG.md](../roadmap/FUTURE-REQUIRED-PRICING-CATALOG.md)
+ثبت شده است. فعلاً شما برای Catalog کاری نکنید و API Key واقعی را فعال نکنید؛ فعال‌سازی
+واقعی فقط با مجوز جداگانه انجام می‌شود.
 
 فعلاً فقط دو اقدام بیرونی لازم است:
 

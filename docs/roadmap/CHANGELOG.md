@@ -1,5 +1,15 @@
 # تغییرات رودمپ شرکت
 
+## 2026-09-10 — پیاده‌سازی synthetic Pricing Catalog نسخه‌دار
+
+- افزوده‌شده: قرارداد Catalog برای Provider/Model، نرخ token و request-unit، ارز، منبع رسمی، اعتبار و نسخه؛
+- افزوده‌شده: Registry، sync مدیریتی خارج از مسیر درخواست و persistence append-only PostgreSQL در migration `007`؛
+- افزوده‌شده: محاسبهٔ cached input، تبدیل به Hero Cost Units، cap پیش از dispatch و metadata امن برای audit؛
+- حذف‌شده: نرخ‌های دستی هزینه از Environment و مسیر runtime؛ استفادهٔ صریح از آن‌ها fail-closed رد می‌شود؛
+- تأییدشده: تست synthetic مدل ناشناخته/منقضی، cap، منبع نامعتبر، Adapter غیرتوکنی، persistence، redaction و عدم تماس شبکه؛
+- مرز: بدون API Key، Provider واقعی، sync اینترنتی، external spend یا تغییر Production؛
+- مرجع: `docs/roadmap/FUTURE-REQUIRED-PRICING-CATALOG.md`.
+
 ## 2026-09-10 — ثبت قابلیت ضروری Pricing Catalog نسخه‌دار
 
 - ثبت‌شده: ساختار عمومی Catalog برای Provider/Model، نرخ ورودی/خروجی/cached، ارز، منبع رسمی، زمان اعتبار و نسخه؛

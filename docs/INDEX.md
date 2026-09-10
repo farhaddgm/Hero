@@ -144,7 +144,7 @@ Product ابتدا با owner و Evidence در Product registry ثبت می‌ش
 | `HERO-ROADMAP-NEXT-20-STEPS-20260904` | `active` | [بیست گام بعدی Hero — وضعیت اجرایی](roadmap/NEXT-20-STEPS-20260904.md) |
 | `HERO-ROADMAP-OPEN-50-PRIORITY-20260904` | `active` | [پنجاه گام باز و اولویت‌دار Hero](roadmap/OPEN-50-PRIORITY-20260904.md) |
 | `HERO-ROADMAP-ROADMAP-2-0-TEAM-OPERATING-MODEL` | `active` | [رودمپ ۲.۰ Hero — شرکت نرم‌افزاری چندتیمی](roadmap/ROADMAP-2.0-TEAM-OPERATING-MODEL.md) |
-| `HERO-ROADMAP-FUTURE-REQUIRED-PRICING-CATALOG` | `proposed` | [قابلیت ضروری آینده: Pricing Catalog نسخه‌دار Hero](roadmap/FUTURE-REQUIRED-PRICING-CATALOG.md) |
+| `HERO-ROADMAP-FUTURE-REQUIRED-PRICING-CATALOG` | `active` | [قابلیت ضروری آینده: Pricing Catalog نسخه‌دار Hero](roadmap/FUTURE-REQUIRED-PRICING-CATALOG.md) |
 
 ## Templateها
 

@@ -148,6 +148,12 @@ function safeCurrencyAmount(price, units, conversion) {
   return amount;
 }
 
+function safeUnitAmount(price, units, conversion) {
+  const amount = price * units * conversion;
+  if (!Number.isFinite(amount) || amount < 0 || amount > Number.MAX_SAFE_INTEGER) throw new PricingCatalogError("COST_ACCOUNTING_INVALID", "The pricing calculation overflowed.");
+  return amount;
+}
+
 function tokenCost(entry, { inputTokens, outputTokens, cachedInputTokens = 0 }) {
   const input = assertCount("inputTokens", inputTokens);
   const output = assertCount("outputTokens", outputTokens);
@@ -203,7 +209,7 @@ export function createRequestUnitPricingAdapter({ catalog, providerId, modelId }
   function estimate({ units = 1 } = {}) {
     const entry = resolve();
     const count = assertCount("units", units, 1_000_000);
-    const costUnits = assertCostUnits(Math.ceil(safeCurrencyAmount(entry.unitPrice, count, entry.heroUnitsPerCurrencyUnit)));
+    const costUnits = assertCostUnits(Math.ceil(safeUnitAmount(entry.unitPrice, count, entry.heroUnitsPerCurrencyUnit)));
     return copy({ costUnits, pricing: pricingSnapshot(entry), units, unitName: entry.unitName });
   }
 
