@@ -2,6 +2,8 @@
 
 Hero پایه‌ی مستقل و قابل‌انتقال یک ارکستریتور توسعه با هوش مصنوعی است. این مخزن از صفر ساخته شده و به هیچ پروژه‌ی دیگری روی میزبان وابسته نیست.
 
+فهرست مرجع اسناد در [docs/INDEX.md](docs/INDEX.md) قرار دارد. [حاکمیت مستندات](docs/governance/DOCUMENTATION-GOVERNANCE.md) Git را منبع حقیقت و رجیستری را مرز canonical می‌داند؛ [مدل محیط و انتشار](docs/architecture/ENVIRONMENT-AND-PRODUCT-RELEASE-MODEL.md) نیز جداسازی Hero و Product در Test/Production را تعریف می‌کند.
+
 ## وضعیت فعلی
 
 گام‌های HERO-001 تا HERO-019، پیاده‌سازی محلی HERO-022/HERO-023 و قراردادهای HERO-020/HERO-021 این موارد را فراهم می‌کنند؛ HERO-024 تا HERO-026 همچنان گیت‌های عملیاتیِ بازنشده دارند:

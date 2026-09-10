@@ -1,5 +1,7 @@
 # فلو نسخه‌گذاری و انتشار Hero
 
+این سند سیاست canonical تمامیت Artifact و promotion است. تفکیک Hero Test/Production از Product Test/Production و نقش Control Plane در [مدل محیط و انتشار Hero و محصولات](ENVIRONMENT-AND-PRODUCT-RELEASE-MODEL.md) تعریف شده است.
+
 ## تصمیم معماری
 
 هر محصول دو محیط دارد:

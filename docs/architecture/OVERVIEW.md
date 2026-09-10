@@ -1,5 +1,7 @@
 # Hero architecture overview
 
+مدل canonical محیط‌های Hero و Product در [ENVIRONMENT-AND-PRODUCT-RELEASE-MODEL.md](ENVIRONMENT-AND-PRODUCT-RELEASE-MODEL.md) و فهرست همهٔ اسناد ثبت‌شده در [فهرست مرکزی](../INDEX.md) قرار دارد. این overview خلاصه است و جای آن مراجع را نمی‌گیرد.
+
 ## Chosen shape
 
 Hero is a modular monolith with isolated execution runners. The Control Plane owns coordination and policy; no UI or Provider adapter is allowed to bypass that policy.

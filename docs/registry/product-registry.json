@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0.0",
+  "description": "Product metadata and references only. Shared principles and policies remain in canonical Hero documents.",
+  "required_fields": [
+    "product_id",
+    "name",
+    "owner",
+    "status",
+    "hero_control_plane",
+    "test_environment_reference",
+    "production_environment_reference",
+    "inherited_document_ids",
+    "product_specific_document_ids",
+    "release_policy"
+  ],
+  "allowed_statuses": [
+    "proposed",
+    "active",
+    "paused",
+    "retired",
+    "archived"
+  ],
+  "field_contract": {
+    "hero_control_plane": "Deployment identity such as hero-production; it is not a runtime or Secret reference.",
+    "test_environment_reference": "Canonical product-specific Document ID for the Test environment.",
+    "production_environment_reference": "Canonical product-specific Document ID for the Production environment.",
+    "inherited_document_ids": "Canonical shared Document IDs; content must not be copied into the Product.",
+    "product_specific_document_ids": "Canonical Product-scoped Document IDs.",
+    "release_policy": "Canonical Document ID defining the release policy."
+  },
+  "products": []
+}
