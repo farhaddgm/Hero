@@ -16,13 +16,13 @@
 
 مستندات رسمی Amnezia می‌گوید AmneziaWG برای کاهش signature قابل‌شناسایی WireGuard طراحی شده و AmneziaVPN هر دو AmneziaWG و XRay VLESS Reality را پشتیبانی می‌کند. این منابع جایگزین آزمون از ISP واقعی ایران نیستند.
 
-## تصمیم پیشنهادی Provider توسعهٔ Hero
+## تصمیم پیشنهادی Provider توسعهٔ Hero (برای مسیر AI، نه VPN runtime)
 
 - فقط Provider برابر OpenAI برای پایلوت اول؛
 - نقش‌های خواندنی از خانوادهٔ ChatGPT و Executor از خانوادهٔ Codex؛
-- Model ID دقیق فقط پس از بررسی دسترسی حساب مالک ثبت می‌شود؛
-- سقف پیشنهادی هزینهٔ اجرای AI در Hero برابر ۵ دلار است؛ در Hero هر cost unit برابر `0.0001 USD` تعریف می‌شود، پس سقف پیشنهادی `50000` واحد است؛
-- هزینهٔ VPS، دامنه و شبکهٔ VPN جداست و هنوز باید توسط مالک تعیین شود؛
+- Model ID دقیق فقط اگر خود فرآیند توسعهٔ این Pilot از AI orchestration استفاده کند، پس از بررسی دسترسی حساب مالک ثبت می‌شود؛ VPN runtime به Model ID نیاز ندارد؛
+- سقف پیشنهادی هزینهٔ اجرای AI در Hero برابر ۵ دلار است؛ این سقف برای مسیر AI است و به‌خودی‌خود مجوز اجرای Pilot VPN نیست؛
+- هزینهٔ VPS، دامنه و شبکهٔ VPN جداست و باید پیش از شروع توسط مالک تعیین و تصویب شود؛
 - یک مجوز زمان‌دار، محدود به `HERO-021/v1.0` و role/modelهای صریح لازم است.
 
-این سند مجوز هزینه یا اجرا نیست. برای تصویب، مالک باید محصول، مقصد Test، شبکه‌های آزمایش، سقف هزینهٔ زیرساخت و در صورت نیاز Model ID/سقف AI را جداگانه تأیید کند. VPN runtime برای کارکرد خود به API key یا AI Provider نیاز ندارد. قواعد مجوز در [EXTERNAL-SPEND-AUTHORIZATION.md](./EXTERNAL-SPEND-AUTHORIZATION.md) و محیط‌ها در [HERO-TEST-ENVIRONMENT.md](./HERO-TEST-ENVIRONMENT.md) هستند.
+این سند مجوز هزینه یا اجرا نیست. برای تصویب، مالک باید محصول، مقصد Test، شبکه‌های آزمایش و سقف هزینهٔ زیرساخت را جداگانه تأیید کند؛ فقط اگر مسیر AI فعال شود، Model ID، API key و سقف AI نیز گیت‌های مستقل خواهند بود. VPN runtime برای کارکرد خود به API key یا AI Provider نیاز ندارد. قواعد مجوز در [EXTERNAL-SPEND-AUTHORIZATION.md](./EXTERNAL-SPEND-AUTHORIZATION.md) و محیط‌ها در [HERO-TEST-ENVIRONMENT.md](./HERO-TEST-ENVIRONMENT.md) هستند.

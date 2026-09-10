@@ -37,14 +37,17 @@ import {
   getPilotContractSummary,
   projectOperationalEvent,
   getWebFactoryContractSummary,
-  getWorkflowContractSummary
+  getWorkflowContractSummary,
+  getProductDevelopmentContractSummary
 } from "../../../packages/contracts/src/index.mjs";
 import { DashboardCommandError, createControlDashboard } from "./dashboard-service.mjs";
 import { getDashboardHtml } from "./dashboard-view.mjs";
 import { getBackofficeHtml } from "./backoffice-view.mjs";
+import { getProductStudioHtml } from "./product-studio-view.mjs";
 import { OwnerAuthError, createOwnerAuth } from "../../../packages/domain/src/owner-auth.mjs";
 import { AdminAuthError, createAdminAuth } from "../../../packages/domain/src/admin-auth.mjs";
-import { createConfiguredAiProviderAdapters, createPostgresRuntime, createPricingCatalogRegistry, createRuntimeExternalSpendAuthorizer } from "../../../packages/adapters/src/index.mjs";
+import { ProductDevelopmentError, createProductDevelopmentCatalog } from "../../../packages/domain/src/product-development.mjs";
+import { createConfiguredAiProviderAdapters, createNotionApiAdapter, createPostgresRuntime, createPricingCatalogRegistry, createRuntimeExternalSpendAuthorizer } from "../../../packages/adapters/src/index.mjs";
 
 const PRIVATE_ROBOTS_POLICY = "noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate";
 const READ_MODEL_AUDIT_RESOURCES = new Set([
@@ -57,9 +60,13 @@ const READ_MODEL_AUDIT_RESOURCES = new Set([
   "/api/ai/role-policies/history",
   "/api/teams/contract-history",
   "/api/audit",
-  "/api/operations/diagnostics"
+  "/api/operations/diagnostics",
+  "/product-studio",
+  "/product-studio-data",
+  "/product-studio-document"
 ]);
 const BACKOFFICE_PATHS = new Set(["/backoffice", "/backoffice-data", "/backoffice-events"]);
+const PRODUCT_STUDIO_PATHS = new Set(["/product-studio", "/product-studio-data", "/product-studio-document"]);
 const DEFAULT_BACKOFFICE_RESPONSE_LIMIT_BYTES = 512 * 1024;
 const DEFAULT_BACKOFFICE_RATE_LIMIT_WINDOW_MS = 60_000;
 const DEFAULT_BACKOFFICE_RATE_LIMIT_MAX = 60;
@@ -254,6 +261,12 @@ export function createHeroServer(options = {}) {
     : Object.freeze({}));
   const externalSpendAuthorizer = options.externalSpendAuthorizer ?? createRuntimeExternalSpendAuthorizer();
   const dashboard = options.dashboard ?? createControlDashboard({ now: options.now, providerAdapters, externalSpendAuthorizer });
+  const productDevelopment = options.productDevelopment ?? createProductDevelopmentCatalog({
+    root: options.repositoryRoot ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../.."),
+    sourceCommit: options.sourceCommit,
+    now: options.now ?? (() => new Date().toISOString())
+  });
+  const notionAdapter = options.notionAdapter ?? createNotionApiAdapter();
   const ownerAuth = options.ownerAuth ?? createOwnerAuth({ secret: process.env.HERO_OWNER_AUTH_SECRET, now: options.now });
   const adminAuth = options.adminAuth ?? createAdminAuth({ secret: process.env.HERO_ADMIN_AUTH_SECRET, now: options.now });
   let postgresRuntime = options.postgresRuntime ?? null;
@@ -275,6 +288,21 @@ export function createHeroServer(options = {}) {
             ? postgresRuntime ? "ready" : "blocked-persistence-required"
             : "development-or-optional"
         })
+      })
+    });
+  }
+
+  function productStudioSnapshot() {
+    const catalog = productDevelopment.snapshot();
+    return Object.freeze({
+      ...catalog,
+      notion: Object.freeze({
+        configured: notionAdapter.configured === true,
+        status: notionAdapter.configured === true ? "api-ready-not-yet-authorized" : "not-configured",
+        mode: notionAdapter.configured === true ? "api-ready" : "disabled",
+        message: notionAdapter.configured === true
+          ? "Token پیدا شد؛ Workspace، parent page، scope و مجوز ارسال هنوز باید جداگانه تأیید شوند."
+          : "NOTION_API_TOKEN تنظیم نشده است؛ هیچ درخواست خارجی ارسال نمی‌شود."
       })
     });
   }
@@ -384,7 +412,8 @@ export function createHeroServer(options = {}) {
 
     try {
       const backofficePath = BACKOFFICE_PATHS.has(url.pathname);
-      if (backofficePath) {
+      const productStudioPath = PRODUCT_STUDIO_PATHS.has(url.pathname);
+      if (backofficePath || productStudioPath) {
         const rate = backofficeRateLimiter.consume(request.socket?.remoteAddress ?? "unknown");
         if (!rate.allowed) {
           response.writeHead(429, {
@@ -400,7 +429,7 @@ export function createHeroServer(options = {}) {
           return;
         }
       }
-      if (backofficePath && backofficeAuth && !matchesBasicAuth(basicCredentials(request), backofficeAuth)) {
+      if ((backofficePath || productStudioPath) && backofficeAuth && !matchesBasicAuth(basicCredentials(request), backofficeAuth)) {
         await recordReadAccess(url.pathname, "rejected");
         response.writeHead(401, {
           "www-authenticate": 'Basic realm="Hero Back Office", charset="UTF-8"',
@@ -411,7 +440,7 @@ export function createHeroServer(options = {}) {
         response.end("Back Office authentication required.");
         return;
       }
-      if (backofficePath && request.method !== "GET") {
+      if ((backofficePath || productStudioPath) && request.method !== "GET") {
         response.writeHead(405, {
           "allow": "GET",
           "content-type": "text/plain; charset=utf-8",
@@ -457,6 +486,23 @@ export function createHeroServer(options = {}) {
           }, { maxBytes: backofficeResponseLimitBytes });
         }
         return json(response, 200, { service: HERO_SERVICE, ...dashboard.backofficeEvents({ after, limit }) }, { maxBytes: backofficeResponseLimitBytes });
+      }
+
+      if (request.method === "GET" && url.pathname === "/product-studio") {
+        await recordReadAccess("/product-studio", "accepted", { kind: backofficeAuth ? "backoffice-basic-auth" : "project-owner", id: backofficeAuth ? "backoffice-user" : "development-local" });
+        return html(response, getProductStudioHtml({ initialData: productStudioSnapshot() }));
+      }
+
+      if (request.method === "GET" && url.pathname === "/product-studio-data") {
+        await recordReadAccess("/product-studio-data", "accepted", { kind: backofficeAuth ? "backoffice-basic-auth" : "project-owner", id: backofficeAuth ? "backoffice-user" : "development-local" });
+        return json(response, 200, productStudioSnapshot(), { maxBytes: backofficeResponseLimitBytes });
+      }
+
+      if (request.method === "GET" && url.pathname === "/product-studio-document") {
+        await recordReadAccess("/product-studio-document", "accepted", { kind: backofficeAuth ? "backoffice-basic-auth" : "project-owner", id: backofficeAuth ? "backoffice-user" : "development-local" });
+        const documentId = url.searchParams.get("documentId");
+        if (!documentId) throw new ProductDevelopmentError("DOCUMENT_ID_REQUIRED", "documentId is required.", 400);
+        return json(response, 200, { service: HERO_SERVICE, document: productDevelopment.document(documentId) }, { maxBytes: backofficeResponseLimitBytes });
       }
 
       const authenticatedOwner = url.pathname.startsWith("/api/")
@@ -521,6 +567,35 @@ export function createHeroServer(options = {}) {
 
       if (request.method === "GET" && url.pathname === "/api/dashboard") {
         return json(response, 200, { service: HERO_SERVICE, dashboard: dashboard.snapshot() });
+      }
+
+      if (request.method === "GET" && url.pathname === "/api/product-development/contract") {
+        return json(response, 200, { service: HERO_SERVICE, productDevelopmentContract: getProductDevelopmentContractSummary() });
+      }
+
+      if (request.method === "GET" && url.pathname === "/api/product-development/catalog") {
+        return json(response, 200, { service: HERO_SERVICE, catalog: productStudioSnapshot() }, { maxBytes: backofficeResponseLimitBytes });
+      }
+
+      if (request.method === "GET" && url.pathname === "/api/product-development/search") {
+        const query = url.searchParams.get("q") ?? "";
+        const productId = url.searchParams.get("productId") ?? undefined;
+        return json(response, 200, { service: HERO_SERVICE, query, results: productDevelopment.search({ query, productId }) });
+      }
+
+      const productDocumentMatch = url.pathname.match(/^\/api\/product-development\/documents\/([A-Z][A-Z0-9._:-]{2,127})$/);
+      if (request.method === "GET" && productDocumentMatch) {
+        return json(response, 200, { service: HERO_SERVICE, document: productDevelopment.document(productDocumentMatch[1]) }, { maxBytes: backofficeResponseLimitBytes });
+      }
+
+      if (request.method === "GET" && url.pathname === "/api/product-development/proposals") {
+        return json(response, 200, { service: HERO_SERVICE, proposals: productDevelopment.listChangeProposals() });
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/product-development/proposals") {
+        const input = await readJson(request);
+        const proposal = productDevelopment.createChangeProposal(input);
+        return json(response, 201, { service: HERO_SERVICE, proposal });
       }
 
       if (request.method === "GET" && url.pathname === "/api/operations/diagnostics") {
@@ -1062,9 +1137,9 @@ export function createHeroServer(options = {}) {
       if (error instanceof OwnerAuthError && rejectedReadResource) {
         await recordReadAccess(rejectedReadResource, "rejected");
       }
-      const known = error instanceof DashboardCommandError;
+      const known = error instanceof DashboardCommandError || error instanceof ProductDevelopmentError;
       const auth = error instanceof OwnerAuthError;
-      return json(response, auth ? error.statusCode : known ? 409 : 500, {
+      return json(response, auth ? error.statusCode : known ? (error.statusCode ?? 409) : 500, {
         service: HERO_SERVICE,
         status: auth ? "authentication_required" : known ? "command_rejected" : "internal_error",
         code: auth || known ? error.code : "INTERNAL_ERROR",

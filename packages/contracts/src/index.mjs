@@ -189,6 +189,41 @@ export {
 } from "./operational-diagnostics.mjs";
 
 export {
+  PRODUCT_DEVELOPMENT_CONTRACT_VERSION,
+  PRODUCT_STATUSES,
+  DOCUMENT_STATUSES,
+  DOCUMENT_TYPES,
+  ROADMAP_ITEM_STATUSES,
+  DOCUMENT_EDIT_CLASSES,
+  PRODUCT_DOCUMENT_REQUIRED_ROLES,
+  getProductDevelopmentContractSummary,
+  validateProductManifest,
+  validateDocumentCatalogEntry,
+  roadmapStatusFromText
+} from "./product-development.mjs";
+
+export {
+  PRODUCT_ROADMAP_CONTRACT_VERSION,
+  ROADMAP_NODE_TYPES,
+  ROADMAP_EDGE_TYPES,
+  ROADMAP_NODE_STATUSES,
+  COMPLETENESS_STAGES,
+  COMPLETENESS_SEVERITIES,
+  getProductRoadmapContractSummary,
+  validateRoadmapGraph
+} from "./product-roadmap.mjs";
+
+export {
+  NOTION_PRODUCT_DEVELOPMENT_CONTRACT_VERSION,
+  NOTION_SYNC_STATES,
+  NOTION_EDIT_POLICIES,
+  NOTION_DATABASE_DEFINITIONS,
+  validateNotionSyncMapping,
+  createNotionWorkspaceBlueprint,
+  getNotionProductDevelopmentContractSummary
+} from "./notion-product-development.mjs";
+
+export {
   WEB_FACTORY_CONTRACT_VERSION,
   WEB_FACTORY_DECISION_CODES,
   WEB_FACTORY_RECIPE_FIELDS,

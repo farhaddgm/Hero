@@ -182,6 +182,7 @@ export function getBackofficeHtml({ initialData = null } = {}) {
           <span id="overall" class="status-pill">در حال خواندن وضعیت…</span>
           <button id="refresh" class="button" type="button">به‌روزرسانی</button>
           <button id="download-report" class="button secondary" type="button">دریافت گزارش امن</button>
+          <a class="button secondary" href="/product-studio">Product Studio</a>
           <a class="button secondary" href="/">اتاق کنترل</a>
         </div>
       </header>

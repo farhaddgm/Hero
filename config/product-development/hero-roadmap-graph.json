@@ -1,0 +1,79 @@
+{
+  "schema_version": "1.0.0",
+  "product_id": "HERO-PRODUCT-HERO-001",
+  "nodes": [
+    {
+      "id": "HERO-OBJ-TRUSTWORTHY-PRODUCT-OS",
+      "type": "objective",
+      "status": "in_progress",
+      "title": "ساخت سیستم‌عامل قابل‌اعتماد توسعهٔ محصول Hero",
+      "product_id": "HERO-PRODUCT-HERO-001",
+      "evidence": ["HERO-ARCH-PRODUCT-DEVELOPMENT-KNOWLEDGE-SYSTEM"]
+    },
+    {
+      "id": "HERO-INIT-LOCAL-PRODUCT-CATALOG",
+      "type": "initiative",
+      "status": "in_progress",
+      "title": "کاتالوگ محصول، سند و گراف رودمپ قابل‌بازسازی",
+      "product_id": "HERO-PRODUCT-HERO-001",
+      "evidence": ["HERO-PRODUCT-HERO-BRIEF"]
+    },
+    {
+      "id": "HERO-INIT-CONTROLLED-NOTION",
+      "type": "initiative",
+      "status": "planned",
+      "title": "نمای Notion کنترل‌شده و قابل‌ویرایش به‌صورت Proposal",
+      "product_id": "HERO-PRODUCT-HERO-001",
+      "evidence": ["HERO-OPS-NOTION-SETUP"]
+    },
+    {
+      "id": "HERO-CAP-PRODUCT-STUDIO",
+      "type": "capability",
+      "status": "in_progress",
+      "title": "Product Studio برای مشاهدهٔ محصول، سند و رودمپ",
+      "product_id": "HERO-PRODUCT-HERO-001",
+      "evidence": ["HERO-ARCH-PRODUCT-DEVELOPMENT-KNOWLEDGE-SYSTEM"]
+    },
+    {
+      "id": "HERO-CAP-NOTION-MIRROR",
+      "type": "capability",
+      "status": "planned",
+      "title": "Mirror یک سند allow-listed از Git به Notion",
+      "product_id": "HERO-PRODUCT-HERO-001",
+      "evidence": ["HERO-PRODUCT-HERO-BRIEF"]
+    },
+    {
+      "id": "HERO-MILESTONE-FIRST-NOTION-SYNC",
+      "type": "milestone",
+      "status": "planned",
+      "title": "اولین ارسال idempotent به Notion",
+      "product_id": "HERO-PRODUCT-HERO-001",
+      "evidence": ["HERO-PRODUCT-HERO-BRIEF"]
+    },
+    {
+      "id": "HERO-MILESTONE-NOTION-SCHEMA",
+      "type": "milestone",
+      "status": "planned",
+      "title": "ساخت Blueprint و allowlist رسمی Workspace",
+      "product_id": "HERO-PRODUCT-HERO-001",
+      "evidence": []
+    },
+    {
+      "id": "HERO-MILESTONE-PILOT-READINESS",
+      "type": "milestone",
+      "status": "planned",
+      "title": "آمادگی پایلوت چندسندی در محیط Test",
+      "product_id": "HERO-PRODUCT-HERO-001",
+      "evidence": []
+    }
+  ],
+  "edges": [
+    { "id": "HERO-EDGE-OBJ-CATALOG", "from": "HERO-OBJ-TRUSTWORTHY-PRODUCT-OS", "to": "HERO-INIT-LOCAL-PRODUCT-CATALOG", "type": "contains" },
+    { "id": "HERO-EDGE-OBJ-NOTION", "from": "HERO-OBJ-TRUSTWORTHY-PRODUCT-OS", "to": "HERO-INIT-CONTROLLED-NOTION", "type": "contains" },
+    { "id": "HERO-EDGE-CATALOG-STUDIO", "from": "HERO-INIT-LOCAL-PRODUCT-CATALOG", "to": "HERO-CAP-PRODUCT-STUDIO", "type": "enables" },
+    { "id": "HERO-EDGE-CATALOG-MIRROR", "from": "HERO-INIT-LOCAL-PRODUCT-CATALOG", "to": "HERO-CAP-NOTION-MIRROR", "type": "enables" },
+    { "id": "HERO-EDGE-MIRROR-FIRST", "from": "HERO-CAP-NOTION-MIRROR", "to": "HERO-MILESTONE-FIRST-NOTION-SYNC", "type": "delivered-by" },
+    { "id": "HERO-EDGE-NOTION-SCHEMA", "from": "HERO-INIT-CONTROLLED-NOTION", "to": "HERO-MILESTONE-NOTION-SCHEMA", "type": "contains" },
+    { "id": "HERO-EDGE-SCHEMA-PILOT", "from": "HERO-MILESTONE-NOTION-SCHEMA", "to": "HERO-MILESTONE-PILOT-READINESS", "type": "enables" }
+  ]
+}

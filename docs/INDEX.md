@@ -1,7 +1,7 @@
 # فهرست مرکزی مستندات Hero
 
 - Document ID: `HERO-DOC-INDEX`
-- Version: `1.0.0`
+- Version: `1.1.0`
 - Status: `active`
 - Owner: `hero-documentation`
 - Scope: `hero`
@@ -11,9 +11,11 @@
 1. [مدل محیط و انتشار Hero و محصولات](architecture/ENVIRONMENT-AND-PRODUCT-RELEASE-MODEL.md) — `HERO-ARCH-ENVIRONMENT-AND-PRODUCT-RELEASE-MODEL`، `active`
 2. [حاکمیت کتابخانهٔ مستندات](governance/DOCUMENTATION-GOVERNANCE.md) — `HERO-GOV-DOCUMENTATION-GOVERNANCE`، `active`
 3. [Document registry](registry/document-registry.json) — رجیستری یکتای مسیر، شناسه، نسخه و وضعیت
-4. [Product registry](registry/product-registry.json) — رجیستری ارجاعی Productها؛ در وضعیت فعلی خالی است
+4. [Product registry](registry/product-registry.json) — رجیستری ارجاعی Hero و Productهای ساخته‌شده با آن
 
 Git repository منبع حقیقت است. Notion و Confluence فقط mirror خواندنی اختیاری‌اند. سندی که در Document registry ثبت نشده باشد canonical نیست.
+
+قراردادهای جدید سیستم توسعهٔ محصول در [ADR-0010](decisions/ADR-0010-product-development-source-of-truth.md)، [Roadmap Graph و Completeness](specs/ROADMAP-GRAPH-COMPLETENESS-v1.0.md)، [Notion Workspace Schema](specs/NOTION-WORKSPACE-SCHEMA-v1.0.md) و [Notion Sync Contract](specs/NOTION-SYNC-CONTRACT-v1.0.md) ثبت شده‌اند.
 
 ## مسیر استفاده
 
@@ -30,6 +32,7 @@ Product ابتدا با owner و Evidence در Product registry ثبت می‌ش
 | Product ID | وضعیت | اسناد اختصاصی |
 |---|---|---|
 | `HERO-PRODUCT-VPN-PILOT-001` | `proposed` | [Product Brief](products/vpn-pilot/PRODUCT-BRIEF.md)، [Test Environment](products/vpn-pilot/TEST-ENVIRONMENT.md)، [Release Policy](products/vpn-pilot/RELEASE-POLICY.md) |
+| `HERO-PRODUCT-HERO-001` | `active` | [Product Brief](products/hero/PRODUCT-BRIEF.md)، [Test Environment](products/hero/TEST-ENVIRONMENT.md)، [Release Policy](products/hero/RELEASE-POLICY.md) |
 
 این Product هنوز به Production نرفته است. مقصد Test، شبکه‌های آزمون، سقف هزینهٔ زیرساخت و تأیید مالک باید جداگانه ثبت شوند.
 
@@ -48,6 +51,7 @@ Product ابتدا با owner و Evidence در Product registry ثبت می‌ش
 | `HERO-ARCH-MOBILE-FACTORY` | `active` | [Mobile Factory](architecture/MOBILE_FACTORY.md) |
 | `HERO-ARCH-OVERVIEW` | `active` | [Hero architecture overview](architecture/OVERVIEW.md) |
 | `HERO-ARCH-PORTABILITY` | `active` | [Portability architecture](architecture/PORTABILITY.md) |
+| `HERO-ARCH-PRODUCT-DEVELOPMENT-KNOWLEDGE-SYSTEM` | `active` | [معماری سامانه یکپارچه توسعه محصول و دانش Hero](architecture/PRODUCT-DEVELOPMENT-KNOWLEDGE-SYSTEM.md) |
 | `HERO-ARCH-QUALITY-GATE` | `active` | [Quality Gate](architecture/QUALITY_GATE.md) |
 | `HERO-ARCH-RELEASE-FLOW` | `active` | [فلو نسخه‌گذاری و انتشار Hero](architecture/RELEASE_FLOW.md) |
 | `HERO-ARCH-TEAM-OPERATING-MODEL` | `active` | [مدل عملیاتی تیم‌های Hero](architecture/TEAM_OPERATING_MODEL.md) |
@@ -86,6 +90,10 @@ Product ابتدا با owner و Evidence در Product registry ثبت می‌ش
 | `HERO-OPS-GITHUB-RELEASE-AUTOMATION` | `active` | [خودکارسازی نسخه و تحویل Hero در GitHub](operations/GITHUB-RELEASE-AUTOMATION.md) |
 | `HERO-OPS-HERO-TEST-ENVIRONMENT` | `active` | [محیط Test برای خود Hero](operations/HERO-TEST-ENVIRONMENT.md) |
 | `HERO-OPS-MOVE-TO-ANOTHER-SERVER` | `active` | [Moving Hero to another server](operations/MOVE-TO-ANOTHER-SERVER.md) |
+| `HERO-OPS-NOTION-SETUP` | `active` | [راهنمای راه‌اندازی Notion برای Hero](operations/NOTION-SETUP.md) |
+| `HERO-OPS-NOTION-SYNC-RUNBOOK` | `active` | [Runbook همگام‌سازی کنترل‌شدهٔ Notion](operations/NOTION-SYNC-RUNBOOK.md) |
+| `HERO-OPS-NOTION-BULK-SYNC-PLAN` | `proposed` | [برنامهٔ همگام‌سازی انبوه Notion](operations/NOTION-BULK-SYNC-PLAN.md) |
+| `HERO-OPS-PRODUCT-DEVELOPMENT-PILOT` | `proposed` | [برنامهٔ پایلوت سیستم توسعهٔ محصول Hero](operations/PRODUCT-DEVELOPMENT-PILOT.md) |
 | `HERO-OPS-OPERATIONAL-DIAGNOSTICS` | `active` | [تشخیص سلامت عملیاتی Hero](operations/OPERATIONAL-DIAGNOSTICS.md) |
 | `HERO-OPS-OWNER-ACTIONS-NEXT-20260909` | `active` | [پیام کامل برای مالک و ادمین سرور Hero](operations/OWNER-ACTIONS-NEXT-20260909.md) |
 | `HERO-OPS-OWNER-ACTIONS-PENDING-20260904` | `active` | [کارهای لازم از طرف مالک و ادمین — وضعیت ۲۰۲۶-۰۹-۰۵](operations/OWNER-ACTIONS-PENDING-20260904.md) |

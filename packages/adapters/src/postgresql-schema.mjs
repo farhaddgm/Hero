@@ -40,6 +40,7 @@ const DOMAIN_SNAPSHOT_TABLES = Object.freeze(["domain_registry_snapshots"]);
 const OPERATIONS_TABLES = Object.freeze(["owner_session_revocations"]);
 const ACCESS_AUDIT_TABLES = Object.freeze(["read_model_access_audit"]);
 const PRICING_CATALOG_TABLES = Object.freeze(["pricing_catalogs", "pricing_catalog_entries", "pricing_catalog_activations"]);
+const NOTION_SYNC_TABLES = Object.freeze(["notion_document_mappings"]);
 
 export const POSTGRES_TABLES = Object.freeze([
   ...INITIAL_TABLES,
@@ -48,7 +49,8 @@ export const POSTGRES_TABLES = Object.freeze([
   ...DOMAIN_SNAPSHOT_TABLES,
   ...OPERATIONS_TABLES,
   ...ACCESS_AUDIT_TABLES,
-  ...PRICING_CATALOG_TABLES
+  ...PRICING_CATALOG_TABLES,
+  ...NOTION_SYNC_TABLES
 ]);
 
 export const POSTGRES_MIGRATIONS = Object.freeze([
@@ -93,6 +95,12 @@ export const POSTGRES_MIGRATIONS = Object.freeze([
     name: "pricing-catalog",
     file: "007_pricing_catalog.sql",
     tables: PRICING_CATALOG_TABLES
+  }),
+  Object.freeze({
+    id: "008",
+    name: "notion-document-mappings",
+    file: "008_notion_document_mappings.sql",
+    tables: NOTION_SYNC_TABLES
   })
 ]);
 

@@ -52,6 +52,11 @@ export {
 } from "./postgresql-pricing-catalog.mjs";
 
 export {
+  NotionSyncStoreError,
+  createPostgresNotionSyncStore
+} from "./postgresql-notion-sync-store.mjs";
+
+export {
   OutboxWorkerError,
   createPostgresOutboxWorker
 } from "./postgresql-outbox-worker.mjs";
@@ -80,3 +85,8 @@ export {
   createRuntimeExternalSpendAuthorizer,
   readRuntimeExternalSpendPolicy
 } from "./external-spend-authorization.mjs";
+
+export {
+  NotionAdapterError,
+  createNotionApiAdapter
+} from "./notion-api.mjs";

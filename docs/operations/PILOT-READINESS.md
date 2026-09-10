@@ -12,8 +12,8 @@
 | Snapshot و hydration رجیستری‌های اصلی | آماده | startup hydration از snapshotهای نسخه‌دار: ۱۱ registry، بدون مورد گمشده، integrity معتبر |
 | projection پایدار همهٔ domain commandها | آماده در Test جاری | restart کنترل‌شدهٔ Control Plane انجام شد و projection digest ثابت ماند |
 | session revocation پایدار مالک | آماده در قرارداد و persistence | احراز هویت fail-closed و snapshotهای PostgreSQL در Test جاری hydrate شدند؛ تست کامل revocation همچنان در suite پوشش دارد |
-| Provider واقعی | پیاده‌سازی آماده؛ runtime مسدود | Adapterها و verifier مجوز زمان‌دار/role-model-cost-bound آماده و تست‌شده‌اند؛ credential و مجوز واقعی مالک هنوز فعال نیست |
-| اجرای Task واقعی در Worktree | مسدود | نیازمند HERO-020 و مجوز/دسترسی Provider مستقل است |
+| Provider واقعی | برای VPN لازم نیست؛ برای AI جداگانه gated | VPN runtime با `runtimeProvider=none` به AI Provider، Model ID یا API key نیاز ندارد؛ Adapterها و verifier برای کارهای AI آماده‌اند اما credential و مجوز واقعی مالک فعال نیست |
+| اجرای Pilot واقعی در Worktree/زیرساخت مستقل | مسدود | نیازمند HERO-020، مقصد VPS/VM مستقل، شبکه‌های آزمون و مجوز اجرای Pilot است؛ AI Provider فقط در صورت افزودن orchestration هوش مصنوعی لازم می‌شود |
 | درخواست، پلتفرم و معیار پذیرش پایلوت | پیشنهاد نسخه‌دار؛ منتظر مالک | `HERO-PILOT-001/v1.0` برای VPN خصوصی با AmneziaWG و fallback XRay آماده است؛ مقصد VPS/VM، شبکه‌های آزمون و سقف زیرساخت باید تصویب شوند. چون runtime VPN به AI Provider نیاز ندارد، Model ID/سقف AI برای خود این Pilot لازم نیست. |
 | production، deploy، spend و secret change | مسدود تا مجوز جدا | این عملیات هرگز از مجوز توسعه استنتاج نمی‌شوند |
 
@@ -35,7 +35,7 @@
 pnpm check:pilot
 ```
 
-این فرمان فقط وضعیت گیت‌ها را گزارش می‌کند و هیچ Provider، deploy، پیام بیرونی یا عملیات زیرساختی اجرا نمی‌کند. در وضعیت فعلی خروجی صحیح آن `blocked` است، چون سه گیت recovery عملیاتی، مجوز Provider و درخواست/معیار پذیرش Pilot باز هستند.
+این فرمان فقط وضعیت گیت‌ها را گزارش می‌کند و هیچ Provider، deploy، پیام بیرونی یا عملیات زیرساختی اجرا نمی‌کند. در وضعیت فعلی خروجی صحیح آن `blocked` است، چون Recovery روی مقصد Clean Linux و تصویب مالک/سقف هزینهٔ زیرساخت درخواست Pilot باز هستند؛ گیت Provider برای VPN اعمال نمی‌شود.
 
 ## تعریف عبور
 

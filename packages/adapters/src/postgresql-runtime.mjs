@@ -6,6 +6,7 @@ import { createPostgresOwnerSessionStore } from "./owner-session-store.mjs";
 import { createPostgresBenchmarkStore } from "./postgresql-benchmark-store.mjs";
 import { createPostgresReadModelAccessAuditStore } from "./postgresql-read-model-access-audit.mjs";
 import { createPostgresPricingCatalogStore } from "./postgresql-pricing-catalog.mjs";
+import { createPostgresNotionSyncStore } from "./postgresql-notion-sync-store.mjs";
 
 export class PostgresRuntimeError extends Error {
   constructor(code, message) {
@@ -62,6 +63,7 @@ export async function createPostgresRuntime({ connectionString = process.env.HER
         benchmarkStore: createPostgresBenchmarkStore({ pool, client }),
         accessAudit: createPostgresReadModelAccessAuditStore({ pool, client }),
         pricingCatalogStore: createPostgresPricingCatalogStore({ pool, client }),
+        notionSyncMappings: createPostgresNotionSyncStore({ pool, client }),
         async ping() {
           await target.query("SELECT 1");
           return Object.freeze({ status: "ok", persistence: "postgresql" });

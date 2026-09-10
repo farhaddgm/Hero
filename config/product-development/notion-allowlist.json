@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0.0",
+  "mode": "controlled-test",
+  "bulk_write_approved": false,
+  "batch_size": 10,
+  "allowed_classifications": ["internal"],
+  "documents": [
+    {
+      "document_id": "HERO-PRODUCT-HERO-BRIEF",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "First controlled Notion sync approved by project owner."
+    }
+  ],
+  "default_policy": "deny",
+  "notes": [
+    "This allowlist does not authorize production or restricted-content sync.",
+    "Adding a document requires classification review and a separately recorded owner decision."
+  ]
+}

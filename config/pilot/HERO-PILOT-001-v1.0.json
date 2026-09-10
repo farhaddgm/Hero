@@ -63,6 +63,7 @@
     "proposedMaximumCostUnits": 50000,
     "proposedMaximumUsd": 5,
     "infrastructureBudgetStatus": "owner-must-set-separately",
+    "infrastructureApproved": false,
     "approved": false
   },
   "safety": {

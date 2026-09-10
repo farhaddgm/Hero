@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0.0",
+  "product_id": "HERO-PRODUCT-HERO-001",
+  "name": "Hero — سیستم‌عامل توسعه محصول",
+  "slug": "hero",
+  "status": "active",
+  "owner": "project-owner",
+  "repository": {
+    "kind": "local",
+    "root": ".",
+    "canonical_branch": "main"
+  },
+  "docs_root": "docs",
+  "inherited_document_ids": [
+    "HERO-ARCH-CRITICAL-PRINCIPLES",
+    "HERO-GOV-DOCUMENTATION-GOVERNANCE",
+    "HERO-OPS-SECRET-MANAGEMENT",
+    "HERO-ADR-0001",
+    "HERO-ADR-0005"
+  ],
+  "product_specific_document_ids": [
+    "HERO-PRODUCT-HERO-BRIEF",
+    "HERO-PRODUCT-HERO-TEST",
+    "HERO-PRODUCT-HERO-RELEASE"
+  ],
+  "capabilities": ["product-development", "document-catalog", "roadmap", "notion-adapter"],
+  "classification": "internal"
+}

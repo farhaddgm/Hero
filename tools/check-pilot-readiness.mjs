@@ -62,6 +62,10 @@ function providerReadiness(env = process.env, request = null) {
 function pilotRequestReadiness() {
   const request = jsonFile(pilotRequestFile);
   if (!request) return { ready: false, reason: "قرارداد ماشینی درخواست پایلوت وجود ندارد یا JSON معتبر نیست." };
+  const vpnRuntime = request.provider?.runtimeProvider === "none; VPN runtime does not require an AI Provider";
+  const aiProviderRequirementsReady = vpnRuntime
+    || (Array.isArray(request.provider?.modelIds) && request.provider.modelIds.length > 0 && request.budget?.approved === true);
+  const infrastructureBudgetReady = request.budget?.infrastructureApproved === true;
   const valid = request.pilotRequestId === "HERO-PILOT-001"
     && request.stepId === "HERO-021"
     && request.documentVersion === "v1.0"
@@ -69,12 +73,16 @@ function pilotRequestReadiness() {
     && request.ownerApproval?.approved === true
     && Array.isArray(request.acceptance?.mandatoryChecks)
     && request.acceptance.mandatoryChecks.length >= 6
-    && Array.isArray(request.provider?.modelIds)
-    && request.provider.modelIds.length > 0
-    && request.budget?.approved === true;
+    && aiProviderRequirementsReady
+    && infrastructureBudgetReady;
   return valid
-    ? { ready: true, reason: "درخواست، معیار پذیرش، Model و بودجهٔ پایلوت توسط مالک تصویب شده‌اند." }
-    : { ready: false, reason: "پیشنهاد HERO-PILOT-001 آماده است؛ تصویب مالک، Model ID و سقف هزینه هنوز ثبت نشده‌اند." };
+    ? { ready: true, reason: "درخواست، معیار پذیرش و سقف هزینهٔ زیرساخت پایلوت توسط مالک تصویب شده‌اند." }
+    : {
+        ready: false,
+        reason: vpnRuntime
+          ? "پیشنهاد HERO-PILOT-001 آماده است؛ تصویب مالک و سقف هزینهٔ زیرساخت هنوز ثبت نشده‌اند. VPN runtime به Model ID یا AI budget نیاز ندارد."
+          : "پیشنهاد HERO-PILOT-001 آماده است؛ تصویب مالک، Model ID، سقف هزینهٔ AI و سقف هزینهٔ زیرساخت هنوز کامل ثبت نشده‌اند."
+      };
 }
 
 const pilotRequest = pilotRequestReadiness();

@@ -40,7 +40,8 @@ test("PostgreSQL schema contract covers append-only audit and release boundaries
     "read_model_access_audit",
     "pricing_catalogs",
     "pricing_catalog_entries",
-    "pricing_catalog_activations"
+    "pricing_catalog_activations",
+    "notion_document_mappings"
   ]);
   const sql = readPostgresMigration("001");
   assert.match(sql, /sequence bigint GENERATED ALWAYS AS IDENTITY/);
@@ -70,6 +71,9 @@ test("PostgreSQL schema contract covers append-only audit and release boundaries
   assert.match(pricingCatalogSql, /CREATE TABLE IF NOT EXISTS pricing_catalogs/);
   assert.match(pricingCatalogSql, /CREATE TABLE IF NOT EXISTS pricing_catalog_entries/);
   assert.match(pricingCatalogSql, /pricing_catalog_activations_append_only_guard/);
+  const notionSql = readPostgresMigration("008");
+  assert.match(notionSql, /CREATE TABLE IF NOT EXISTS notion_document_mappings/);
+  assert.match(notionSql, /sync_state text NOT NULL/);
 });
 
 test("PostgreSQL migration runner is transaction-bound and requires an injected client", async () => {

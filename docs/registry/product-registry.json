@@ -30,6 +30,28 @@
   },
   "products": [
     {
+      "product_id": "HERO-PRODUCT-HERO-001",
+      "name": "Hero — سیستم‌عامل توسعه محصول",
+      "owner": "project-owner",
+      "status": "active",
+      "hero_control_plane": "hero-control-plane",
+      "test_environment_reference": "HERO-PRODUCT-HERO-TEST",
+      "production_environment_reference": "HERO-PRODUCT-HERO-RELEASE",
+      "inherited_document_ids": [
+        "HERO-ARCH-CRITICAL-PRINCIPLES",
+        "HERO-GOV-DOCUMENTATION-GOVERNANCE",
+        "HERO-OPS-SECRET-MANAGEMENT",
+        "HERO-ADR-0001",
+        "HERO-ADR-0005"
+      ],
+      "product_specific_document_ids": [
+        "HERO-PRODUCT-HERO-BRIEF",
+        "HERO-PRODUCT-HERO-TEST",
+        "HERO-PRODUCT-HERO-RELEASE"
+      ],
+      "release_policy": "HERO-PRODUCT-HERO-RELEASE"
+    },
+    {
       "product_id": "HERO-PRODUCT-VPN-PILOT-001",
       "name": "VPN خصوصی قابل‌آزمون برای استفاده از ایران",
       "owner": "project-owner",
