@@ -30,7 +30,7 @@ Hero پایه‌ی مستقل و قابل‌انتقال یک ارکستریتو
 - اصول حیاتی نسخه‌دار برای خود Hero و هر محصول، با گیت blocking و تأیید/رد/بازکاری مالک
 - orchestration چندنقشی AI با Role/Profile/Provider/Model مستقل، route نقش‌ها در Planner و پیش‌فرض executor/Codex برای implementation
 - Quality Gate متصل به Evaluation، timeout/retry/health/cost policy، ارزیابی دوره‌ای هر ۱۱ تیم و benchmark مصنوعی Provider/Profile
-- فلو انتشار دو محیطی: Git commit/tag → test → Evidence → تأیید مالک → فرمان مستقل production؛ بدون promote خودکار
+- فلو انتشار دو محیطی: Git commit/tag → test → Evidence → تأیید مالک → فرمان مستقل production؛ بدون promote خودکار. قرارداد همسان‌سازی Test/Production با `pnpm check:environment-parity` کنترل می‌شود؛ برابری واقعی runtime همچنان به digest یکسان و مجوز promotion نیاز دارد.
 
 Adapterهای واقعی OpenAI Responses، Anthropic Messages، Google Gemini و OpenAI-compatible در مرز adapter پیاده‌سازی شده‌اند؛ اما اجرای زنده همچنان به credential زمان اجرا، حساب هزینه و بررسی active authorization snapshot نیاز دارد و بدون آن fail-closed می‌ماند. Codex/Claude/Cursor داخل محصول به‌صورت پیش‌فرض فعال نیستند.
 

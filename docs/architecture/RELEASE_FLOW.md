@@ -62,6 +62,12 @@ Artifact ID، version و commit SHA در تمام مراحل با تطبیق د�
 
 در پیاده‌سازی فعلی، Release Registry و گیت‌ها واقعی و قابل تست‌اند، اما Deployment Adapter زنده عمداً غیرفعال است. بنابراین ثبت `production-promotion-requested` به‌معنای اجرای واقعی روی سرور نیست؛ اجرای واقعی فقط بعد از HERO-020، زیرساخت Linux و مجوز عملیاتی ثبت می‌شود.
 
+## برابری قرارداد Test و Production
+
+هر دو محیط از `compose.yaml` واحد و همان image/application contract استفاده می‌کنند. فرمان `pnpm check:environment-parity` مجموعهٔ کلیدهای env نمونه، defaultهای ایمن، قفل Provider/هزینه، منابع Compose و پورت‌های مجاز را بررسی می‌کند. تنها تفاوت‌های مجاز در نمونهٔ مخزن، نام پروژهٔ Compose، Secret و دادهٔ runtime و پورت محلی است (`43101` برای Test و `43100` برای Production).
+
+این کنترل، برابری source/config را ثابت می‌کند؛ به‌تنهایی ادعا نمی‌کند که هر دو runtime روی سرور یک Artifact اجرا می‌کنند. اثبات runtime همچنان به ثبت version، commit SHA و digest یکسان در Evidence هر دو محیط و سپس promotion صریح نیاز دارد.
+
 ## GitHub و محیط‌ها
 
 GitHub منبع کد، commit، branch، tag و CI است. تنظیم پیشنهادی Repository:

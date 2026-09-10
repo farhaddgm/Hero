@@ -114,3 +114,13 @@ rollback point
 `test.hero.beeproject.ir` باید پشت TLS، احراز هویت و در صورت امکان VPN یا IP allow-list باشد. `robots.txt` و `X-Robots-Tag` فقط جلوی index شدن معمول crawlerها را می‌گیرند و امنیت محسوب نمی‌شوند. نمونهٔ Caddy مسیرهای ناشناخته را `404` می‌کند و پورت داخلی را عمومی نمی‌کند.
 
 این runbook فقط Test خود Hero را پوشش می‌دهد. هر محصولی که Hero بعداً بسازد باید Compose project، دامنه، database، volume، secret و release flow مستقل خودش را داشته باشد.
+
+## کنترل برابری با Production
+
+Test و Production باید از همین `compose.yaml` و همین قرارداد application استفاده کنند؛ اختلاف محیطی فقط باید در project name، Secret/data runtime و پورت محلی باشد. در repository این شرط با فرمان زیر بررسی می‌شود:
+
+```bash
+pnpm check:environment-parity
+```
+
+این فرمان runtime یا Secret را نمی‌خواند و جایگزین Evidence استقرار نیست. پس از ساخت candidate، باید digest همان Artifact در Test ثبت و فقط همان digest با مجوز مستقل به Production promote شود.
