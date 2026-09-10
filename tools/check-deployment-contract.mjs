@@ -36,6 +36,7 @@ requireMatch(compose, /hero-postgres-data:/, "PostgreSQL must use its own projec
 requireMatch(compose, /hero-private:\s*\n\s*driver:\s*bridge/, "Services must use the private hero-private network.");
 requireMatch(compose, /HERO_ENABLE_REAL_PROVIDERS:\s*\$\{HERO_ENABLE_REAL_PROVIDERS:-false\}/, "Live Providers must default to disabled.");
 requireMatch(compose, /HERO_OPENAI_API_KEY:\s*\$\{HERO_OPENAI_API_KEY:-\}/, "OpenAI credentials must only be forwarded from runtime environment variables.");
+rejectMatch(compose, /HERO_(?:OPENAI|ANTHROPIC|GOOGLE|OPENAI_COMPATIBLE)_(?:COST_UNITS_PER_1K_TOKENS|INPUT_COST_UNITS_PER_1K_TOKENS|OUTPUT_COST_UNITS_PER_1K_TOKENS)/, "Provider pricing must come from the versioned Pricing Catalog, not Environment rates.");
 requireMatch(compose, /HERO_EXTERNAL_SPEND_AUTHORIZATION_ACTIVE:\s*\$\{HERO_EXTERNAL_SPEND_AUTHORIZATION_ACTIVE:-false\}/, "External-spend authorization must default to inactive.");
 requireMatch(compose, /HERO_EXTERNAL_SPEND_GLOBAL_STOP:\s*\$\{HERO_EXTERNAL_SPEND_GLOBAL_STOP:-false\}/, "External-spend Global Stop must remain an explicit runtime control.");
 rejectMatch(compose, /hero-postgres:[\s\S]{0,700}?\n\s+ports:/, "PostgreSQL must not publish a host port.");

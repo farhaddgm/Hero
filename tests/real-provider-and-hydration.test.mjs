@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   createOpenAiResponsesAdapter,
   createPostgresDomainRegistrySnapshotStore,
+  createPricingCatalogRegistry,
   createRuntimeExternalSpendAuthorizer,
   readRuntimeExternalSpendPolicy
 } from "../packages/adapters/src/index.mjs";
@@ -13,6 +14,19 @@ import { createAiOrchestration } from "../packages/domain/src/ai-orchestration.m
 const OWNER = { kind: "project-owner", id: "hero-owner" };
 const AGENT = { kind: "agent", id: "hero-live-test" };
 const now = () => "2026-08-30T12:00:00.000Z";
+
+function testPricingCatalog({ modelId = "gpt-test", inputPricePer1mTokens = 5, outputPricePer1mTokens = 10 } = {}) {
+  const registry = createPricingCatalogRegistry({ now });
+  registry.publish({
+    catalogVersion: "test-pricing-v1",
+    sourceUrl: "https://pricing.example.test/catalog",
+    fetchedAt: "2026-08-30T00:00:00.000Z",
+    validUntil: "2026-09-30T00:00:00.000Z",
+    entries: [{ providerId: "openai", modelId, inputPricePer1mTokens, outputPricePer1mTokens, currency: "USD" }]
+  });
+  registry.activate("test-pricing-v1");
+  return registry;
+}
 
 function liveAuthorization() {
   return {
@@ -34,7 +48,7 @@ test("OpenAI Responses adapter uses runtime credentials, structured JSON and usa
     endpoint: "https://api.example.test/v1/responses",
     credentialEnv: "TEST_OPENAI_KEY",
     env: { TEST_OPENAI_KEY: "runtime-secret-never-persisted" },
-    costUnitsPer1kTokens: 10,
+    pricingCatalog: testPricingCatalog(),
     fetchImpl: async (url, options) => {
       requests.push({ url, options });
       return {
@@ -80,10 +94,10 @@ test("a configured live provider still requires version-bound external-spend aut
     endpoint: "https://api.example.test/v1/responses",
     credentialEnv: "TEST_OPENAI_KEY",
     env: { TEST_OPENAI_KEY: "runtime-secret" },
-    costUnitsPer1kTokens: 10,
+    pricingCatalog: testPricingCatalog(),
     fetchImpl: async () => {
       calls += 1;
-      return { ok: true, status: 200, async json() { return { output_text: '{"schema":"analysis-v1"}', usage: {} }; } };
+      return { ok: true, status: 200, async json() { return { output_text: '{"schema":"analysis-v1"}', usage: { input_tokens: 10, output_tokens: 5, total_tokens: 15 } }; } };
     }
   });
   orchestration.registerProvider({ providerId: "openai", mode: "live", displayName: "OpenAI live", adapter, actor: OWNER, idempotencyKey: "live-provider-001" });
@@ -139,14 +153,13 @@ test("provider cost accounting supports separate input and output rates", async 
     endpoint: "https://api.example.test/v1/responses",
     credentialEnv: "TEST_OPENAI_KEY",
     env: { TEST_OPENAI_KEY: "runtime-secret" },
-    costUnitsPer1kInputTokens: 100,
-    costUnitsPer1kOutputTokens: 400,
+    pricingCatalog: testPricingCatalog({ modelId: "gpt-test-split", inputPricePer1mTokens: 10, outputPricePer1mTokens: 40 }),
     fetchImpl: async () => ({ ok: true, status: 200, async json() { return { output_text: '{"schema":"analysis-v1"}', usage: { input_tokens: 10, output_tokens: 5 } }; } })
   });
-  const readiness = await adapter.assertDispatchReady({ credentialRef: "env:TEST_OPENAI_KEY", modelId: "gpt-test", role: "analyst", outputSchema: "analysis-v1", maxOutputTokens: 100, maxCostUnits: 1_000, request: "تحلیل کن.", context: {} });
+  const readiness = await adapter.assertDispatchReady({ credentialRef: "env:TEST_OPENAI_KEY", modelId: "gpt-test-split", role: "analyst", outputSchema: "analysis-v1", maxOutputTokens: 100, maxCostUnits: 1_000, request: "تحلیل کن.", context: {} });
   assert.ok(readiness.worstCaseCostUnits <= 1_000);
-  const result = await adapter.generate({ credentialRef: "env:TEST_OPENAI_KEY", modelId: "gpt-test", role: "analyst", outputSchema: "analysis-v1", maxOutputTokens: 100, request: "تحلیل کن.", context: {} });
-  assert.equal(result.usage.costUnits, 3);
+  const result = await adapter.generate({ credentialRef: "env:TEST_OPENAI_KEY", modelId: "gpt-test-split", role: "analyst", outputSchema: "analysis-v1", maxOutputTokens: 100, maxCostUnits: 1_000, request: "تحلیل کن.", context: {} });
+  assert.equal(result.usage.costUnits, 1);
 });
 
 test("external-spend budget is cumulative, conservative and persisted across invocations", async () => {

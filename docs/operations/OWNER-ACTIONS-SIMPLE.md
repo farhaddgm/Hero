@@ -6,6 +6,11 @@ Test آماده است: سه سرویس healthy، PostgreSQL واقعی، readin
 
 تصمیم فعلی مالک: خرید سرور دوم و Recovery فعلاً انجام نمی‌شود. این مورد در مرحلهٔ توسعه و Test مانع نیست؛ اما قبل از استفادهٔ عملیاتی نهایی یا Production باید انجام شود.
 
+یادآوری ضروری آینده: Pricing Catalog نسخه‌دار باید قبل از فعال‌سازی Provider پولی
+پیاده‌سازی شود. نرخ‌ها نباید دستی از Environment خوانده شوند؛ جزئیات، تست‌ها، migration
+و شرط تأیید در [FUTURE-REQUIRED-PRICING-CATALOG.md](../roadmap/FUTURE-REQUIRED-PRICING-CATALOG.md)
+ثبت شده است. فعلاً شما هیچ کاری برای این مورد انجام ندهید و API Key واقعی را فعال نکنید.
+
 فعلاً فقط دو اقدام بیرونی لازم است:
 
 ## ۱. Provider و سقف هزینه را تأیید کنید
@@ -14,14 +19,14 @@ Test آماده است: سه سرویس healthy، PostgreSQL واقعی، readin
 
 API key را هرگز برای من، در Git، Sheet یا ticket ارسال نکنید.
 
-## ۲. پایلوت پیشنهادی را تأیید یا اصلاح کنید
+## ۲. پایلوت VPN پیشنهادی را تأیید یا اصلاح کنید
 
-پیشنهاد آماده: «وب‌اپ فارسی و RTL برای ثبت و پیگیری کارها، با ذخیره محلی و بدون API بیرونی یا Production». معیارهای دقیق در [PILOT-REQUEST-20260910.md](PILOT-REQUEST-20260910.md) آمده است.
+پیشنهاد آماده: «VPN خصوصی با مسیر اصلی AmneziaWG و fallback XRay VLESS Reality روی VPS/VM مستقل، فقط برای Test». معیارهای دقیق در [PILOT-REQUEST-20260910.md](PILOT-REQUEST-20260910.md) و اسناد Product-specific آمده است.
 
 اگر موافقید، همین جمله کافی است:
 
 ```text
-HERO-PILOT-001 v1.0 و سقف کل ۵ دلار را تأیید می‌کنم؛ فقط Test، فقط OpenAI، Model IDهای ثبت‌شده، بدون Production، پیام بیرونی یا عملیات مخرب.
+HERO-PILOT-001 v1.0 برای VPN خصوصی را تأیید می‌کنم؛ فقط Test، مقصد مستقل، AmneziaWG با fallback XRay VLESS Reality، شبکه‌های آزمون و سقف زیرساخت مشخص، بدون Production، پیام بیرونی یا عملیات مخرب. هزینهٔ AI فقط با تأیید جداگانه مجاز است.
 ```
 
 پس از انجام این دو اقدام، توسعه و تست‌های مجاز را ادامه می‌دهم. اجرای واقعی پایلوت تا ثبت Recovery Clean Linux همچنان قفل است؛ Production نیز مجوز مستقل می‌خواهد.

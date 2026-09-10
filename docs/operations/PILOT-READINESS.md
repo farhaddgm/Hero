@@ -14,7 +14,7 @@
 | session revocation پایدار مالک | آماده در قرارداد و persistence | احراز هویت fail-closed و snapshotهای PostgreSQL در Test جاری hydrate شدند؛ تست کامل revocation همچنان در suite پوشش دارد |
 | Provider واقعی | پیاده‌سازی آماده؛ runtime مسدود | Adapterها و verifier مجوز زمان‌دار/role-model-cost-bound آماده و تست‌شده‌اند؛ credential و مجوز واقعی مالک هنوز فعال نیست |
 | اجرای Task واقعی در Worktree | مسدود | نیازمند HERO-020 و مجوز/دسترسی Provider مستقل است |
-| درخواست، پلتفرم و معیار پذیرش پایلوت | پیشنهاد نسخه‌دار؛ منتظر مالک | `HERO-PILOT-001/v1.0` برای Web فارسی RTL با معیار عددی آماده است؛ Model ID و سقف پیشنهادی ۵ دلار باید تصویب شوند |
+| درخواست، پلتفرم و معیار پذیرش پایلوت | پیشنهاد نسخه‌دار؛ منتظر مالک | `HERO-PILOT-001/v1.0` برای VPN خصوصی با AmneziaWG و fallback XRay آماده است؛ مقصد VPS/VM، شبکه‌های آزمون، سقف زیرساخت و در صورت نیاز Model ID/سقف AI باید تصویب شوند |
 | production، deploy، spend و secret change | مسدود تا مجوز جدا | این عملیات هرگز از مجوز توسعه استنتاج نمی‌شوند |
 
 ## شواهد عملیاتی ثبت‌شده تا ۲۰۲۶-۰۹-۱۰
@@ -27,7 +27,7 @@
 - Back Office Test شامل ۱۱ تیم، ۸ Role، تنظیمات کل پروژه، راهنمای Role/مفهوم و دفتر `OPEN-50` با ۵۰ ردیف است؛ این projection read-only هیچ authorization یا dispatch ایجاد نمی‌کند.
 - در ۲۰۲۶-۰۹-۱۰، Test جاری `runtime=postgresql` و `readiness=ready` گزارش کرد؛ hydration برابر `hydrated`، شمار registry برابر ۱۱، شمار missing برابر صفر و event/snapshot integrity برابر `valid` بود.
 - پس از restart کنترل‌شدهٔ فقط Control Plane، health/readiness و metadata hydration دوباره موفق و projection digest بدون تغییر بود. PostgreSQL، volume و سرویس‌های دیگر restart یا recreate نشدند.
-- verification کد جاری در Linux container با `246/246` تست و Build برابر ۱۴۴ ماژول و ۹ فایل JSON موفق شد.
+- verification کد جاری در Linux container با `250/250` تست و Build برابر ۱۴۹ ماژول و ۱۱ فایل JSON موفق شد؛ `pnpm check:docs` نیز با ۹۱ سند، ۱ Product و ۰ خطا موفق شد.
 
 ## فرمان بررسی
 

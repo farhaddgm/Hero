@@ -1,18 +1,16 @@
 # راهنمای Provider واقعی و مجوز هزینه
 
-Provider زنده در Hero اکنون از نظر کد آماده و به‌صورت پیش‌فرض خاموش است. فعال‌شدن آن به‌تنهایی کافی نیست: credential، نرخ هزینه، سقف، Provider، Model، Role، Step/Version، زمان انقضا و Global Stop همگی باید دقیق باشند؛ در غیر این صورت dispatch قبل از تماس شبکه رد می‌شود.
+Provider زنده در Hero اکنون از نظر کد آماده و به‌صورت پیش‌فرض خاموش است. فعال‌شدن آن به‌تنهایی کافی نیست: credential، Pricing Catalog معتبر، سقف، Provider، Model، Role، Step/Version، زمان انقضا و Global Stop همگی باید دقیق باشند؛ در غیر این صورت dispatch قبل از تماس شبکه رد می‌شود.
 
 ## مدل کنترل هزینه
 
-یک `cost unit` برابر `0.0001 USD` است. نرخ‌های ورودی و خروجی باید از قیمت رسمی Model در زمان فعال‌سازی به «واحد به‌ازای ۱۰۰۰ token» تبدیل شوند. Hero قبل از تماس، بدترین هزینهٔ محافظه‌کارانه را با سقف output محاسبه می‌کند و پس از پاسخ نیز usage واقعی را دوباره با cap می‌سنجد.
+یک `Hero Cost Unit` برابر `0.0001` واحد ارز Catalog است. نرخ‌های ورودی، خروجی و cached باید در Pricing Catalog نسخه‌دار از منبع رسمی Provider ذخیره شوند؛ نرخ هر درخواست از Environment خوانده نمی‌شود. Hero قبل از تماس، بدترین هزینهٔ محافظه‌کارانه را با سقف output محاسبه می‌کند و پس از پاسخ نیز usage واقعی را دوباره با cap می‌سنجد. جزئیات قرارداد در [Pricing Catalog](../roadmap/FUTURE-REQUIRED-PRICING-CATALOG.md) آمده است.
 
 ## متغیرهای لازم در Secret Store محیط Test
 
 ```text
 HERO_ENABLE_REAL_PROVIDERS=true
 HERO_OPENAI_API_KEY=<secret>
-HERO_OPENAI_INPUT_COST_UNITS_PER_1K_TOKENS=<current-rate>
-HERO_OPENAI_OUTPUT_COST_UNITS_PER_1K_TOKENS=<current-rate>
 HERO_EXTERNAL_SPEND_AUTHORIZATION_ACTIVE=true
 HERO_EXTERNAL_SPEND_AUTHORIZATION_ID=AUTH-PILOT-001
 HERO_EXTERNAL_SPEND_PROJECT_ID=hero
@@ -26,7 +24,7 @@ HERO_EXTERNAL_SPEND_EXPIRES_AT=<short-lived-UTC-timestamp>
 HERO_EXTERNAL_SPEND_GLOBAL_STOP=false
 ```
 
-API key فقط در Secret Store قرار می‌گیرد و نباید در Git، Sheet، ticket، log یا چت فرستاده شود. متغیر legacy هزینه و دو نرخ split نباید هم‌زمان تنظیم شوند.
+API key فقط در Secret Store قرار می‌گیرد و نباید در Git، Sheet، ticket، log یا چت فرستاده شود. متغیرهای قدیمی نرخ هزینه نباید تنظیم شوند؛ Catalog معتبر باید پیش از فعال‌سازی Provider در runtime بارگذاری شده باشد.
 
 ## کار مالک
 

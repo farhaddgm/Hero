@@ -170,6 +170,17 @@ export {
 } from "./observability.mjs";
 
 export {
+  HERO_COST_UNITS_PER_CURRENCY_UNIT,
+  PRICING_CATALOG_CONTRACT_VERSION,
+  PRICING_CATALOG_FIELDS,
+  PRICING_MODES,
+  getPricingCatalogContractSummary,
+  normalizePricingCatalog,
+  validatePricingCatalog,
+  validatePricingCatalogContract
+} from "./pricing-catalog.mjs";
+
+export {
   OPERATIONAL_DIAGNOSTICS_CONTRACT_VERSION,
   OPERATIONAL_DIAGNOSTIC_REGISTRY_IDS,
   OPERATIONAL_DIAGNOSTIC_REPORTS,

@@ -1,5 +1,14 @@
 # تغییرات رودمپ شرکت
 
+## 2026-09-10 — ثبت قابلیت ضروری Pricing Catalog نسخه‌دار
+
+- ثبت‌شده: ساختار عمومی Catalog برای Provider/Model، نرخ ورودی/خروجی/cached، ارز، منبع رسمی، زمان اعتبار و نسخه؛
+- ثبت‌شده: fail-closed پیش از dispatch، همگام‌سازی خارج از مسیر درخواست، تبدیل خودکار به Hero Cost Units و Adapterهای توکنی/غیرتوکنی؛
+- ثبت‌شده: کنترل Admin برای Provider، Model، cap و expiry، همراه با Audit metadata و redaction؛
+- ثبت‌شده: migration، تست خطا/مدل ناشناخته/سقف هزینه، security check، مستندات و rollback به‌عنوان دامنهٔ اجرای بعدی؛
+- تصمیم: فعلاً هیچ کد runtime، Secret، API Key، Provider واقعی، شبکه یا هزینه‌ای تغییر نکرد؛ شروع پیاده‌سازی نیازمند تأیید صریح مالک است؛
+- مرجع: `docs/roadmap/FUTURE-REQUIRED-PRICING-CATALOG.md`.
+
 ## 2026-09-10 — تأیید PostgreSQL واقعی Test و پاک‌سازی قرارداد استقرار
 
 - تأییدشده: هر سه سرویس Test healthy، health/readiness داخلی و عمومی `200`، persistence برابر `postgresql` و hydration برابر `hydrated`؛

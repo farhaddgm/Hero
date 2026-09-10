@@ -169,11 +169,17 @@ function hasSeparateExternalSpendAuthorization(input, projectId) {
 function normalizeUsage(usage) {
   const value = usage ?? {};
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new AiOrchestrationError("USAGE_INVALID", "Provider usage must be a structured object.");
+  const pricing = value.pricing === undefined || value.pricing === null ? null : assertObject("usage.pricing", value.pricing);
+  const inputTokens = assertNonNegativeInteger("usage.inputTokens", value.inputTokens ?? 0);
+  const cachedInputTokens = assertNonNegativeInteger("usage.cachedInputTokens", value.cachedInputTokens ?? 0);
+  if (cachedInputTokens > inputTokens) throw new AiOrchestrationError("USAGE_INVALID", "usage.cachedInputTokens cannot exceed usage.inputTokens.");
   return immutableCopy({
-    inputTokens: assertNonNegativeInteger("usage.inputTokens", value.inputTokens ?? 0),
+    inputTokens,
     outputTokens: assertNonNegativeInteger("usage.outputTokens", value.outputTokens ?? 0),
+    cachedInputTokens,
     totalTokens: assertNonNegativeInteger("usage.totalTokens", value.totalTokens ?? 0),
-    costUnits: assertNonNegativeInteger("usage.costUnits", value.costUnits ?? 0, 100_000)
+    costUnits: assertNonNegativeInteger("usage.costUnits", value.costUnits ?? 0, 100_000),
+    pricing
   });
 }
 
@@ -839,6 +845,7 @@ export function createAiOrchestration(options = {}) {
       return blockedInvocation({ input, actor, profile, provider, code: "LIVE_PROVIDER_REQUIRES_SEPARATE_AUTHORIZATION", reason: "Live provider invocation requires a separate version-bound external-spend authorization.", idempotencyKey, value });
     }
     let verifiedExternalAuthorization = null;
+    let dispatchReadiness = null;
     if (provider.mode === "live") {
       if (typeof externalSpendAuthorizer !== "function") {
         return blockedInvocation({ input, actor, profile, provider, code: "ACTIVE_AUTHORIZATION_SNAPSHOT_REQUIRED", reason: "The active authorization snapshot verifier is not configured.", idempotencyKey, value });
@@ -928,7 +935,7 @@ export function createAiOrchestration(options = {}) {
         return blockedInvocation({ input, actor, profile, provider, code: "PROVIDER_ADAPTER_NOT_READY", reason: "The live provider adapter has no pre-dispatch readiness check.", idempotencyKey, value });
       }
       try {
-        await withTimeout(provider.adapter.assertDispatchReady(adapterInput), Math.min(profile.timeoutMs, 10_000));
+        dispatchReadiness = await withTimeout(provider.adapter.assertDispatchReady(adapterInput), Math.min(profile.timeoutMs, 10_000));
       } catch (error) {
         return blockedInvocation({ input, actor, profile, provider, code: error?.code ?? "PROVIDER_ADAPTER_NOT_READY", reason: safeErrorMessage(error, "The live provider adapter is not ready."), idempotencyKey, value });
       }
@@ -960,6 +967,12 @@ export function createAiOrchestration(options = {}) {
         profileVersion: profile.profileVersion,
         spendApprovalId: verifiedExternalAuthorization?.authorizationId ?? null,
         externalSpendMaximumCostUnits: verifiedExternalAuthorization?.maxCostUnits ?? null,
+        maxCostUnits: profile.maxCostUnits,
+        catalogVersion: dispatchReadiness?.pricing?.catalogVersion ?? null,
+        pricingCurrency: dispatchReadiness?.pricing?.currency ?? null,
+        inputPricePer1mTokens: dispatchReadiness?.pricing?.inputPricePer1mTokens ?? null,
+        outputPricePer1mTokens: dispatchReadiness?.pricing?.outputPricePer1mTokens ?? null,
+        cachedInputPricePer1mTokens: dispatchReadiness?.pricing?.cachedInputPricePer1mTokens ?? null,
         contextSnapshotId,
         promptVersion: profile.promptVersion,
         outputSchema: profile.outputSchema,
@@ -1007,7 +1020,7 @@ export function createAiOrchestration(options = {}) {
         aggregateId: invocationId,
         type: "ai.invocation-failed",
         actor,
-        data: { invocationId, projectId, teamId, skillId, role, providerId: provider.providerId, modelId: profile.modelId, profileId: profile.profileId, spendApprovalId: budget?.approvalId ?? null, accountedCostUnits: budget?.accountedCostUnits ?? 0, remainingSpendCostUnits: budget?.remainingCostUnits ?? null, code, reason, attempts },
+        data: { invocationId, projectId, teamId, skillId, role, providerId: provider.providerId, modelId: profile.modelId, profileId: profile.profileId, spendApprovalId: budget?.approvalId ?? null, accountedCostUnits: budget?.accountedCostUnits ?? 0, remainingSpendCostUnits: budget?.remainingCostUnits ?? null, maxCostUnits: profile.maxCostUnits, catalogVersion: dispatchReadiness?.pricing?.catalogVersion ?? null, pricingCurrency: dispatchReadiness?.pricing?.currency ?? null, code, reason, attempts },
         correlationId: input.runId ?? projectId,
         causationId: started.eventId
       });
@@ -1035,6 +1048,12 @@ export function createAiOrchestration(options = {}) {
         spendApprovalId: budget?.approvalId ?? null,
         accountedCostUnits: budget?.accountedCostUnits ?? response.usage.costUnits,
         remainingSpendCostUnits: budget?.remainingCostUnits ?? null,
+        maxCostUnits: profile.maxCostUnits,
+        catalogVersion: response.usage.pricing?.catalogVersion ?? dispatchReadiness?.pricing?.catalogVersion ?? null,
+        pricingCurrency: response.usage.pricing?.currency ?? dispatchReadiness?.pricing?.currency ?? null,
+        inputPricePer1mTokens: response.usage.pricing?.inputPricePer1mTokens ?? null,
+        outputPricePer1mTokens: response.usage.pricing?.outputPricePer1mTokens ?? null,
+        cachedInputPricePer1mTokens: response.usage.pricing?.cachedInputPricePer1mTokens ?? null,
         contextSnapshotId,
         responseKeys: Object.keys(response).sort(),
         usage: response.usage,

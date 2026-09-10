@@ -32,7 +32,8 @@ export const AGGREGATE_TYPES = Object.freeze([
   "skill",
   "skill-binding",
   "organization-performance",
-  "organization-advisor"
+  "organization-advisor",
+  "pricing-catalog"
 ]);
 
 export const EVENT_TYPES = Object.freeze([
@@ -111,6 +112,8 @@ export const EVENT_TYPES = Object.freeze([
   "ai.evaluation-recorded",
   "ai.decision-proposed",
   "ai.decision-resolved",
+  "pricing.catalog-published",
+  "pricing.catalog-activated",
   "skill.registered",
   "skill.binding-created",
   "organization-performance.review-recorded",

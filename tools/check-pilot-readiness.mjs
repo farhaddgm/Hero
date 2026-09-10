@@ -50,14 +50,7 @@ function providerReadiness(env = process.env) {
     const credentialNames = { openai: "HERO_OPENAI_API_KEY", anthropic: "HERO_ANTHROPIC_API_KEY", google: "HERO_GOOGLE_API_KEY", "openai-compatible": "HERO_OPENAI_COMPATIBLE_API_KEY" };
     const credentialName = credentialNames[policy.providerId];
     if (!credentialName || typeof env[credentialName] !== "string" || env[credentialName].trim() === "") return { ready: false, reason: "Credential Provider در Secret Store runtime حاضر نیست." };
-    const prefix = policy.providerId === "openai-compatible" ? "HERO_OPENAI_COMPATIBLE" : `HERO_${policy.providerId.toUpperCase()}`;
-    const legacy = env[`${prefix}_COST_UNITS_PER_1K_TOKENS`];
-    const input = env[`${prefix}_INPUT_COST_UNITS_PER_1K_TOKENS`];
-    const output = env[`${prefix}_OUTPUT_COST_UNITS_PER_1K_TOKENS`];
-    const legacyConfigured = typeof legacy === "string" && legacy.trim() !== "";
-    const splitConfigured = typeof input === "string" && input.trim() !== "" && typeof output === "string" && output.trim() !== "";
-    if (legacyConfigured === splitConfigured) return { ready: false, reason: "دقیقاً یک روش نرخ هزینه، legacy یا input/output، باید تنظیم شود." };
-    return { ready: true, reason: "Provider، Credential، نرخ و مجوز زمان‌دار تنظیم شده‌اند؛ تماس کنترل‌شده هنوز باید اجرا شود." };
+    return { ready: true, reason: "Provider، Credential و مجوز زمان‌دار تنظیم شده‌اند؛ Pricing Catalog معتبر باید در runtime پیش از dispatch resolve شود و تماس کنترل‌شده هنوز باید اجرا شود." };
   } catch (error) {
     return { ready: false, reason: `پیکربندی Provider معتبر نیست: ${error.message}` };
   }

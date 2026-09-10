@@ -42,10 +42,10 @@
 
 ## اقدام سوم — مالک: تصویب پایلوت
 
-مالک فایل [PILOT-REQUEST-20260910.md](PILOT-REQUEST-20260910.md) را بخواند و این جمله را تأیید کند یا اصلاحاتش را بگوید:
+مالک فایل [PILOT-REQUEST-20260910.md](PILOT-REQUEST-20260910.md) را بخواند و محصول VPN، مقصد Test، شبکه‌های آزمون و سقف زیرساخت را تأیید یا اصلاح کند. متن پیشنهادی:
 
 ```text
-HERO-PILOT-001 v1.0 و سقف کل ۵ دلار را تأیید می‌کنم؛ فقط Test، فقط OpenAI، Model IDهای ثبت‌شده، بدون Production، پیام بیرونی یا عملیات مخرب.
+HERO-PILOT-001 v1.0 برای VPN خصوصی را تأیید می‌کنم؛ فقط Test، AmneziaWG با fallback XRay VLESS Reality، مقصد مستقل، شبکه‌های آزمون مشخص، سقف زیرساخت مشخص، بدون Production، پیام بیرونی یا عملیات مخرب. هزینهٔ AI فقط در صورت تأیید جداگانه و با Model ID ثبت‌شده مجاز است.
 ```
 
-در وضعیت فعلی، اقدام‌های فوری فقط Provider/Secret و تصویب Pilot هستند. بعد از دریافت خروجی ادمین و تأیید مالک، Agent Hero می‌تواند verification و تست‌های مجاز را ادامه دهد؛ اما `pnpm check:pilot` تا زمان انجام Recovery واقعی همچنان عمداً blocked می‌ماند و اجرای عملیاتی نهایی یا Production مجاز نیست. پس از بازشدن گیت Recovery، Provider smoke محدود، اجرای پایلوت در worktree مستقل، Evaluator/Verifier/Code Review، rollback و گزارش انجام می‌شود.
+در وضعیت فعلی، اقدام فوری برای VPN تصویب مقصد مستقل، شبکه‌های آزمون و سقف زیرساخت است؛ Provider/Secret فقط برای توسعهٔ زندهٔ خود Hero مسیر جداگانه دارد و برای runtime VPN لازم نیست. بعد از دریافت تصمیم مالک و خروجی ادمین، Agent Hero می‌تواند verification و تست‌های مجاز را ادامه دهد؛ اما `pnpm check:pilot` تا زمان انجام Recovery واقعی عمداً blocked می‌ماند و اجرای عملیاتی نهایی یا Production مجاز نیست. پس از بازشدن گیت Recovery، اجرای پایلوت در worktree مستقل، Evaluator/Verifier/Code Review، rollback و گزارش انجام می‌شود.

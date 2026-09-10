@@ -47,6 +47,11 @@ export {
 } from "./postgresql-read-model-access-audit.mjs";
 
 export {
+  PostgresPricingCatalogError,
+  createPostgresPricingCatalogStore
+} from "./postgresql-pricing-catalog.mjs";
+
+export {
   OutboxWorkerError,
   createPostgresOutboxWorker
 } from "./postgresql-outbox-worker.mjs";
@@ -59,6 +64,16 @@ export {
   createOpenAiCompatibleAdapter,
   createOpenAiResponsesAdapter
 } from "./ai-provider-http.mjs";
+
+export {
+  HERO_COST_UNITS_PER_CURRENCY_UNIT,
+  PricingCatalogError,
+  createPricingCatalogRegistry,
+  createPricingCatalogSync,
+  createPricingCostAccounting,
+  createRequestUnitPricingAdapter,
+  createTokenPricingAdapter
+} from "./pricing-catalog.mjs";
 
 export {
   ExternalSpendAuthorizationError,

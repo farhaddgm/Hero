@@ -11,36 +11,42 @@
   },
   "request": {
     "locale": "fa-IR",
-    "platform": "web",
-    "title": "تابلوی ساده پیگیری کارها",
-    "objective": "ساخت یک وب‌اپ تک‌صفحه‌ای فارسی و راست‌به‌چپ برای ثبت، اولویت‌بندی، تکمیل و حذف کارها، به‌عنوان پایلوت محدود فرایند Hero.",
+    "platform": "self-hosted-vpn",
+    "title": "VPN خصوصی قابل‌آزمون برای استفاده از ایران",
+    "objective": "ساخت و آزمون یک VPN خصوصی روی زیرساخت جدا، با مسیر اصلی AmneziaWG و مسیر fallback مبتنی بر XRay VLESS Reality، بدون ادعای دسترسی دائمی روی همه ISPها.",
     "autonomy": "approved-snapshot-only"
   },
   "scope": {
     "required": [
-      "فرم افزودن کار با عنوان، توضیح کوتاه و اولویت",
-      "تغییر وضعیت کار میان باز و انجام‌شده",
-      "ویرایش و حذف با تأیید کاربر",
-      "ذخیره محلی در مرورگر بدون سرویس بیرونی",
-      "رابط واکنش‌گرا، فارسی، RTL و قابل استفاده با صفحه‌کلید",
-      "تست خودکار رفتارهای اصلی و گزارش تحویل"
+      "استقرار روی VPS یا VM مستقل از سرور مشترک فعلی Hero",
+      "مسیر اصلی AmneziaWG و مسیر fallback XRay VLESS Reality با تنظیمات versioned",
+      "کلید و configuration مستقل برای هر device و عدم reuse یک فایل بین دستگاه‌ها",
+      "اتصال موفق از حداقل دو شبکه مستقل در ایران و سه بازه زمانی",
+      "آزمون DNS leak، kill switch، پایداری ۳۰ دقیقه‌ای و rollback",
+      "ثبت شواهد غیرمحرمانه از latency، throughput، reconnect و علت شکست"
     ],
     "excluded": [
-      "ورود کاربر و حساب چندکاربره",
-      "پرداخت، ایمیل، پیامک یا API شخص ثالث",
+      "فروش عمومی یا اشتراک‌گذاری عمومی VPN",
+      "ثبت محتوای ترافیک، history مرورگر یا دادهٔ شخصی کاربران",
+      "تضمین عبور از همهٔ ISPها و همهٔ زمان‌ها",
+      "پرداخت، پیام بیرونی یا خرید VPS بدون مجوز جداگانه",
       "استقرار Production",
-      "داده واقعی مشتری"
+      "استفاده از منابع، volume، network یا Secretهای پروژهٔ دیگر"
     ]
   },
   "acceptance": {
     "mandatoryChecks": [
-      "همه رفتارهای required با شواهد واقعی پاس شوند",
+      "VPS/VM مستقل و منابع شبکهٔ اختصاصی با health check فعال باشد",
+      "حداقل 4 اتصال از 5 تلاش در هر شبکه طی 60 ثانیه موفق شود",
+      "هر اتصال موفق حداقل 30 دقیقه بدون قطع ناخواسته پایدار بماند",
+      "DNS leak مشاهده نشود و kill switch هنگام قطع تونل ترافیک را مسدود کند",
+      "throughput به حداقل 5 Mbps و حداقل 70 درصد baseline همان شبکه برسد، هرکدام کمتر است",
+      "مسیر fallback حداقل یک‌بار در هر شبکه آزموده شود",
       "pnpm check در worktree پایلوت موفق باشد",
       "هیچ Secret یا مسیر خارج از مخزن در artifact نباشد",
       "یافته Critical یا High باز وجود نداشته باشد",
-      "Evaluator امتیاز حداقل 85 از 100 بدهد",
       "Verifier و Code Reviewer نتیجه approved بدهند",
-      "rollback به artifact قبل مستند و آزموده شود"
+      "rollback به artifact و configuration قبل مستند و آزموده شود"
     ],
     "maximumCorrectionCycles": 2
   },
@@ -49,12 +55,14 @@
     "defaultRoles": "chatgpt-family",
     "executor": "codex-family",
     "modelIds": [],
-    "modelSelectionStatus": "awaiting-owner-account-availability-check"
+    "modelSelectionStatus": "awaiting-owner-account-availability-check",
+    "runtimeProvider": "none; VPN runtime does not require an AI Provider"
   },
   "budget": {
     "unit": "one-unit-equals-0.0001-usd",
     "proposedMaximumCostUnits": 50000,
     "proposedMaximumUsd": 5,
+    "infrastructureBudgetStatus": "owner-must-set-separately",
     "approved": false
   },
   "safety": {

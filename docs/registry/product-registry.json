@@ -28,5 +28,30 @@
     "product_specific_document_ids": "Canonical Product-scoped Document IDs.",
     "release_policy": "Canonical Document ID defining the release policy."
   },
-  "products": []
+  "products": [
+    {
+      "product_id": "HERO-PRODUCT-VPN-PILOT-001",
+      "name": "VPN خصوصی قابل‌آزمون برای استفاده از ایران",
+      "owner": "project-owner",
+      "status": "proposed",
+      "hero_control_plane": "hero-production",
+      "test_environment_reference": "HERO-PRODUCT-VPN-PILOT-TEST",
+      "production_environment_reference": "HERO-PRODUCT-VPN-PILOT-PRODUCTION",
+      "inherited_document_ids": [
+        "HERO-ARCH-CRITICAL-PRINCIPLES",
+        "HERO-ARCH-ENVIRONMENT-AND-PRODUCT-RELEASE-MODEL",
+        "HERO-ARCH-RELEASE-FLOW",
+        "HERO-GOV-DOCUMENTATION-GOVERNANCE",
+        "HERO-OPS-SECRET-MANAGEMENT",
+        "HERO-ADR-0001",
+        "HERO-ADR-0005"
+      ],
+      "product_specific_document_ids": [
+        "HERO-PRODUCT-VPN-PILOT-BRIEF",
+        "HERO-PRODUCT-VPN-PILOT-TEST",
+        "HERO-PRODUCT-VPN-PILOT-PRODUCTION"
+      ],
+      "release_policy": "HERO-PRODUCT-VPN-PILOT-PRODUCTION"
+    }
+  ]
 }

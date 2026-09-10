@@ -39,6 +39,7 @@ const AI_RELIABILITY_TABLES = Object.freeze([
 const DOMAIN_SNAPSHOT_TABLES = Object.freeze(["domain_registry_snapshots"]);
 const OPERATIONS_TABLES = Object.freeze(["owner_session_revocations"]);
 const ACCESS_AUDIT_TABLES = Object.freeze(["read_model_access_audit"]);
+const PRICING_CATALOG_TABLES = Object.freeze(["pricing_catalogs", "pricing_catalog_entries", "pricing_catalog_activations"]);
 
 export const POSTGRES_TABLES = Object.freeze([
   ...INITIAL_TABLES,
@@ -46,7 +47,8 @@ export const POSTGRES_TABLES = Object.freeze([
   ...AI_RELIABILITY_TABLES,
   ...DOMAIN_SNAPSHOT_TABLES,
   ...OPERATIONS_TABLES,
-  ...ACCESS_AUDIT_TABLES
+  ...ACCESS_AUDIT_TABLES,
+  ...PRICING_CATALOG_TABLES
 ]);
 
 export const POSTGRES_MIGRATIONS = Object.freeze([
@@ -85,6 +87,12 @@ export const POSTGRES_MIGRATIONS = Object.freeze([
     name: "read-model-access-audit",
     file: "006_read_model_access_audit.sql",
     tables: ACCESS_AUDIT_TABLES
+  }),
+  Object.freeze({
+    id: "007",
+    name: "pricing-catalog",
+    file: "007_pricing_catalog.sql",
+    tables: PRICING_CATALOG_TABLES
   })
 ]);
 

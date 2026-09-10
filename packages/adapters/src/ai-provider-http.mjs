@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 
+import { createPricingCostAccounting, PricingCatalogError } from "./pricing-catalog.mjs";
+
 const SAFE_ENV_NAME = /^[A-Z][A-Z0-9_]{2,127}$/;
 const DEFAULT_ENDPOINTS = Object.freeze({
   openai: "https://api.openai.com/v1/responses",
@@ -48,41 +50,33 @@ function numberOrZero(value) {
   return Number.isFinite(Number(value)) && Number(value) >= 0 ? Math.floor(Number(value)) : 0;
 }
 
-function buildUsage(raw, costCalculator) {
-  if (typeof costCalculator !== "function") throw new AiProviderAdapterError("COST_ACCOUNTING_NOT_CONFIGURED", "The provider cost calculator is not configured.");
+function buildUsage(raw, costAccounting) {
+  if (!costAccounting || typeof costAccounting.estimate !== "function") throw new AiProviderAdapterError("COST_ACCOUNTING_NOT_CONFIGURED", "The provider pricing catalog is not configured.");
   const value = raw && typeof raw === "object" ? raw : {};
   const inputTokens = numberOrZero(value.input_tokens ?? value.prompt_tokens ?? value.inputTokens);
   const outputTokens = numberOrZero(value.output_tokens ?? value.completion_tokens ?? value.outputTokens);
+  const cachedInputTokens = numberOrZero(value.cached_input_tokens ?? value.cachedInputTokens ?? value.prompt_tokens_details?.cached_tokens ?? value.input_token_details?.cached_tokens);
   const totalTokens = numberOrZero(value.total_tokens ?? value.totalTokens) || inputTokens + outputTokens;
-  const costUnits = costCalculator({ inputTokens, outputTokens, totalTokens });
+  const estimate = costAccounting.estimate({ inputTokens, outputTokens, cachedInputTokens, totalTokens });
+  const costUnits = estimate.costUnits;
   if (!Number.isInteger(costUnits) || costUnits < 0 || costUnits > 100_000) {
     throw new AiProviderAdapterError("COST_ACCOUNTING_INVALID", "The provider cost calculator returned an invalid cost.");
   }
-  return { inputTokens, outputTokens, totalTokens, costUnits };
+  return { inputTokens, outputTokens, cachedInputTokens, totalTokens, costUnits, pricing: estimate.pricing };
 }
 
-function createCostCalculator({ costUnitsPer1kTokens, costUnitsPer1kInputTokens, costUnitsPer1kOutputTokens, costCalculator } = {}) {
-  if (costCalculator !== undefined) {
-    assertFunction("costCalculator", costCalculator);
-    return costCalculator;
-  }
-  const hasSplitRates = costUnitsPer1kInputTokens !== undefined || costUnitsPer1kOutputTokens !== undefined;
-  if (hasSplitRates) {
-    if (costUnitsPer1kTokens !== undefined || costUnitsPer1kInputTokens === undefined || costUnitsPer1kOutputTokens === undefined) {
-      throw new AiProviderAdapterError("ADAPTER_CONFIGURATION_INVALID", "Input and output cost rates must be configured together and cannot be mixed with the legacy total-token rate.");
+function createLegacyTestAccounting(costCalculator) {
+  assertFunction("costCalculator", costCalculator);
+  return Object.freeze({
+    estimate(usage) {
+      const costUnits = costCalculator(usage);
+      if (!Number.isInteger(costUnits) || costUnits < 0 || costUnits > 100_000) throw new AiProviderAdapterError("COST_ACCOUNTING_INVALID", "The provider cost calculator returned an invalid cost.");
+      return { costUnits, pricing: null };
+    },
+    estimateWorstCase(usage) {
+      return this.estimate(usage);
     }
-    for (const [name, value] of [["costUnitsPer1kInputTokens", costUnitsPer1kInputTokens], ["costUnitsPer1kOutputTokens", costUnitsPer1kOutputTokens]]) {
-      if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
-        throw new AiProviderAdapterError("ADAPTER_CONFIGURATION_INVALID", `${name} must be a non-negative number.`);
-      }
-    }
-    return ({ inputTokens, outputTokens }) => Math.ceil((inputTokens / 1_000) * costUnitsPer1kInputTokens + (outputTokens / 1_000) * costUnitsPer1kOutputTokens);
-  }
-  if (costUnitsPer1kTokens === undefined) return null;
-  if (typeof costUnitsPer1kTokens !== "number" || !Number.isFinite(costUnitsPer1kTokens) || costUnitsPer1kTokens < 0) {
-    throw new AiProviderAdapterError("ADAPTER_CONFIGURATION_INVALID", "costUnitsPer1kTokens must be a non-negative number.");
-  }
-  return ({ totalTokens }) => Math.ceil((totalTokens / 1_000) * costUnitsPer1kTokens);
+  });
 }
 
 function extractText(body) {
@@ -145,14 +139,29 @@ export class AiProviderAdapterError extends Error {
   }
 }
 
-function createHttpAdapter({ providerId, endpoint, credentialEnv, credentialResolver, env = process.env, fetchImpl = globalThis.fetch, costCalculator, costUnitsPer1kTokens, costUnitsPer1kInputTokens, costUnitsPer1kOutputTokens, buildRequest, parseResponse }) {
+function createHttpAdapter({ providerId, endpoint, credentialEnv, credentialResolver, env = process.env, fetchImpl = globalThis.fetch, pricingCatalog, costCalculator, costUnitsPer1kTokens, costUnitsPer1kInputTokens, costUnitsPer1kOutputTokens, buildRequest, parseResponse }) {
   if (typeof providerId !== "string" || providerId.length < 3) throw new AiProviderAdapterError("ADAPTER_CONFIGURATION_INVALID", "providerId is required.");
   const normalizedEndpoint = assertEndpoint(endpoint);
   const configuredCredentialEnv = credentialEnv ? assertCredentialEnv(credentialEnv) : null;
   assertFetch(fetchImpl);
-  const calculateCost = createCostCalculator({ costCalculator, costUnitsPer1kTokens, costUnitsPer1kInputTokens, costUnitsPer1kOutputTokens });
+  if (costUnitsPer1kTokens !== undefined || costUnitsPer1kInputTokens !== undefined || costUnitsPer1kOutputTokens !== undefined) {
+    throw new AiProviderAdapterError("LEGACY_MANUAL_PRICING_DISABLED", "Manual provider pricing rates are disabled; use a versioned Pricing Catalog.");
+  }
+  if (pricingCatalog && costCalculator !== undefined) throw new AiProviderAdapterError("ADAPTER_CONFIGURATION_INVALID", "Pricing Catalog and manual cost calculator cannot be combined.");
+  const legacyAccounting = costCalculator === undefined ? null : createLegacyTestAccounting(costCalculator);
   const resolve = credentialResolver ?? ((ref) => resolveCredential({ credentialRef: ref, credentialEnv: configuredCredentialEnv, env }));
   assertFunction("credentialResolver", resolve);
+
+  function costAccountingFor(input) {
+    if (legacyAccounting) return legacyAccounting;
+    if (!pricingCatalog) throw new AiProviderAdapterError("COST_ACCOUNTING_NOT_CONFIGURED", "Live provider dispatch requires a versioned Pricing Catalog.");
+    try {
+      return createPricingCostAccounting({ catalog: pricingCatalog, providerId, modelId: input.modelId });
+    } catch (error) {
+      if (error instanceof PricingCatalogError) throw new AiProviderAdapterError(error.code, error.message);
+      throw error;
+    }
+  }
 
   async function credentialFor(input) {
     const value = await resolve(input.credentialRef);
@@ -161,20 +170,22 @@ function createHttpAdapter({ providerId, endpoint, credentialEnv, credentialReso
   }
 
   async function assertDispatchReady(input) {
-    if (!calculateCost) throw new AiProviderAdapterError("COST_ACCOUNTING_NOT_CONFIGURED", "Live provider dispatch requires cost accounting.");
+    const costAccounting = costAccountingFor(input);
     await credentialFor(input);
     if (!Number.isInteger(input.maxOutputTokens) || input.maxOutputTokens < 1 || !Number.isInteger(input.maxCostUnits) || input.maxCostUnits < 1) {
       throw new AiProviderAdapterError("COST_POLICY_INVALID", "Live provider dispatch requires positive output-token and cost limits.");
     }
     const inputTokenUpperBound = Buffer.byteLength(inputEnvelope(input), "utf8") + 512;
-    const worstCaseCostUnits = calculateCost({ inputTokens: inputTokenUpperBound, outputTokens: input.maxOutputTokens, totalTokens: inputTokenUpperBound + input.maxOutputTokens });
+    const estimate = costAccounting.estimateWorstCase({ inputTokens: inputTokenUpperBound, outputTokens: input.maxOutputTokens, cachedInputTokens: 0 });
+    const worstCaseCostUnits = estimate.costUnits;
     if (!Number.isInteger(worstCaseCostUnits) || worstCaseCostUnits < 0 || worstCaseCostUnits > input.maxCostUnits) {
       throw new AiProviderAdapterError("COST_POLICY_INSUFFICIENT", "The configured invocation cap does not cover the conservative worst-case token budget.");
     }
-    return copy({ providerId, endpoint: normalizedEndpoint, costAccounting: true, maxOutputTokens: input.maxOutputTokens, worstCaseCostUnits });
+    return copy({ providerId, endpoint: normalizedEndpoint, costAccounting: true, maxOutputTokens: input.maxOutputTokens, worstCaseCostUnits, pricing: estimate.pricing });
   }
 
   async function generate(input) {
+    const readiness = await assertDispatchReady(input);
     const credential = await credentialFor(input);
     const request = buildRequest({ input, endpoint: normalizedEndpoint, credential });
     let response;
@@ -185,11 +196,11 @@ function createHttpAdapter({ providerId, endpoint, credentialEnv, credentialReso
     }
     const body = await readResponse(response);
     const output = parseStructuredText(parseResponse.text(body));
-    return copy({ output, usage: buildUsage(parseResponse.usage(body), calculateCost), providerRequestId: typeof body?.id === "string" ? body.id : null });
+    return copy({ output, usage: buildUsage(parseResponse.usage(body), costAccountingFor(input)), providerRequestId: typeof body?.id === "string" ? body.id : null, pricing: readiness.pricing });
   }
 
   async function validateConnection() {
-    if (!calculateCost) throw new AiProviderAdapterError("COST_ACCOUNTING_NOT_CONFIGURED", "Live provider health requires cost accounting.");
+    if (!pricingCatalog && !legacyAccounting) throw new AiProviderAdapterError("COST_ACCOUNTING_NOT_CONFIGURED", "Live provider health requires a versioned Pricing Catalog.");
     await resolve(credentialEnv ? `env:${credentialEnv}` : "env:placeholder").catch(error => { throw error; });
     return copy({ status: "ok", providerId, mode: "configured-no-network-health-check" });
   }
@@ -202,7 +213,7 @@ function createHttpAdapter({ providerId, endpoint, credentialEnv, credentialReso
     assertDispatchReady,
     generate,
     validateConnection,
-    listCapabilities: () => Object.freeze(["structured-json", "usage-accounting", "runtime-credentials"]),
+    listCapabilities: () => Object.freeze(["structured-json", "usage-accounting", "runtime-credentials", ...(pricingCatalog ? ["versioned-pricing-catalog"] : [])]),
     adapterId: `hero-live-${providerId}-${randomUUID().slice(0, 8)}`
   });
 }

@@ -25,6 +25,14 @@ Git repository منبع حقیقت است. Notion و Confluence فقط mirror خ
 
 Product ابتدا با owner و Evidence در Product registry ثبت می‌شود. سند Product فقط acceptance criteria، configuration غیرمحرمانه، Evidence و تصمیم اختصاصی را نگه می‌دارد و برای قواعد مشترک به Document ID و version کتابخانه ارجاع می‌دهد. CRM موجود در مدل محیط صرفاً مثال معماری است.
 
+## Product Pilot فعلی
+
+| Product ID | وضعیت | اسناد اختصاصی |
+|---|---|---|
+| `HERO-PRODUCT-VPN-PILOT-001` | `proposed` | [Product Brief](products/vpn-pilot/PRODUCT-BRIEF.md)، [Test Environment](products/vpn-pilot/TEST-ENVIRONMENT.md)، [Release Policy](products/vpn-pilot/RELEASE-POLICY.md) |
+
+این Product هنوز به Production نرفته است. مقصد Test، شبکه‌های آزمون، سقف هزینهٔ زیرساخت و تأیید مالک باید جداگانه ثبت شوند.
+
 ## معماری و مدل محیط
 
 | Document ID | وضعیت | سند |
@@ -136,6 +144,7 @@ Product ابتدا با owner و Evidence در Product registry ثبت می‌ش
 | `HERO-ROADMAP-NEXT-20-STEPS-20260904` | `active` | [بیست گام بعدی Hero — وضعیت اجرایی](roadmap/NEXT-20-STEPS-20260904.md) |
 | `HERO-ROADMAP-OPEN-50-PRIORITY-20260904` | `active` | [پنجاه گام باز و اولویت‌دار Hero](roadmap/OPEN-50-PRIORITY-20260904.md) |
 | `HERO-ROADMAP-ROADMAP-2-0-TEAM-OPERATING-MODEL` | `active` | [رودمپ ۲.۰ Hero — شرکت نرم‌افزاری چندتیمی](roadmap/ROADMAP-2.0-TEAM-OPERATING-MODEL.md) |
+| `HERO-ROADMAP-FUTURE-REQUIRED-PRICING-CATALOG` | `proposed` | [قابلیت ضروری آینده: Pricing Catalog نسخه‌دار Hero](roadmap/FUTURE-REQUIRED-PRICING-CATALOG.md) |
 
 ## Templateها
 

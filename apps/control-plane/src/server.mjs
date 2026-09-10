@@ -44,7 +44,7 @@ import { getDashboardHtml } from "./dashboard-view.mjs";
 import { getBackofficeHtml } from "./backoffice-view.mjs";
 import { OwnerAuthError, createOwnerAuth } from "../../../packages/domain/src/owner-auth.mjs";
 import { AdminAuthError, createAdminAuth } from "../../../packages/domain/src/admin-auth.mjs";
-import { createConfiguredAiProviderAdapters, createPostgresRuntime, createRuntimeExternalSpendAuthorizer } from "../../../packages/adapters/src/index.mjs";
+import { createConfiguredAiProviderAdapters, createPostgresRuntime, createPricingCatalogRegistry, createRuntimeExternalSpendAuthorizer } from "../../../packages/adapters/src/index.mjs";
 
 const PRIVATE_ROBOTS_POLICY = "noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate";
 const READ_MODEL_AUDIT_RESOURCES = new Set([
@@ -218,14 +218,6 @@ function parsePort(value) {
   return port;
 }
 
-function optionalCostUnits(envName) {
-  const raw = process.env[envName];
-  if (raw === undefined || raw.trim() === "") return undefined;
-  const value = Number(raw);
-  if (!Number.isFinite(value) || value < 0) throw new Error(`${envName} must be a non-negative number.`);
-  return value;
-}
-
 function isAdminAllowedMutation(pathname) {
   return ADMIN_ALLOWED_MUTATIONS.has(pathname) || /^\/api\/ai\/role-policies\/[a-z][a-z0-9-]{2,63}\/rollback$/.test(pathname) || /^\/api\/teams\/[a-z][a-z0-9-]{2,63}\/principles(?:\/rollback)?$/.test(pathname);
 }
@@ -247,12 +239,16 @@ export function createHeroServer(options = {}) {
     throw new Error("Back Office response limit must be between 1024 and 10485760 bytes.");
   }
   const backofficeRateLimiter = createRateLimiter(options.backofficeRateLimit);
-  const providerAdapterOptions = options.providerAdapterOptions ?? {
-    openai: { costUnitsPer1kTokens: optionalCostUnits("HERO_OPENAI_COST_UNITS_PER_1K_TOKENS"), costUnitsPer1kInputTokens: optionalCostUnits("HERO_OPENAI_INPUT_COST_UNITS_PER_1K_TOKENS"), costUnitsPer1kOutputTokens: optionalCostUnits("HERO_OPENAI_OUTPUT_COST_UNITS_PER_1K_TOKENS") },
-    anthropic: { costUnitsPer1kTokens: optionalCostUnits("HERO_ANTHROPIC_COST_UNITS_PER_1K_TOKENS"), costUnitsPer1kInputTokens: optionalCostUnits("HERO_ANTHROPIC_INPUT_COST_UNITS_PER_1K_TOKENS"), costUnitsPer1kOutputTokens: optionalCostUnits("HERO_ANTHROPIC_OUTPUT_COST_UNITS_PER_1K_TOKENS") },
-    google: { costUnitsPer1kTokens: optionalCostUnits("HERO_GOOGLE_COST_UNITS_PER_1K_TOKENS"), costUnitsPer1kInputTokens: optionalCostUnits("HERO_GOOGLE_INPUT_COST_UNITS_PER_1K_TOKENS"), costUnitsPer1kOutputTokens: optionalCostUnits("HERO_GOOGLE_OUTPUT_COST_UNITS_PER_1K_TOKENS") },
-    "openai-compatible": { costUnitsPer1kTokens: optionalCostUnits("HERO_OPENAI_COMPATIBLE_COST_UNITS_PER_1K_TOKENS"), costUnitsPer1kInputTokens: optionalCostUnits("HERO_OPENAI_COMPATIBLE_INPUT_COST_UNITS_PER_1K_TOKENS"), costUnitsPer1kOutputTokens: optionalCostUnits("HERO_OPENAI_COMPATIBLE_OUTPUT_COST_UNITS_PER_1K_TOKENS") }
-  };
+  const pricingCatalog = options.pricingCatalogRegistry ?? createPricingCatalogRegistry({ now: options.clock ?? (() => Date.now()) });
+  if (options.pricingCatalog) {
+    pricingCatalog.publish(options.pricingCatalog);
+    pricingCatalog.activate(options.pricingCatalog.catalogVersion ?? options.pricingCatalog.catalog_version);
+  }
+  const requestedProviderAdapterOptions = options.providerAdapterOptions ?? {};
+  const providerAdapterOptions = Object.fromEntries(["openai", "anthropic", "google", "openai-compatible"].map(providerId => [
+    providerId,
+    { ...(requestedProviderAdapterOptions[providerId] ?? {}), pricingCatalog: requestedProviderAdapterOptions[providerId]?.pricingCatalog ?? pricingCatalog }
+  ]));
   const providerAdapters = options.providerAdapters ?? ((options.enableRealProviders === true || process.env.HERO_ENABLE_REAL_PROVIDERS === "true")
     ? createConfiguredAiProviderAdapters(providerAdapterOptions)
     : Object.freeze({}));
@@ -1085,6 +1081,13 @@ export function createHeroServer(options = {}) {
         ownsPostgresRuntime = true;
       }
       if (postgresRuntime) await postgresRuntime.ping();
+      if (postgresRuntime?.pricingCatalogStore && typeof pricingCatalog.publish === "function") {
+        const currentPricingCatalog = await postgresRuntime.pricingCatalogStore.readCurrent();
+        if (currentPricingCatalog) {
+          pricingCatalog.publish(currentPricingCatalog);
+          pricingCatalog.activate(currentPricingCatalog.catalogVersion);
+        }
+      }
       if (postgresRuntime?.benchmarkStore && typeof dashboard.attachAiBenchmarkStore === "function") {
         dashboard.attachAiBenchmarkStore(postgresRuntime.benchmarkStore);
         const benchmarkRuns = await postgresRuntime.benchmarkStore.list({ limit: 100 });
