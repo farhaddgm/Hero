@@ -6,10 +6,21 @@ import test from "node:test";
 import { REPO_ROOT } from "../tools/fs-policy.mjs";
 
 test("environment example is scoped and secret-free", () => {
-  const content = fs.readFileSync(path.join(REPO_ROOT, ".env.example"), "utf8");
-  const keys = content.split(/\r?\n/).filter(Boolean).map(line => line.split("=", 1)[0]);
-  assert.ok(keys.every(key => key.startsWith("HERO_")));
-  assert.doesNotMatch(content, /(?:api[_-]?key|password|secret|token)[ \t]*=[ \t]*\S+/i);
+  const examples = [
+    ".env.example",
+    "deploy/test/hero-test.env.example",
+    "deploy/production/hero-production.env.example"
+  ];
+  for (const name of examples) {
+    const content = fs.readFileSync(path.join(REPO_ROOT, name), "utf8");
+    const keys = content
+      .split(/\r?\n/)
+      .map(line => line.trim())
+      .filter(line => line && !line.startsWith("#"))
+      .map(line => line.split("=", 1)[0]);
+    assert.ok(keys.every(key => key.startsWith("HERO_")), name);
+    assert.doesNotMatch(content, /(?:api[_-]?key|password|secret|token)[ \t]*=[ \t]*\S+/i, name);
+  }
 });
 
 test("compose resources are isolated and host binding is configurable", () => {

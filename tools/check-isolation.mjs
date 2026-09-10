@@ -57,17 +57,29 @@ function inspectText(file, errors) {
 }
 
 function inspectEnvironment(errors) {
-  const envFile = path.join(REPO_ROOT, ".env.example");
-  if (!fs.existsSync(envFile)) {
+  const rootEnvFile = path.join(REPO_ROOT, ".env.example");
+  if (!fs.existsSync(rootEnvFile)) {
     addError(errors, "MISSING_ENV_EXAMPLE", ".env.example");
     return;
   }
 
-  for (const line of fs.readFileSync(envFile, "utf8").split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-    const key = trimmed.split("=", 1)[0];
-    if (!key.startsWith("HERO_")) addError(errors, "UNSCOPED_ENV_KEY", key);
+  const { files } = walk();
+  const examples = files.filter(file => relativeName(file).endsWith(".env.example"));
+  const sensitiveKey = /(?:PASSWORD|SECRET|TOKEN|API_KEY|PRIVATE_KEY|CREDENTIAL)/i;
+
+  for (const envFile of examples) {
+    const name = relativeName(envFile);
+    for (const [index, line] of fs.readFileSync(envFile, "utf8").split(/\r?\n/).entries()) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const separator = trimmed.indexOf("=");
+      const key = (separator === -1 ? trimmed : trimmed.slice(0, separator)).trim();
+      const value = separator === -1 ? "" : trimmed.slice(separator + 1).trim();
+      if (!key.startsWith("HERO_")) addError(errors, "UNSCOPED_ENV_KEY", name + ":" + (index + 1) + ":" + key);
+      if (sensitiveKey.test(key) && value !== "") {
+        addError(errors, "SECRET_VALUE_IN_ENV_EXAMPLE", name + ":" + (index + 1) + ":" + key);
+      }
+    }
   }
 }
 
@@ -92,6 +104,19 @@ function inspectGit(errors) {
   });
   if (topLevel.status !== 0 || path.resolve(topLevel.stdout.trim()) !== REPO_ROOT) {
     addError(errors, "GIT_ROOT_MISMATCH", String(topLevel.stderr ?? topLevel.stdout ?? "").trim());
+  }
+
+  const trackedFiles = spawnSync("git", ["ls-files", "-z"], {
+    cwd: REPO_ROOT,
+    encoding: "utf8"
+  });
+  if (trackedFiles.status === 0) {
+    const runtimeEnvFile = /(?:^|\/)(?:\.env(?:\.[^/]+)?|[^/]+\.env)$/;
+    for (const name of trackedFiles.stdout.split("\0").filter(Boolean)) {
+      if (runtimeEnvFile.test(name) && !name.endsWith(".env.example")) {
+        addError(errors, "TRACKED_RUNTIME_ENV_FILE", name);
+      }
+    }
   }
 
   const remotes = spawnSync("git", ["remote", "-v"], { cwd: REPO_ROOT, encoding: "utf8" });

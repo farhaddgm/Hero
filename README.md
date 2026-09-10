@@ -93,6 +93,8 @@ APIهای `/api/*` فقط با نشست امضاشدهٔ مالک پروژه ق�
 
 اگر Back Office قرار است پشت HTTPS و یک زیردامنهٔ عمومی قرار بگیرد، `HERO_BACKOFFICE_USER` و `HERO_BACKOFFICE_PASSWORD` را فقط در Secret Store محیط اجرا تنظیم کنید؛ password حداقل ۱۶ نویسه باشد. اپلیکیشن در این حالت مسیرهای `/backoffice`، `/backoffice-data` و `/backoffice-events` را با Basic Auth محافظت می‌کند. همهٔ پاسخ‌های Hero سیاست `X-Robots-Tag: noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate` دارند و صفحه‌های HTML همین سیاست را با meta tag نیز اعلام می‌کنند؛ `robots.txt` کل مسیر را `Disallow` می‌کند و sitemap عمومی وجود ندارد. این‌ها از ایندکس‌شدن معمول جلوگیری می‌کنند، اما جایگزین احراز هویت، TLS، firewall یا reverse proxy نیستند.
 
+قرارداد جداسازی Secretهای Test و Production، الگوی مهاجرت پروژه‌به‌پروژه و کنترل جلوگیری از ورود فایل runtime به Git در [docs/operations/SECRET-MANAGEMENT.md](docs/operations/SECRET-MANAGEMENT.md) ثبت شده است. مقدار Secret چند پروژه نباید در یک فایل `.env` مشترک قرار بگیرد.
+
 ## کنترل استقلال
 
     pnpm doctor
