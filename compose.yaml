@@ -1,5 +1,6 @@
 services:
   control-plane:
+    image: ${HERO_IMAGE:-hero-control-plane:local}
     build:
       context: .
       dockerfile: Dockerfile

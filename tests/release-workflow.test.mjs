@@ -10,10 +10,14 @@ test("release candidate workflow is test-gated, version-bound and production-fre
   assert.match(source, /workflow_dispatch:/);
   assert.match(source, /environment:\s*\n\s+name: test/);
   assert.match(source, /contents: write/);
+  assert.match(source, /packages: write/);
   assert.match(source, /pnpm check/);
   assert.match(source, /git tag --annotate/);
   assert.match(source, /git config user\.name "hero-release-bot"/);
   assert.match(source, /git config user\.email "hero-release-bot@users\.noreply\.github\.com"/);
+  assert.match(source, /docker\/login-action@v3/);
+  assert.match(source, /docker push "\$IMAGE_REF"/);
+  assert.match(source, /RepoDigests/);
   assert.match(source, /actions\/github-script@v7/);
   assert.match(source, /prerelease: true/);
   assert.match(source, /Production deploy: not performed/);
@@ -22,4 +26,15 @@ test("release candidate workflow is test-gated, version-bound and production-fre
   assert.doesNotMatch(source, /printf '[^']*\\\\n/);
   assert.doesNotMatch(source, /' \\\\\\\n/);
   assert.doesNotMatch(source, /production-promote|docker compose.*production|secrets\.(OPENAI|ANTHROPIC|GOOGLE)/i);
+});
+
+test("test verification pulls the exact published candidate instead of rebuilding it", async () => {
+  const source = await readFile(new URL("../.github/workflows/release-test.yml", import.meta.url), "utf8");
+  assert.match(source, /packages: read/);
+  assert.match(source, /docker\/login-action@v3/);
+  assert.match(source, /docker pull "\$IMAGE_REF"/);
+  assert.match(source, /printf 'ghcr\.io\/%s:%s'/);
+  assert.doesNotMatch(source, /printf 'ghcr\.io\/\$\{GITHUB_REPOSITORY\}/);
+  assert.match(source, /RepoDigests/);
+  assert.doesNotMatch(source, /docker build/);
 });

@@ -18,6 +18,7 @@ on:
 
 permissions:
   contents: write
+  packages: write
 
 concurrency:
   group: hero-release-candidate-${{ github.ref }}-${{ github.sha }}
@@ -65,14 +66,28 @@ jobs:
       - name: Run Hero verification
         run: pnpm check
 
-      - name: Build immutable test artifact
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Build and publish immutable test artifact
+        id: image
         run: |
-          docker build --tag "$IMAGE_TAG" .
-          IMAGE_ID="$(docker image inspect --format='{{.Id}}' "$IMAGE_TAG")"
+          IMAGE_REF="$(printf '%s' "$IMAGE_NAME" | tr '[:upper:]' '[:lower:]'):$GITHUB_SHA"
+          docker build --tag "$IMAGE_REF" \
+            --label "org.opencontainers.image.version=$RELEASE_VERSION" \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" .
+          docker push "$IMAGE_REF"
+          ARTIFACT="$(docker image inspect --format='{{index .RepoDigests 0}}' "$IMAGE_REF")"
+          ARTIFACT_ID="$(docker image inspect --format='{{.Id}}' "$IMAGE_REF")"
           printf 'release_version=%s\ncommit_sha=%s\nartifact=%s\nartifact_id=%s\n' \
-            "$RELEASE_VERSION" "$GITHUB_SHA" "$IMAGE_TAG" "$IMAGE_ID" > hero-release-evidence.txt
+            "$RELEASE_VERSION" "$GITHUB_SHA" "$ARTIFACT" "$ARTIFACT_ID" > hero-release-evidence.txt
+          printf 'artifact=%s\n' "$ARTIFACT" >> "$GITHUB_OUTPUT"
         env:
-          IMAGE_TAG: hero-release-${{ github.sha }}
+          IMAGE_NAME: ghcr.io/${{ github.repository }}
 
       - name: Create exact version tag
         run: |
@@ -119,6 +134,7 @@ jobs:
             echo "- Version: \`${RELEASE_VERSION}\`"
             echo "- Commit: \`${GITHUB_SHA}\`"
             echo "- Release: ${RELEASE_URL}"
+            echo "- Artifact: \`${{ steps.image.outputs.artifact }}\`"
             echo "- Production deploy: not performed"
           } >> "$GITHUB_STEP_SUMMARY"
 

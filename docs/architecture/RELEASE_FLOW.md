@@ -79,7 +79,7 @@ GitHub منبع کد، commit، branch، tag و CI است. تنظیم پیشنه
 
 GitHub فقط اجرای pipeline را فراهم می‌کند؛ تصمیم مالک، اصول حیاتی و Release Gate باید در Hero باقی بمانند.
 
-Workflow دستی `.github/workflows/release-test.yml` محیط `test` را با `pnpm check` و ساخت image بررسی می‌کند و شناسهٔ نسخه، commit و Artifact را به‌صورت Evidence خروجی می‌دهد. برای نسخه‌گذاری و تحویل candidate، `.github/workflows/release-candidate.yml` پس از تأیید Environment `test`، SemVer را اعتبارسنجی، همان commit را tag، pre-release و artifact شواهد تولید می‌کند. این workflow نیز استقرار واقعی انجام نمی‌دهد. Environment `production` باید جداگانه با branch/tag محدود و required reviewer پیکربندی شود و فقط پس از ثبت مجوز مستقل در Hero به Deployment Adapter متصل شود.
+Workflow دستی `.github/workflows/release-test.yml` محیط `test` را با `pnpm check` و Pull کردن image immutable بررسی می‌کند و شناسهٔ نسخه، commit و Artifact digest را به‌صورت Evidence خروجی می‌دهد؛ در Test دوباره build نمی‌کند. برای نسخه‌گذاری و تحویل candidate، `.github/workflows/release-candidate.yml` پس از تأیید Environment `test`، SemVer را اعتبارسنجی، image را در GHCR با tag commit منتشر، همان commit را tag، pre-release و artifact شواهد تولید می‌کند. این workflow نیز استقرار واقعی انجام نمی‌دهد. در استقرار محیط، مقدار `HERO_IMAGE` باید همان digest ثبت‌شده باشد و Production با `docker compose pull` و `--no-build` اجرا شود. Environment `production` باید جداگانه با branch/tag محدود و required reviewer پیکربندی شود و فقط پس از ثبت مجوز مستقل در Hero به Deployment Adapter متصل شود.
 
 راهنمای تنظیم این automation در `docs/operations/GITHUB-RELEASE-AUTOMATION.md` است. `GITHUB_TOKEN` فقط برای tag و pre-release همین repository استفاده می‌شود؛ Secret Provider، credential مقصد و مجوز production در آن قرار نمی‌گیرد.
 

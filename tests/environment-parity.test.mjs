@@ -7,6 +7,7 @@ HERO_HTTP_HOST=0.0.0.0
 HERO_HTTP_PORT=3100
 HERO_BIND_ADDRESS=127.0.0.1
 HERO_EXPOSE_PORT=PORT
+HERO_IMAGE=
 HERO_DATA_DIR=/var/lib/hero
 HERO_LOG_LEVEL=info
 HERO_OWNER_AUTH_SECRET=
@@ -36,6 +37,7 @@ HERO_EXTERNAL_SPEND_GLOBAL_STOP=false
 
 const compose = [
   "control-plane:",
+  "    image: ${HERO_IMAGE:-hero-control-plane:local}",
   "    dockerfile: Dockerfile",
   "  hero-postgres:",
   "  hero-data:",
