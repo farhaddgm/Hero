@@ -13,6 +13,13 @@
 - تأییدشده: `246/246` تست، Build برابر ۱۴۴ ماژول و ۹ JSON، Governance/Deployment/Roadmap/Owner Handoff همگی موفق؛
 - مرز: Production، Provider پولی، Secretها و سرویس پروژه‌های دیگر تغییر نکردند.
 
+## 2026-09-10 — تعویق آگاهانهٔ Recovery سرور دوم
+
+- تصمیم مالک: خرید سرور/VM دوم و Recovery فعلاً انجام نمی‌شود؛ توسعه، verification و تست معمولی روی Test فعلی ادامه دارد؛
+- مرز ایمنی: Recovery واقعی همچنان پیش‌شرط پایلوت عملیاتی نهایی و هرگونه Production است و `check:pilot` تا ثبت آن blocked می‌ماند؛
+- اقدام‌های فوری مالک/ادمین: انتخاب Model ID و سقف هزینه، ثبت API key فقط در Secret Store Test، و تصویب `HERO-PILOT-001/v1.0`؛
+- مرجع: `docs/roadmap/STATUS-20260910.md` و `docs/operations/OWNER-ACTIONS-SIMPLE.md`.
+
 ## 2026-09-09 — اجرای verification صد گام
 
 - تأییدشده: image Linux verification با Build برابر ۱۴۳ ماژول، Governance برابر ۲۱ گام، Roadmap/Owner handoff audit موفق و `243/243` تست موفق؛

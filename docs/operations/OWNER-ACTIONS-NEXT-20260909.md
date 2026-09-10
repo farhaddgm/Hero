@@ -2,6 +2,8 @@
 
 این نسخه جایگزین دستورهای قدیمی آماده‌سازی PostgreSQL است. Test اکنون آماده و PostgreSQL متصل است؛ آن مراحل را تکرار نکنید.
 
+تصمیم مالک در ۲۰۲۶-۰۹-۱۰: سرور/VM دوم و Recovery فعلاً انجام نمی‌شود. بخش Recovery زیر فقط برای مرحلهٔ قبل از Production نگه داشته شده و اکنون اقدامی روی آن لازم نیست.
+
 ## وضعیت تأییدشده
 
 - Compose Test فقط: `/opt/hero/compose.yaml` با project name برابر `hero-test`؛
@@ -12,9 +14,9 @@
 - persistence برابر PostgreSQL و hydration هر ۱۱ registry پس از restart موفق؛
 - Production و سرویس‌های دیگر نباید تغییر کنند.
 
-## اقدام اول — ادمین زیرساخت: مقصد Recovery
+## اقدام اول — ادمین زیرساخت: مقصد Recovery (فعلاً deferred)
 
-1. یک VM پاک Linux فقط برای Hero بسازید؛ روی آن پروژه یا database دیگری نباشد.
+1. فعلاً هیچ VM جدیدی نسازید. این اقدام پیش از Production دوباره فعال می‌شود.
 2. Docker Engine و Compose plugin را نصب و firewall را بسته نگه دارید؛ در این مرحله پورت عمومی برنامه باز نشود.
 3. یک کاربر محدود Hero و پل wrapper ثابت بسازید؛ دسترسی Docker/Sudo عمومی ندهید.
 4. wrapper فقط باید backup پروژه `hero-test`، انتقال رمزنگاری‌شده به VM مقصد، restore در resourceهای دارای پیشوند `hero-recovery`، اجرای migration/health، تولید SHA-256 و خروجی evidence غیرمحرمانه را اجازه دهد.
@@ -46,4 +48,4 @@
 HERO-PILOT-001 v1.0 و سقف کل ۵ دلار را تأیید می‌کنم؛ فقط Test، فقط OpenAI، Model IDهای ثبت‌شده، بدون Production، پیام بیرونی یا عملیات مخرب.
 ```
 
-بعد از دریافت این سه خروجی، Agent Hero باید `pnpm check:pilot`، Provider smoke محدود، اجرای پایلوت در worktree مستقل، Evaluator/Verifier/Code Review، rollback و گزارش را انجام دهد. Production فقط با مجوز مستقل `production-deploy` مجاز است.
+در وضعیت فعلی، اقدام‌های فوری فقط Provider/Secret و تصویب Pilot هستند. بعد از دریافت خروجی ادمین و تأیید مالک، Agent Hero می‌تواند verification و تست‌های مجاز را ادامه دهد؛ اما `pnpm check:pilot` تا زمان انجام Recovery واقعی همچنان عمداً blocked می‌ماند و اجرای عملیاتی نهایی یا Production مجاز نیست. پس از بازشدن گیت Recovery، Provider smoke محدود، اجرای پایلوت در worktree مستقل، Evaluator/Verifier/Code Review، rollback و گزارش انجام می‌شود.
