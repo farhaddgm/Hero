@@ -61,10 +61,22 @@ function buildUsage(raw, costCalculator) {
   return { inputTokens, outputTokens, totalTokens, costUnits };
 }
 
-function createCostCalculator({ costUnitsPer1kTokens, costCalculator } = {}) {
+function createCostCalculator({ costUnitsPer1kTokens, costUnitsPer1kInputTokens, costUnitsPer1kOutputTokens, costCalculator } = {}) {
   if (costCalculator !== undefined) {
     assertFunction("costCalculator", costCalculator);
     return costCalculator;
+  }
+  const hasSplitRates = costUnitsPer1kInputTokens !== undefined || costUnitsPer1kOutputTokens !== undefined;
+  if (hasSplitRates) {
+    if (costUnitsPer1kTokens !== undefined || costUnitsPer1kInputTokens === undefined || costUnitsPer1kOutputTokens === undefined) {
+      throw new AiProviderAdapterError("ADAPTER_CONFIGURATION_INVALID", "Input and output cost rates must be configured together and cannot be mixed with the legacy total-token rate.");
+    }
+    for (const [name, value] of [["costUnitsPer1kInputTokens", costUnitsPer1kInputTokens], ["costUnitsPer1kOutputTokens", costUnitsPer1kOutputTokens]]) {
+      if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+        throw new AiProviderAdapterError("ADAPTER_CONFIGURATION_INVALID", `${name} must be a non-negative number.`);
+      }
+    }
+    return ({ inputTokens, outputTokens }) => Math.ceil((inputTokens / 1_000) * costUnitsPer1kInputTokens + (outputTokens / 1_000) * costUnitsPer1kOutputTokens);
   }
   if (costUnitsPer1kTokens === undefined) return null;
   if (typeof costUnitsPer1kTokens !== "number" || !Number.isFinite(costUnitsPer1kTokens) || costUnitsPer1kTokens < 0) {
@@ -133,12 +145,12 @@ export class AiProviderAdapterError extends Error {
   }
 }
 
-function createHttpAdapter({ providerId, endpoint, credentialEnv, credentialResolver, env = process.env, fetchImpl = globalThis.fetch, costCalculator, costUnitsPer1kTokens, buildRequest, parseResponse }) {
+function createHttpAdapter({ providerId, endpoint, credentialEnv, credentialResolver, env = process.env, fetchImpl = globalThis.fetch, costCalculator, costUnitsPer1kTokens, costUnitsPer1kInputTokens, costUnitsPer1kOutputTokens, buildRequest, parseResponse }) {
   if (typeof providerId !== "string" || providerId.length < 3) throw new AiProviderAdapterError("ADAPTER_CONFIGURATION_INVALID", "providerId is required.");
   const normalizedEndpoint = assertEndpoint(endpoint);
   const configuredCredentialEnv = credentialEnv ? assertCredentialEnv(credentialEnv) : null;
   assertFetch(fetchImpl);
-  const calculateCost = createCostCalculator({ costCalculator, costUnitsPer1kTokens });
+  const calculateCost = createCostCalculator({ costCalculator, costUnitsPer1kTokens, costUnitsPer1kInputTokens, costUnitsPer1kOutputTokens });
   const resolve = credentialResolver ?? ((ref) => resolveCredential({ credentialRef: ref, credentialEnv: configuredCredentialEnv, env }));
   assertFunction("credentialResolver", resolve);
 
@@ -151,7 +163,15 @@ function createHttpAdapter({ providerId, endpoint, credentialEnv, credentialReso
   async function assertDispatchReady(input) {
     if (!calculateCost) throw new AiProviderAdapterError("COST_ACCOUNTING_NOT_CONFIGURED", "Live provider dispatch requires cost accounting.");
     await credentialFor(input);
-    return copy({ providerId, endpoint: normalizedEndpoint, costAccounting: true });
+    if (!Number.isInteger(input.maxOutputTokens) || input.maxOutputTokens < 1 || !Number.isInteger(input.maxCostUnits) || input.maxCostUnits < 1) {
+      throw new AiProviderAdapterError("COST_POLICY_INVALID", "Live provider dispatch requires positive output-token and cost limits.");
+    }
+    const inputTokenUpperBound = Buffer.byteLength(inputEnvelope(input), "utf8") + 512;
+    const worstCaseCostUnits = calculateCost({ inputTokens: inputTokenUpperBound, outputTokens: input.maxOutputTokens, totalTokens: inputTokenUpperBound + input.maxOutputTokens });
+    if (!Number.isInteger(worstCaseCostUnits) || worstCaseCostUnits < 0 || worstCaseCostUnits > input.maxCostUnits) {
+      throw new AiProviderAdapterError("COST_POLICY_INSUFFICIENT", "The configured invocation cap does not cover the conservative worst-case token budget.");
+    }
+    return copy({ providerId, endpoint: normalizedEndpoint, costAccounting: true, maxOutputTokens: input.maxOutputTokens, worstCaseCostUnits });
   }
 
   async function generate(input) {
@@ -202,6 +222,7 @@ export function createOpenAiResponsesAdapter(options = {}) {
         body: JSON.stringify({
           model: input.modelId,
           store: false,
+          max_output_tokens: input.maxOutputTokens,
           input: [{ role: "user", content: [{ type: "input_text", text: inputEnvelope(input) }] }],
           text: { format: { type: "json_object" } }
         })
@@ -242,7 +263,7 @@ export function createGoogleGeminiAdapter(options = {}) {
       options: {
         method: "POST",
         headers: { "content-type": "application/json", "x-goog-api-key": credential },
-        body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: inputEnvelope(input) }] }], generationConfig: { responseMimeType: "application/json" } })
+        body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: inputEnvelope(input) }] }], generationConfig: { responseMimeType: "application/json", maxOutputTokens: input.maxOutputTokens } })
       }
     }),
     parseResponse: { text: extractText, usage: body => ({ input_tokens: body?.usageMetadata?.promptTokenCount, output_tokens: body?.usageMetadata?.candidatesTokenCount, total_tokens: body?.usageMetadata?.totalTokenCount }) }
@@ -261,7 +282,7 @@ export function createOpenAiCompatibleAdapter(options = {}) {
       options: {
         method: "POST",
         headers: { "content-type": "application/json", authorization: `Bearer ${credential}` },
-        body: JSON.stringify({ model: input.modelId, messages: [{ role: "user", content: inputEnvelope(input) }], response_format: { type: "json_object" } })
+        body: JSON.stringify({ model: input.modelId, max_tokens: input.maxOutputTokens, messages: [{ role: "user", content: inputEnvelope(input) }], response_format: { type: "json_object" } })
       }
     }),
     parseResponse: { text: extractText, usage: body => body?.usage }

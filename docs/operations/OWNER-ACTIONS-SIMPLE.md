@@ -1,143 +1,29 @@
-# راهنمای خیلی سادهٔ مالک برای آماده‌سازی Test
+# کارهای باقی‌ماندهٔ مالک — نسخهٔ خیلی ساده
 
-این صفحه فقط کارهایی را می‌گوید که خارج از repository هستند. مقدار واقعی password یا API key را در چت، Google Sheet، Git یا ticket عمومی ننویسید.
+وضعیت مرجع: ۲۰۲۶-۰۹-۱۰
 
-## وضعیت مهم فعلی
+Test آماده است: سه سرویس healthy، PostgreSQL واقعی، readiness آماده، hydration هر ۱۱ registry، دامنه/TLS و احراز هویت تأیید شده‌اند. Secretهای Test را دوباره نسازید و Compose را دوباره راه‌اندازی نکنید. فایل قدیمی `compose.test.yaml` نیز فعال نیست و به‌صورت بازیافت‌پذیر کنار گذاشته شده است.
 
-artifact جدید Test نصب شده و Control Plane و PostgreSQL از نظر container healthy هستند؛ اما با env/Secret فعلیِ runtime، دو Secret اتصال PostgreSQL خالی‌اند. تا تکمیل آن‌ها، `/ready` در حالت strict باید آماده اعلام نشود و Test را persistence-ready در نظر نگیرید. دادهٔ PostgreSQL حذف یا تغییر نکرده است.
+فقط سه تصمیم/دسترسی بیرونی باقی مانده است:
 
-## وضعیت فعلی
+## ۱. یک مقصد Clean Linux بدهید
 
-کارهای داخل پروژه انجام شده و محیط مستقل Test بالا است؛ اما تا تنظیم PostgreSQL، آمادهٔ نهاییِ persistence محسوب نمی‌شود:
+ادمین باید یک VM پاک و اختصاصی Hero با Linux و Docker/Compose آماده کند؛ هیچ پروژهٔ دیگری روی آن نباشد. سپس پل محدود recovery را طبق [CLEAN-LINUX-RECOVERY.md](CLEAN-LINUX-RECOVERY.md) بسازد. password، private key یا Secret را در چت نفرستید.
 
-- تست Linux: `241/241` موفق؛ Roadmap audit برابر `OPEN-50=50` و `NEXT-100=100`؛
-- Build برنامه: موفق؛
-- محیط Test مستقل: project name=`hero-test`، پورت `43101` فقط روی localhost، PostgreSQL، volume و network جدا؛
-- preflight/migration/پایداری مربوط به اجرای قبلی با env کامل ثبت شده؛ preflight فعلی دو Secret PostgreSQL را کم دارد؛
-- دامنهٔ Test: TLS، احراز هویت، noindex و robots بررسی شده؛
-- hydration بعد از restart در اجرای قبلی موفق ثبت شده و پس از اتصال env باید برای candidate جاری تکرار شود؛
-- Provider زنده: عمداً خاموش است؛
-- Production: عمداً فعال نشده است.
+## ۲. Provider و سقف هزینه را تأیید کنید
 
-artifact تمیز جاری `hero-control-plane:candidate-b7f0247` با digest `sha256:4f6f8f5766246e548ae46a736d8ea5dc8659ad9604be6d9c9131e051bf596e6d` از Commit `b7f0247` ساخته و فقط روی Test نصب شده است؛ health و UI سالم‌اند و پنل وضعیت واقعی `runtime=in-memory` و `readiness=development-or-optional` را نشان می‌دهد، اما `HERO_POSTGRES_URL` و `HERO_POSTGRES_PASSWORD` خالی‌اند و persistence هنوز تأیید نشده است. پنل دفتر ۵۰ گام با شمارش `pending=39`، `blocked=9`، `evidence=2`، راهنمای ۳۹ مفهوم و ۱۴ اقدام مالک/ادمین را read-only نشان می‌دهد. این image تا تکمیل recovery، Pilot و مجوزهای جدا نباید به Production promotion شود.
+پیشنهاد پایلوت اول: فقط OpenAI؛ نقش‌های خواندنی از خانوادهٔ ChatGPT، Executor از خانوادهٔ Codex، سقف کل ۵ دلار و انقضای کوتاه. شما باید Model IDهای موجود در حساب و سقف را تأیید کنید و به ادمین اجازه دهید API key را فقط در Secret Store محیط Test قرار دهد. جزئیات در [EXTERNAL-SPEND-AUTHORIZATION.md](EXTERNAL-SPEND-AUTHORIZATION.md) است.
 
-نکتهٔ production: خود سرویس با credential runtime سالم است، اما دامنهٔ عمومی production همان credential را قبول نمی‌کند و `401` می‌دهد. ادمین باید Basic Auth/Caddy production را اصلاح و validate کند؛ password یا hash نباید در چت ارسال شود.
+API key را هرگز برای من، در Git، Sheet یا ticket ارسال نکنید.
 
-## کاری که شما یا اپراتور سرور باید انجام دهید
+## ۳. پایلوت پیشنهادی را تأیید یا اصلاح کنید
 
-### ۱. Secretهای Test را در محل امن بسازید
+پیشنهاد آماده: «وب‌اپ فارسی و RTL برای ثبت و پیگیری کارها، با ذخیره محلی و بدون API بیرونی یا Production». معیارهای دقیق در [PILOT-REQUEST-20260910.md](PILOT-REQUEST-20260910.md) آمده است.
 
-اگر Secret Manager سازمانی دارید، از همان استفاده کنید. اگر ندارید، اپراتور سرور یک فایل خارج از repository بسازد؛ نمونهٔ مسیر:
+اگر موافقید، همین جمله کافی است:
 
 ```text
-/etc/hero/hero-test.env
+HERO-PILOT-001 v1.0 و سقف کل ۵ دلار را تأیید می‌کنم؛ فقط Test، فقط OpenAI، Model IDهای ثبت‌شده، بدون Production، پیام بیرونی یا عملیات مخرب.
 ```
 
-این فایل باید فقط برای root یا کاربر سرویس قابل خواندن باشد. این نام‌ها لازم‌اند:
-
-```text
-HERO_HTTP_HOST=0.0.0.0
-HERO_HTTP_PORT=3100
-HERO_BIND_ADDRESS=127.0.0.1
-HERO_EXPOSE_PORT=43101
-HERO_DATA_DIR=/var/lib/hero
-HERO_LOG_LEVEL=info
-HERO_OWNER_AUTH_SECRET=<یک مقدار تصادفی حداقل ۳۲ نویسه>
-HERO_ADMIN_AUTH_SECRET=<یک مقدار تصادفی حداقل ۳۲ نویسه برای نشست Admin>
-HERO_BACKOFFICE_USER=<نام کاربری انتخابی>
-HERO_BACKOFFICE_PASSWORD=<password تصادفی حداقل ۱۶ نویسه>
-HERO_POSTGRES_URL=postgresql://hero:<همان password دیتابیس>@hero-postgres:5432/hero
-HERO_POSTGRES_PASSWORD=<password تصادفی حداقل ۱۶ نویسه>
-HERO_REQUIRE_POSTGRES=true
-HERO_ENABLE_REAL_PROVIDERS=false
-```
-
-مقدارهای داخل `< >` فقط جایگزین هستند و نباید عیناً وارد شوند. password دیتابیس در `HERO_POSTGRES_URL` باید با `HERO_POSTGRES_PASSWORD` یکی باشد. password پنل و password دیتابیس بهتر است متفاوت باشند.
-
-دستورهای امن برای ساخت پوشه و محدودکردن دسترسی فایل:
-
-```bash
-sudo install -d -m 700 /etc/hero
-sudo touch /etc/hero/hero-test.env
-sudo chmod 600 /etc/hero/hero-test.env
-```
-
-Secretها را با password manager یا Secret Manager تولید و در همین محل وارد کنید؛ آن‌ها را برای من ارسال نکنید.
-
-### ۲. DNS تست را تنظیم کنید
-
-در پنل DNS، فقط این رکورد را بسازید:
-
-```text
-Name: test.hero.beeproject.ir
-Type: A
-Value: IP عمومی همان سرور
-```
-
-رکورد باید به IP سرور Test اشاره کند. اگر پنل DNS گزینهٔ Proxy/CDN دارد، تنظیم فعلی آن را بدون بررسی تغییر ندهید؛ ابتدا باید اپراتور زیرساخت آن را با Caddy هماهنگ کند.
-
-### ۳. Caddy را فقط برای همین دامنه تنظیم کنید
-
-اپراتور باید محتوای نمونهٔ [Caddyfile.test.example](../../deploy/backoffice/Caddyfile.test.example) را به Caddy فعال اضافه کند؛ فایل فعلی Caddy نباید جایگزین یا پاک شود. اگر از قبل block برای همین دامنه وجود دارد، block دوم نسازید و همان block را اصلاح کنید.
-
-نتیجهٔ مورد انتظار:
-
-- `https://test.hero.beeproject.ir` به `127.0.0.1:43101` وصل شود؛
-- TLS فعال باشد؛
-- مسیرهای Back Office احراز هویت داشته باشند؛
-- پورت `43101` از اینترنت قابل دسترسی نباشد؛
-- PostgreSQL از اینترنت قابل دسترسی نباشد؛
-- سایر دامنه‌ها و سرویس‌ها دست‌نخورده بمانند.
-
-قبل از reload، اپراتور باید Caddy را با همان محیط واقعی خودش validate کند. اگر validate موفق نبود، reload انجام نشود.
-
-### ۴. Test را اجرا کنید
-
-از ریشهٔ repository و پس از قرارگرفتن فایل secret، این دستورها را اجرا کنید:
-
-```bash
-TEST_ENV_FILE=/etc/hero/hero-test.env
-test -f "$TEST_ENV_FILE"
-chmod 600 "$TEST_ENV_FILE"
-docker compose --project-name hero-test --env-file "$TEST_ENV_FILE" --profile postgres config --quiet
-docker compose --project-name hero-test --env-file "$TEST_ENV_FILE" --profile postgres run --rm --build -e HERO_BIND_ADDRESS=127.0.0.1 -e HERO_EXPOSE_PORT=43101 control-plane node tools/check-test-config.mjs
-docker compose --project-name hero-test --env-file "$TEST_ENV_FILE" --profile postgres ps
-docker compose --project-name hero-test --env-file "$TEST_ENV_FILE" up -d --build control-plane
-docker compose --project-name hero-test --env-file "$TEST_ENV_FILE" --profile postgres ps
-```
-
-اگر یکی از دو دستور `config` یا `check-test-config` خطا داد، دستور `up` را اجرا نکنید و فقط متن خطا را بدون secret ارسال کنید.
-دستور `up` عمداً فقط `control-plane` را هدف می‌گیرد؛ PostgreSQL و volume آن را recreate یا migrate نکنید.
-
-### ۵. نتیجه را برای من بفرستید
-
-برای بررسی من، فقط این موارد غیرحساس کافی است:
-
-```text
-خروجی docker compose ... ps
-نتیجهٔ health و ready
-کد HTTP دامنهٔ Test
-اینکه TLS و صفحهٔ ورود باز می‌شود یا نه
-```
-
-محتوای فایل env، password، hash، token و خروجی‌ای که secret دارد ارسال نشود.
-
-## بعد از آماده‌شدن Test
-
-من این کارها را انجام می‌دهم:
-
-1. سلامت سرویس، migration، persistence، hydration و Back Office را بررسی می‌کنم.
-2. جداسازی Test از سرویس‌های دیگر را دوباره کنترل می‌کنم.
-3. نتیجه را در مستندات و Google Sheet ثبت می‌کنم.
-4. برای یک pilot کوچک، سناریو و معیار پذیرش را با شما نهایی می‌کنم.
-
-برای Pilot شما فقط باید یک feature یا درخواست واقعی کوچک را مشخص کنید و بگویید «موفقیت» دقیقاً یعنی چه؛ مثلاً خروجی درست، زمان قابل‌قبول، سقف هزینه و امکان rollback. بدون این تعریف، اجرای واقعی قابل ارزیابی نیست.
-
-## چیزهایی که هنوز عمداً انجام نمی‌شوند
-
-- API key و Provider واقعی، تا وقتی Provider، مدل، سقف هزینه و مجوز جداگانه مشخص نشده است؛
-- Production، تا وقتی Test و Pilot شواهد موفق نداشته باشند و مجوز مستقل صادر نشود؛
-- حذف volumeهای تست قبلی؛ برای جلوگیری از حذف ناخواسته، این کار نیازمند اجازهٔ جداگانه است؛
-- تغییر DNS، firewall یا Caddy از داخل repository؛ این‌ها خارج از مرز پروژه‌اند و ممکن است روی سرویس‌های دیگر اثر بگذارند.
-
-جزئیات فنی کامل‌تر در [HERO-TEST-ENVIRONMENT.md](HERO-TEST-ENVIRONMENT.md) و [PILOT-READINESS.md](PILOT-READINESS.md) است.
+پس از این سه مورد، بقیهٔ بررسی، Provider smoke test، اجرای پایلوت، ارزیابی و گزارش با من است. Production همچنان مجوز مستقل می‌خواهد.

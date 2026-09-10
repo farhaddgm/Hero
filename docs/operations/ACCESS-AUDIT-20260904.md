@@ -4,13 +4,25 @@
 
 این بررسی فقط روی repository خود Hero در `/opt/hero` و namespace مجزای Docker با نام `hero-test` انجام شد. هیچ فایل، کانتینر، volume، database یا پورت متعلق به پروژهٔ دیگری خوانده یا تغییر داده نشد.
 
+## اصلاح وضعیت جاری — ۲۰۲۶-۰۹-۱۰
+
+- Test شامل Control Plane، PostgreSQL و proxy احراز هویت است و هر سه سرویس healthy هستند؛ bind برنامه فقط `127.0.0.1:43101` است.
+- `/health` و `/ready` داخلی و عمومی `200` هستند؛ دامنهٔ رسمی `test.hero.beeproject.ir` TLS معتبر و Back Office بدون auth برابر `401` دارد.
+- persistence برابر `postgresql`، readiness برابر `ready` و hydration برابر `hydrated` است؛ هر ۱۱ registry بازیابی شدند و event/snapshot integrity معتبر است.
+- مسیرهای dashboard، diagnostics و هر دو audit با نشست Owner به‌صورت read-only پاسخ `200` دادند.
+- restart کنترل‌شده فقط برای Control Plane انجام شد؛ projection digest ثابت ماند و PostgreSQL، volume و سرویس‌های دیگر دست‌نخورده بودند.
+- `compose.test.yaml` فعال نبود و پس از مقایسه با قرارداد جاری، بدون حذف در `var/quarantine/compose.test.yaml.legacy-20260904.disabled` کنار گذاشته شد. تنها مبنای Test فایل `compose.yaml` با project name برابر `hero-test` است.
+- verification کامل جاری پس از آخرین اصلاحات `246/246` تست، Build برابر ۱۴۴ ماژول و ۹ JSON و auditهای اجباری موفق است؛ اعداد پایین‌تر فقط شواهد تاریخی‌اند.
+- بخش‌های دارای تاریخ ۲۰۲۶-۰۹-۰۵ و قبل از آن در ادامه، شواهد تاریخی‌اند و بیانگر وضعیت فعلی PostgreSQL نیستند.
+
 ## وضعیت جاری — ۲۰۲۶-۰۹-۰۵
 
 - artifact جاری `hero-control-plane:candidate-b7f0247` با digest `sha256:4f6f8f5766246e548ae46a736d8ea5dc8659ad9604be6d9c9131e051bf596e6d` فقط روی `hero-test` مستقر است؛
 - `hero-test-control-plane-1` و `hero-test-hero-postgres-1` هر دو healthy هستند؛ فقط Control Plane recreate شد و bind همچنان `127.0.0.1:43101` است؛
+- اتصال TCP داخلی از Control Plane به `hero-postgres:5432` قابل برقراری است؛ شبکه و سرویس PostgreSQL reachable هستند و blocker فعلی به Secret wiring/strict persistence محدود می‌شود؛
 - smoke-test داخلی: `/health=200`، `/ready=200`، `/backoffice=200` و `/backoffice-data=200` با احراز هویت؛ payload شامل ۵۰ ردیف `OPEN-50` و وضعیت `runtime=in-memory`/`readiness=development-or-optional` است؛
 - شمارش وضعیت دفتر جاری: `pending=39`، `blocked=9` و `evidence=2`؛ شواهد persistence قبلی عمداً از وضعیت candidate جاری جدا نگه داشته شده‌اند؛
-- preflight سخت‌گیرانه فقط دو blocker واقعی دارد: `HERO_POSTGRES_URL` و `HERO_POSTGRES_PASSWORD` در env امن runtime خالی‌اند؛ تا رفع آن‌ها persistence و دو مسیر audit نهایی نیستند؛
+- preflight سخت‌گیرانه فقط دو blocker واقعی دارد: `HERO_POSTGRES_URL` و `HERO_POSTGRES_PASSWORD` در env امن Control Plane خالی‌اند؛ PostgreSQL مستقل Secret runtime دارد اما این دو مقدار به Control Plane wiring نشده‌اند؛ تا رفع آن‌ها persistence و دو مسیر audit نهایی نیستند؛
 - Production، PostgreSQL، volume، network و اپلیکیشن‌های دیگر تغییر نکرده‌اند.
 
 ## نتیجهٔ دسترسیِ baseline تاریخی
@@ -55,7 +67,7 @@
 
 ## ممیزی تکمیلی وضعیت جاری — ۲۰۲۶-۰۹-۰۵
 
-### سابقهٔ ممیزی UI و candidate قبلی — ۲۰۲۶-۰۹-۰۵
+### سابقهٔ ممیزی UI و candidate قبلی — ۲۰۲۶-۰۹-۰۵ (تاریخی)
 
 - artifact `hero-control-plane:candidate-985ab8c` با digest `sha256:590efbccac4d7b20df03d4ad14d230003ff646821bef91df9712063648225135` از Commit `985ab8c` فقط روی `hero-test` مستقر شد؛
 - Back Office اکنون Projection نسخه‌دار `OPEN-50` را با ۵۰ ردیف، وضعیت، اقدام بعدی، راهنمای ۳۹ مفهوم و ۱۴ اقدام مالک/ادمین نشان می‌دهد؛ ۳ blocker Pilot جداگانه مشخص‌اند؛
@@ -64,7 +76,9 @@
 - بعد از restart کنترل‌شده، `/ready=200` و Back Office با auth=`200` باقی ماند؛ PostgreSQL و namespace `hero-test` تغییر نکردند؛ ۱۷ مسیر read-only نیز `200` شدند؛
 - `compose.test.yaml` همچنان untracked و خارج از image/فرآیند deploy است و خوانده یا استفاده نشد.
 
-بخش تاریخی مربوط به ۴ سپتامبر است. در بررسی جاری، stack مستقل `hero-test` با Control Plane و PostgreSQL هر دو `healthy` مشاهده شد؛ `/health=200`، `/ready=200` و `/backoffice` بدون احراز هویت `401` بودند. دامنهٔ `test.hero.beeproject.ir` نیز TLS معتبر و پاسخ بدون احراز هویت `401` دارد. artifact `hero-control-plane:candidate-985ab8c` با digest `sha256:590efbccac4d7b20df03d4ad14d230003ff646821bef91df9712063648225135` از Commit `985ab8c` فقط روی Test deploy شد؛ preflight، fingerprint فایل‌های اصلی، احراز هویت و restart موفق‌اند؛ Production تغییری نکرده است.
+### وضعیت عمومی جاری — ۲۰۲۶-۰۹-۰۵
+
+در بررسی جاری، stack مستقل `hero-test` با Control Plane و PostgreSQL هر دو `healthy` مشاهده شد؛ `/health=200`، `/ready=200` و `/backoffice` بدون احراز هویت `401` بودند. دامنهٔ `test.hero.beeproject.ir` نیز TLS معتبر و پاسخ بدون احراز هویت `401` دارد. artifact جاری `hero-control-plane:candidate-b7f0247` با digest `sha256:4f6f8f5766246e548ae46a736d8ea5dc8659ad9604be6d9c9131e051bf596e6d` از Commit `b7f0247` فقط روی Test deploy شد؛ preflight سخت‌گیرانه دو Secret PostgreSQL را missing گزارش می‌کند و persistence candidate جاری هنوز نهایی نیست. Production تغییری نکرده است.
 
 همچنین Local Hero سالم است (`/health=200`، `/ready=200`، Back Office بدون احراز هویت `401`). در Production، HTTP به HTTPS با `308` redirect می‌شود و HTTPS Back Office بدون احراز هویت `401` می‌دهد؛ رفع اختلاف Basic Auth/Caddy همچنان اقدام ادمین و خارج از این workspace است. هیچ سرویس یا resource متعلق به پروژهٔ دیگری تغییر نکرد.
 

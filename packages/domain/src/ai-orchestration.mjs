@@ -272,6 +272,7 @@ export function createAiOrchestration(options = {}) {
   const evaluations = new Map();
   const decisions = new Map();
   const circuitStates = new Map();
+  const externalSpendBudgets = new Map();
   const rolePolicies = new Map(Object.entries(options.defaultRolePolicies ?? AI_DEFAULT_ROLE_POLICIES).map(([role, policy]) => [role, { ...policy, role, policyVersion: policy.policyVersion ?? 1 }]));
   const idempotency = new Map();
 
@@ -288,6 +289,35 @@ export function createAiOrchestration(options = {}) {
       causationId
     });
     return eventLog.append(event, { expectedVersion: eventLog.currentVersion(aggregateType, aggregateId) });
+  }
+
+  function reserveExternalSpend(authorization, profile) {
+    const approvalId = authorization.authorizationId;
+    const maximum = authorization.maxCostUnits;
+    const reservationCostUnits = profile.maxCostUnits * (profile.maxRetries + 1);
+    const current = externalSpendBudgets.get(approvalId) ?? { approvalId, maxCostUnits: maximum, spentCostUnits: 0, reservedCostUnits: 0 };
+    if (current.maxCostUnits !== maximum) {
+      return { accepted: false, code: "EXTERNAL_SPEND_BUDGET_VERSION_CONFLICT", reason: "The authorization budget changed without a new authorization id." };
+    }
+    if (!Number.isSafeInteger(reservationCostUnits) || reservationCostUnits < 1 || current.spentCostUnits + current.reservedCostUnits + reservationCostUnits > maximum) {
+      return { accepted: false, code: "EXTERNAL_SPEND_BUDGET_EXHAUSTED", reason: "The remaining authorization budget cannot cover the conservative invocation and retry limit." };
+    }
+    externalSpendBudgets.set(approvalId, immutableCopy({ ...current, reservedCostUnits: current.reservedCostUnits + reservationCostUnits }));
+    return immutableCopy({ accepted: true, approvalId, reservationCostUnits, maxCostUnits: maximum });
+  }
+
+  function settleExternalSpend(reservation, costUnits) {
+    if (!reservation) return null;
+    const current = externalSpendBudgets.get(reservation.approvalId);
+    if (!current) throw new AiOrchestrationError("EXTERNAL_SPEND_BUDGET_INVALID", "The external-spend reservation is missing.");
+    const accountedCostUnits = Math.min(reservation.reservationCostUnits, Math.max(0, costUnits));
+    const next = immutableCopy({
+      ...current,
+      spentCostUnits: current.spentCostUnits + accountedCostUnits,
+      reservedCostUnits: Math.max(0, current.reservedCostUnits - reservation.reservationCostUnits)
+    });
+    externalSpendBudgets.set(reservation.approvalId, next);
+    return immutableCopy({ approvalId: reservation.approvalId, accountedCostUnits, remainingCostUnits: Math.max(0, next.maxCostUnits - next.spentCostUnits - next.reservedCostUnits) });
   }
 
   function replayOrThrow(scope, value) {
@@ -560,10 +590,11 @@ export function createAiOrchestration(options = {}) {
     const status = assertEnum("status", input.status ?? "draft", AI_PROFILE_STATUSES);
     const timeoutMs = assertPositiveInteger("timeoutMs", input.timeoutMs ?? 120_000, { minimum: 100, maximum: 600_000 });
     const maxRetries = assertPositiveInteger("maxRetries", input.maxRetries ?? 0, { minimum: 0, maximum: 5 });
+    const maxOutputTokens = assertPositiveInteger("maxOutputTokens", input.maxOutputTokens ?? 4_096, { minimum: 16, maximum: 65_536 });
     const maxCostUnits = assertNonNegativeInteger("maxCostUnits", input.maxCostUnits ?? 100_000, 100_000);
     const costLatencyPriority = assertEnum("costLatencyPriority", input.costLatencyPriority ?? "balanced", ["cost", "latency", "quality", "balanced"]);
     const idempotencyKey = assertIdentifier("idempotencyKey", input.idempotencyKey);
-    const value = { profileId, role, providerId, modelId, credentialRef, promptVersion, contextPolicy, toolPolicy, outputSchema, status, timeoutMs, maxRetries, maxCostUnits, costLatencyPriority };
+    const value = { profileId, role, providerId, modelId, credentialRef, promptVersion, contextPolicy, toolPolicy, outputSchema, status, timeoutMs, maxRetries, maxOutputTokens, maxCostUnits, costLatencyPriority };
     const scope = commandScope("profile", profileId, idempotencyKey);
     const replay = replayOrThrow(scope, value);
     if (replay) return replay;
@@ -576,7 +607,7 @@ export function createAiOrchestration(options = {}) {
       aggregateId: profileId,
       type: "ai.profile-registered",
       actor,
-      data: { profileId, role, providerId, modelId, promptVersion, contextPolicy, toolPolicy, outputSchema, status, timeoutMs, maxRetries, maxCostUnits, costLatencyPriority }
+      data: { profileId, role, providerId, modelId, promptVersion, contextPolicy, toolPolicy, outputSchema, status, timeoutMs, maxRetries, maxOutputTokens, maxCostUnits, costLatencyPriority }
     });
     const profile = immutableCopy({ ...value, profileVersion: 1, registeredAt: event.occurredAt, eventId: event.eventId });
     profiles.set(profileId, profile);
@@ -790,7 +821,7 @@ export function createAiOrchestration(options = {}) {
       context,
       skillVersion: skill?.version ?? null,
       toolAction: input.toolAction ?? null,
-      externalSpendAuthorizationId: input.externalSpendAuthorization?.authorizationId ?? null
+      spendApprovalId: input.externalSpendAuthorization?.authorizationId ?? null
     };
     const scope = commandScope("invocation", invocationId, idempotencyKey);
     const replay = replayOrThrow(scope, value);
@@ -807,6 +838,7 @@ export function createAiOrchestration(options = {}) {
     if (provider.mode === "live" && !hasSeparateExternalSpendAuthorization(input, projectId)) {
       return blockedInvocation({ input, actor, profile, provider, code: "LIVE_PROVIDER_REQUIRES_SEPARATE_AUTHORIZATION", reason: "Live provider invocation requires a separate version-bound external-spend authorization.", idempotencyKey, value });
     }
+    let verifiedExternalAuthorization = null;
     if (provider.mode === "live") {
       if (typeof externalSpendAuthorizer !== "function") {
         return blockedInvocation({ input, actor, profile, provider, code: "ACTIVE_AUTHORIZATION_SNAPSHOT_REQUIRED", reason: "The active authorization snapshot verifier is not configured.", idempotencyKey, value });
@@ -824,14 +856,31 @@ export function createAiOrchestration(options = {}) {
           providerId: provider.providerId,
           modelId: profile.modelId,
           role,
+          maxCostUnits: profile.maxCostUnits,
           globalStop: input.externalSpendAuthorization.globalStop
         });
       } catch (error) {
         return blockedInvocation({ input, actor, profile, provider, code: "ACTIVE_AUTHORIZATION_SNAPSHOT_REJECTED", reason: safeErrorMessage(error, "The active authorization snapshot could not be verified."), idempotencyKey, value });
       }
-      if (authorization?.authorized !== true || authorization?.globalStop === true || authorization?.stepId !== input.externalSpendAuthorization.stepId || authorization?.documentVersion !== input.externalSpendAuthorization.documentVersion) {
+      if (
+        authorization?.authorized !== true
+        || authorization?.code !== "AUTHORIZED"
+        || authorization?.action !== "external-spend"
+        || authorization?.globalStop === true
+        || authorization?.safeCheckpointRequired === true
+        || authorization?.authorizationId !== input.externalSpendAuthorization.authorizationId
+        || authorization?.projectId !== projectId
+        || authorization?.stepId !== input.externalSpendAuthorization.stepId
+        || authorization?.documentVersion !== input.externalSpendAuthorization.documentVersion
+        || authorization?.providerId !== provider.providerId
+        || authorization?.modelId !== profile.modelId
+        || authorization?.role !== role
+        || !Number.isInteger(authorization?.maxCostUnits)
+        || authorization.maxCostUnits < profile.maxCostUnits
+      ) {
         return blockedInvocation({ input, actor, profile, provider, code: "ACTIVE_AUTHORIZATION_SNAPSHOT_REJECTED", reason: "The active authorization snapshot does not exactly match the live invocation.", idempotencyKey, value });
       }
+      verifiedExternalAuthorization = authorization;
     }
     if (profile.toolPolicy === "read-only" && input.toolAction) {
       return blockedInvocation({ input, actor, profile, provider, code: "READ_ONLY_TOOL_POLICY", reason: "Read-only profiles cannot request a tool action.", idempotencyKey, value });
@@ -871,6 +920,7 @@ export function createAiOrchestration(options = {}) {
       outputSchema: profile.outputSchema,
       timeoutMs: profile.timeoutMs,
       maxRetries: profile.maxRetries,
+      maxOutputTokens: profile.maxOutputTokens,
       maxCostUnits: profile.maxCostUnits
     };
     if (provider.mode === "live") {
@@ -888,6 +938,11 @@ export function createAiOrchestration(options = {}) {
       if (health.status !== "healthy") return blockedInvocation({ input, actor, profile, provider, code: "PROVIDER_UNHEALTHY", reason: health.reason ?? "Provider health check failed.", idempotencyKey, value });
     }
 
+    const spendReservation = verifiedExternalAuthorization ? reserveExternalSpend(verifiedExternalAuthorization, profile) : null;
+    if (spendReservation && spendReservation.accepted !== true) {
+      return blockedInvocation({ input, actor, profile, provider, code: spendReservation.code, reason: spendReservation.reason, idempotencyKey, value });
+    }
+
     const started = appendEvent({
       aggregateType: "ai-invocation",
       aggregateId: invocationId,
@@ -903,6 +958,8 @@ export function createAiOrchestration(options = {}) {
         modelId: profile.modelId,
         profileId: profile.profileId,
         profileVersion: profile.profileVersion,
+        spendApprovalId: verifiedExternalAuthorization?.authorizationId ?? null,
+        externalSpendMaximumCostUnits: verifiedExternalAuthorization?.maxCostUnits ?? null,
         contextSnapshotId,
         promptVersion: profile.promptVersion,
         outputSchema: profile.outputSchema,
@@ -943,22 +1000,24 @@ export function createAiOrchestration(options = {}) {
       const error = failure;
       const reason = safeErrorMessage(error);
       const code = error instanceof AiOrchestrationError ? error.code : "PROVIDER_EXECUTION_FAILED";
+      const budget = settleExternalSpend(spendReservation?.accepted === true ? spendReservation : null, profile.maxCostUnits * attempts);
       if (circuitFailure(error)) recordCircuitFailure(provider.providerId, actor, { probe: circuitProbe, code });
       const failedEvent = appendEvent({
         aggregateType: "ai-invocation",
         aggregateId: invocationId,
         type: "ai.invocation-failed",
         actor,
-        data: { invocationId, projectId, teamId, skillId, role, providerId: provider.providerId, modelId: profile.modelId, profileId: profile.profileId, code, reason, attempts },
+        data: { invocationId, projectId, teamId, skillId, role, providerId: provider.providerId, modelId: profile.modelId, profileId: profile.profileId, spendApprovalId: budget?.approvalId ?? null, accountedCostUnits: budget?.accountedCostUnits ?? 0, remainingSpendCostUnits: budget?.remainingCostUnits ?? null, code, reason, attempts },
         correlationId: input.runId ?? projectId,
         causationId: started.eventId
       });
-      const invocation = immutableCopy({ invocationId, projectId, taskId: input.taskId ?? null, runId: input.runId ?? null, teamId, skillId, role, providerId: provider.providerId, modelId: profile.modelId, profileId: profile.profileId, profileVersion: profile.profileVersion, contextSnapshotId, status: "failed", code, reason, response: null, attempts, latencyMs: Math.max(0, Date.now() - startedAtMs), requestedAt: started.occurredAt, completedAt: failedEvent.occurredAt, eventId: failedEvent.eventId, credentialRef: profile.credentialRef });
+      const invocation = immutableCopy({ invocationId, projectId, taskId: input.taskId ?? null, runId: input.runId ?? null, teamId, skillId, role, providerId: provider.providerId, modelId: profile.modelId, profileId: profile.profileId, profileVersion: profile.profileVersion, spendApprovalId: budget?.approvalId ?? null, accountedCostUnits: budget?.accountedCostUnits ?? 0, remainingSpendCostUnits: budget?.remainingCostUnits ?? null, contextSnapshotId, status: "failed", code, reason, response: null, attempts, latencyMs: Math.max(0, Date.now() - startedAtMs), requestedAt: started.occurredAt, completedAt: failedEvent.occurredAt, eventId: failedEvent.eventId, credentialRef: profile.credentialRef });
       invocations.set(invocationId, invocation);
       return remember(scope, value, { invocation, idempotent: false });
     }
 
     recordCircuitSuccess(provider.providerId, actor, { probe: circuitProbe });
+    const budget = settleExternalSpend(spendReservation?.accepted === true ? spendReservation : null, profile.maxCostUnits * Math.max(0, attempts - 1) + response.usage.costUnits);
     const completed = appendEvent({
       aggregateType: "ai-invocation",
       aggregateId: invocationId,
@@ -973,6 +1032,9 @@ export function createAiOrchestration(options = {}) {
         providerId: provider.providerId,
         modelId: profile.modelId,
         profileId: profile.profileId,
+        spendApprovalId: budget?.approvalId ?? null,
+        accountedCostUnits: budget?.accountedCostUnits ?? response.usage.costUnits,
+        remainingSpendCostUnits: budget?.remainingCostUnits ?? null,
         contextSnapshotId,
         responseKeys: Object.keys(response).sort(),
         usage: response.usage,
@@ -982,7 +1044,7 @@ export function createAiOrchestration(options = {}) {
       correlationId: input.runId ?? projectId,
       causationId: started.eventId
     });
-    const invocation = immutableCopy({ invocationId, projectId, taskId: input.taskId ?? null, runId: input.runId ?? null, teamId, skillId, role, providerId: provider.providerId, modelId: profile.modelId, profileId: profile.profileId, profileVersion: profile.profileVersion, contextSnapshotId, status: "completed", code: "AI_INVOCATION_COMPLETED", response, attempts, latencyMs: Math.max(0, Date.now() - startedAtMs), requestedAt: started.occurredAt, completedAt: completed.occurredAt, eventId: completed.eventId, credentialRef: profile.credentialRef });
+    const invocation = immutableCopy({ invocationId, projectId, taskId: input.taskId ?? null, runId: input.runId ?? null, teamId, skillId, role, providerId: provider.providerId, modelId: profile.modelId, profileId: profile.profileId, profileVersion: profile.profileVersion, spendApprovalId: budget?.approvalId ?? null, accountedCostUnits: budget?.accountedCostUnits ?? response.usage.costUnits, remainingSpendCostUnits: budget?.remainingCostUnits ?? null, contextSnapshotId, status: "completed", code: "AI_INVOCATION_COMPLETED", response, attempts, latencyMs: Math.max(0, Date.now() - startedAtMs), requestedAt: started.occurredAt, completedAt: completed.occurredAt, eventId: completed.eventId, credentialRef: profile.credentialRef });
     invocations.set(invocationId, invocation);
     return remember(scope, value, { invocation, idempotent: false });
   }
@@ -1125,6 +1187,7 @@ export function createAiOrchestration(options = {}) {
       bindings: [...currentBindings.values()],
       defaultRolePolicies: [...rolePolicies.values()],
       circuitBreaker: circuitBreaker ? { ...circuitBreaker, states: [...circuitStates.entries()].map(([providerId, state]) => ({ providerId, ...circuitSnapshot(providerId) })) } : { enabled: false, states: [] },
+      externalSpendBudgets: [...externalSpendBudgets.values()].map(budget => ({ ...budget })),
       counts: { providers: providers.size, models: models.size, profiles: profiles.size, bindings: currentBindings.size, rolePolicies: rolePolicies.size, invocations: invocations.size, evaluations: evaluations.size, decisions: decisions.size },
       activity: activitySnapshot()
     });
@@ -1186,6 +1249,7 @@ export function createAiOrchestration(options = {}) {
       currentBindings: [...currentBindings.values()],
       rolePolicies: [...rolePolicies.values()],
       circuitBreaker: circuitBreaker ? { ...circuitBreaker, states: [...circuitStates.entries()].map(([providerId, state]) => ({ providerId, ...circuitSnapshot(providerId) })) } : { enabled: false, states: [] },
+      externalSpendBudgets: [...externalSpendBudgets.values()].map(budget => ({ ...budget })),
       invocations: [...invocations.values()],
       evaluations: [...evaluations.values()],
       decisions: [...decisions.values()]
@@ -1199,12 +1263,13 @@ export function createAiOrchestration(options = {}) {
     if (Array.isArray(input.events)) eventLog.load(input.events.filter(event => event.aggregateType.startsWith("ai-")));
     for (const map of [providers, models, profiles, bindings, currentBindings, rolePolicies, invocations, evaluations, decisions]) map.clear();
     circuitStates.clear();
+    externalSpendBudgets.clear();
     for (const provider of state.providers ?? []) {
       const stored = immutableCopy(provider);
       providers.set(stored.providerId, { ...stored, adapter: providerAdapters[stored.providerId] ?? null });
     }
     for (const model of state.models ?? []) models.set(`${model.providerId}\u0000${model.modelId}`, immutableCopy(model));
-    for (const profile of state.profiles ?? []) profiles.set(profile.profileId, immutableCopy(profile));
+    for (const profile of state.profiles ?? []) profiles.set(profile.profileId, immutableCopy({ maxOutputTokens: 4_096, ...profile }));
     for (const binding of state.bindings ?? []) bindings.set(binding.bindingId, immutableCopy(binding));
     for (const [role, policy] of Object.entries(AI_DEFAULT_ROLE_POLICIES)) rolePolicies.set(role, { ...policy, role, policyVersion: 1 });
     for (const policy of state.rolePolicies ?? []) {
@@ -1214,6 +1279,25 @@ export function createAiOrchestration(options = {}) {
     for (const invocation of state.invocations ?? []) invocations.set(invocation.invocationId, immutableCopy(invocation));
     for (const evaluation of state.evaluations ?? []) evaluations.set(evaluation.evaluationId, immutableCopy(evaluation));
     for (const decision of state.decisions ?? []) decisions.set(decision.decisionId, immutableCopy(decision));
+    for (const budget of state.externalSpendBudgets ?? []) {
+      if (
+        typeof budget?.approvalId === "string"
+        && Number.isInteger(budget.maxCostUnits)
+        && budget.maxCostUnits > 0
+        && budget.maxCostUnits <= 100_000
+        && Number.isInteger(budget.spentCostUnits)
+        && budget.spentCostUnits >= 0
+        && Number.isInteger(budget.reservedCostUnits ?? 0)
+        && (budget.reservedCostUnits ?? 0) >= 0
+      ) {
+        externalSpendBudgets.set(budget.approvalId, immutableCopy({
+          approvalId: budget.approvalId,
+          maxCostUnits: budget.maxCostUnits,
+          spentCostUnits: Math.min(budget.maxCostUnits, budget.spentCostUnits + (budget.reservedCostUnits ?? 0)),
+          reservedCostUnits: 0
+        }));
+      }
+    }
     if (circuitBreaker && state.circuitBreaker?.states) {
       for (const item of state.circuitBreaker.states) {
         if (typeof item?.providerId === "string" && ["closed", "open", "half-open"].includes(item.state)) {

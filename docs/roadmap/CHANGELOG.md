@@ -1,5 +1,44 @@
 # تغییرات رودمپ شرکت
 
+## 2026-09-10 — تأیید PostgreSQL واقعی Test و پاک‌سازی قرارداد استقرار
+
+- تأییدشده: هر سه سرویس Test healthy، health/readiness داخلی و عمومی `200`، persistence برابر `postgresql` و hydration برابر `hydrated`؛
+- تأییدشده: هر ۱۱ registry بدون مورد گمشده hydrate شدند و event/snapshot integrity معتبر است؛ restart کنترل‌شدهٔ فقط Control Plane projection digest را تغییر نداد؛
+- تأییدشده: dashboard، diagnostics و دو مسیر audit با Owner session پاسخ `200` دادند؛
+- کنارگذاشته‌شده: `compose.test.yaml` قدیمی و خارج از قرارداد، بدون حذف و به‌صورت بازیافت‌پذیر در `var/quarantine/compose.test.yaml.legacy-20260904.disabled`؛
+- مستندشده: وضعیت واقعی جاری در `docs/roadmap/STATUS-20260910.md` و اصلاح اسناد تاریخی که PostgreSQL را متصل‌نشده نشان می‌دادند؛
+- افزوده‌شده: مجوز runtime برای external-spend با تطابق دقیق Step/Version/Provider/Model/Role، انقضا، Global Stop و cap هزینه؛
+- افزوده‌شده: محاسبهٔ نرخ جداگانهٔ input/output، سقف output token و رد هزینهٔ بدترین‌حالت پیش از تماس Provider؛
+- افزوده‌شده: درخواست نسخه‌دار `HERO-PILOT-001/v1.0`، قرارداد evidence بازیابی Clean Linux و check پویای سه گیت پایلوت؛
+- تأییدشده: `246/246` تست، Build برابر ۱۴۴ ماژول و ۹ JSON، Governance/Deployment/Roadmap/Owner Handoff همگی موفق؛
+- مرز: Production، Provider پولی، Secretها و سرویس پروژه‌های دیگر تغییر نکردند.
+
+## 2026-09-09 — اجرای verification صد گام
+
+- تأییدشده: image Linux verification با Build برابر ۱۴۳ ماژول، Governance برابر ۲۱ گام، Roadmap/Owner handoff audit موفق و `243/243` تست موفق؛
+- تأییدشده: smoke image عملیاتی با `/health=200`، `/ready=200`، Back Office بدون احراز هویت=`401`، با احراز هویت=`200`، `robots.txt=200` و مسیر ناشناخته=`404`؛
+- ثبت‌شده: وضعیت هر ۱۰۰ گام و شواهد دقیق در `docs/roadmap/EXECUTION-20260909-100-STEPS.md`؛
+- ثبت‌شده: Pilot readiness عمداً با سه blocker واقعی متوقف است: recovery مقصد Linux، مجوز Provider و درخواست/معیار پذیرش Pilot؛
+- مرز: هیچ Secret، Provider واقعی، هزینهٔ خارجی، Production، DNS/Caddy یا سرویس پروژهٔ دیگر تغییر نکرد.
+
+## 2026-09-05 — اجباری‌شدن PostgreSQL strict در قرارداد Test
+
+- اصلاح‌شده: deployment contract اکنون نمونهٔ Test را ملزم به `HERO_REQUIRE_POSTGRES=true` می‌کند؛
+- تأییدشده: verification workspace با `243/243` تست موفق، Build با `143` ماژول و Roadmap/Owner handoff audit موفق؛
+- مرز: فقط contract و شواهد repository تغییر کرد؛ هیچ runtime، Secret، دادهٔ PostgreSQL، Production یا اپلیکیشن دیگری تغییر نکرد.
+
+## 2026-09-05 — جلوگیری از mismatch اتصال PostgreSQL در preflight
+
+- افزوده‌شده: بررسی برابر بودن password داخل `HERO_POSTGRES_URL` با `HERO_POSTGRES_PASSWORD` بدون افشای مقدار Secret؛
+- تأییدشده: verification workspace با `243/243` تست موفق، Roadmap audit و Owner handoff audit موفق؛
+- مرز: فقط preflight، تست و شواهد workspace تغییر کرد؛ Secret، دادهٔ PostgreSQL، Production و اپلیکیشن‌های دیگر تغییری نکردند.
+
+## 2026-09-05 — پوشش شاخهٔ readiness PostgreSQL در Back Office
+
+- افزوده‌شده: تست ایزولهٔ گزارش `runtime=postgresql` و `readiness=ready` هنگام اتصال persistence runtime؛
+- تأییدشده: verification workspace با `242/242` تست موفق، Roadmap audit و Owner handoff audit موفق؛
+- مرز: فقط تست و شواهد workspace تغییر کرد؛ artifact قبلی، Secretها، دادهٔ PostgreSQL، Production و اپلیکیشن‌های دیگر تغییری نکردند.
+
 ## 2026-09-05 — استقرار ledger هم‌راستا با evidence جاری Test
 
 - اصلاح‌شده: statusهای persistence که فقط شاهد قبلی داشتند برای candidate جاری pending شدند و preflight متوقف‌شده به‌عنوان blocker خارجی ثبت شد؛

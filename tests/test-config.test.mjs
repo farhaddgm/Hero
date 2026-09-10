@@ -29,3 +29,13 @@ test("Test configuration preflight rejects placeholders and unsafe boundaries", 
   assert.match(result.errors.join("\n"), /HERO_ENABLE_REAL_PROVIDERS/);
   assert.match(result.errors.join("\n"), /HERO_OWNER_AUTH_SECRET/);
 });
+
+test("Test configuration preflight rejects a PostgreSQL URL password mismatch", () => {
+  const result = validateTestEnvironment({
+    ...valid,
+    HERO_POSTGRES_URL: "postgresql://hero:another-test-password-123@hero-postgres:5432/hero"
+  });
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join("\n"), /password داخل HERO_POSTGRES_URL باید با HERO_POSTGRES_PASSWORD یکسان باشد/);
+  assert.doesNotMatch(result.errors.join("\n"), /test-postgres-password|another-test-password/);
+});

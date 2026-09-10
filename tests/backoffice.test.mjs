@@ -129,6 +129,23 @@ test("protected development back office exposes safe data and controlled owner/a
   assert.equal(writeAttempt.headers.get("x-content-type-options"), "nosniff");
 });
 
+test("back office reports PostgreSQL readiness when a persistence runtime is attached", async t => {
+  const app = createHeroServer({
+    host: "127.0.0.1",
+    port: 0,
+    requirePostgres: true,
+    postgresRuntime: { ping: async () => {} }
+  });
+  const address = await app.start();
+  t.after(() => app.stop());
+
+  const response = await fetch(`http://127.0.0.1:${address.port}/backoffice-data`);
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.backoffice.settings.persistence.runtime, "postgresql");
+  assert.equal(payload.backoffice.settings.persistence.readiness, "ready");
+});
+
 test("back office read models have a bounded response and a local rate limit", async t => {
   const app = createHeroServer({
     host: "127.0.0.1",

@@ -165,6 +165,7 @@ export function getAiOrchestrationContractSummary() {
       "Evaluation is evidence; Decision Proposal is not authorization",
       "Provider and model changes never rewrite prior invocations or memory",
   "Live provider invocation requires a separate active version-bound external-spend authorization",
+  "External-spend reservations are cumulative, conservative and persisted across invocations",
   "Timeout, retry and cost limits are evaluated before an invocation can be accepted",
   "Repeated provider failures open a bounded circuit; recovery requires a half-open probe",
   "Evaluator and read-only profiles cannot execute tools or mutate code/data"

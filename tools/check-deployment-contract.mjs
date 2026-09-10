@@ -35,12 +35,17 @@ requireMatch(compose, /hero-data:/, "The application must use the project-scoped
 requireMatch(compose, /hero-postgres-data:/, "PostgreSQL must use its own project-scoped volume.");
 requireMatch(compose, /hero-private:\s*\n\s*driver:\s*bridge/, "Services must use the private hero-private network.");
 requireMatch(compose, /HERO_ENABLE_REAL_PROVIDERS:\s*\$\{HERO_ENABLE_REAL_PROVIDERS:-false\}/, "Live Providers must default to disabled.");
+requireMatch(compose, /HERO_OPENAI_API_KEY:\s*\$\{HERO_OPENAI_API_KEY:-\}/, "OpenAI credentials must only be forwarded from runtime environment variables.");
+requireMatch(compose, /HERO_EXTERNAL_SPEND_AUTHORIZATION_ACTIVE:\s*\$\{HERO_EXTERNAL_SPEND_AUTHORIZATION_ACTIVE:-false\}/, "External-spend authorization must default to inactive.");
+requireMatch(compose, /HERO_EXTERNAL_SPEND_GLOBAL_STOP:\s*\$\{HERO_EXTERNAL_SPEND_GLOBAL_STOP:-false\}/, "External-spend Global Stop must remain an explicit runtime control.");
 rejectMatch(compose, /hero-postgres:[\s\S]{0,700}?\n\s+ports:/, "PostgreSQL must not publish a host port.");
 rejectMatch(compose, /0\.0\.0\.0:\$\{HERO_EXPOSE_PORT/, "The application must not publish the host port on every interface.");
 
 requireMatch(testEnv, /^HERO_EXPOSE_PORT=43101$/m, "The Test example must use host port 43101.");
 requireMatch(testEnv, /^HERO_ENABLE_REAL_PROVIDERS=false$/m, "The Test example must keep live Providers disabled.");
 requireMatch(testEnv, /^HERO_BIND_ADDRESS=127\.0\.0\.1$/m, "The Test example must bind only to localhost.");
+requireMatch(testEnv, /^HERO_REQUIRE_POSTGRES=true$/m, "The Test example must require PostgreSQL persistence.");
+requireMatch(testEnv, /^HERO_EXTERNAL_SPEND_AUTHORIZATION_ACTIVE=false$/m, "The Test example must keep external-spend authorization inactive.");
 
 requireMatch(caddyTest, /^test\.hero\.beeproject\.ir \{$/m, "The canonical Test hostname must be test.hero.beeproject.ir.");
 requireMatch(caddyTest, /reverse_proxy 127\.0\.0\.1:43101/, "Caddy Test must proxy to 127.0.0.1:43101.");

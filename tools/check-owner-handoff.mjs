@@ -7,6 +7,7 @@ const files = Object.freeze({
   pending: path.join(root, "docs", "operations", "OWNER-ACTIONS-PENDING-20260904.md"),
   simple: path.join(root, "docs", "operations", "OWNER-ACTIONS-SIMPLE.md"),
   candidate: path.join(root, "docs", "roadmap", "CANDIDATE-EVIDENCE-20260904.md"),
+  status: path.join(root, "docs", "roadmap", "STATUS-20260910.md"),
   open50: path.join(root, "docs", "roadmap", "OPEN-50-PRIORITY-20260904.md")
 });
 
@@ -35,14 +36,15 @@ function read(name, file) {
 const pending = read("Owner pending actions", files.pending);
 const simple = read("Simple owner runbook", files.simple);
 const candidate = read("Candidate evidence", files.candidate);
+const status = read("Current status", files.status);
 const open50 = read("OPEN-50 ledger", files.open50);
 const errors = [];
 
 for (const term of requiredPendingTerms) {
   if (!pending.includes(term)) errors.push(`Owner pending actions must mention ${term}.`);
 }
-if (!/Test واقعی سالم است|محیط مستقل Test/.test(simple)) errors.push("Simple owner runbook must state the current Test status.");
-if (!/artifact تمیز/.test(simple) || !/env\/Secret فعلی/.test(simple)) errors.push("Simple owner runbook must identify the exact artifact and preserve the current runtime Secret/env.");
+if (!/Test آماده است:.*PostgreSQL واقعی/.test(simple) || !/دوباره.*نکنید/.test(simple)) errors.push("Simple owner runbook must state the current PostgreSQL-ready status and prevent rerunning historical setup steps.");
+if (!/persistence واقعی Test برابر `postgresql`/.test(status) || !/compose\.test\.yaml/.test(status) || !/Production.*in-memory/.test(status)) errors.push("Current status must identify Test persistence, the quarantined legacy compose file and the Production boundary.");
 if (!/candidate-[0-9a-f]{7,40}/.test(candidate) || !/sha256:[0-9a-f]{64}/.test(candidate)) errors.push("Candidate evidence must identify a versioned tag and SHA-256 digest.");
 const candidateDeploymentIsBounded = /به Test یا Production deploy نشده|هنوز به Test deploy نشده/.test(candidate) || (/به Test(?: مستقل)? deploy شده/.test(candidate) && /به Production deploy نشده/.test(candidate));
 if (!candidateDeploymentIsBounded) errors.push("Candidate evidence must state that deployment is either pending or limited to Test and not Production.");

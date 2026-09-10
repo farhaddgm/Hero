@@ -46,6 +46,13 @@ export function validateTestEnvironment(env = process.env) {
       if (url.port !== "5432") errors.push("HERO_POSTGRES_URL باید از پورت 5432 سرویس Test استفاده کند.");
       if (url.username !== "hero" || url.pathname !== "/hero") errors.push("HERO_POSTGRES_URL باید database و user مستقل Test یعنی hero/hero را مشخص کند.");
       if (!url.password) errors.push("HERO_POSTGRES_URL باید password runtime داشته باشد.");
+      else {
+        try {
+          if (decodeURIComponent(url.password) !== env.HERO_POSTGRES_PASSWORD) errors.push("password داخل HERO_POSTGRES_URL باید با HERO_POSTGRES_PASSWORD یکسان باشد.");
+        } catch {
+          errors.push("password داخل HERO_POSTGRES_URL encoding معتبر ندارد.");
+        }
+      }
     } catch {
       errors.push("HERO_POSTGRES_URL قابل parse نیست.");
     }

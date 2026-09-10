@@ -59,3 +59,9 @@ export {
   createOpenAiCompatibleAdapter,
   createOpenAiResponsesAdapter
 } from "./ai-provider-http.mjs";
+
+export {
+  ExternalSpendAuthorizationError,
+  createRuntimeExternalSpendAuthorizer,
+  readRuntimeExternalSpendPolicy
+} from "./external-spend-authorization.mjs";

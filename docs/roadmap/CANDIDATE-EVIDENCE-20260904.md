@@ -2,6 +2,12 @@
 
 این سند شناسنامهٔ قابل‌بازبینیِ source و candidate فعلی است؛ به‌معنی tag یا انتشار نیست و هیچ Secretی در آن وجود ندارد.
 
+## اصلاح وضعیت runtime — ۲۰۲۶-۰۹-۱۰
+
+این فایل عمدتاً سابقهٔ candidateهای ۲۰۲۶-۰۹-۰۴ و ۲۰۲۶-۰۹-۰۵ است. در runtime فعلی Test، PostgreSQL متصل و `ready` است؛ hydration هر ۱۱ registry، integrity رویداد/snapshot، دو مسیر audit و پایداری projection پس از restart کنترل‌شده تأیید شد. `compose.test.yaml` نیز فعال نبود و به‌صورت بازیافت‌پذیر در `var/quarantine/compose.test.yaml.legacy-20260904.disabled` کنار گذاشته شد. برای وضعیت جاری به [STATUS-20260910.md](./STATUS-20260910.md) مراجعه شود.
+
+verification کامل source جاری پس از اصلاحات بودجهٔ تجمعی و redaction فیلدهای event برابر `246/246` تست، Build برابر ۱۴۴ ماژول و ۹ JSON و همهٔ auditهای اجباری است. این شواهد هنوز به runtime Test deploy نشده‌اند؛ بنابراین نباید با artifact قدیمیِ مستقر در Test یکی فرض شوند.
+
 ## ممیزی آخرین اصلاح — ۲۰۲۶-۰۹-۰۵
 
 Commit `b7f0247` وضعیت جاری دفتر Roadmap را با evidence واقعی persistence هم‌راستا کرد و وضعیت runtime را در Back Office حفظ کرد. artifact `hero-control-plane:candidate-b7f0247` با digest `sha256:4f6f8f5766246e548ae46a736d8ea5dc8659ad9604be6d9c9131e051bf596e6d` فقط روی `hero-test` مستقر است؛ هر دو کانتینر healthy و bind روی `127.0.0.1:43101` هستند. smoke-test فعلی `/health=200`، `/ready=200` و Back Office احراز‌شده=`200` است؛ پنل `OPEN-50` نسخهٔ `2026-09-05` با شمارش `pending=39`، `blocked=9`، `evidence=2` و وضعیت `runtime=in-memory`/`readiness=development-or-optional` را نشان می‌دهد. preflight سخت‌گیرانهٔ Test هنوز دو مقدار `HERO_POSTGRES_URL` و `HERO_POSTGRES_PASSWORD` را خالی تشخیص می‌دهد؛ تا ورود آن‌ها از Secret Store، persistence و مسیرهای audit runtime تأییدشده محسوب نمی‌شوند.
@@ -11,6 +17,8 @@ Commit `b7f0247` وضعیت جاری دفتر Roadmap را با evidence واق�
 پس از candidate پایهٔ `c1a1430`، چهار برچسب وضعیت roadmap، راهنمای ۳۹ مفهوم، assertionهای UI و کنترل parity در Commit نهایی `985ab8c` ثبت شدند. image runtime جاری `hero-test-control-plane:latest` با artifact tag `hero-control-plane:candidate-985ab8c` و digest `sha256:590efbccac4d7b20df03d4ad14d230003ff646821bef91df9712063648225135` فقط در `hero-test` مستقر است؛ Production تغییری نکرده است.
 
 ## منبع
+
+یادداشت verification workspace: پس از ساخت artifact `b7f0247`، دو تست برای گزارش readiness PostgreSQL و تشخیص تطابق password به workspace افزوده و در Linux verify اجرا شدند؛ نتیجهٔ workspace `243/243` تست موفق است. این تست‌ها هنوز در artifact `b7f0247` نیستند چون ثبت commit جدید در این محیط به‌دلیل read-only بودن `.git` ممکن نشد؛ عدد `241/241` در جدول artifact، دقیقاً مربوط به همان artifact است.
 
 | مورد | مقدار |
 |---|---|

@@ -1579,6 +1579,7 @@ export function createControlDashboard(options = {}) {
   }
 
   async function invokeAi(input = {}) {
+    if (globalStop) throw new DashboardCommandError("GLOBAL_STOP_ACTIVE", "توقف اضطراری فعال است؛ اجرای Provider مجاز نیست.");
     const { actor: ignoredActor, ...payload } = input;
     return runAiAsyncCommand(() => aiOrchestration.invoke({
       ...payload,

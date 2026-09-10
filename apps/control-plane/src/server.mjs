@@ -44,7 +44,7 @@ import { getDashboardHtml } from "./dashboard-view.mjs";
 import { getBackofficeHtml } from "./backoffice-view.mjs";
 import { OwnerAuthError, createOwnerAuth } from "../../../packages/domain/src/owner-auth.mjs";
 import { AdminAuthError, createAdminAuth } from "../../../packages/domain/src/admin-auth.mjs";
-import { createConfiguredAiProviderAdapters, createPostgresRuntime } from "../../../packages/adapters/src/index.mjs";
+import { createConfiguredAiProviderAdapters, createPostgresRuntime, createRuntimeExternalSpendAuthorizer } from "../../../packages/adapters/src/index.mjs";
 
 const PRIVATE_ROBOTS_POLICY = "noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate";
 const READ_MODEL_AUDIT_RESOURCES = new Set([
@@ -248,15 +248,16 @@ export function createHeroServer(options = {}) {
   }
   const backofficeRateLimiter = createRateLimiter(options.backofficeRateLimit);
   const providerAdapterOptions = options.providerAdapterOptions ?? {
-    openai: { costUnitsPer1kTokens: optionalCostUnits("HERO_OPENAI_COST_UNITS_PER_1K_TOKENS") },
-    anthropic: { costUnitsPer1kTokens: optionalCostUnits("HERO_ANTHROPIC_COST_UNITS_PER_1K_TOKENS") },
-    google: { costUnitsPer1kTokens: optionalCostUnits("HERO_GOOGLE_COST_UNITS_PER_1K_TOKENS") },
-    "openai-compatible": { costUnitsPer1kTokens: optionalCostUnits("HERO_OPENAI_COMPATIBLE_COST_UNITS_PER_1K_TOKENS") }
+    openai: { costUnitsPer1kTokens: optionalCostUnits("HERO_OPENAI_COST_UNITS_PER_1K_TOKENS"), costUnitsPer1kInputTokens: optionalCostUnits("HERO_OPENAI_INPUT_COST_UNITS_PER_1K_TOKENS"), costUnitsPer1kOutputTokens: optionalCostUnits("HERO_OPENAI_OUTPUT_COST_UNITS_PER_1K_TOKENS") },
+    anthropic: { costUnitsPer1kTokens: optionalCostUnits("HERO_ANTHROPIC_COST_UNITS_PER_1K_TOKENS"), costUnitsPer1kInputTokens: optionalCostUnits("HERO_ANTHROPIC_INPUT_COST_UNITS_PER_1K_TOKENS"), costUnitsPer1kOutputTokens: optionalCostUnits("HERO_ANTHROPIC_OUTPUT_COST_UNITS_PER_1K_TOKENS") },
+    google: { costUnitsPer1kTokens: optionalCostUnits("HERO_GOOGLE_COST_UNITS_PER_1K_TOKENS"), costUnitsPer1kInputTokens: optionalCostUnits("HERO_GOOGLE_INPUT_COST_UNITS_PER_1K_TOKENS"), costUnitsPer1kOutputTokens: optionalCostUnits("HERO_GOOGLE_OUTPUT_COST_UNITS_PER_1K_TOKENS") },
+    "openai-compatible": { costUnitsPer1kTokens: optionalCostUnits("HERO_OPENAI_COMPATIBLE_COST_UNITS_PER_1K_TOKENS"), costUnitsPer1kInputTokens: optionalCostUnits("HERO_OPENAI_COMPATIBLE_INPUT_COST_UNITS_PER_1K_TOKENS"), costUnitsPer1kOutputTokens: optionalCostUnits("HERO_OPENAI_COMPATIBLE_OUTPUT_COST_UNITS_PER_1K_TOKENS") }
   };
   const providerAdapters = options.providerAdapters ?? ((options.enableRealProviders === true || process.env.HERO_ENABLE_REAL_PROVIDERS === "true")
     ? createConfiguredAiProviderAdapters(providerAdapterOptions)
     : Object.freeze({}));
-  const dashboard = options.dashboard ?? createControlDashboard({ now: options.now, providerAdapters, externalSpendAuthorizer: options.externalSpendAuthorizer });
+  const externalSpendAuthorizer = options.externalSpendAuthorizer ?? createRuntimeExternalSpendAuthorizer();
+  const dashboard = options.dashboard ?? createControlDashboard({ now: options.now, providerAdapters, externalSpendAuthorizer });
   const ownerAuth = options.ownerAuth ?? createOwnerAuth({ secret: process.env.HERO_OWNER_AUTH_SECRET, now: options.now });
   const adminAuth = options.adminAuth ?? createAdminAuth({ secret: process.env.HERO_ADMIN_AUTH_SECRET, now: options.now });
   let postgresRuntime = options.postgresRuntime ?? null;

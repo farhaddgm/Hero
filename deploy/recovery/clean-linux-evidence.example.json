@@ -1,0 +1,29 @@
+{
+  "source": {
+    "status": "passed",
+    "independentRepository": true,
+    "externalProjectReferenceDetected": false,
+    "hostSpecificPathDetected": false,
+    "files": [".env.example", "compose.yaml", "Dockerfile", "pnpm-lock.yaml"]
+  },
+  "runtime": {
+    "status": "passed",
+    "linuxContainerReference": true,
+    "environmentPrefix": "HERO_",
+    "composeResources": ["hero-data", "hero-private"]
+  },
+  "backup": {
+    "status": "passed",
+    "artifactId": "hero-test-backup-replace-me",
+    "digest": "sha256:replace-with-64-lowercase-hex-characters",
+    "projectScoped": true,
+    "containsSecrets": false
+  },
+  "restore": {
+    "status": "passed",
+    "digest": "sha256:replace-with-the-same-64-lowercase-hex-characters",
+    "checksumMatched": true,
+    "migrationState": "verified",
+    "cleanLinuxVerified": true
+  }
+}

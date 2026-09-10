@@ -1,0 +1,68 @@
+{
+  "schemaVersion": "1.0",
+  "pilotRequestId": "HERO-PILOT-001",
+  "stepId": "HERO-021",
+  "documentVersion": "v1.0",
+  "status": "awaiting-owner-approval",
+  "ownerApproval": {
+    "approved": false,
+    "approvedBy": null,
+    "approvedAt": null
+  },
+  "request": {
+    "locale": "fa-IR",
+    "platform": "web",
+    "title": "تابلوی ساده پیگیری کارها",
+    "objective": "ساخت یک وب‌اپ تک‌صفحه‌ای فارسی و راست‌به‌چپ برای ثبت، اولویت‌بندی، تکمیل و حذف کارها، به‌عنوان پایلوت محدود فرایند Hero.",
+    "autonomy": "approved-snapshot-only"
+  },
+  "scope": {
+    "required": [
+      "فرم افزودن کار با عنوان، توضیح کوتاه و اولویت",
+      "تغییر وضعیت کار میان باز و انجام‌شده",
+      "ویرایش و حذف با تأیید کاربر",
+      "ذخیره محلی در مرورگر بدون سرویس بیرونی",
+      "رابط واکنش‌گرا، فارسی، RTL و قابل استفاده با صفحه‌کلید",
+      "تست خودکار رفتارهای اصلی و گزارش تحویل"
+    ],
+    "excluded": [
+      "ورود کاربر و حساب چندکاربره",
+      "پرداخت، ایمیل، پیامک یا API شخص ثالث",
+      "استقرار Production",
+      "داده واقعی مشتری"
+    ]
+  },
+  "acceptance": {
+    "mandatoryChecks": [
+      "همه رفتارهای required با شواهد واقعی پاس شوند",
+      "pnpm check در worktree پایلوت موفق باشد",
+      "هیچ Secret یا مسیر خارج از مخزن در artifact نباشد",
+      "یافته Critical یا High باز وجود نداشته باشد",
+      "Evaluator امتیاز حداقل 85 از 100 بدهد",
+      "Verifier و Code Reviewer نتیجه approved بدهند",
+      "rollback به artifact قبل مستند و آزموده شود"
+    ],
+    "maximumCorrectionCycles": 2
+  },
+  "provider": {
+    "providerId": "openai",
+    "defaultRoles": "chatgpt-family",
+    "executor": "codex-family",
+    "modelIds": [],
+    "modelSelectionStatus": "awaiting-owner-account-availability-check"
+  },
+  "budget": {
+    "unit": "one-unit-equals-0.0001-usd",
+    "proposedMaximumCostUnits": 50000,
+    "proposedMaximumUsd": 5,
+    "approved": false
+  },
+  "safety": {
+    "globalStopMustBeFalse": true,
+    "realProviderRequiresSeparateAuthorization": true,
+    "productionDeployAuthorized": false,
+    "externalMessagesAuthorized": false,
+    "secretChangesAuthorized": false,
+    "destructiveOperationsAuthorized": false
+  }
+}

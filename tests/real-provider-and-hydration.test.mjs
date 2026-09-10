@@ -3,7 +3,9 @@ import test from "node:test";
 
 import {
   createOpenAiResponsesAdapter,
-  createPostgresDomainRegistrySnapshotStore
+  createPostgresDomainRegistrySnapshotStore,
+  createRuntimeExternalSpendAuthorizer,
+  readRuntimeExternalSpendPolicy
 } from "../packages/adapters/src/index.mjs";
 import { createControlDashboard } from "../apps/control-plane/src/dashboard-service.mjs";
 import { createAiOrchestration } from "../packages/domain/src/ai-orchestration.mjs";
@@ -19,7 +21,7 @@ function liveAuthorization() {
     action: "external-spend",
     authorizationId: "AUTH-LIVE-001",
     projectId: "hero",
-    stepId: "HERO-022",
+    stepId: "HERO-021",
     documentVersion: "v1.0",
     globalStop: false,
     safeCheckpointRequired: false
@@ -48,12 +50,14 @@ test("OpenAI Responses adapter uses runtime credentials, structured JSON and usa
       };
     }
   });
-  await adapter.assertDispatchReady({ credentialRef: "env:TEST_OPENAI_KEY" });
+  await adapter.assertDispatchReady({ credentialRef: "env:TEST_OPENAI_KEY", modelId: "gpt-test", role: "analyst", outputSchema: "analysis-v1", maxOutputTokens: 100, maxCostUnits: 100, request: "تحلیل کن.", context: { artifact: "hero://artifact/test" } });
   const result = await adapter.generate({
     credentialRef: "env:TEST_OPENAI_KEY",
     modelId: "gpt-test",
     role: "analyst",
     outputSchema: "analysis-v1",
+    maxOutputTokens: 100,
+    maxCostUnits: 100,
     request: "تحلیل کن.",
     context: { artifact: "hero://artifact/test" }
   });
@@ -65,12 +69,13 @@ test("OpenAI Responses adapter uses runtime credentials, structured JSON and usa
   const body = JSON.parse(requests[0].options.body);
   assert.equal(body.store, false);
   assert.deepEqual(body.text.format, { type: "json_object" });
+  assert.equal(body.max_output_tokens, 100);
   assert.doesNotMatch(JSON.stringify(result), /runtime-secret/);
 });
 
 test("a configured live provider still requires version-bound external-spend authorization", async () => {
   let calls = 0;
-  const orchestration = createAiOrchestration({ now, externalSpendAuthorizer: async authorization => ({ authorized: true, globalStop: false, stepId: authorization.stepId, documentVersion: authorization.documentVersion }) });
+  const orchestration = createAiOrchestration({ now, externalSpendAuthorizer: async authorization => ({ ...authorization, authorized: true, code: "AUTHORIZED", action: "external-spend", globalStop: false, safeCheckpointRequired: false, maxCostUnits: authorization.maxCostUnits }) });
   const adapter = createOpenAiResponsesAdapter({
     endpoint: "https://api.example.test/v1/responses",
     credentialEnv: "TEST_OPENAI_KEY",
@@ -90,10 +95,85 @@ test("a configured live provider still requires version-bound external-spend aut
   assert.equal(withoutAuthorization.invocation.code, "LIVE_PROVIDER_REQUIRES_SEPARATE_AUTHORIZATION");
   assert.equal(calls, 0);
 
-  const authorized = await orchestration.invoke({ invocationId: "live-invocation-approved", projectId: "hero", taskId: "live-task", stepId: "HERO-022", documentVersion: "v1.0", role: "analyst", contextSnapshotId: "live-context-approved", request: "تحلیل کن.", context: { artifact: "hero://artifact/live" }, externalSpendAuthorization: liveAuthorization(), actor: AGENT, idempotencyKey: "live-invocation-approved-key" });
+  const authorized = await orchestration.invoke({ invocationId: "live-invocation-approved", projectId: "hero", taskId: "live-task", stepId: "HERO-021", documentVersion: "v1.0", role: "analyst", contextSnapshotId: "live-context-approved", request: "تحلیل کن.", context: { artifact: "hero://artifact/live" }, externalSpendAuthorization: liveAuthorization(), actor: AGENT, idempotencyKey: "live-invocation-approved-key" });
   assert.equal(authorized.invocation.status, "completed");
   assert.equal(calls, 1);
   assert.doesNotMatch(JSON.stringify(orchestration.events()), /runtime-secret/);
+});
+
+test("runtime external-spend authorization is exact, time-bound, cost-bound and fail-closed", async () => {
+  const env = {
+    HERO_EXTERNAL_SPEND_AUTHORIZATION_ACTIVE: "true",
+    HERO_EXTERNAL_SPEND_AUTHORIZATION_ID: "AUTH-PILOT-001",
+    HERO_EXTERNAL_SPEND_PROJECT_ID: "hero",
+    HERO_EXTERNAL_SPEND_STEP_ID: "HERO-021",
+    HERO_EXTERNAL_SPEND_DOCUMENT_VERSION: "v1.0",
+    HERO_EXTERNAL_SPEND_PROVIDER_ID: "openai",
+    HERO_EXTERNAL_SPEND_MODEL_IDS: "gpt-approved,codex-approved",
+    HERO_EXTERNAL_SPEND_ROLE_IDS: "analyst,executor",
+    HERO_EXTERNAL_SPEND_MAX_COST_UNITS: "50000",
+    HERO_EXTERNAL_SPEND_EXPIRES_AT: "2026-09-11T00:00:00.000Z",
+    HERO_EXTERNAL_SPEND_GLOBAL_STOP: "false"
+  };
+  const policy = readRuntimeExternalSpendPolicy({ env });
+  assert.equal(policy.active, true);
+  assert.equal(policy.maxCostUnits, 50_000);
+  const authorizer = createRuntimeExternalSpendAuthorizer({ env, clock: () => Date.parse("2026-09-10T12:00:00.000Z") });
+  const approved = await authorizer({ authorizationId: "AUTH-PILOT-001", projectId: "hero", stepId: "HERO-021", documentVersion: "v1.0", operation: "external-spend", providerId: "openai", modelId: "gpt-approved", role: "analyst", maxCostUnits: 10_000 });
+  assert.equal(approved.authorized, true);
+  assert.equal(approved.code, "AUTHORIZED");
+  const wrongModel = await authorizer({ authorizationId: "AUTH-PILOT-001", projectId: "hero", stepId: "HERO-021", documentVersion: "v1.0", operation: "external-spend", providerId: "openai", modelId: "not-approved", role: "analyst", maxCostUnits: 10_000 });
+  assert.equal(wrongModel.code, "EXTERNAL_SPEND_SCOPE_MISMATCH");
+  const overBudget = await authorizer({ authorizationId: "AUTH-PILOT-001", projectId: "hero", stepId: "HERO-021", documentVersion: "v1.0", operation: "external-spend", providerId: "openai", modelId: "gpt-approved", role: "analyst", maxCostUnits: 50_001 });
+  assert.equal(overBudget.code, "EXTERNAL_SPEND_SCOPE_MISMATCH");
+  const expired = createRuntimeExternalSpendAuthorizer({ env, clock: () => Date.parse("2026-09-11T00:00:00.000Z") });
+  assert.equal((await expired({})).code, "EXTERNAL_SPEND_AUTHORIZATION_EXPIRED");
+  const stopped = createRuntimeExternalSpendAuthorizer({ env: { ...env, HERO_EXTERNAL_SPEND_GLOBAL_STOP: "true" }, clock: () => Date.parse("2026-09-10T12:00:00.000Z") });
+  assert.equal((await stopped({})).code, "GLOBAL_STOP_ACTIVE");
+  const inactive = createRuntimeExternalSpendAuthorizer({ env: {} });
+  assert.equal((await inactive({})).code, "EXTERNAL_SPEND_AUTHORIZATION_INACTIVE");
+});
+
+test("provider cost accounting supports separate input and output rates", async () => {
+  const adapter = createOpenAiResponsesAdapter({
+    endpoint: "https://api.example.test/v1/responses",
+    credentialEnv: "TEST_OPENAI_KEY",
+    env: { TEST_OPENAI_KEY: "runtime-secret" },
+    costUnitsPer1kInputTokens: 100,
+    costUnitsPer1kOutputTokens: 400,
+    fetchImpl: async () => ({ ok: true, status: 200, async json() { return { output_text: '{"schema":"analysis-v1"}', usage: { input_tokens: 10, output_tokens: 5 } }; } })
+  });
+  const readiness = await adapter.assertDispatchReady({ credentialRef: "env:TEST_OPENAI_KEY", modelId: "gpt-test", role: "analyst", outputSchema: "analysis-v1", maxOutputTokens: 100, maxCostUnits: 1_000, request: "تحلیل کن.", context: {} });
+  assert.ok(readiness.worstCaseCostUnits <= 1_000);
+  const result = await adapter.generate({ credentialRef: "env:TEST_OPENAI_KEY", modelId: "gpt-test", role: "analyst", outputSchema: "analysis-v1", maxOutputTokens: 100, request: "تحلیل کن.", context: {} });
+  assert.equal(result.usage.costUnits, 3);
+});
+
+test("external-spend budget is cumulative, conservative and persisted across invocations", async () => {
+  let calls = 0;
+  const adapter = Object.freeze({
+    providerId: "openai",
+    mode: "live",
+    async assertDispatchReady() { return { status: "ok" }; },
+    async generate() { calls += 1; return { output: { schema: "analysis-v1" }, usage: { inputTokens: 10, outputTokens: 10, totalTokens: 20, costUnits: 40 } }; },
+    async validateConnection() { return { status: "ok" }; },
+    listCapabilities() { return []; }
+  });
+  const externalSpendAuthorizer = async input => ({ ...input, authorized: true, code: "AUTHORIZED", action: "external-spend", maxCostUnits: 99, globalStop: false, safeCheckpointRequired: false });
+  const orchestration = createAiOrchestration({ now, providerAdapters: { openai: adapter }, externalSpendAuthorizer });
+  orchestration.registerProvider({ providerId: "openai", mode: "live", displayName: "OpenAI live", adapter, actor: OWNER, idempotencyKey: "budget-provider-001" });
+  orchestration.registerModel({ providerId: "openai", modelId: "gpt-budget", actor: OWNER, idempotencyKey: "budget-model-001" });
+  orchestration.registerProfile({ profileId: "budget-profile", role: "analyst", providerId: "openai", modelId: "gpt-budget", credentialRef: "env:TEST_OPENAI_KEY", promptVersion: "budget-v1", contextPolicy: "approved", toolPolicy: "read-only", outputSchema: "analysis-v1", status: "active", maxRetries: 0, maxOutputTokens: 100, maxCostUnits: 60, actor: OWNER, idempotencyKey: "budget-profile-001" });
+  orchestration.bindRole({ bindingId: "budget-binding", projectId: "hero", role: "analyst", profileId: "budget-profile", actor: OWNER, idempotencyKey: "budget-binding-001" });
+  const authorization = { ...liveAuthorization(), authorizationId: "AUTH-BUDGET-001" };
+  const first = await orchestration.invoke({ invocationId: "budget-invocation-001", projectId: "hero", role: "analyst", contextSnapshotId: "budget-context-001", request: "تحلیل اول", context: {}, externalSpendAuthorization: authorization, actor: AGENT, idempotencyKey: "budget-invocation-key-001" });
+  assert.equal(first.invocation.status, "completed");
+  assert.equal(first.invocation.accountedCostUnits, 40);
+  assert.equal(first.invocation.remainingSpendCostUnits, 59);
+  const second = await orchestration.invoke({ invocationId: "budget-invocation-002", projectId: "hero", role: "analyst", contextSnapshotId: "budget-context-002", request: "تحلیل دوم", context: {}, externalSpendAuthorization: authorization, actor: AGENT, idempotencyKey: "budget-invocation-key-002" });
+  assert.equal(second.invocation.code, "EXTERNAL_SPEND_BUDGET_EXHAUSTED");
+  assert.equal(calls, 1);
+  assert.deepEqual(orchestration.persistenceSnapshot().externalSpendBudgets, [{ approvalId: "AUTH-BUDGET-001", maxCostUnits: 99, spentCostUnits: 40, reservedCostUnits: 0 }]);
 });
 
 test("domain registry snapshots are append-only, secret-safe and hydrate all control-plane registries", async () => {
