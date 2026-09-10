@@ -14,7 +14,7 @@
 | session revocation پایدار مالک | آماده در قرارداد و persistence | احراز هویت fail-closed و snapshotهای PostgreSQL در Test جاری hydrate شدند؛ تست کامل revocation همچنان در suite پوشش دارد |
 | Provider واقعی | پیاده‌سازی آماده؛ runtime مسدود | Adapterها و verifier مجوز زمان‌دار/role-model-cost-bound آماده و تست‌شده‌اند؛ credential و مجوز واقعی مالک هنوز فعال نیست |
 | اجرای Task واقعی در Worktree | مسدود | نیازمند HERO-020 و مجوز/دسترسی Provider مستقل است |
-| درخواست، پلتفرم و معیار پذیرش پایلوت | پیشنهاد نسخه‌دار؛ منتظر مالک | `HERO-PILOT-001/v1.0` برای VPN خصوصی با AmneziaWG و fallback XRay آماده است؛ مقصد VPS/VM، شبکه‌های آزمون، سقف زیرساخت و در صورت نیاز Model ID/سقف AI باید تصویب شوند |
+| درخواست، پلتفرم و معیار پذیرش پایلوت | پیشنهاد نسخه‌دار؛ منتظر مالک | `HERO-PILOT-001/v1.0` برای VPN خصوصی با AmneziaWG و fallback XRay آماده است؛ مقصد VPS/VM، شبکه‌های آزمون و سقف زیرساخت باید تصویب شوند. چون runtime VPN به AI Provider نیاز ندارد، Model ID/سقف AI برای خود این Pilot لازم نیست. |
 | production، deploy، spend و secret change | مسدود تا مجوز جدا | این عملیات هرگز از مجوز توسعه استنتاج نمی‌شوند |
 
 ## شواهد عملیاتی ثبت‌شده تا ۲۰۲۶-۰۹-۱۰

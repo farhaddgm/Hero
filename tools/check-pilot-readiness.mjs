@@ -41,7 +41,10 @@ function recoveryReadiness() {
   }
 }
 
-function providerReadiness(env = process.env) {
+function providerReadiness(env = process.env, request = null) {
+  if (request?.provider?.runtimeProvider === "none; VPN runtime does not require an AI Provider") {
+    return { ready: true, reason: "این Pilot در runtime به AI Provider نیاز ندارد؛ گیت Provider برای اجرای VPN اعمال نمی‌شود." };
+  }
   if (env.HERO_ENABLE_REAL_PROVIDERS !== "true") return { ready: false, reason: "Provider واقعی در runtime فعال نشده است." };
   try {
     const policy = readRuntimeExternalSpendPolicy({ env });
@@ -74,9 +77,10 @@ function pilotRequestReadiness() {
     : { ready: false, reason: "پیشنهاد HERO-PILOT-001 آماده است؛ تصویب مالک، Model ID و سقف هزینه هنوز ثبت نشده‌اند." };
 }
 
-const recovery = recoveryReadiness();
-const provider = providerReadiness();
 const pilotRequest = pilotRequestReadiness();
+const pilotRequestRecord = jsonFile(pilotRequestFile);
+const recovery = recoveryReadiness();
+const provider = providerReadiness(process.env, pilotRequestRecord);
 const checks = [
   { id: "hero-021-spec", ready: fs.existsSync(spec), reason: "قرارداد HERO-021 موجود نیست." },
   { id: "readiness-document", ready: fs.existsSync(readinessDoc), reason: "سند آمادگی پایلوت موجود نیست." },
