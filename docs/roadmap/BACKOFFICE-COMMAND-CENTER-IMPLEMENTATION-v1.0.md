@@ -1,12 +1,12 @@
-# برنامهٔ جامع توسعهٔ Back Office Command Center — v1.0
+# برنامهٔ جامع توسعهٔ Back Office Command Center — v1.1
 
 > Document ID: `HERO-ROADMAP-BACKOFFICE-COMMAND-CENTER-V1`
 > Canonical path: `docs/roadmap/BACKOFFICE-COMMAND-CENTER-IMPLEMENTATION-v1.0.md`
-> Title: برنامهٔ جامع توسعهٔ Back Office Command Center — v1.0
+> Title: برنامهٔ جامع توسعهٔ Back Office Command Center — v1.1
 > Type: roadmap
 > Scope: hero
 > Status: active
-> Version: 1.0.0
+> Version: 1.1.0
 > Owner: hero-product
 > Review cadence: per-change
 > Supersedes: none
@@ -422,12 +422,22 @@ completed_at
 
 افزودن Role انسانی جدید، Environment سفارشی، Git provider دیگر، کانال اعلان بیرونی، حسابداری Cloud/server، اپ موبایل Hero یا SaaS چندسازمانی تغییر Scope است و نباید پنهانی داخل یکی از گام‌های این برنامه قرار گیرد.
 
-## ۲۲. وضعیت آغاز
+## ۲۲. وضعیت جاری و معیار گزارش
 
-- Specification مرجع: `active`
-- برنامهٔ توسعه: `active`
-- پیاده‌سازی جدید این برنامه: `not-started`
-- مجوز پایلوت: `not-granted`
+- Specification مرجع: `active`؛
+- برنامهٔ توسعه: `active`؛
+- WP-00 و WP-01: `verified`؛
+- WP-02 تا WP-14: دارای پیاده‌سازی‌های داخلی، اما Exit Gateهای کامل آن‌ها هنوز بسته نشده‌اند؛
+- مجوز پایلوت: `not-granted` و BO-170 تا پذیرش BO-169 متوقف است.
+
+وضعیت جاری هر ۱۷۰ گام فقط از رجیستری `config/backoffice/delivery-audit-v1.0.json` و سند `HERO-EVIDENCE-BACKOFFICE-DELIVERY-AUDIT-20260911` خوانده می‌شود. Evidenceهای Batch قدیمی وجود artifact و نتیجهٔ تست زمان خود را ثابت می‌کنند؛ آن‌ها به‌تنهایی اثبات نمی‌کنند که vertical slice نهایی، UI قابل‌استفاده یا عملیات runtime واقعی تکمیل شده است.
+
+هر گزارش پیشرفت باید دو عدد را جدا نشان دهد:
+
+1. `artifact coverage`: وجود کد/قرارداد/تست یا سند برای گام؛
+2. `verified delivery`: بسته‌شدن همهٔ تعهدهای همان گام و Exit Gate بسته.
+
+عبارت کلی «۱۷۰ گام انجام شد» بدون این تفکیک ممنوع است.
 - مجوز Production: `not-granted`
 - مجوز Notion write برای این دو سند: `not-granted`
 

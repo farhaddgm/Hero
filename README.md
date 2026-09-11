@@ -6,6 +6,8 @@ Hero پایه‌ی مستقل و قابل‌انتقال یک ارکستریتو
 
 ## وضعیت فعلی
 
+ممیزی جاری Back Office در [BACKOFFICE-DELIVERY-AUDIT-20260911](docs/roadmap/BACKOFFICE-DELIVERY-AUDIT-20260911.md) ثبت شده است. عبارت «پوشش ۱۷۰ گام» به معنی تکمیل ۱۷۰ قابلیت قابل‌استفاده نیست: وضعیت سخت‌گیرانهٔ فعلی `20 verified`، `122 partial`، `26 gated`، `1 owner_pending` و `1 deferred` است. رجیستری ماشینی این شمارش در `config/backoffice/delivery-audit-v1.0.json` نگهداری می‌شود و `pnpm check:backoffice-delivery-audit` حذف، تکرار یا بزرگ‌نمایی وضعیت را رد می‌کند.
+
 گام‌های HERO-001 تا HERO-019، پیاده‌سازی محلی HERO-022/HERO-023 و قراردادهای HERO-020/HERO-021 این موارد را فراهم می‌کنند؛ HERO-024 تا HERO-026 همچنان گیت‌های عملیاتیِ بازنشده دارند:
 
 - قرارداد تجربه کاربر فارسی و ساده، با وضعیت‌های قابل‌فهم، حالت راهنما و اختیار کامل Snapshot نسخه‌دار

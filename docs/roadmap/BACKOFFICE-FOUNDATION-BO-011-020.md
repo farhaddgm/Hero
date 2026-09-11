@@ -6,9 +6,11 @@
 > Type: evidence
 > Scope: hero
 > Status: active
-> Version: 1.0.0
+> Version: 1.0.1
 > Owner: hero-architecture
 > Review cadence: none
+
+> یادداشت تفسیر: این سند Evidence تاریخی همان Batch است. وضعیت جاری تحویل و تفاوت میان artifact coverage و verified delivery در `HERO-EVIDENCE-BACKOFFICE-DELIVERY-AUDIT-20260911` ثبت شده و برای گزارش فعلی مقدم است.
 
 ## دامنه و مجوز
 

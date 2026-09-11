@@ -5,6 +5,9 @@
     "version": "1.0.0"
   },
   "baseline_date": "2026-09-10",
+  "snapshot_kind": "historical_baseline",
+  "current_delivery_audit": "config/backoffice/delivery-audit-v1.0.json",
+  "interpretation": "These counts describe the pre-implementation baseline and must not be reported as current delivery status.",
   "status_values": ["implemented", "partial", "missing"],
   "requirements": [
     { "id": "BO-GOV-001", "status": "implemented", "work_package": "WP-00", "evidence": ["compose.yaml", "packages/domain/src/owner-auth.mjs"], "gap": "No public multi-tenant mode exists; formal instance aggregate remains future work." },
