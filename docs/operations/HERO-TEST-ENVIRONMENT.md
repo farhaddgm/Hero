@@ -126,3 +126,21 @@ pnpm check:environment-parity
 این فرمان runtime یا Secret را نمی‌خواند و جایگزین Evidence استقرار نیست. پس از ساخت candidate، باید digest همان Artifact در Test ثبت و فقط همان digest با مجوز مستقل به Production promote شود.
 
 برای جلوگیری از rebuild ناخواسته، `HERO_IMAGE` در فایل runtime باید به digest کامل image candidate اشاره کند، مانند `ghcr.io/<owner>/<repo>@sha256:<digest>`. در Production از `docker compose pull` و سپس `docker compose up -d --no-build` استفاده شود؛ اجرای `up --build` در Production ممنوع است.
+
+## Promotion کنترل‌شدهٔ Test
+
+برای تغییر Test از artifact قدیمی به artifact immutable جدید، فقط ابزار زیر مجاز است. ابزار از environment Test backup می‌گیرد، فقط `hero-test/control-plane` را recreate می‌کند، dependencyها را تغییر نمی‌دهد، build نمی‌کند و health/readiness/routeهای جدید را بررسی می‌کند:
+
+```bash
+sudo /opt/hero/tools/promote-test-immutable.sh \
+  ghcr.io/farhaddgm/hero@sha256:<immutable-digest>
+```
+
+برای بررسی read-only بعد از promotion:
+
+```bash
+sudo /opt/hero/tools/verify-test-release.sh \
+  ghcr.io/farhaddgm/hero@sha256:<immutable-digest>
+```
+
+این ابزار هرگز environment یا container با نام Production را نمی‌خواند یا تغییر نمی‌دهد. فایل backup Test را برای rollback نگه می‌دارد.

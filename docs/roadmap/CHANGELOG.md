@@ -1,5 +1,11 @@
 # تغییرات رودمپ شرکت
 
+## ۲۰۲۶-۰۹-۱۱ — Promotion ایمن Artifact به Hero Test
+
+- افزوده‌شده: اسکریپت promotion برای فقط `hero-test/control-plane` با digest immutable، backup محیط Test، preflight، بدون build/dependency و smoke test خودکار.
+- افزوده‌شده: اسکریپت read-only برای تطبیق image و `/health`، `/ready`، Workspace و Project Control پس از promotion.
+- مرز: Production، Secret، Provider و Pilot در این ابزارها نام‌برده یا تغییر داده نمی‌شوند.
+
 ## ۲۰۲۶-۰۹-۱۱ — Private Object Store و Workspace Console
 
 - افزوده‌شده: Workspace Console با مسیر `/workspace?projectId=…` برای Intake، Foundation، ورودی‌های خصوصی، تنظیمات نسخه‌دار، Policy Pack و rollback؛ همهٔ mutationها همچنان از API هویت انسانی و ProjectGrant می‌گذرند.
