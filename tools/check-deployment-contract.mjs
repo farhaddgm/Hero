@@ -54,6 +54,10 @@ requireMatch(caddyTest, /reverse_proxy 127\.0\.0\.1:43101/, "Caddy Test must pro
 requireMatch(caddyTest, /basic_auth\s*\{/, "Caddy Test Back Office must retain Basic Auth.");
 requireMatch(caddyTest, /\/product-studio\b/, "Caddy Test must expose the Product Studio UI route through the authenticated Hero proxy.");
 requireMatch(caddyTest, /\/portfolio\b/, "Caddy Test must expose the Portfolio UI route through the authenticated Hero proxy.");
+requireMatch(caddyTest, /\/project-control\b/, "Caddy Test must expose the Project Control UI route through the authenticated Hero proxy.");
+requireMatch(caddyTest, /\/project-control-data\b/, "Caddy Test must expose Project Control refresh data through the authenticated Hero proxy.");
+requireMatch(caddyTest, /\/workspace\b/, "Caddy Test must expose the Workspace Console UI route through the authenticated Hero proxy.");
+requireMatch(caddyTest, /\/identity\b/, "Caddy Test must expose the human identity UI required by the Workspace Console.");
 rejectMatch(caddyTest, /hero-test\.beeproject\.ir/, "The legacy/conflicting hero-test.beeproject.ir hostname must not be mixed into the Test contract.");
 rejectMatch(caddyTest, /:5432\b/, "Caddy must not expose PostgreSQL.");
 

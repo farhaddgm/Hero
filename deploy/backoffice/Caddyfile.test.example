@@ -12,7 +12,9 @@ test.hero.beeproject.ir {
         -Server
     }
 
-    @backoffice path /backoffice /backoffice-data /backoffice-events /product-studio /product-studio-data /product-studio-document /portfolio /portfolio-data /robots.txt
+    # Every browser page is explicitly allow-listed. API routes stay behind the
+    # application's human-session authorization, not Caddy Basic Auth alone.
+    @backoffice path /backoffice /backoffice-data /backoffice-events /identity /product-studio /product-studio-data /product-studio-document /portfolio /portfolio-data /project-control /project-control-data /workspace /robots.txt
     handle @backoffice {
         basic_auth {
             {$HERO_BACKOFFICE_USER} {$HERO_BACKOFFICE_PASSWORD_HASH}

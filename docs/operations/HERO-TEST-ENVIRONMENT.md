@@ -62,6 +62,8 @@ test.hero.beeproject.ir  A  <IP عمومی همین سرور>
 
 ۳. Caddy همان سرور را با نمونهٔ [Caddyfile.test.example](../../deploy/backoffice/Caddyfile.test.example) تنظیم کند. مقدار `HERO_BACKOFFICE_PASSWORD_HASH` باید در محیط امن خود Caddy قرار گیرد و با ابزار Caddy ساخته شود؛ password خام یا hash در Git نوشته نشود. گواهی TLS باید فقط برای همین نام صادر شود و پورت `43101` و PostgreSQL عمومی نشوند.
 
+پس از انتشار هر صفحهٔ جدید Back Office، Caddy فعال نیز باید از همین allow-list به‌روز پیروی کند. در نسخهٔ فعلی مسیرهای `/identity`، `/workspace`، `/project-control` و `/project-control-data` باید مانند `/product-studio` پشت Basic Auth به `127.0.0.1:43101` proxy شوند؛ سپس پیش از reload، validate الزامی است.
+
 ۴. دسترسی اپراتوری Docker/Compose را در همان سرور فراهم کند؛ بدون ارسال credential در چت.
 
 ## کارهایی که Hero/Codex انجام می‌دهد
