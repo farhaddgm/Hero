@@ -168,6 +168,7 @@ Product ابتدا با owner و Evidence در Product registry ثبت می‌ش
 | `HERO-ROADMAP-NEXT-10-STEPS-20260904-BATCH-3` | `active` | [ده گام بعدی Hero — بستهٔ تشخیص و کنترل عملیاتی](roadmap/NEXT-10-STEPS-20260904-BATCH-3.md) |
 | `HERO-ROADMAP-NEXT-100-STEPS-20260904` | `active` | [صد گام بعدی Hero — فهرست اجرایی و وضعیت واقعی](roadmap/NEXT-100-STEPS-20260904.md) |
 | `HERO-ROADMAP-NEXT-20-STEPS-20260904` | `active` | [بیست گام بعدی Hero — وضعیت اجرایی](roadmap/NEXT-20-STEPS-20260904.md) |
+| `HERO-ROADMAP-NEXT-20-STEPS-20260911-WORKSPACE-PERSISTENCE` | `active` | [بستهٔ ۲۰ گام بعدی — Project Workspace و Settings](roadmap/NEXT-20-STEPS-20260911-WORKSPACE-PERSISTENCE.md) |
 | `HERO-ROADMAP-OPEN-50-PRIORITY-20260904` | `active` | [پنجاه گام باز و اولویت‌دار Hero](roadmap/OPEN-50-PRIORITY-20260904.md) |
 | `HERO-ROADMAP-ROADMAP-2-0-TEAM-OPERATING-MODEL` | `active` | [رودمپ ۲.۰ Hero — شرکت نرم‌افزاری چندتیمی](roadmap/ROADMAP-2.0-TEAM-OPERATING-MODEL.md) |
 | `HERO-ROADMAP-FUTURE-REQUIRED-PRICING-CATALOG` | `active` | [قابلیت ضروری آینده: Pricing Catalog نسخه‌دار Hero](roadmap/FUTURE-REQUIRED-PRICING-CATALOG.md) |

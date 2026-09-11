@@ -81,6 +81,69 @@ test("settings resolve with provenance, reject invariant weakening and preserve 
   assert.equal(override.layer, "project-override");
 });
 
+test("workspace and settings hydration restore append-only versions without restoring file contents", () => {
+  const first = setup();
+  const created = first.workspace.createProject({ actor: owner, projectId: "project-vpn", name: "VPN", intake: { goal: "Private connectivity" } });
+  const input = first.workspace.upload({ actor: admin, projectId: "project-vpn", type: "text", filename: "brief.txt", content: "private brief" });
+  const approved = first.workspace.approveFoundation({ actor: owner, projectId: "project-vpn", proposalId: created.foundationProposal.proposalId, expectedVersion: 1 });
+  const project = first.workspace.getProject("project-vpn");
+  const settings = first.settings.listRecords({ projectId: "project-vpn" });
+
+  const second = setup();
+  second.workspace.hydrateProject({ project });
+  second.workspace.hydrateInput({ input: { ...input, parse: { ...input.parse, text: null } } });
+  second.workspace.hydrateFoundation({ proposal: approved });
+  for (const setting of settings) second.settings.hydrateRecord(setting);
+
+  assert.equal(second.workspace.getProject("project-vpn").lifecycle, "active");
+  assert.equal(second.workspace.listInputs({ projectId: "project-vpn" })[0].parse.text, null);
+  assert.equal(second.workspace.foundationProposal({ projectId: "project-vpn" }).state, "approved");
+  assert.equal(second.settings.effective({ projectId: "project-vpn", path: "ai.defaultModel" }).value, "luna");
+  assert.equal(second.settings.listRecords({ projectId: "project-vpn" }).length, settings.length);
+});
+
+test("Project Studio snapshot exposes safe project workspace metadata and omits input content", async t => {
+  const { settings, workspace } = setup();
+  workspace.createProject({ actor: owner, projectId: "project-vpn", name: "VPN", intake: { goal: "Private connectivity" } });
+  workspace.upload({ actor: admin, projectId: "project-vpn", type: "text", filename: "brief.txt", content: "do not return this" });
+  const app = createHeroServer({ host: "127.0.0.1", port: 0, now, projectSettings: settings, projectWorkspace: workspace });
+  const address = await app.start(); t.after(() => app.stop());
+  const response = await fetch(`http://127.0.0.1:${address.port}/product-studio-data?projectId=project-vpn`);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.projectOverview.inputs.length, 1);
+  assert.equal("text" in body.projectOverview.inputs[0], false);
+  assert.doesNotMatch(JSON.stringify(body.projectOverview), /do not return this/);
+});
+
+test("Control Plane startup hydrates the project workspace boundary from PostgreSQL metadata", async t => {
+  const { settings, workspace } = setup();
+  const persistedProject = { projectId: "project-vpn", version: 2, name: "VPN", description: "Private", lifecycle: "active", status: "active", createdBy: "hero-owner", createdAt: now(), updatedAt: now(), intake: { intent: "Build VPN", goal: "Private connectivity", users: "Remote teams", constraints: [], expectedOutputs: [], autonomy: "approval-each-stage", projectType: "application", riskLevel: "standard" } };
+  const persistedProposal = { proposalId: "foundation-project-vpn", projectId: "project-vpn", version: 1, state: "approved", createdBy: "hero-owner", suggested: { roadmap: [] }, brief: {} };
+  const persistedInput = { uploadId: "upload-project-vpn", projectId: "project-vpn", type: "text", filename: "brief.txt", objectKey: "hero/uploads/project-vpn/upload-project-vpn/hash", checksum: "hash", byteLength: 12, scan: { state: "clean" }, parse: { state: "parsed", text: null }, createdAt: now() };
+  const persistedSetting = { projectId: "project-vpn", path: "ai.defaultModel", layer: "project-override", runId: null, version: 1, value: "luna", actor: "hero-owner", reason: "fit", impact: "cost", source: "project-override", recordedAt: now() };
+  const app = createHeroServer({
+    host: "127.0.0.1", port: 0, now, projectSettings: settings, projectWorkspace: workspace,
+    postgresRuntime: {
+      async ping() { return { status: "ok" }; },
+      projectWorkspace: {
+        async listProjects() { return [persistedProject]; },
+        async listInputs() { return [persistedInput]; },
+        async listFoundationProposals() { return [persistedProposal]; },
+        async listSettings() { return [persistedSetting]; },
+        async listImportPlans() { return []; }
+      }
+    }
+  });
+  const address = await app.start(); t.after(() => app.stop());
+  const response = await fetch(`http://127.0.0.1:${address.port}/product-studio-data?projectId=project-vpn`);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.projectOverview.project.lifecycle, "active");
+  assert.equal(body.projectOverview.inputs[0].checksum, "hash");
+  assert.equal(body.projectOverview.settings.find(item => item.path === "ai.defaultModel").value, "luna");
+});
+
 test("project HTTP APIs enforce owner create, project grant isolation, settings provenance and API-backed portfolio", async t => {
   const access = createProjectAccessRegistry({ ownerUserId: "hero-owner", ownerUser: { email: "owner@example.test", displayName: "Owner" }, now });
   const identity = createHumanIdentity({ accessRegistry: access, sessionSecret: "workspace-http-session-secret-1234567890", now, owner: { userId: "hero-owner", email: "owner@example.test", password: "Owner password 123", mfaSecret: "owner-mfa-secret-for-workspace" } });

@@ -411,3 +411,12 @@
 - افزوده‌شده: guard `HERO_REQUIRE_POSTGRES=true` تا Test بدون PostgreSQL آماده اعلام نشود؛
 - افزوده‌شده: تست تکرارپذیر ممیزی ۵۸ مسیر GET؛
 - artifact ساخته‌شده: `hero-control-plane:candidate-b379109` با digest `sha256:f3105572fed55c3df981bd9016b833d6a0ff1c900228e2bab8e05ba532574520`؛ فقط Test، بدون Production.
+
+# ۲۰۲۶-۰۹-۱۱ — بستهٔ ۲۰ گام Project Workspace و Settings
+
+- افزوده‌شده: خواندن و hydration نسخه‌های append-only پروژه، input metadata، Foundation Proposal، تنظیمات و read-only import plan از PostgreSQL؛
+- افزوده‌شده: اتصال mutationهای Project Workspace و Settings به persistence با actor، reason، impact و rollback reference؛
+- افزوده‌شده: نمای project-scoped در Product Studio برای intake، Foundation، input metadata، settings و import plan بدون نمایش محتوای فایل یا Secret؛
+- افزوده‌شده: تست‌های hydration، store read، HTTP snapshot و حذف محتوای حساس از read model؛
+- شواهد: build لینوکس با ۲۲۵ ماژول و ۳۱۶ تست موفق؛ `check:docs` و `pnpm check` باید روی commit تحویلی دوباره اجرا شوند؛
+- مرز: private object storage، malware scanner/parser واقعی، browser acceptance، Provider، Secret، هزینه، Production و Pilot در این بسته فعال نشده‌اند.

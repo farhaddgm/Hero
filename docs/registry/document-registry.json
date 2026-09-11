@@ -889,6 +889,20 @@
       "review_cadence": "per-change"
     },
     {
+      "id": "HERO-ROADMAP-NEXT-20-STEPS-20260911-WORKSPACE-PERSISTENCE",
+      "path": "docs/roadmap/NEXT-20-STEPS-20260911-WORKSPACE-PERSISTENCE.md",
+      "title": "بستهٔ ۲۰ گام بعدی Hero — Project Workspace و Settings",
+      "type": "roadmap",
+      "scope": "hero",
+      "status": "active",
+      "version": "1.0.0",
+      "owner": "hero-architecture",
+      "canonical": true,
+      "supersedes": [],
+      "superseded_by": null,
+      "review_cadence": "per-change"
+    },
+    {
       "id": "HERO-ROADMAP-OPEN-50-PRIORITY-20260904",
       "path": "docs/roadmap/OPEN-50-PRIORITY-20260904.md",
       "title": "پنجاه گام باز و اولویت‌دار Hero",
@@ -979,7 +993,7 @@
       "type": "evidence",
       "scope": "hero",
       "status": "active",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "owner": "hero-architecture",
       "canonical": true,
       "supersedes": [],

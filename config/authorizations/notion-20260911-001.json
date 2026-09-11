@@ -1,0 +1,67 @@
+{
+  "schema": "hero.authorization-snapshot/v1",
+  "authorizationId": "NOTION-CONFLICT-RESOLUTION-20260911-001",
+  "status": "active",
+  "grantedBy": "project-owner",
+  "grantedAt": "2026-09-11",
+  "grantSource": "owner-instruction-to-complete-notion-product-development-setup",
+  "validUntil": "owner-revocation",
+  "globalStop": false,
+  "operations": [
+    "read",
+    "notion-write",
+    "conflict-resolution"
+  ],
+  "excludedOperations": [
+    "production-deploy",
+    "destructive-data-operation",
+    "external-spend",
+    "secret-change",
+    "external-message",
+    "irreversible-operation",
+    "pilot-execution",
+    "github-write",
+    "notion-page-create",
+    "notion-page-delete",
+    "notion-page-archive"
+  ],
+  "documents": [
+    {
+      "documentId": "HERO-OPS-NOTION-BULK-SYNC-PLAN",
+      "documentVersion": "1.0.0"
+    }
+  ],
+  "steps": [
+    {
+      "stepId": "NOTION-CONFLICT-RESOLUTION",
+      "documentVersion": "1.0.0"
+    }
+  ],
+  "scope": {
+    "mode": "git-canonical-overwrite-notion",
+    "catalogDigest": "e243d4ac60beaf293f0f4fdbe9aa2ec67e7539d00453ea451f1e71acce3ade1f",
+    "documentIds": [
+      "HERO-ARCH-PRODUCT-DEVELOPMENT-KNOWLEDGE-SYSTEM",
+      "HERO-EVIDENCE-BACKOFFICE-DELIVERY-AUDIT-20260911",
+      "HERO-EVIDENCE-BACKOFFICE-FOUNDATION-BO-011-020",
+      "HERO-EVIDENCE-BACKOFFICE-IDENTITY-BO-021-030",
+      "HERO-OPS-ACCESS-AUDIT-20260904",
+      "HERO-OPS-BACKOFFICE-SUBDOMAIN",
+      "HERO-OPS-DOCUMENTATION-LIBRARY-HANDOFF",
+      "HERO-OPS-HERO-TEST-ENVIRONMENT",
+      "HERO-OPS-NOTION-SETUP",
+      "HERO-OPS-OPERATIONAL-DIAGNOSTICS",
+      "HERO-OPS-OWNER-ACTIONS-NEXT-20260909",
+      "HERO-OPS-OWNER-ACTIONS-PENDING-20260904",
+      "HERO-OPS-OWNER-ACTIONS-SIMPLE",
+      "HERO-ROADMAP-BASELINE-20260904",
+      "HERO-ROADMAP-EXECUTION-20260909-100-STEPS",
+      "HERO-ROADMAP-NEXT-100-STEPS-20260904",
+      "HERO-ROADMAP-OPEN-50-PRIORITY-20260904",
+      "HERO-ROADMAP-STATUS-20260911",
+      "HERO-SPEC-015",
+      "HERO-SPEC-022"
+    ]
+  },
+  "note": "Owner-approved one-time conflict resolution. Git remains canonical; only existing mapped Notion pages in the listed conflict queue may be replaced and read-back verified. No new page, deletion, archive, production, secret, external message or irreversible operation is allowed."
+}

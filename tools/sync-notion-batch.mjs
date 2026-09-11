@@ -33,16 +33,20 @@ async function main() {
     policy.classification_review.candidate_count === documents.length &&
     policy.classification_review.default_classification === "internal" &&
     Array.isArray(policy.classification_review.excluded_document_ids);
+  const policyBulkWriteApproved = policy.bulk_write_approved === true;
+  const runtimeBulkWriteApproved = process.env.HERO_NOTION_BULK_WRITE_APPROVED === "true";
+  const policyBatchWriteApproved = policy.batch_write_approved === true;
+  const runtimeBatchWriteApproved = process.env.HERO_NOTION_BATCH_WRITE_APPROVED === "true";
+  const operationApproved = (policyBulkWriteApproved && runtimeBulkWriteApproved) || (policyBatchWriteApproved && runtimeBatchWriteApproved);
   const adapter = createNotionApiAdapter();
-  const mappingStore = createNotionSyncRegistry();
-  const service = createNotionBatchSyncService({ adapter, mappingStore });
-  const plan = service.plan({ documents, policy, batchSize: policy.batch_size ?? 10 });
   const execute = process.argv.includes("--execute");
   if (!execute) {
-    console.log(JSON.stringify({ ...plan, externalRequests: 0, writeGate: { policy: policy.bulk_write_approved === true, runtime: process.env.HERO_NOTION_BULK_WRITE_APPROVED === "true", ready: false } }, null, 2));
+    const service = createNotionBatchSyncService({ adapter, mappingStore: createNotionSyncRegistry() });
+    const plan = service.plan({ documents, policy, batchSize: policy.batch_size ?? 10 });
+    console.log(JSON.stringify({ ...plan, externalRequests: 0, writeGate: { policyBulk: policyBulkWriteApproved, runtimeBulk: runtimeBulkWriteApproved, policyBatch: policyBatchWriteApproved, runtimeBatch: runtimeBatchWriteApproved, classificationReviewed, ready: operationApproved && (defaultedClassifications.length === 0 || classificationReviewed) } }, null, 2));
     return;
   }
-  if (policy.bulk_write_approved !== true || process.env.HERO_NOTION_BULK_WRITE_APPROVED !== "true") throw new Error("Bulk Notion write requires policy bulk_write_approved=true and HERO_NOTION_BULK_WRITE_APPROVED=true.");
+  if (!operationApproved) throw new Error("Notion batch write requires the matching policy and runtime approval gate.");
   if (defaultedClassifications.length > 0 && !classificationReviewed) throw new Error(`Bulk Notion write requires explicit classification or a matching owner-approved review; ${defaultedClassifications.length} document(s) still use default-internal classification.`);
   if (!process.env.HERO_POSTGRES_URL) throw new Error("Bulk Notion execution requires HERO_POSTGRES_URL for durable mapping storage.");
   const runtime = await createPostgresRuntime();
@@ -53,8 +57,8 @@ async function main() {
       parentPageId: process.env.HERO_NOTION_PARENT_PAGE_ID,
       batchSize: policy.batch_size ?? 10,
       allowExternalWrite: true,
-      bulkWriteApproved: true,
-      runtimeBulkWriteApproved: true
+      bulkWriteApproved: operationApproved,
+      runtimeBulkWriteApproved: operationApproved
     });
     console.log(JSON.stringify({ ...result, externalRequests: result.results.length > 0 }, null, 2));
   } finally {

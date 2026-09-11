@@ -345,6 +345,58 @@ export function createHeroServer(options = {}) {
   let postgresRuntime = options.postgresRuntime ?? null;
   let ownsPostgresRuntime = false;
   let persistedDomainEventIds = new Set();
+  const persistedWorkspaceRecords = new Set();
+
+  function workspaceRecordKey(kind, value) {
+    if (kind === "project") return `${kind}:${value.projectId}:${value.version}`;
+    if (kind === "input") return `${kind}:${value.uploadId}`;
+    if (kind === "proposal") return `${kind}:${value.proposalId}:${value.version}`;
+    if (kind === "setting") return `${kind}:${value.projectId}:${value.path}:${value.layer}:${value.runId ?? "-"}:${value.version}`;
+    return `${kind}:${value.importId}`;
+  }
+
+  async function persistWorkspaceProject(project, reason = null) {
+    if (!postgresRuntime?.projectWorkspace || !project) return;
+    const key = workspaceRecordKey("project", project);
+    if (persistedWorkspaceRecords.has(key)) return;
+    await postgresRuntime.projectWorkspace.appendProject({ projectId: project.projectId, version: project.version, name: project.name, description: project.description, lifecycle: project.lifecycle, status: project.status, intake: project.intake, actorId: project.createdBy ?? identityOwner.userId, reason });
+    persistedWorkspaceRecords.add(key);
+  }
+
+  async function persistWorkspaceInput(input) {
+    if (!postgresRuntime?.projectWorkspace || !input) return;
+    const key = workspaceRecordKey("input", input);
+    if (persistedWorkspaceRecords.has(key)) return;
+    const publicMetadata = input.type === "link" ? { public: { label: input.label, url: input.url, fetchState: input.fetchState } } : {};
+    await postgresRuntime.projectWorkspace.recordInput({ inputId: input.uploadId, projectId: input.projectId, type: input.type, filename: input.filename ?? input.label ?? null, objectKey: input.objectKey ?? null, checksum: input.checksum ?? null, byteLength: input.byteLength ?? null, scanState: input.scan?.state ?? "pending-separate-authorization", parseState: input.parse?.state ?? "deferred-adapter-required", reviewRequired: input.parse?.reviewRequired === true, metadata: publicMetadata });
+    persistedWorkspaceRecords.add(key);
+  }
+
+  async function persistWorkspaceProposal(proposal) {
+    if (!postgresRuntime?.projectWorkspace || !proposal) return;
+    const key = workspaceRecordKey("proposal", proposal);
+    if (persistedWorkspaceRecords.has(key)) return;
+    await postgresRuntime.projectWorkspace.appendFoundationProposal({ proposalId: proposal.proposalId, projectId: proposal.projectId, version: proposal.version, state: proposal.state, proposal, actorId: proposal.approvedBy ?? proposal.createdBy ?? identityOwner.userId });
+    persistedWorkspaceRecords.add(key);
+  }
+
+  async function persistWorkspaceSettings(projectId) {
+    if (!postgresRuntime?.projectWorkspace || !projectSettings.listRecords) return;
+    for (const setting of projectSettings.listRecords({ projectId })) {
+      const key = workspaceRecordKey("setting", setting);
+      if (persistedWorkspaceRecords.has(key)) continue;
+      await postgresRuntime.projectWorkspace.appendSetting({ projectId: setting.projectId, path: setting.path, layer: setting.layer, runId: setting.runId ?? "", version: setting.version, value: setting.value, actorId: setting.actor, reason: setting.reason ?? "Hydrated setting", impact: setting.impact ?? "not-assessed", rollbackReference: setting.rollbackReference ?? null, source: setting.source ?? setting.layer });
+      persistedWorkspaceRecords.add(key);
+    }
+  }
+
+  async function persistWorkspaceImport(plan) {
+    if (!postgresRuntime?.projectWorkspace || !plan) return;
+    const key = workspaceRecordKey("import", plan);
+    if (persistedWorkspaceRecords.has(key)) return;
+    await postgresRuntime.projectWorkspace.recordImportPlan({ importId: plan.importId, projectId: plan.projectId, repositoryUrl: plan.repositoryUrl, state: plan.state, inventory: plan.inventory, adoptionPlan: plan.adoptionPlan, actorId: plan.createdBy ?? identityOwner.userId });
+    persistedWorkspaceRecords.add(key);
+  }
 
   function backofficeSnapshot() {
     const snapshot = dashboard.backofficeSnapshot();
@@ -395,7 +447,8 @@ export function createHeroServer(options = {}) {
       nextTasks: foundation?.suggested?.roadmap ?? [],
       latestOutput: null
     } });
-    return Object.freeze({ ...model, intake: project.intake, foundationProposal: foundation, inputCount: inputs.length, settings });
+    const safeInputs = inputs.map(input => ({ uploadId: input.uploadId, type: input.type, filename: input.filename ?? input.label ?? null, url: input.type === "link" ? input.url : null, fetchState: input.fetchState ?? null, byteLength: input.byteLength ?? null, checksum: input.checksum ?? null, scan: input.scan?.state ?? null, parse: input.parse?.state ?? null, reviewRequired: input.parse?.reviewRequired === true, createdAt: input.createdAt ?? null }));
+    return Object.freeze({ ...model, intake: project.intake, foundationProposal: foundation, inputCount: inputs.length, inputs: safeInputs, imports: projectWorkspace.listImportPlans({ projectId }), settings });
   }
 
   function portfolioSnapshot(principal = null) {
@@ -816,6 +869,8 @@ export function createHeroServer(options = {}) {
       if (request.method === "POST" && url.pathname === "/api/projects") {
         const input = await readJson(request);
         const created = projectWorkspace.createProject({ actor: authenticatedOwner, projectId: input.projectId, name: input.name, description: input.description, intake: input.intake });
+        await persistWorkspaceProject(created.project, "Project created");
+        await persistWorkspaceProposal(created.foundationProposal);
         return json(response, 201, { service: HERO_SERVICE, ...created });
       }
 
@@ -823,37 +878,50 @@ export function createHeroServer(options = {}) {
         if (authenticatedOwner?.role !== "project-owner") throw new ProjectWorkspaceError("OWNER_REQUIRED", "Only the owner may clone a project template.", 403);
         const input = await readJson(request);
         const cloned = projectWorkspace.cloneFromTemplate({ actor: authenticatedOwner, sourceProjectId: input.sourceProjectId, projectId: input.projectId, name: input.name, description: input.description });
+        await persistWorkspaceProject(cloned.project, `Cloned from ${input.sourceProjectId}`);
+        await persistWorkspaceProposal(cloned.foundationProposal);
         return json(response, 201, { service: HERO_SERVICE, ...cloned });
       }
 
       const projectArchiveMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/archive$/);
       if (projectArchiveMatch && request.method === "POST") {
         const input = await readJson(request);
-        return json(response, 200, { service: HERO_SERVICE, project: projectWorkspace.archiveProject({ actor: authenticatedOwner, projectId: projectArchiveMatch[1], expectedVersion: input.expectedVersion, reason: input.reason }) });
+        const project = projectWorkspace.archiveProject({ actor: authenticatedOwner, projectId: projectArchiveMatch[1], expectedVersion: input.expectedVersion, reason: input.reason });
+        await persistWorkspaceProject(project, input.reason);
+        return json(response, 200, { service: HERO_SERVICE, project });
       }
 
       const projectDeletionMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/deletion-request$/);
       if (projectDeletionMatch && request.method === "POST") {
         const input = await readJson(request);
-        return json(response, 202, { service: HERO_SERVICE, deletionRequest: projectWorkspace.requestDeletion({ actor: authenticatedOwner, projectId: projectDeletionMatch[1], expectedVersion: input.expectedVersion, reason: input.reason }) });
+        const deletionRequest = projectWorkspace.requestDeletion({ actor: authenticatedOwner, projectId: projectDeletionMatch[1], expectedVersion: input.expectedVersion, reason: input.reason });
+        await persistWorkspaceProject(projectWorkspace.getProject(projectDeletionMatch[1]), input.reason);
+        return json(response, 202, { service: HERO_SERVICE, deletionRequest });
       }
 
       const projectIntakeMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/intake$/);
       if (projectIntakeMatch && request.method === "POST") {
         const input = await readJson(request);
-        return json(response, 200, { service: HERO_SERVICE, result: projectWorkspace.submitIntake({ actor: authenticatedOwner, projectId: projectIntakeMatch[1], expectedVersion: input.expectedVersion, intake: input.intake }) });
+        const result = projectWorkspace.submitIntake({ actor: authenticatedOwner, projectId: projectIntakeMatch[1], expectedVersion: input.expectedVersion, intake: input.intake });
+        await persistWorkspaceProject(result.project, "Intake updated");
+        await persistWorkspaceProposal(result.foundationProposal);
+        return json(response, 200, { service: HERO_SERVICE, result });
       }
 
       const projectUploadMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/inputs\/upload$/);
       if (projectUploadMatch && request.method === "POST") {
         const input = await readJson(request, 5 * 1024 * 1024);
-        return json(response, 201, { service: HERO_SERVICE, input: projectWorkspace.upload({ actor: authenticatedOwner, projectId: projectUploadMatch[1], type: input.type, filename: input.filename, content: input.content, mimeType: input.mimeType, zipExpandedBytes: input.zipExpandedBytes }) });
+        const storedInput = projectWorkspace.upload({ actor: authenticatedOwner, projectId: projectUploadMatch[1], type: input.type, filename: input.filename, content: input.content, mimeType: input.mimeType, zipExpandedBytes: input.zipExpandedBytes });
+        await persistWorkspaceInput(storedInput);
+        return json(response, 201, { service: HERO_SERVICE, input: storedInput });
       }
 
       const projectLinkMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/inputs\/link$/);
       if (projectLinkMatch && request.method === "POST") {
         const input = await readJson(request);
-        return json(response, 201, { service: HERO_SERVICE, input: projectWorkspace.registerLink({ actor: authenticatedOwner, projectId: projectLinkMatch[1], url: input.url, label: input.label }) });
+        const storedInput = projectWorkspace.registerLink({ actor: authenticatedOwner, projectId: projectLinkMatch[1], url: input.url, label: input.label });
+        await persistWorkspaceInput(storedInput);
+        return json(response, 201, { service: HERO_SERVICE, input: storedInput });
       }
 
       const projectFoundationMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/foundation$/);
@@ -861,18 +929,26 @@ export function createHeroServer(options = {}) {
       const projectFoundationReviseMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/foundation\/revise$/);
       if (projectFoundationReviseMatch && request.method === "POST") {
         const input = await readJson(request);
-        return json(response, 200, { service: HERO_SERVICE, proposal: projectWorkspace.reviseFoundation({ actor: authenticatedOwner, projectId: projectFoundationReviseMatch[1], proposalId: input.proposalId, expectedVersion: input.expectedVersion, changes: input.changes, reason: input.reason }) });
+        const proposal = projectWorkspace.reviseFoundation({ actor: authenticatedOwner, projectId: projectFoundationReviseMatch[1], proposalId: input.proposalId, expectedVersion: input.expectedVersion, changes: input.changes, reason: input.reason });
+        await persistWorkspaceProposal(proposal);
+        return json(response, 200, { service: HERO_SERVICE, proposal });
       }
       const projectFoundationApproveMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/foundation\/approve$/);
       if (projectFoundationApproveMatch && request.method === "POST") {
         const input = await readJson(request);
-        return json(response, 200, { service: HERO_SERVICE, proposal: projectWorkspace.approveFoundation({ actor: authenticatedOwner, projectId: projectFoundationApproveMatch[1], proposalId: input.proposalId, expectedVersion: input.expectedVersion }) });
+        const proposal = projectWorkspace.approveFoundation({ actor: authenticatedOwner, projectId: projectFoundationApproveMatch[1], proposalId: input.proposalId, expectedVersion: input.expectedVersion });
+        await persistWorkspaceProposal(proposal);
+        await persistWorkspaceProject(projectWorkspace.getProject(projectFoundationApproveMatch[1]), "Foundation approved");
+        await persistWorkspaceSettings(projectFoundationApproveMatch[1]);
+        return json(response, 200, { service: HERO_SERVICE, proposal });
       }
 
       const projectImportMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/import\/github$/);
       if (projectImportMatch && request.method === "POST") {
         const input = await readJson(request);
-        return json(response, 202, { service: HERO_SERVICE, importPlan: projectWorkspace.importGithubReadOnly({ actor: authenticatedOwner, projectId: projectImportMatch[1], repositoryUrl: input.repositoryUrl, inventory: input.inventory }) });
+        const importPlan = projectWorkspace.importGithubReadOnly({ actor: authenticatedOwner, projectId: projectImportMatch[1], repositoryUrl: input.repositoryUrl, inventory: input.inventory });
+        await persistWorkspaceImport(importPlan);
+        return json(response, 202, { service: HERO_SERVICE, importPlan });
       }
 
       const projectSettingsMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/settings$/);
@@ -881,17 +957,23 @@ export function createHeroServer(options = {}) {
       }
       if (projectSettingsMatch && request.method === "POST") {
         const input = await readJson(request);
-        return json(response, 200, { service: HERO_SERVICE, setting: projectSettings.setValue({ actor: authenticatedOwner, projectId: projectSettingsMatch[1], path: input.path, value: input.value, layer: input.layer, runId: input.runId ?? null, expectedVersion: input.expectedVersion ?? null, reason: input.reason, impact: input.impact, rollbackReference: input.rollbackReference }) });
+        const setting = projectSettings.setValue({ actor: authenticatedOwner, projectId: projectSettingsMatch[1], path: input.path, value: input.value, layer: input.layer, runId: input.runId ?? null, expectedVersion: input.expectedVersion ?? null, reason: input.reason, impact: input.impact, rollbackReference: input.rollbackReference });
+        await persistWorkspaceSettings(projectSettingsMatch[1]);
+        return json(response, 200, { service: HERO_SERVICE, setting });
       }
       const projectPolicyApplyMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/settings\/policy-pack\/apply$/);
       if (projectPolicyApplyMatch && request.method === "POST") {
         const input = await readJson(request);
-        return json(response, 200, { service: HERO_SERVICE, settings: projectSettings.applyPolicyPack({ actor: authenticatedOwner, projectId: projectPolicyApplyMatch[1], reason: input.reason }) });
+        const settings = projectSettings.applyPolicyPack({ actor: authenticatedOwner, projectId: projectPolicyApplyMatch[1], reason: input.reason });
+        await persistWorkspaceSettings(projectPolicyApplyMatch[1]);
+        return json(response, 200, { service: HERO_SERVICE, settings });
       }
       const projectSettingRollbackMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/settings\/rollback$/);
       if (projectSettingRollbackMatch && request.method === "POST") {
         const input = await readJson(request);
-        return json(response, 200, { service: HERO_SERVICE, setting: projectSettings.rollback({ actor: authenticatedOwner, projectId: projectSettingRollbackMatch[1], path: input.path, toVersion: input.toVersion, reason: input.reason }) });
+        const setting = projectSettings.rollback({ actor: authenticatedOwner, projectId: projectSettingRollbackMatch[1], path: input.path, toVersion: input.toVersion, reason: input.reason });
+        await persistWorkspaceSettings(projectSettingRollbackMatch[1]);
+        return json(response, 200, { service: HERO_SERVICE, setting });
       }
 
       const projectWorkspaceOverviewMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/workspace-overview$/);
@@ -1648,6 +1730,38 @@ export function createHeroServer(options = {}) {
         }
         if (humanIdentity?.persistenceRecord && identityStore.saveUser) {
           await identityStore.saveUser(humanIdentity.persistenceRecord({ userId: identityOwner.userId }));
+        }
+      }
+      if (postgresRuntime?.projectWorkspace) {
+        const workspaceStore = postgresRuntime.projectWorkspace;
+        if (workspaceStore.listSettings && projectSettings.hydrateRecord) {
+          for (const setting of await workspaceStore.listSettings()) {
+            projectSettings.hydrateRecord({ ...setting, actorId: setting.actor });
+            persistedWorkspaceRecords.add(workspaceRecordKey("setting", setting));
+          }
+        }
+        if (workspaceStore.listProjects && projectWorkspace.hydrateProject) {
+          for (const project of await workspaceStore.listProjects()) {
+            projectWorkspace.hydrateProject({ project });
+            persistedWorkspaceRecords.add(workspaceRecordKey("project", project));
+          }
+        }
+        if (workspaceStore.listInputs && projectWorkspace.hydrateInput) {
+          for (const input of await workspaceStore.listInputs()) {
+            try { projectWorkspace.hydrateInput({ input }); persistedWorkspaceRecords.add(workspaceRecordKey("input", input)); } catch { /* a corrupt input row must not expose bytes or stop unrelated startup */ }
+          }
+        }
+        if (workspaceStore.listFoundationProposals && projectWorkspace.hydrateFoundation) {
+          for (const proposal of await workspaceStore.listFoundationProposals()) {
+            projectWorkspace.hydrateFoundation({ proposal });
+            persistedWorkspaceRecords.add(workspaceRecordKey("proposal", proposal));
+          }
+        }
+        if (workspaceStore.listImportPlans && projectWorkspace.hydrateImport) {
+          for (const plan of await workspaceStore.listImportPlans()) {
+            projectWorkspace.hydrateImport({ plan });
+            persistedWorkspaceRecords.add(workspaceRecordKey("import", plan));
+          }
         }
       }
       if (postgresRuntime?.pricingCatalogStore && typeof pricingCatalog.publish === "function") {

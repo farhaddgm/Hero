@@ -40,6 +40,8 @@
     "notion:plan:batch": "node tools/plan-notion-batch.mjs",
     "notion:provision:workspace": "node tools/provision-notion-workspace.mjs",
     "notion:sync:batch": "node tools/sync-notion-batch.mjs",
+    "notion:sync:approved-batches": "node tools/sync-notion-approved-batches.mjs",
+    "notion:resolve-conflicts": "node tools/resolve-notion-conflicts.mjs",
     "notion:sync-first": "node tools/sync-notion-document.mjs",
     "build": "node tools/build.mjs",
     "test": "node --test",

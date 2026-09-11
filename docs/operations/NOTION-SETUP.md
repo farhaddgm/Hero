@@ -8,7 +8,7 @@
 
 ## وضعیت فعلی
 
-Product Studio و Catalog محلی فعال‌اند. اتصال رسمی Notion در Test برقرار است و صفحهٔ ریشهٔ `Hero Product Development` قابل‌خواندن است؛ اولین سند کنترل‌شدهٔ `HERO-PRODUCT-HERO-BRIEF` نیز در آن ساخته و با checksum تأیید شده است. Blueprint شش‌بخشی و ۱۱ Database طبق تأیید مالک ساخته و verify شده‌اند. mapping پایدار PostgreSQL برای bulk هنوز تا اصلاح رمز اتصال PostgreSQL Test آماده نیست.
+Product Studio و Catalog محلی فعال‌اند. اتصال رسمی Notion در Test برقرار است و صفحهٔ ریشهٔ `Hero Product Development` قابل‌خواندن است. Blueprint شش‌بخشی و ۱۱ Database طبق تأیید مالک ساخته و verify شده‌اند. اتصال PostgreSQL Test، migrationهای `001` تا `014` و mapping پایدار آماده‌اند؛ برای هر ۱۲۴ سند Page و mapping وجود دارد، ۱۰۴ مورد `in-sync` و ۲۰ مورد `conflict` هستند. gate انتشار بسته شده و هیچ conflictی overwrite نشده است.
 
 ## کارهای لازم مالک، به زبان ساده
 
@@ -17,8 +17,8 @@ Product Studio و Catalog محلی فعال‌اند. اتصال رسمی Notion
 3. یک صفحهٔ ریشه با نام `Hero Product Development` بساز و آن را فقط با همان Integration به اشتراک بگذار.
 4. شناسهٔ صفحهٔ ریشه را از URL کپی کن. شناسه معمولاً یک UUID است و نباید در مستندات یا پیام عمومی منتشر شود.
 5. Token و Page ID را فقط در Secret Store یا فایل runtime با مجوز محدود قرار بده؛ مقدار Token هرگز وارد Git، Notion، Event یا log نشود.
-6. مقدار `HERO_NOTION_ENABLED` را تا پایان تست `false` نگه دار. فعال‌سازی ارسال، یک مجوز جداگانه برای انتشار محتوای انتخاب‌شده به سرویس بیرونی است.
-7. پس از آماده‌بودن موارد بالا، Hero ابتدا با dry-run و یک سند غیرحساس آزمایش می‌شود؛ بعد sync یک‌طرفه Git → Notion و در مرحلهٔ بعد Change Proposal برای ویرایش Notion فعال می‌شود.
+6. پس از پایان batch، gate نوشتن را بسته نگه دار؛ فعال‌سازی هر ارسال آینده یک مجوز جداگانه برای انتشار محتوای انتخاب‌شده به سرویس بیرونی است.
+7. برای تغییرات آینده ابتدا snapshot و classification review جدید بگیر؛ سپس فقط batch مورد تأیید را اجرا کن. Change Proposal همچنان تنها مسیر ویرایش canonical از سمت Notion است.
 
 ## ترتیب فعال‌سازی فنی
 
@@ -36,12 +36,14 @@ Product Studio و Catalog محلی فعال‌اند. اتصال رسمی Notion
 - health check بدون mirror محتوا؛
 - تأیید owner برای اولین ارسال.
 
-### مرحلهٔ C — mirror محدود Git → Notion
+### مرحلهٔ C — mirror محدود Git → Notion — انجام‌شده در Test
 
 - فقط اسناد allow-listed و classification `internal`؛
 - هر Page دارای Document ID، version، source commit و checksum؛
 - queue، backoff، idempotency و dead-letter؛
 - قابلیت disable فوری connector.
+
+وضعیت اجرای Test: ۱۲۴ سند واجد شرایط، ۱۳ batch، ۱۲۴ Page قابل‌خواندن، ۱۰۴ `in-sync`، ۲۰ `conflict` و gate نوشتن بسته.
 
 ### مرحلهٔ D — ویرایش کنترل‌شده Notion
 

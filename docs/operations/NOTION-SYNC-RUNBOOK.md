@@ -21,13 +21,13 @@
 
 ## اجرای یک سند
 
-دستور `pnpm notion:sync-first -- --document=HERO-PRODUCT-HERO-BRIEF` فقط برای allowlist فعلی معتبر است. ابزار ابتدا Page دارای Document ID را پیدا می‌کند، checksum را مقایسه می‌کند و در حالت برابر هیچ Page جدیدی نمی‌سازد.
+دستور `pnpm notion:sync-first -- --document=HERO-PRODUCT-HERO-BRIEF` فقط برای allowlist فعلی معتبر است. ابزار برای projection جدید marker شناسهٔ سند را اضافه می‌کند، Page دارای marker یا Page legacy دارای checksum برابر را پیدا می‌کند، checksum را مقایسه می‌کند و در حالت برابر هیچ Page جدیدی نمی‌سازد.
 
 ## خرابی و بازیابی
 
 - `conflict`: sync را متوقف کن، هیچ overwrite نکن و diff را بررسی کن؛
 - `429/529`: اجرای دوباره را طبق Retry-After و سقف retry انجام بده؛
-- marker گمشده: صفحه را canonical اعلام نکن و mapping را pending نگه دار؛
+- marker گمشده در صفحهٔ legacy: فقط در صورت برابری checksum و عنوان، صفحه را شناسایی کن؛ سپس با اجرای مجاز بعدی marker را اضافه کن؛
 - Page اشتباه: archive یا delete مستقیم انجام نده؛ ابتدا mapping و تصمیم مالک را بررسی کن؛
 - قطع Notion: feature flag را خاموش کن؛ Git و Product Studio باید سالم بمانند.
 

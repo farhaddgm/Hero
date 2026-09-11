@@ -66,6 +66,17 @@ export function createProjectWorkspace({ ownerUserId = "hero-owner", now = () =>
     },
     getProject(projectId) { return copy(project(projectId)); },
     listProjects() { return Object.freeze([...projects.values()].sort((a, b) => a.projectId.localeCompare(b.projectId)).map(copy)); },
+    hydrateProject({ project }) {
+      const normalized = copy(project);
+      assertProjectId(normalized.projectId);
+      if (!Number.isInteger(normalized.version) || normalized.version < 1) throw new ProjectWorkspaceError("INVALID_HYDRATION", "Project version is invalid.", 500);
+      const current = projects.get(normalized.projectId);
+      if (!current || normalized.version >= current.version) projects.set(normalized.projectId, normalized);
+      if (settings?.policyPack && settings?.suggestPolicyPack && !settings.policyPack(normalized.projectId)) {
+        settings.suggestPolicyPack({ projectId: normalized.projectId, projectType: normalized.intake?.projectType ?? "application", riskLevel: normalized.intake?.riskLevel ?? "standard", actor: { subject: normalized.createdBy ?? ownerUserId } });
+      }
+      return copy(projects.get(normalized.projectId));
+    },
     archiveProject({ actor, projectId, expectedVersion, reason }) { assertOwner(actor); const row = project(projectId); assertVersion(row, expectedVersion); return update(row, { lifecycle: "archived", status: "archived", archiveReason: string(reason, "reason", 500), archivedBy: actor.subject, archivedAt: now() }); },
     requestDeletion({ actor, projectId, expectedVersion, reason }) { assertOwner(actor); const row = project(projectId); assertVersion(row, expectedVersion); const request = copy({ deletionRequestId: `deletion-${randomUUID()}`, projectId: row.projectId, state: "requested", reason: string(reason, "reason", 500), requestedBy: actor.subject, requestedAt: now(), historyPreserved: true }); deletionRequests.set(row.projectId, request); update(row, { lifecycle: "deletion-requested", status: "deletion-requested" }); return request; },
     submitIntake({ actor, projectId, expectedVersion, intake }) { assertProjectEditor(actor); const row = project(projectId); assertVersion(row, expectedVersion); noSensitive(intake); const next = update(row, { intake: { ...row.intake, ...intake }, lifecycle: "foundation-review" }); return copy({ project: next, foundationProposal: makeFoundationProposal(next, actor) }); },
@@ -85,10 +96,31 @@ export function createProjectWorkspace({ ownerUserId = "hero-owner", now = () =>
       const uploadId = `link-${randomUUID()}`; const entry = copy({ uploadId, projectId, type: "link", label: string(label ?? url, "label", 240), url, fetchState: "pending-separate-authorization", createdAt: now(), createdBy: actor.subject }); uploads.set(uploadId, entry); return entry;
     },
     listInputs({ projectId }) { project(projectId); return Object.freeze(projectUploads(projectId).map(copy)); },
+    hydrateInput({ input }) {
+      const normalized = copy(input);
+      assertId("uploadId", normalized.uploadId); assertProjectId(normalized.projectId);
+      project(normalized.projectId);
+      uploads.set(normalized.uploadId, normalized);
+      return normalized;
+    },
     foundationProposal({ projectId }) { project(projectId); return [...proposals.values()].filter(item => item.projectId === projectId).sort((a, b) => b.version - a.version)[0] ?? null; },
+    listFoundationProposals({ projectId } = {}) {
+      if (projectId) project(projectId);
+      return Object.freeze([...proposals.values()].filter(item => !projectId || item.projectId === projectId).sort((a, b) => a.projectId.localeCompare(b.projectId) || a.version - b.version).map(copy));
+    },
+    hydrateFoundation({ proposal }) {
+      const normalized = copy(proposal);
+      assertId("proposalId", normalized.proposalId); assertProjectId(normalized.projectId);
+      if (!Number.isInteger(normalized.version) || normalized.version < 1) throw new ProjectWorkspaceError("INVALID_HYDRATION", "Foundation version is invalid.", 500);
+      const current = proposals.get(normalized.proposalId);
+      if (!current || normalized.version >= current.version) proposals.set(normalized.proposalId, normalized);
+      return copy(proposals.get(normalized.proposalId));
+    },
     reviseFoundation({ actor, projectId, proposalId, expectedVersion, changes, reason }) { assertProjectEditor(actor); project(projectId); const prior = proposals.get(assertId("proposalId", proposalId)); if (!prior || prior.projectId !== projectId) throw new ProjectWorkspaceError("FOUNDATION_NOT_FOUND", "Foundation proposal was not found.", 404); if (prior.version !== expectedVersion || !["proposed", "revision-requested"].includes(prior.state)) throw new ProjectWorkspaceError("STALE_FOUNDATION", "Foundation proposal is not editable in this version/state.", 409); noSensitive(changes); const next = copy({ ...prior, ...changes, state: "revision-requested", version: prior.version + 1, updatedAt: now(), revisions: [...prior.revisions, { actor: actor.subject, reason: string(reason, "reason", 500), at: now() }] }); proposals.set(proposalId, next); return next; },
-    approveFoundation({ actor, projectId, proposalId, expectedVersion }) { assertProjectEditor(actor); const row = project(projectId); const proposal = proposals.get(assertId("proposalId", proposalId)); if (!proposal || proposal.projectId !== projectId || proposal.version !== expectedVersion || !["proposed", "revision-requested"].includes(proposal.state)) throw new ProjectWorkspaceError("FOUNDATION_APPROVAL_INVALID", "Foundation proposal cannot be approved.", 409); const approved = copy({ ...proposal, state: "approved", approvedAt: now(), approvedBy: actor.subject }); proposals.set(proposalId, approved); settings?.applyPolicyPack({ actor, projectId, reason: "Foundation proposal approved" }); update(row, { lifecycle: "active", foundationProposalId: proposalId }); return approved; },
+    approveFoundation({ actor, projectId, proposalId, expectedVersion }) { assertProjectEditor(actor); const row = project(projectId); const proposal = proposals.get(assertId("proposalId", proposalId)); if (!proposal || proposal.projectId !== projectId || proposal.version !== expectedVersion || !["proposed", "revision-requested"].includes(proposal.state)) throw new ProjectWorkspaceError("FOUNDATION_APPROVAL_INVALID", "Foundation proposal cannot be approved.", 409); const approved = copy({ ...proposal, state: "approved", approvedAt: now(), approvedBy: actor.subject }); proposals.set(proposalId, approved); if (settings) { if (!settings.policyPack(projectId) && settings.suggestPolicyPack) settings.suggestPolicyPack({ projectId, projectType: row.intake?.projectType ?? "application", riskLevel: row.intake?.riskLevel ?? "standard", actor }); settings.applyPolicyPack({ actor, projectId, reason: "Foundation proposal approved" }); } update(row, { lifecycle: "active", foundationProposalId: proposalId }); return approved; },
     importGithubReadOnly({ actor, projectId, repositoryUrl, inventory = {} }) { assertProjectEditor(actor); project(projectId); if (typeof repositoryUrl !== "string" || !URL.test(repositoryUrl)) throw new ProjectWorkspaceError("GITHUB_REPOSITORY_INVALID", "Only a public-form GitHub repository URL is accepted for read-only import planning.", 400); noSensitive(inventory); const plan = copy({ importId: `github-import-${randomUUID()}`, projectId, repositoryUrl: repositoryUrl.replace(/\.git\/?$/, ""), mode: "read-only-inventory", state: "awaiting-separate-fetch-authorization", inventory: { branches: Array.isArray(inventory.branches) ? inventory.branches.map(String) : [], dependencies: Array.isArray(inventory.dependencies) ? inventory.dependencies.map(String) : [], workflows: Array.isArray(inventory.workflows) ? inventory.workflows.map(String) : [], documents: Array.isArray(inventory.documents) ? inventory.documents.map(String) : [] }, adoptionPlan: { actions: ["inspect repository metadata", "compare catalog", "prepare adoption proposal"], prohibited: ["commit", "refactor", "secret change", "deploy"] }, createdAt: now(), createdBy: actor.subject }); imports.set(plan.importId, plan); return plan; },
+    listImportPlans({ projectId } = {}) { if (projectId) project(projectId); return Object.freeze([...imports.values()].filter(item => !projectId || item.projectId === projectId).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map(copy)); },
+    hydrateImport({ plan }) { const normalized = copy(plan); assertId("importId", normalized.importId); assertProjectId(normalized.projectId); imports.set(normalized.importId, normalized); return normalized; },
     cloneFromTemplate({ actor, sourceProjectId, projectId, name, description = "" }) { assertOwner(actor); const source = project(sourceProjectId); const created = this.createProject({ actor, projectId, name, description, intake: structuredClone(source.intake) }); return copy({ ...created, clone: { sourceProjectId, exclusions: ["secret", "production-data", "memory", "private-history", "sessions", "uploads"] } }); },
     privateObjectMetadata({ actor, projectId, uploadId }) { assertProjectEditor(actor); project(projectId); const item = uploads.get(assertId("uploadId", uploadId)); if (!item || item.projectId !== projectId) throw new ProjectWorkspaceError("UPLOAD_NOT_FOUND", "Upload was not found.", 404); return copy({ uploadId: item.uploadId, objectKey: item.objectKey, checksum: item.checksum, byteLength: item.byteLength }); },
     deletionRequest(projectId) { project(projectId); return deletionRequests.get(projectId) ?? null; }
