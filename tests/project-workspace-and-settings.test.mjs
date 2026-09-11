@@ -116,6 +116,35 @@ test("Project Studio snapshot exposes safe project workspace metadata and omits 
   assert.doesNotMatch(JSON.stringify(body.projectOverview), /do not return this/);
 });
 
+test("Project Control Room is Basic-auth protected, project-scoped and never renders private input or memory content", async t => {
+  const { workspace } = setup();
+  workspace.createProject({ actor: owner, projectId: "project-vpn", name: "VPN" });
+  workspace.upload({ actor: admin, projectId: "project-vpn", type: "text", filename: "brief.txt", content: "private workspace input must not appear" });
+  const app = createHeroServer({
+    host: "127.0.0.1",
+    port: 0,
+    now,
+    projectWorkspace: workspace,
+    backofficeAuth: { username: "hero-test-admin", password: "hero-test-password-is-long-enough" }
+  });
+  const address = await app.start(); t.after(() => app.stop());
+  const base = `http://127.0.0.1:${address.port}`;
+  assert.equal((await fetch(`${base}/project-control?projectId=project-vpn`)).status, 401);
+  const headers = { authorization: `Basic ${Buffer.from("hero-test-admin:hero-test-password-is-long-enough").toString("base64")}` };
+  const page = await fetch(`${base}/project-control?projectId=project-vpn`, { headers });
+  assert.equal(page.status, 200);
+  const pageText = await page.text();
+  assert.match(pageText, /اتاق کنترل پروژه/);
+  assert.doesNotMatch(pageText, /private workspace input must not appear/);
+  const data = await fetch(`${base}/project-control-data?projectId=project-vpn`, { headers });
+  assert.equal(data.status, 200);
+  const body = await data.json();
+  assert.equal(body.controlRoom.project.projectId, "project-vpn");
+  assert.equal(body.controlRoom.metrics.entities, 0);
+  assert.doesNotMatch(JSON.stringify(body), /private workspace input must not appear/);
+  assert.equal((await fetch(`${base}/project-control?projectId=project-vpn`, { method: "POST", headers })).status, 405);
+});
+
 test("Control Plane startup hydrates the project workspace boundary from PostgreSQL metadata", async t => {
   const { settings, workspace } = setup();
   const persistedProject = { projectId: "project-vpn", version: 2, name: "VPN", description: "Private", lifecycle: "active", status: "active", createdBy: "hero-owner", createdAt: now(), updatedAt: now(), intake: { intent: "Build VPN", goal: "Private connectivity", users: "Remote teams", constraints: [], expectedOutputs: [], autonomy: "approval-each-stage", projectType: "application", riskLevel: "standard" } };

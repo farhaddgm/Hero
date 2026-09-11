@@ -59,6 +59,7 @@ import { getBackofficeHtml } from "./backoffice-view.mjs";
 import { getProductStudioHtml } from "./product-studio-view.mjs";
 import { getPortfolioHtml } from "./portfolio-view.mjs";
 import { getIdentityHtml } from "./identity-view.mjs";
+import { getProjectControlRoomHtml } from "./project-control-room-view.mjs";
 import { OwnerAuthError, createOwnerAuth } from "../../../packages/domain/src/owner-auth.mjs";
 import { AdminAuthError, createAdminAuth } from "../../../packages/domain/src/admin-auth.mjs";
 import { createHumanIdentity, HumanIdentityError } from "../../../packages/domain/src/human-identity.mjs";
@@ -93,10 +94,13 @@ const READ_MODEL_AUDIT_RESOURCES = new Set([
   "/api/operations/diagnostics",
   "/product-studio",
   "/product-studio-data",
-  "/product-studio-document"
+  "/product-studio-document",
+  "/project-control",
+  "/project-control-data"
 ]);
 const BACKOFFICE_PATHS = new Set(["/backoffice", "/backoffice-data", "/backoffice-events"]);
 const PRODUCT_STUDIO_PATHS = new Set(["/product-studio", "/product-studio-data", "/product-studio-document"]);
+const PROJECT_CONTROL_PATHS = new Set(["/project-control", "/project-control-data"]);
 const PORTFOLIO_PATHS = new Set(["/portfolio", "/portfolio-data"]);
 const IDENTITY_PATHS = new Set(["/identity"]);
 const DEFAULT_BACKOFFICE_RESPONSE_LIMIT_BYTES = 512 * 1024;
@@ -451,6 +455,103 @@ export function createHeroServer(options = {}) {
     return Object.freeze({ ...model, intake: project.intake, foundationProposal: foundation, inputCount: inputs.length, inputs: safeInputs, imports: projectWorkspace.listImportPlans({ projectId }), settings });
   }
 
+  function projectControlSnapshot(projectId) {
+    const actor = { subject: identityOwner.userId, role: "project-owner" };
+    const project = projectWorkspace.getProject(projectId);
+    const row = (title, state, meta) => Object.freeze({ title, state: String(state ?? "unknown"), meta: String(meta ?? "") });
+    const collaborationTeams = projectCollaboration.listTeams({ actor, projectId });
+    const memory = projectCollaboration.retrieveMemory({ actor, projectId });
+    const operations = commandCenter.operations({ actor, projectId });
+    const entities = systemCatalog.list({ projectId });
+    const ledger = performanceIntelligence.ledger({ actor, projectId });
+    const health = performanceIntelligence.health({ actor, projectId });
+    const inbox = notificationObservability.inbox({ actor, projectId, view: "all" });
+    const observability = notificationObservability.observability({ actor, projectId });
+    const infrastructure = infrastructureControl.view({ actor, projectId });
+    const delivery = deliveryControl.view({ actor, projectId });
+    const hardening = operationalHardening.report({ actor, projectId });
+    const readiness = finalReadiness.view({ actor, projectId });
+    const readinessState = readiness.reviews.at(-1)?.state ?? (readiness.acceptance.at(-1)?.decision ?? "draft");
+    return Object.freeze({
+      project: Object.freeze({ projectId: project.projectId, name: project.name, lifecycle: project.lifecycle }),
+      metrics: Object.freeze({
+        teams: collaborationTeams.filter(team => team.assignment?.status === "active").length,
+        commands: operations.queue.length + operations.completed.length,
+        entities: entities.length,
+        notifications: inbox.filter(item => item.state === "open").length,
+        readiness: readinessState
+      }),
+      collaboration: Object.freeze({
+        teams: Object.freeze([
+          ...collaborationTeams.map(team => row(team.name, team.assignment?.status ?? "unassigned", `teamId: ${team.teamId}`)),
+          row("Project memory", "metadata-only", `${memory.length} active entry; content is never rendered here`)
+        ])
+      }),
+      commands: Object.freeze({
+        items: Object.freeze([
+          ...operations.queue.map(item => row(item.commandId, item.state, `priority: ${item.priority} · attempts: ${item.attempts}`)),
+          ...operations.completed.map(item => row(item.commandId, item.state, `completed: ${item.completedAt ?? "recorded"}`)),
+          ...operations.approvals.map(item => row(item.commandId, item.state, `expires: ${item.expiresAt}`)),
+          row("Queue policy", "bounded", `heavy runs: ${operations.heavyRunLimit} · locks: ${operations.locks.length}`)
+        ])
+      }),
+      catalog: Object.freeze({
+        items: Object.freeze(entities.map(entity => row(entity.entityId, entity.state ?? "registered", `type: ${entity.type}`)))
+      }),
+      performance: Object.freeze({
+        items: Object.freeze([
+          row("Health", health.status, `score: ${health.score ?? "—"} · confidence: ${health.confidence}`),
+          row("Token usage", "observed", `total: ${health.tokenUsage} · budget: ${health.budget?.hardCap ?? "not-set"}`),
+          ...ledger.map(item => row(item.scope, "ledger", `tokens: ${item.totalTokens} · events: ${item.events}`))
+        ])
+      }),
+      observability: Object.freeze({
+        items: Object.freeze([
+          ...inbox.map(item => row(item.notificationId, item.state, `severity: ${item.severity} · category: ${item.category}`)),
+          ...observability.sli.map(item => row(item.projection, item.status, `lag: ${item.lagSeconds}s · freshness: ${item.freshnessSeconds}s`)),
+          row("Audit & trace", "redacted", `audit: ${observability.auditCount} · traces: ${observability.traceCount}`)
+        ])
+      }),
+      infrastructure: Object.freeze({
+        items: Object.freeze([
+          ...infrastructure.environments.map(environment => row(environment, "defined", "desired/observed state is project-scoped")),
+          row("Repositories", "metadata-only", `${infrastructure.repositories.length} registered; no GitHub fetch`),
+          row("Servers", "plan-only", `${infrastructure.servers.length} registered; no connection executed`),
+          row("Nodes", "identity-bound", `${infrastructure.nodes.length} enrolled`),
+          row("Secret references", "never-revealed", `${infrastructure.secrets.length} reference-only record`),
+          row("Egress", infrastructure.egress?.default ?? "not-configured", `${infrastructure.egress?.domains?.length ?? 0} allowed domain record`)
+        ])
+      }),
+      delivery: Object.freeze({
+        items: Object.freeze([
+          ...delivery.releases.map(item => row(item.releaseId, item.state, `tested commit: ${item.testedCommit}`)),
+          ...delivery.artifacts.map(item => row(item.artifactId, "registered", `digest: ${item.digest.slice(0, 20)}…`)),
+          ...delivery.bundles.map(item => row(item.bundleId, item.state, `artifacts: ${item.artifactIds.length}`)),
+          ...delivery.rehearsals.map(item => row(item.kind, item.result, `bundle: ${item.bundleId}`)),
+          ...delivery.acceptance.map(item => row(item.acceptanceId, item.delivery, `bundle: ${item.bundleId}`))
+        ])
+      }),
+      hardening: Object.freeze({
+        items: Object.freeze([
+          row("Retention", hardening.retention ? "configured" : "not-configured", hardening.retention ? `version: ${hardening.retention.version}` : "minimum policy not recorded"),
+          ...hardening.cleanup.map(item => row(item.jobId, item.hold ? "hold" : "dry-run", `candidates: ${item.candidates.length}`)),
+          ...hardening.audits.map(item => row(item.kind, item.passed ? "passed" : "attention", `auditId: ${item.auditId}`)),
+          row("Coverage", hardening.coverage.missing.length ? "attention" : "complete", `missing: ${hardening.coverage.missing.join(", ") || "none"}`)
+        ])
+      }),
+      readiness: Object.freeze({
+        items: Object.freeze([
+          ...readiness.migrations.map(item => row(item.migrationId, "planned", `compatibility until: ${item.compatibilityUntil}`)),
+          ...readiness.readModels.map(item => row(item.modelId, item.equal ? "equal" : "mismatch", "deterministic rebuild comparison")),
+          ...readiness.scenarios.map(item => row(item.kind, item.passed ? "passed" : "failed", `scenario: ${item.scenarioId}`)),
+          ...readiness.reviews.map(item => row(item.reviewId, item.state, `scenario coverage: ${item.scenarioCoverage.filter(entry => entry.passed).length}/${item.scenarioCoverage.length}`)),
+          ...readiness.acceptance.map(item => row(item.reviewId, item.decision, "owner decision record")),
+          ...readiness.pilotProposals.map(item => row(item.proposalId, item.state, item.execution))
+        ])
+      })
+    });
+  }
+
   function portfolioSnapshot(principal = null) {
     const accessible = principal?.source === "human-identity" ? projectAccessRegistry.listAccessibleProjectIds({ principal }) : null;
     const projects = projectWorkspace.listProjects().filter(project => accessible === null || accessible.includes(project.projectId));
@@ -627,9 +728,10 @@ export function createHeroServer(options = {}) {
     try {
       const backofficePath = BACKOFFICE_PATHS.has(url.pathname);
       const productStudioPath = PRODUCT_STUDIO_PATHS.has(url.pathname);
+      const projectControlPath = PROJECT_CONTROL_PATHS.has(url.pathname);
       const portfolioPath = PORTFOLIO_PATHS.has(url.pathname);
       const identityPath = IDENTITY_PATHS.has(url.pathname);
-      if (backofficePath || productStudioPath || portfolioPath || identityPath) {
+      if (backofficePath || productStudioPath || projectControlPath || portfolioPath || identityPath) {
         const rate = backofficeRateLimiter.consume(request.socket?.remoteAddress ?? "unknown");
         if (!rate.allowed) {
           response.writeHead(429, {
@@ -645,7 +747,7 @@ export function createHeroServer(options = {}) {
           return;
         }
       }
-      if ((backofficePath || productStudioPath || portfolioPath || identityPath) && backofficeAuth && !matchesBasicAuth(basicCredentials(request), backofficeAuth)) {
+      if ((backofficePath || productStudioPath || projectControlPath || portfolioPath || identityPath) && backofficeAuth && !matchesBasicAuth(basicCredentials(request), backofficeAuth)) {
         await recordReadAccess(url.pathname, "rejected");
         response.writeHead(401, {
           "www-authenticate": 'Basic realm="Hero Back Office", charset="UTF-8"',
@@ -656,7 +758,7 @@ export function createHeroServer(options = {}) {
         response.end("Back Office authentication required.");
         return;
       }
-      if ((backofficePath || productStudioPath || portfolioPath || identityPath) && request.method !== "GET") {
+      if ((backofficePath || productStudioPath || projectControlPath || portfolioPath || identityPath) && request.method !== "GET") {
         response.writeHead(405, {
           "allow": "GET",
           "content-type": "text/plain; charset=utf-8",
@@ -724,6 +826,20 @@ export function createHeroServer(options = {}) {
         const documentId = url.searchParams.get("documentId");
         if (!documentId) throw new ProductDevelopmentError("DOCUMENT_ID_REQUIRED", "documentId is required.", 400);
         return json(response, 200, { service: HERO_SERVICE, document: productDevelopment.document(documentId) }, { maxBytes: backofficeResponseLimitBytes });
+      }
+
+      if (request.method === "GET" && url.pathname === "/project-control") {
+        const projectId = url.searchParams.get("projectId");
+        if (!projectId) throw new ProjectWorkspaceError("PROJECT_ID_REQUIRED", "projectId is required.", 400);
+        await recordReadAccess("/project-control", "accepted", { kind: backofficeAuth ? "backoffice-basic-auth" : "project-owner", id: backofficeAuth ? "backoffice-user" : "development-local" });
+        return html(response, getProjectControlRoomHtml({ initialData: { service: HERO_SERVICE, controlRoom: projectControlSnapshot(projectId) } }));
+      }
+
+      if (request.method === "GET" && url.pathname === "/project-control-data") {
+        const projectId = url.searchParams.get("projectId");
+        if (!projectId) throw new ProjectWorkspaceError("PROJECT_ID_REQUIRED", "projectId is required.", 400);
+        await recordReadAccess("/project-control-data", "accepted", { kind: backofficeAuth ? "backoffice-basic-auth" : "project-owner", id: backofficeAuth ? "backoffice-user" : "development-local" });
+        return json(response, 200, { service: HERO_SERVICE, controlRoom: projectControlSnapshot(projectId) }, { maxBytes: backofficeResponseLimitBytes });
       }
 
       if (request.method === "GET" && url.pathname === "/portfolio") {

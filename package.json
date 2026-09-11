@@ -42,6 +42,7 @@
     "notion:sync:batch": "node tools/sync-notion-batch.mjs",
     "notion:sync:approved-batches": "node tools/sync-notion-approved-batches.mjs",
     "notion:resolve-conflicts": "node tools/resolve-notion-conflicts.mjs",
+    "notion:sync:new-approved-document": "node tools/sync-notion-new-approved-document.mjs",
     "notion:sync-first": "node tools/sync-notion-document.mjs",
     "build": "node tools/build.mjs",
     "test": "node --test",

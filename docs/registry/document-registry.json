@@ -903,6 +903,20 @@
       "review_cadence": "per-change"
     },
     {
+      "id": "HERO-ROADMAP-NEXT-100-STEPS-20260911-PROJECT-CONTROL",
+      "path": "docs/roadmap/NEXT-100-STEPS-20260911-PROJECT-CONTROL.md",
+      "title": "بستهٔ ۱۰۰ گام بعدی Hero — Project Control Room",
+      "type": "roadmap",
+      "scope": "hero",
+      "status": "active",
+      "version": "1.0.0",
+      "owner": "hero-architecture",
+      "canonical": true,
+      "supersedes": [],
+      "superseded_by": null,
+      "review_cadence": "per-change"
+    },
+    {
       "id": "HERO-ROADMAP-OPEN-50-PRIORITY-20260904",
       "path": "docs/roadmap/OPEN-50-PRIORITY-20260904.md",
       "title": "پنجاه گام باز و اولویت‌دار Hero",

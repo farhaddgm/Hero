@@ -1,0 +1,56 @@
+{
+  "schema": "hero.authorization-snapshot/v1",
+  "authorizationId": "NOTION-DOCUMENT-SYNC-20260911-001",
+  "status": "active",
+  "grantedBy": "project-owner",
+  "grantedAt": "2026-09-11",
+  "grantSource": "owner-instruction-to-complete-notion-product-development-setup",
+  "validUntil": "owner-revocation",
+  "globalStop": false,
+  "operations": [
+    "read",
+    "notion-write",
+    "notion-page-create"
+  ],
+  "excludedOperations": [
+    "production-deploy",
+    "destructive-data-operation",
+    "external-spend",
+    "secret-change",
+    "external-message",
+    "irreversible-operation",
+    "notion-page-delete",
+    "notion-page-archive",
+    "notion-conflict-overwrite",
+    "github-write"
+  ],
+  "documents": [
+    {
+      "documentId": "HERO-ROADMAP-NEXT-20-STEPS-20260911-WORKSPACE-PERSISTENCE",
+      "documentVersion": "1.0.0"
+    },
+    {
+      "documentId": "HERO-ROADMAP-NEXT-100-STEPS-20260911-PROJECT-CONTROL",
+      "documentVersion": "1.0.0"
+    }
+  ],
+  "steps": [
+    {
+      "stepId": "NOTION-DOCUMENT-SYNC-HERO-ROADMAP-NEXT-20-STEPS-20260911",
+      "documentVersion": "1.0.0"
+    },
+    {
+      "stepId": "NOTION-DOCUMENT-SYNC-HERO-ROADMAP-NEXT-100-STEPS-20260911-PROJECT-CONTROL",
+      "documentVersion": "1.0.0"
+    }
+  ],
+  "scope": {
+    "mode": "git-canonical-create-or-adopt-existing-equivalent",
+    "catalogDigest": "4a3644ea88894ca92e819a1510b774631396892a256403ab36f4a593ced4733e",
+    "documentIds": [
+      "HERO-ROADMAP-NEXT-20-STEPS-20260911-WORKSPACE-PERSISTENCE",
+      "HERO-ROADMAP-NEXT-100-STEPS-20260911-PROJECT-CONTROL"
+    ]
+  },
+  "note": "Owner-approved bounded sync for newly registered internal documents without mappings. An existing equivalent page may be adopted; a conflicting existing page is never overwritten."
+}

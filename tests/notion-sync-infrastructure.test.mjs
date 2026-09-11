@@ -102,6 +102,26 @@ test("Notion checksum treats API markdown normalization as the same projection",
   assert.equal(markdownChecksum(source, "Table"), markdownChecksum(notion, "Table"));
 });
 
+test("Notion checksum treats footnote references as the same projection", () => {
+  const source = [
+    "# References",
+    "",
+    "A claim.[^1]",
+    "    four-space indent",
+    "  - nested",
+    "",
+    "[^1]: Notion. [Guide](https://www.notion.com/help) localhost"
+  ].join("\n");
+  const notion = [
+    "# References",
+    "A claim.[\\[1\\]](1)",
+    "  four-space indent",
+    "\t- nested",
+    "[\\[1\\]](1): Notion. [Guide](https://www.notion.com/help) [localhost](http://localhost)"
+  ].join("\n");
+  assert.equal(markdownChecksum(source, "References"), markdownChecksum(notion, "References"));
+});
+
 test("Notion batch sync retries bounded rate limits and freezes a changed mapped page", async () => {
   const delays = [];
   let searches = 0;

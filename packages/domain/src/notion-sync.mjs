@@ -22,8 +22,8 @@ function isMarkdownTableSeparator(line) {
   return /^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$/.test(line.trim());
 }
 
-function canonicalizeMarkdown(value) {
-  let normalized = String(value ?? "").replaceAll("\r\n", "\n").replace(/^```text$/gm, "```plain text").replace(/\]\((?!https?:\/\/|mailto:|#)([^)\s]+)\)/g, "](https://$1)");
+export function canonicalizeMarkdown(value) {
+  let normalized = String(value ?? "").replaceAll("\r\n", "\n").replace(/^```text$/gm, "```plain text").replace(/^\[\^([^\]]+)\]:/gm, "REF:$1:").replace(/^\[\\\[([^\]]+)\\\]\]\(\1\):/gm, "REF:$1:").replace(/\[\^([^\]]+)\]/g, "FOOTNOTE:$1").replace(/\[\\\[([^\]]+)\\\]\]\(\1\)/g, "FOOTNOTE:$1").replace(/\[([A-Za-z0-9._:-]+)\]\(https?:\/\/\1\/?\)/g, "$1").replace(/\]\((?!https?:\/\/|mailto:|#)([^)\s]+)\)/g, "](https://$1)").replace(/\[([^\]]+)\]\((?:https?:\/\/)?(?:\.\.?\/|[A-Za-z0-9._-]+\.md)(?:[^)]*)\)/g, "$1").replace(/^\t/gm, "  ").replace(/^ {4}/gm, "  ");
   normalized = normalized.replace(/<table(?:\s+[^>]*)?>[\s\S]*?<\/table>/g, match => {
     const rows = [...match.matchAll(/<tr>([\s\S]*?)<\/tr>/g)].map(row => [...row[1].matchAll(/<td>([\s\S]*?)<\/td>/g)].map(cell => cell[1].trim()));
     return `TABLE:${JSON.stringify(rows)}`;

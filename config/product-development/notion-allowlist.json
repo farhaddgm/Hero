@@ -10,8 +10,8 @@
     "status": "approved",
     "reviewer": "project-owner",
     "reviewed_at": "2026-09-11",
-    "catalog_digest": "e243d4ac60beaf293f0f4fdbe9aa2ec67e7539d00453ea451f1e71acce3ade1f",
-    "candidate_count": 124,
+    "catalog_digest": "4a3644ea88894ca92e819a1510b774631396892a256403ab36f4a593ced4733e",
+    "candidate_count": 126,
     "default_classification": "internal",
     "excluded_document_ids": [],
     "scan": {
@@ -30,7 +30,7 @@
     "document_version": "1.0.0",
     "mode": "git-canonical-overwrite-notion",
     "global_stop": false,
-    "catalog_digest": "e243d4ac60beaf293f0f4fdbe9aa2ec67e7539d00453ea451f1e71acce3ade1f",
+    "catalog_digest": "4a3644ea88894ca92e819a1510b774631396892a256403ab36f4a593ced4733e",
     "document_ids": [
       "HERO-ARCH-PRODUCT-DEVELOPMENT-KNOWLEDGE-SYSTEM",
       "HERO-EVIDENCE-BACKOFFICE-DELIVERY-AUDIT-20260911",
@@ -54,6 +54,31 @@
       "HERO-SPEC-022"
     ],
     "note": "Owner-approved conflict resolution; only existing mapped pages are eligible and every write requires post-write Markdown verification."
+  },
+  "new_document_sync": {
+    "status": "approved",
+    "authorization_id": "NOTION-DOCUMENT-SYNC-20260911-001",
+    "step_id": "NOTION-DOCUMENT-SYNC-CURRENT-CATALOG-20260911",
+    "document_version": "1.0.0",
+    "mode": "git-canonical-create-or-adopt-existing-equivalent",
+    "global_stop": false,
+    "catalog_digest": "4a3644ea88894ca92e819a1510b774631396892a256403ab36f4a593ced4733e",
+    "document_ids": [
+      "HERO-ROADMAP-NEXT-20-STEPS-20260911-WORKSPACE-PERSISTENCE"
+    ],
+    "documents": [
+      {
+        "document_id": "HERO-ROADMAP-NEXT-20-STEPS-20260911-WORKSPACE-PERSISTENCE",
+        "step_id": "NOTION-DOCUMENT-SYNC-HERO-ROADMAP-NEXT-20-STEPS-20260911",
+        "document_version": "1.0.0"
+      },
+      {
+        "document_id": "HERO-ROADMAP-NEXT-100-STEPS-20260911-PROJECT-CONTROL",
+        "step_id": "NOTION-DOCUMENT-SYNC-HERO-ROADMAP-NEXT-100-STEPS-20260911-PROJECT-CONTROL",
+        "document_version": "1.0.0"
+      }
+    ],
+    "note": "Owner-approved bounded sync for newly registered documents; an existing conflicting page is never overwritten."
   },
   "documents": [
     {
@@ -799,12 +824,30 @@
       "write_policy": "proposal-editable",
       "external_write_approved": true,
       "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ROADMAP-STATUS-20260911",
+      "write_policy": "mirror-only",
+      "external_write_approved": true,
+      "reason": "Owner-approved current-catalog document sync; evidence is mirrored from Git."
+    },
+    {
+      "document_id": "HERO-ROADMAP-NEXT-20-STEPS-20260911-WORKSPACE-PERSISTENCE",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved current-catalog document sync; roadmap is mirrored from Git."
+    },
+    {
+      "document_id": "HERO-ROADMAP-NEXT-100-STEPS-20260911-PROJECT-CONTROL",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved current-catalog document sync; roadmap is mirrored from Git."
     }
   ],
   "default_policy": "deny",
   "notes": [
     "This allowlist does not authorize production or restricted-content sync.",
     "Adding a document requires classification review and a separately recorded owner decision.",
-    "All 124 eligible internal documents have a controlled Notion page and durable mapping from batches 1-13; current reconciliation confirms 104 in-sync and holds 20 conflicts without overwrite. Future writes require a new owner-approved batch."
+    "All 126 eligible internal documents are approved for controlled projection; existing mappings are covered by batches 1-13 and newly registered documents are covered by bounded sync authorizations."
   ]
 }

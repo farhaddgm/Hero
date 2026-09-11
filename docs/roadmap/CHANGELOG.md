@@ -1,5 +1,11 @@
 # تغییرات رودمپ شرکت
 
+## ۲۰۲۶-۰۹-۱۱ — Project Control Room برای BO-051..150
+
+- مسیرهای read-only و project-scoped `project-control` و `project-control-data` افزوده شدند.
+- Product Studio اکنون برای هر پروژه به نمای واحد Collaboration، Command، Catalog، Intelligence، Inbox، Infrastructure، Delivery، Hardening و Final Readiness deep-link می‌دهد.
+- این تغییر فقط metadata امن را نمایش می‌دهد و هیچ Provider، Secret، هزینه، Production، Pilot یا عملیات بیرونی را فعال نمی‌کند.
+
 ## 2026-09-11 — شروع توسعهٔ عمودی Identity و ProjectGrant
 
 - افزوده‌شده: hydration امن User، Grant و Revocation از PostgreSQL؛
