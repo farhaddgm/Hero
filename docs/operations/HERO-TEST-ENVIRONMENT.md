@@ -132,14 +132,14 @@ pnpm check:environment-parity
 برای تغییر Test از artifact قدیمی به artifact immutable جدید، فقط ابزار زیر مجاز است. ابزار از environment Test backup می‌گیرد، فقط `hero-test/control-plane` را recreate می‌کند، dependencyها را تغییر نمی‌دهد، build نمی‌کند و health/readiness/routeهای جدید را بررسی می‌کند:
 
 ```bash
-sudo /opt/hero/tools/promote-test-immutable.sh \
+sudo bash /opt/hero/tools/promote-test-immutable.sh \
   ghcr.io/farhaddgm/hero@sha256:<immutable-digest>
 ```
 
 برای بررسی read-only بعد از promotion:
 
 ```bash
-sudo /opt/hero/tools/verify-test-release.sh \
+sudo bash /opt/hero/tools/verify-test-release.sh \
   ghcr.io/farhaddgm/hero@sha256:<immutable-digest>
 ```
 
