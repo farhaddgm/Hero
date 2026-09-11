@@ -11,6 +11,7 @@ import { createNotionSyncRegistry } from "../packages/domain/src/notion-sync-reg
 import { createRoadmapGraph, evaluateProductCompleteness } from "../packages/domain/src/roadmap-completeness.mjs";
 import { createHeroServer } from "../apps/control-plane/src/server.mjs";
 import { createOwnerAuth } from "../packages/domain/src/owner-auth.mjs";
+import { createProjectWorkspace } from "../packages/domain/src/project-workspace.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -84,6 +85,24 @@ test("Product Studio exposes catalog and document content without requiring Noti
   assert.equal(data.notion.configured, false);
   const document = await (await fetch(`${base}/product-studio-document?documentId=HERO-PRODUCT-HERO-BRIEF`)).json();
   assert.match(document.document.content, /مأموریت/);
+});
+
+test("Portfolio deep-links to a project-scoped Product Studio workspace", async t => {
+  const workspace = createProjectWorkspace({ ownerUserId: "hero-owner", now: () => "2026-09-10T12:00:00.000Z" });
+  workspace.createProject({ actor: { subject: "hero-owner", role: "project-owner" }, projectId: "project-vpn", name: "VPN Pilot", description: "First product pilot" });
+  const app = createHeroServer({ host: "127.0.0.1", port: 0, repositoryRoot: root, now: () => "2026-09-10T12:00:00.000Z", projectWorkspace: workspace });
+  const address = await app.start();
+  t.after(() => app.stop());
+  const base = `http://127.0.0.1:${address.port}`;
+  const portfolio = await fetch(`${base}/portfolio`);
+  assert.equal(portfolio.status, 200);
+  assert.match(await portfolio.text(), /\/product-studio\?projectId=project-vpn/);
+  const data = await (await fetch(`${base}/product-studio-data?projectId=project-vpn`)).json();
+  assert.equal(data.projectOverview.project.projectId, "project-vpn");
+  assert.equal(data.projectOverview.project.name, "VPN Pilot");
+  const page = await fetch(`${base}/product-studio?projectId=project-vpn`);
+  assert.equal(page.status, 200);
+  assert.match(await page.text(), /فضای پروژه/);
 });
 
 test("Product Development API remains owner-authenticated and proposal-only", async t => {

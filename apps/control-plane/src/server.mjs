@@ -361,9 +361,9 @@ export function createHeroServer(options = {}) {
     });
   }
 
-  function productStudioSnapshot() {
+  function productStudioSnapshot({ projectId = null } = {}) {
     const catalog = productDevelopment.snapshot();
-    return Object.freeze({
+    const snapshot = {
       ...catalog,
       notion: Object.freeze({
         configured: notionAdapter.configured === true,
@@ -373,7 +373,9 @@ export function createHeroServer(options = {}) {
           ? "Token پیدا شد؛ Workspace، parent page، scope و مجوز ارسال هنوز باید جداگانه تأیید شوند."
           : "NOTION_API_TOKEN تنظیم نشده است؛ هیچ درخواست خارجی ارسال نمی‌شود."
       })
-    });
+    };
+    if (projectId) snapshot.projectOverview = projectOverview(projectId);
+    return Object.freeze(snapshot);
   }
 
   function projectOverview(projectId) {
@@ -405,7 +407,7 @@ export function createHeroServer(options = {}) {
       tokenUsage: project.tokenUsage,
       latestCompletedTask: project.latestCompletedTask,
       latestOutput: project.latestOutput,
-      drillDown: { href: `/api/projects/${encodeURIComponent(project.projectId)}/overview`, projectId: project.projectId }
+      drillDown: { href: `/product-studio?projectId=${encodeURIComponent(project.projectId)}`, projectId: project.projectId }
     }));
     return Object.freeze({ ...model, cards, informationArchitecture: ["Portfolio", "Project Studio", "Overview", "Roadmap", "Inputs", "Settings", "Outputs"] });
   }
@@ -636,12 +638,12 @@ export function createHeroServer(options = {}) {
 
       if (request.method === "GET" && url.pathname === "/product-studio") {
         await recordReadAccess("/product-studio", "accepted", { kind: backofficeAuth ? "backoffice-basic-auth" : "project-owner", id: backofficeAuth ? "backoffice-user" : "development-local" });
-        return html(response, getProductStudioHtml({ initialData: productStudioSnapshot() }));
+        return html(response, getProductStudioHtml({ initialData: productStudioSnapshot({ projectId: url.searchParams.get("projectId") }) }));
       }
 
       if (request.method === "GET" && url.pathname === "/product-studio-data") {
         await recordReadAccess("/product-studio-data", "accepted", { kind: backofficeAuth ? "backoffice-basic-auth" : "project-owner", id: backofficeAuth ? "backoffice-user" : "development-local" });
-        return json(response, 200, productStudioSnapshot(), { maxBytes: backofficeResponseLimitBytes });
+        return json(response, 200, productStudioSnapshot({ projectId: url.searchParams.get("projectId") }), { maxBytes: backofficeResponseLimitBytes });
       }
 
       if (request.method === "GET" && url.pathname === "/product-studio-document") {
