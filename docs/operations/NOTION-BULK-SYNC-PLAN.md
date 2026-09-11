@@ -14,7 +14,7 @@
 
 ## وضعیت فعلی
 
-Catalog فعلی ۱۲۶ سند دارد. بر اساس default امن `internal`، هر ۱۲۶ سند از نظر فنی قابلیت mirror دارند و برای همهٔ آن‌ها Page و mapping پایدار ثبت شده است. پس از حل اختلاف کنترل‌شدهٔ ۲۰ مورد و sync تأییدشدهٔ دو سند جدید، شمارش نهایی PostgreSQL برابر ۱۲۶ `in-sync` و صفر `conflict` است. classification review روی همین snapshot انجام شد و ممیزی خودکار هیچ مورد Secret، PII یا endpoint زنده پیدا نکرد؛ این review به checksum همین snapshot مقید است. Blueprint شش‌بخشی و ۱۱ Database نیز در Notion ساخته و verify شده‌اند. PostgreSQL Test اکنون migrationهای `001` تا `014` و جدول mapping را دارد. gate عمومی نوشتن بسته است.
+Catalog فعلی ۱۲۶ سند دارد. بر اساس default امن `internal`، هر ۱۲۶ سند از نظر فنی قابلیت mirror دارند و برای همهٔ آن‌ها Page و mapping پایدار ثبت شده است. پس از حل اختلاف کنترل‌شدهٔ ۲۰ مورد و sync تأییدشدهٔ دو سند جدید، شمارش نهایی PostgreSQL برابر ۱۲۶ `in-sync` و صفر `conflict` است. classification review روی همین snapshot انجام شد و ممیزی خودکار هیچ مورد Secret، PII یا endpoint زنده پیدا نکرد؛ این review به checksum همین snapshot مقید است. Blueprint شش‌بخشی و ۱۴ Database نیز در Notion ساخته و verify شده‌اند. علاوه بر اسناد و رجیستری‌های قبلی، بخش `15 — Execution and Task Management` شامل `Work Items`، `Tasks` و `Iterations` است. رودمپ ۵۰تایی، Objectiveها، Initiativeها، Work Itemها و Taskهای آن نیز projection شده‌اند. PostgreSQL Test اکنون migrationهای `001` تا `014` و جدول mapping را دارد. gate عمومی bulk نوشتن بسته است و مسیر auto-sync داخلی با authorization محدود فعال شده است.
 
 ## ترتیب اجرا
 
@@ -48,11 +48,14 @@ Catalog فعلی ۱۲۶ سند دارد. بر اساس default امن `internal`
 ## وضعیت نهایی و محدودیت
 
 - منبع canonical همچنان Git است و Notion فقط projection کنترل‌شده است.
+- در projection فعلی Notion، تعداد رکوردها این است: ۱ Objective، ۲ Initiative، ۵۰ Roadmap Item، ۵۰ Work Item، ۵۰ Task و ۱ Iteration backlog.
+- سرویس `notion-auto-sync` تغییرات جدید Git را در چرخهٔ حداکثر ۵ دقیقه‌ای بررسی و به Notion projection می‌کند. این مسیر فقط طبقه‌بندی `internal` را ارسال می‌کند و در conflict از overwrite خودکار صرف‌نظر می‌کند.
 - هیچ سندی در snapshot فعلی به‌دلیل Secret، PII یا endpoint زنده از sync خارج نشد؛ شمارش heuristic هر سه مورد صفر بود.
 - هیچ مجوز bulk دائمی فعال نشد؛ `bulk_write_approved=false` و `batch_write_approved=false` باقی مانده‌اند.
 - ۱۲۶ سند در allowlist ثبت شده‌اند، اما allowlist به‌تنهایی مجوز اجرای آینده نیست؛ هر اجرای جدید باید دوباره gate شود.
 - طبقه‌بندی edit class حفظ شده است؛ `mirror-only` و `protected-proposal` در Notion به معنی ویرایش آزاد نیستند.
 - راستی‌آزمایی خواندن snapshot اولیه بدون خطای خواندن و بدون Page truncated انجام شد؛ همهٔ ۲۰ overwrite و هر دو sync جدید نیز با GET بعد از نوشتن verify شدند.
+- Viewهای Notion (مثل Board برای Tasks یا Timeline برای Roadmap) از API قابل‌ساخت و مدیریت نیستند؛ Databaseها و داده‌ها آماده‌اند و Viewهای تصویری باید در UI Notion ساخته شوند.
 
 ## صف conflict
 

@@ -64,6 +64,12 @@ test.hero.beeproject.ir  A  <IP عمومی همین سرور>
 
 پس از انتشار هر صفحهٔ جدید Back Office، Caddy فعال نیز باید از همین allow-list به‌روز پیروی کند. در نسخهٔ فعلی مسیرهای `/identity`، `/workspace`، `/project-control` و `/project-control-data` باید مانند `/product-studio` پشت Basic Auth به `127.0.0.1:43101` proxy شوند؛ سپس پیش از reload، validate الزامی است.
 
+### Caddy sidecar داخلی Test
+
+Compose یک sidecar جدا با نام `hero-test-backoffice-proxy-1` دارد که فقط روی شبکهٔ خصوصی Hero اجرا می‌شود. الگوی آن در [Caddyfile.test-sidecar.example](../../deploy/backoffice/Caddyfile.test-sidecar.example) است؛ فایل rendered فقط در `/etc/hero/caddy-test/Caddyfile` قرار می‌گیرد و نباید به Git افزوده شود. این sidecar باید همان allow-list صفحه‌های Back Office و `Cache-Control: no-store` را داشته باشد.
+
+اگر فایل bind-mounted Caddy با ابزاری مانند `sed -i` جایگزین شد، ممکن است container در حال اجرا inode قدیمی را نگه دارد. در این حالت، بدون recreate کردن سرویس، فایل جدید را ابتدا در یک مسیر موقت داخل همان container کپی کنید، با `caddy validate --adapter caddyfile` بررسی کنید و فقط در صورت موفقیت با `caddy reload --adapter caddyfile` load کنید. برای Test، Caddy بیرونی و sidecar داخلی هر دو باید این بررسی را جداگانه بگذرانند.
+
 ۴. دسترسی اپراتوری Docker/Compose را در همان سرور فراهم کند؛ بدون ارسال credential در چت.
 
 ## کارهایی که Hero/Codex انجام می‌دهد

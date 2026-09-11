@@ -47,6 +47,10 @@ export function createNotionApiAdapter({ token = process.env.HERO_NOTION_API_TOK
   return Object.freeze({
     configured,
     async getPage(pageId) { return request(`/pages/${assertId(pageId, "pageId")}`); },
+    async getDatabase(databaseId) { return request(`/databases/${assertId(databaseId, "databaseId")}`); },
+    async getDataSource(dataSourceId) { return request(`/data_sources/${assertId(dataSourceId, "dataSourceId")}`); },
+    async updateDataSource(dataSourceId, payload) { return request(`/data_sources/${assertId(dataSourceId, "dataSourceId")}`, { method: "PATCH", body: payload }); },
+    async queryDataSource(dataSourceId, payload = {}) { return request(`/data_sources/${assertId(dataSourceId, "dataSourceId")}/query`, { method: "POST", body: payload }); },
     async createPage(payload) { return request("/pages", { method: "POST", body: payload }); },
     async createDatabase(payload) { return request("/databases", { method: "POST", body: payload }); },
     async createMarkdownPage({ parentPageId, markdown, properties } = {}) {
@@ -54,6 +58,16 @@ export function createNotionApiAdapter({ token = process.env.HERO_NOTION_API_TOK
         method: "POST",
         body: {
           parent: { page_id: assertId(parentPageId, "parentPageId") },
+          ...(properties ? { properties } : {}),
+          markdown: String(markdown ?? "")
+        }
+      });
+    },
+    async createMarkdownDataSourcePage({ dataSourceId, markdown, properties } = {}) {
+      return request("/pages", {
+        method: "POST",
+        body: {
+          parent: { type: "data_source_id", data_source_id: assertId(dataSourceId, "dataSourceId") },
           ...(properties ? { properties } : {}),
           markdown: String(markdown ?? "")
         }
@@ -76,7 +90,7 @@ export function createNotionApiAdapter({ token = process.env.HERO_NOTION_API_TOK
       return request("/search", { method: "POST", body });
     },
     async updatePage(pageId, payload) { return request(`/pages/${assertId(pageId, "pageId")}`, { method: "PATCH", body: payload }); },
-    async archivePage(pageId) { return request(`/pages/${assertId(pageId, "pageId")}`, { method: "PATCH", body: { archived: true } }); },
+    async archivePage(pageId) { return request(`/pages/${assertId(pageId, "pageId")}`, { method: "PATCH", body: { in_trash: true } }); },
     async listBlockChildren(blockId, { startCursor, pageSize = 100 } = {}) {
       const id = assertId(blockId, "blockId");
       const query = new URLSearchParams({ page_size: String(Math.min(100, Math.max(1, pageSize))) });

@@ -28,6 +28,8 @@ services:
       HERO_NOTION_BULK_WRITE_APPROVED: ${HERO_NOTION_BULK_WRITE_APPROVED:-false}
       HERO_NOTION_WORKSPACE_WRITE_APPROVED: ${HERO_NOTION_WORKSPACE_WRITE_APPROVED:-false}
       HERO_NOTION_BATCH_WRITE_APPROVED: ${HERO_NOTION_BATCH_WRITE_APPROVED:-false}
+      HERO_NOTION_PRODUCT_SYSTEM_WRITE_APPROVED: ${HERO_NOTION_PRODUCT_SYSTEM_WRITE_APPROVED:-false}
+      HERO_NOTION_AUTO_SYNC_INTERVAL_SECONDS: ${HERO_NOTION_AUTO_SYNC_INTERVAL_SECONDS:-300}
       HERO_ENABLE_REAL_PROVIDERS: ${HERO_ENABLE_REAL_PROVIDERS:-false}
       HERO_OPENAI_API_KEY: ${HERO_OPENAI_API_KEY:-}
       HERO_ANTHROPIC_API_KEY: ${HERO_ANTHROPIC_API_KEY:-}
@@ -108,6 +110,32 @@ services:
       timeout: 3s
       retries: 3
       start_period: 5s
+
+  notion-auto-sync:
+    profiles: ["notion-auto-sync"]
+    image: ${HERO_IMAGE:-hero-control-plane:local}
+    init: true
+    restart: unless-stopped
+    command: ["node", "tools/sync-notion-product-system.mjs", "--watch"]
+    environment:
+      HERO_POSTGRES_URL: ${HERO_POSTGRES_URL:-}
+      HERO_POSTGRES_PASSWORD: ${HERO_POSTGRES_PASSWORD:-}
+      HERO_REQUIRE_POSTGRES: ${HERO_REQUIRE_POSTGRES:-true}
+      HERO_NOTION_ENABLED: ${HERO_NOTION_ENABLED:-false}
+      HERO_NOTION_API_TOKEN: ${HERO_NOTION_API_TOKEN:-}
+      HERO_NOTION_API_VERSION: ${HERO_NOTION_API_VERSION:-2026-03-11}
+      HERO_NOTION_PARENT_PAGE_ID: ${HERO_NOTION_PARENT_PAGE_ID:-}
+      HERO_NOTION_ALLOWED_CLASSIFICATIONS: ${HERO_NOTION_ALLOWED_CLASSIFICATIONS:-internal}
+      HERO_NOTION_PRODUCT_SYSTEM_WRITE_APPROVED: ${HERO_NOTION_PRODUCT_SYSTEM_WRITE_APPROVED:-false}
+      HERO_NOTION_AUTO_SYNC_INTERVAL_SECONDS: ${HERO_NOTION_AUTO_SYNC_INTERVAL_SECONDS:-300}
+      HERO_SOURCE_COMMIT: ${HERO_SOURCE_COMMIT:-workspace-uncommitted}
+    networks:
+      - hero-private
+    depends_on:
+      hero-postgres:
+        condition: service_healthy
+    healthcheck:
+      disable: true
 
 volumes:
   hero-data:

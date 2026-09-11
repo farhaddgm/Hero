@@ -1,0 +1,48 @@
+{
+  "schema": "hero.authorization-snapshot/v1",
+  "authorizationId": "NOTION-OPERATIONAL-DOC-REFRESH-20260911-001",
+  "status": "active",
+  "grantedBy": "project-owner",
+  "grantedAt": "2026-09-11",
+  "grantSource": "owner-instruction-to-complete-notion-product-development-setup",
+  "validUntil": "owner-revocation",
+  "globalStop": false,
+  "operations": [
+    "read",
+    "notion-write",
+    "notion-canonical-refresh"
+  ],
+  "excludedOperations": [
+    "production-deploy",
+    "destructive-data-operation",
+    "external-spend",
+    "secret-change",
+    "external-message",
+    "irreversible-operation",
+    "notion-page-create",
+    "notion-page-delete",
+    "notion-page-archive",
+    "notion-conflict-overwrite",
+    "github-write"
+  ],
+  "documents": [
+    { "documentId": "HERO-OPS-NOTION-BULK-SYNC-PLAN", "documentVersion": "1.0.0" },
+    { "documentId": "HERO-OPS-NOTION-SETUP", "documentVersion": "1.0.0" },
+    { "documentId": "HERO-OPS-NOTION-SYNC-RUNBOOK", "documentVersion": "1.0.0" }
+  ],
+  "steps": [
+    { "stepId": "NOTION-OPERATIONAL-DOC-REFRESH-BULK-PLAN", "documentVersion": "1.0.0" },
+    { "stepId": "NOTION-OPERATIONAL-DOC-REFRESH-SETUP", "documentVersion": "1.0.0" },
+    { "stepId": "NOTION-OPERATIONAL-DOC-REFRESH-RUNBOOK", "documentVersion": "1.0.0" }
+  ],
+  "scope": {
+    "mode": "git-canonical-refresh-existing-mapped-pages",
+    "catalogDigest": "a4f369cfb4bc74d3b7e46b0a2147b6cbccba01d05d71d01fa1abe83baf97178a",
+    "documentIds": [
+      "HERO-OPS-NOTION-BULK-SYNC-PLAN",
+      "HERO-OPS-NOTION-SETUP",
+      "HERO-OPS-NOTION-SYNC-RUNBOOK"
+    ]
+  },
+  "note": "Owner-approved bounded refresh after final Test verification. Only existing mapped pages are eligible; all writes require post-write Markdown and checksum verification."
+}

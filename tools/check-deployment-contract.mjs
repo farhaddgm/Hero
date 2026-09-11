@@ -6,7 +6,8 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const files = Object.freeze({
   compose: path.join(root, "compose.yaml"),
   testEnv: path.join(root, "deploy", "test", "hero-test.env.example"),
-  caddyTest: path.join(root, "deploy", "backoffice", "Caddyfile.test.example")
+  caddyTest: path.join(root, "deploy", "backoffice", "Caddyfile.test.example"),
+  caddyTestSidecar: path.join(root, "deploy", "backoffice", "Caddyfile.test-sidecar.example")
 });
 
 function read(name, file) {
@@ -17,6 +18,7 @@ function read(name, file) {
 const compose = read("Compose contract", files.compose);
 const testEnv = read("Test environment example", files.testEnv);
 const caddyTest = read("Test Caddy contract", files.caddyTest);
+const caddyTestSidecar = read("Test Caddy sidecar contract", files.caddyTestSidecar);
 const errors = [];
 const warnings = [];
 
@@ -35,6 +37,7 @@ requireMatch(compose, /- \"\$\{HERO_BIND_ADDRESS:-127\.0\.0\.1\}:\$\{HERO_EXPOSE
 requireMatch(compose, /hero-data:/, "The application must use the project-scoped hero-data volume.");
 requireMatch(compose, /hero-postgres-data:/, "PostgreSQL must use its own project-scoped volume.");
 requireMatch(compose, /hero-private:\s*\n\s*driver:\s*bridge/, "Services must use the private hero-private network.");
+requireMatch(compose, /\/etc\/hero\/caddy-test\/Caddyfile:\/etc\/caddy\/Caddyfile:ro/, "The Test authentication sidecar must mount its isolated Caddyfile read-only.");
 requireMatch(compose, /HERO_ENABLE_REAL_PROVIDERS:\s*\$\{HERO_ENABLE_REAL_PROVIDERS:-false\}/, "Live Providers must default to disabled.");
 requireMatch(compose, /HERO_OPENAI_API_KEY:\s*\$\{HERO_OPENAI_API_KEY:-\}/, "OpenAI credentials must only be forwarded from runtime environment variables.");
 rejectMatch(compose, /HERO_(?:OPENAI|ANTHROPIC|GOOGLE|OPENAI_COMPATIBLE)_(?:COST_UNITS_PER_1K_TOKENS|INPUT_COST_UNITS_PER_1K_TOKENS|OUTPUT_COST_UNITS_PER_1K_TOKENS)/, "Provider pricing must come from the versioned Pricing Catalog, not Environment rates.");
@@ -52,6 +55,7 @@ requireMatch(testEnv, /^HERO_EXTERNAL_SPEND_AUTHORIZATION_ACTIVE=false$/m, "The 
 requireMatch(caddyTest, /^test\.hero\.beeproject\.ir \{$/m, "The canonical Test hostname must be test.hero.beeproject.ir.");
 requireMatch(caddyTest, /reverse_proxy 127\.0\.0\.1:43101/, "Caddy Test must proxy to 127.0.0.1:43101.");
 requireMatch(caddyTest, /basic_auth\s*\{/, "Caddy Test Back Office must retain Basic Auth.");
+requireMatch(caddyTest, /Cache-Control\s+"no-store"/, "Caddy Test must prevent CDN caching of authenticated or not-found responses.");
 requireMatch(caddyTest, /\/product-studio\b/, "Caddy Test must expose the Product Studio UI route through the authenticated Hero proxy.");
 requireMatch(caddyTest, /\/portfolio\b/, "Caddy Test must expose the Portfolio UI route through the authenticated Hero proxy.");
 requireMatch(caddyTest, /\/project-control\b/, "Caddy Test must expose the Project Control UI route through the authenticated Hero proxy.");
@@ -60,6 +64,14 @@ requireMatch(caddyTest, /\/workspace\b/, "Caddy Test must expose the Workspace C
 requireMatch(caddyTest, /\/identity\b/, "Caddy Test must expose the human identity UI required by the Workspace Console.");
 rejectMatch(caddyTest, /hero-test\.beeproject\.ir/, "The legacy/conflicting hero-test.beeproject.ir hostname must not be mixed into the Test contract.");
 rejectMatch(caddyTest, /:5432\b/, "Caddy must not expose PostgreSQL.");
+
+requireMatch(caddyTestSidecar, /^:8080 \{$/m, "The Test authentication sidecar must bind only to its private HTTP port.");
+requireMatch(caddyTestSidecar, /basic_auth\s*\{/, "The Test authentication sidecar must retain Basic Auth.");
+requireMatch(caddyTestSidecar, /@hero_test_backoffice path[\s\S]*\/workspace\b/, "The Test sidecar must allow Workspace through authenticated proxying.");
+requireMatch(caddyTestSidecar, /@hero_test_backoffice path[\s\S]*\/project-control\b/, "The Test sidecar must allow Project Control through authenticated proxying.");
+requireMatch(caddyTestSidecar, /handle @hero_test_backoffice[\s\S]*reverse_proxy control-plane:3100/, "The Test sidecar must bind the back-office matcher to the Hero control-plane.");
+requireMatch(caddyTestSidecar, /Cache-Control\s+"no-store"/, "The Test sidecar must prevent CDN caching of protected responses.");
+rejectMatch(caddyTestSidecar, /:5432\b/, "The Test sidecar must not expose PostgreSQL.");
 
 const opaqueOverride = path.join(root, "compose.test.yaml");
 if (fs.existsSync(opaqueOverride)) {

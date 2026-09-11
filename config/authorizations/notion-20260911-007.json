@@ -1,0 +1,38 @@
+{
+  "schema": "hero.authorization-snapshot/v1",
+  "authorizationId": "NOTION-PRODUCT-SYSTEM-AUTO-SYNC-20260911-001",
+  "status": "active",
+  "grantedBy": "project-owner",
+  "grantedAt": "2026-09-11",
+  "grantSource": "owner-instruction-to-complete-notion-roadmap-and-task-management",
+  "validUntil": "owner-revocation",
+  "globalStop": false,
+  "operations": [
+    "read",
+    "notion-write",
+    "notion-page-create",
+    "notion-page-title-update",
+    "notion-data-source-update",
+    "notion-document-auto-sync",
+    "notion-roadmap-projection",
+    "notion-task-projection"
+  ],
+  "excludedOperations": [
+    "notion-page-delete",
+    "notion-page-archive",
+    "production-deploy",
+    "destructive-data-operation",
+    "external-spend",
+    "secret-change",
+    "external-message",
+    "irreversible-operation",
+    "github-write"
+  ],
+  "steps": [{"stepId":"NOTION-PRODUCT-SYSTEM-AUTO-SYNC","documentVersion":"1.0.0"}],
+  "scope": {
+    "mode": "git-canonical-internal-only-document-roadmap-task-projection",
+    "allowedClassifications": ["internal"],
+    "conflictPolicy": "never-overwrite-notion-changes"
+  },
+  "note": "Recurring sync may create/update only eligible internal projection records. It may never delete or archive a page, publish restricted content, mutate Git, deploy, change secrets or send external messages."
+}

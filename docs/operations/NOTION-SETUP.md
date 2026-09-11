@@ -8,7 +8,7 @@
 
 ## وضعیت فعلی
 
-Product Studio و Catalog محلی فعال‌اند. اتصال رسمی Notion در Test برقرار است و صفحهٔ ریشهٔ `Hero Product Development` قابل‌خواندن است. Blueprint شش‌بخشی و ۱۱ Database طبق تأیید مالک ساخته و verify شده‌اند. اتصال PostgreSQL Test، migrationهای `001` تا `014` و mapping پایدار آماده‌اند؛ برای هر ۱۲۶ سند Page و mapping وجود دارد و شمارش نهایی ۱۲۶ `in-sync` و صفر `conflict` است. gate عمومی انتشار بسته است و هر overwrite فقط با authorization محدود و ثبت‌شده انجام می‌شود.
+Product Studio و Catalog محلی فعال‌اند. اتصال رسمی Notion در Test برقرار است و صفحهٔ ریشهٔ `Hero Product Development` قابل‌خواندن است. Blueprint شش‌بخشی و ۱۴ Database ساخته و verify شده‌اند؛ سه Database تکمیلی برای مدیریت اجرا شامل `Work Items`، `Tasks` و `Iterations` است. یک صفحهٔ `Hero Product System — Control Center` نیز برای دسترسی سریع به برنامه و اجرا ساخته شده است. اتصال PostgreSQL Test، migrationهای `001` تا `014` و mapping پایدار آماده‌اند؛ برای هر ۱۲۶ سند Page و mapping وجود دارد و شمارش نهایی ۱۲۶ `in-sync` و صفر `conflict` است. رودمپ canonical شامل ۵۰ آیتم، یک Objective، دو Initiative، ۵۰ Work Item، ۵۰ Task و یک Iteration backlog در Notion projection شده است. روابط traceability بین Objective→Initiative، Roadmap→Work Item و Roadmap/Work Item/Iteration→Task نیز در خود Notion برقرار و verify شده‌اند. همگام‌سازی خودکار داخلی فعال است و هر چرخه فقط محتوای مجاز `internal` را از Git به Notion به‌روزرسانی می‌کند؛ Notion همچنان منبع حقیقت نیست.
 
 ## کارهای لازم مالک، به زبان ساده
 
@@ -17,8 +17,9 @@ Product Studio و Catalog محلی فعال‌اند. اتصال رسمی Notion
 3. یک صفحهٔ ریشه با نام `Hero Product Development` بساز و آن را فقط با همان Integration به اشتراک بگذار.
 4. شناسهٔ صفحهٔ ریشه را از URL کپی کن. شناسه معمولاً یک UUID است و نباید در مستندات یا پیام عمومی منتشر شود.
 5. Token و Page ID را فقط در Secret Store یا فایل runtime با مجوز محدود قرار بده؛ مقدار Token هرگز وارد Git، Notion، Event یا log نشود.
-6. پس از پایان batch، gate نوشتن را بسته نگه دار؛ فعال‌سازی هر ارسال آینده یک مجوز جداگانه برای انتشار محتوای انتخاب‌شده به سرویس بیرونی است.
-7. برای تغییرات آینده ابتدا snapshot و classification review جدید بگیر؛ سپس فقط batch مورد تأیید را اجرا کن. Change Proposal همچنان تنها مسیر ویرایش canonical از سمت Notion است.
+6. برای دیدن برنامهٔ محصول به بخش `10 — Hero Product` برو و Databaseهای `Objectives`، `Initiatives` و `Roadmap Items` را باز کن.
+7. برای مدیریت اجرا به بخش `15 — Execution and Task Management` برو؛ `Work Items` خروجی‌های قابل‌تحویل و `Tasks` کارهای ریزتر هستند. `Iterations` فعلاً یک backlog رسمی دارد تا بعداً بازه‌های زمانی واقعی به آن اضافه شوند.
+8. برای تغییرات آینده ابتدا snapshot و classification review جدید بگیر؛ سپس فقط batch مورد تأیید را اجرا کن. Change Proposal همچنان تنها مسیر ویرایش canonical از سمت Notion است.
 
 ## ترتیب فعال‌سازی فنی
 
@@ -43,7 +44,7 @@ Product Studio و Catalog محلی فعال‌اند. اتصال رسمی Notion
 - queue، backoff، idempotency و dead-letter؛
 - قابلیت disable فوری connector.
 
-وضعیت اجرای Test: ۱۲۶ سند واجد شرایط، ۱۳ batch اولیه به‌علاوهٔ دو عملیات محدود تکمیلی، ۱۲۶ mapping در وضعیت `in-sync`، صفر `conflict` و gate عمومی نوشتن بسته.
+وضعیت اجرای Test: ۱۲۶ سند واجد شرایط، ۱۳ batch اولیه به‌علاوهٔ دو عملیات محدود تکمیلی، ۱۲۶ mapping در وضعیت `in-sync`، صفر `conflict` و gate عمومی bulk بسته. سرویس `notion-auto-sync` با فاصلهٔ پیش‌فرض ۵ دقیقه‌ای، فقط projection داخلی Git را refresh می‌کند.
 
 ### مرحلهٔ D — ویرایش کنترل‌شده Notion
 
@@ -55,6 +56,8 @@ Product Studio و Catalog محلی فعال‌اند. اتصال رسمی Notion
 ## قراردادهای ایمنی
 
 - Notion منبع حقیقت نیست.
+- Git و قراردادهای versioned منبع حقیقت رودمپ، تسک و اسناد هستند؛ Notion projection قابل‌مشاهده و محیط ویرایش کنترل‌شده است.
+- همگام‌سازی خودکار به معنی overwrite کردن ویرایش دستی نیست: اگر checksum نشان دهد صفحه در Notion جداگانه تغییر کرده، وضعیت `conflict` ثبت می‌شود و Git بر آن غلبه نمی‌کند.
 - قطع Notion نباید build، test، development یا بازیابی Git را متوقف کند.
 - عملیات external write، webhook عمومی، Secret، هزینه و Production مجوز جداگانه دارند.
 - قبل از هر mirror باید ACL Notion با classification و دسترسی repository تطبیق داده شود.
@@ -62,4 +65,4 @@ Product Studio و Catalog محلی فعال‌اند. اتصال رسمی Notion
 
 ## منابع فنی
 
-Adapter از Markdown API نسخهٔ `2026-03-11` استفاده می‌کند: ایجاد Page با Markdown، دریافت Markdown و update محدود یا replace کنترل‌شده. پیش از فعال‌سازی production باید capabilityهای Integration و محدودیت‌های API در Test تأیید شوند.
+Adapter از Markdown API نسخهٔ `2026-03-11` و Data Source API استفاده می‌کند: ایجاد Page با Markdown، دریافت Markdown، update محدود یا replace کنترل‌شده و query/upsert رکوردهای Database. ایجاد و مدیریت Viewهای سفارشی Notion از API فعلی پشتیبانی نمی‌شود؛ بنابراین داده و Databaseها خودکار ساخته و به‌روز می‌شوند، اما Board/Timeline/Calendar باید در خود Notion یک‌بار توسط کاربر ساخته یا تنظیم شود. پیش از فعال‌سازی production باید capabilityهای Integration و محدودیت‌های API در Test تأیید شوند.

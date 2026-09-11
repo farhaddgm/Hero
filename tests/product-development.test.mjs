@@ -8,6 +8,7 @@ import { createNotionWorkspaceBlueprint, validateRoadmapGraph } from "../package
 import { createProductDevelopmentCatalog, ProductDevelopmentError } from "../packages/domain/src/product-development.mjs";
 import { createNotionSyncService } from "../packages/domain/src/notion-sync.mjs";
 import { createNotionSyncRegistry } from "../packages/domain/src/notion-sync-registry.mjs";
+import { createNotionProductProjection } from "../packages/domain/src/notion-product-projection.mjs";
 import { createRoadmapGraph, evaluateProductCompleteness } from "../packages/domain/src/roadmap-completeness.mjs";
 import { createHeroServer } from "../apps/control-plane/src/server.mjs";
 import { createOwnerAuth } from "../packages/domain/src/owner-auth.mjs";
@@ -49,11 +50,30 @@ test("Roadmap graph validates dependencies and Completeness blocks missing requi
 test("Notion workspace blueprint and mapping registry are deterministic and conflict-safe", () => {
   const blueprint = createNotionWorkspaceBlueprint();
   assert.equal(blueprint.initialAllowlist[0], "HERO-PRODUCT-HERO-BRIEF");
-  assert.equal(blueprint.databases.length, 11);
+  assert.equal(blueprint.databases.length, 14);
   const registry = createNotionSyncRegistry({ now: () => "2026-09-10T12:00:00.000Z" });
   registry.put({ documentId: "HERO-PRODUCT-HERO-BRIEF", pageId: "b55c9c91-384d-452b-81db-d1ef79372b75", sourceChecksum: "source-a", notionChecksum: "notion-a", canonicalCommit: "commit-a", status: "in-sync", editPolicy: "proposal-editable" });
   assert.equal(registry.compare({ documentId: "HERO-PRODUCT-HERO-BRIEF", sourceChecksum: "source-a", notionChecksum: "notion-a", canonicalCommit: "commit-a" }).state, "in-sync");
   assert.equal(registry.compare({ documentId: "HERO-PRODUCT-HERO-BRIEF", sourceChecksum: "source-b", notionChecksum: "notion-b", canonicalCommit: "commit-b" }).state, "conflict");
+});
+
+test("Notion product projection preserves the canonical roadmap and creates execution records", () => {
+  const catalog = createProductDevelopmentCatalog({ root, sourceCommit: "test-snapshot", now: () => "2026-09-10T12:00:00.000Z" });
+  const projection = createNotionProductProjection({ roadmap: catalog.snapshot().roadmap, roadmapGraph: catalog.snapshot().roadmapGraph });
+  assert.deepEqual({
+    objectives: projection.objectives.length,
+    initiatives: projection.initiatives.length,
+    roadmapItems: projection.roadmapItems.length,
+    workItems: projection.workItems.length,
+    tasks: projection.tasks.length,
+    iterations: projection.iterations.length
+  }, { objectives: 1, initiatives: 2, roadmapItems: 50, workItems: 50, tasks: 50, iterations: 1 });
+  assert.equal(projection.roadmapItems[0].id, "HERO-ROADMAP-001");
+  assert.equal(projection.initiatives.every(initiative => initiative.objectiveId === "HERO-OBJ-TRUSTWORTHY-PRODUCT-OS"), true);
+  assert.equal(projection.workItems[0].roadmapId, projection.roadmapItems[0].id);
+  assert.equal(projection.tasks[0].workItemId, projection.workItems[0].id);
+  assert.equal(projection.tasks[0].iterationId, projection.iterations[0].id);
+  assert.match(projection.tasks[0].checksum, /^[a-f0-9]{64}$/);
 });
 
 test("Product Catalog search, document reads and proposal boundary are safe", () => {

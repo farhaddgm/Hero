@@ -30,7 +30,10 @@ export const NOTION_DATABASE_DEFINITIONS = Object.freeze([
   Object.freeze({ id: "risks", title: "Risks", source: "hero-risk-register", writePolicy: "proposal-editable" }),
   Object.freeze({ id: "releases", title: "Releases", source: "hero-release-projection", writePolicy: "mirror-only" }),
   Object.freeze({ id: "change-proposals", title: "Change Proposals", source: "hero-change-workflow", writePolicy: "protected-proposal" }),
-  Object.freeze({ id: "sync-health", title: "Sync Health", source: "hero-integration-projection", writePolicy: "mirror-only" })
+  Object.freeze({ id: "sync-health", title: "Sync Health", source: "hero-integration-projection", writePolicy: "mirror-only" }),
+  Object.freeze({ id: "work-items", title: "Work Items", source: "hero-operational-work-items", writePolicy: "proposal-editable" }),
+  Object.freeze({ id: "tasks", title: "Tasks", source: "hero-task-graph", writePolicy: "proposal-editable" }),
+  Object.freeze({ id: "iterations", title: "Iterations", source: "hero-delivery-cadence", writePolicy: "proposal-editable" })
 ]);
 
 const IDENTIFIER = /^[A-Z][A-Z0-9._:-]{2,127}$/;
@@ -56,6 +59,7 @@ export function createNotionWorkspaceBlueprint({ rootTitle = "Hero Product Devel
     sections: [
       { id: "control-center", title: "00 — Control Center", purpose: "owner dashboard and decision queue" },
       { id: "hero-product", title: "10 — Hero Product", purpose: "self-development and canonical Hero views" },
+      { id: "execution-management", title: "15 — Execution and Task Management", purpose: "work items, tasks and iterations derived from Hero Task Graph" },
       { id: "portfolio", title: "20 — Product Portfolio", purpose: "products and product homes" },
       { id: "shared-knowledge", title: "30 — Shared Knowledge", purpose: "versioned inherited policies and guides" },
       { id: "decisions-evidence", title: "40 — Decisions and Evidence", purpose: "decision and evidence projections" },

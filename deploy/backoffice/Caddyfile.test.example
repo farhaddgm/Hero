@@ -5,6 +5,7 @@ test.hero.beeproject.ir {
     encode gzip
 
     header {
+        Cache-Control "no-store"
         X-Robots-Tag "noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate"
         X-Content-Type-Options "nosniff"
         Referrer-Policy "no-referrer"
@@ -29,5 +30,5 @@ test.hero.beeproject.ir {
         reverse_proxy 127.0.0.1:43101
     }
 
-    respond 404 "not found" 404
+    respond "not found" 404
 }

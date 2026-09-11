@@ -10,7 +10,7 @@
     "status": "approved",
     "reviewer": "project-owner",
     "reviewed_at": "2026-09-11",
-    "catalog_digest": "1a8c60ee944ecd02eb9df0a268f4092509a09a738b2bdcff98520ff5b2768877",
+    "catalog_digest": "6c020123d78d32fe4e7299fda20d06418f3e94b0f3361815f7b5fe4754976ffb",
     "candidate_count": 126,
     "default_classification": "internal",
     "excluded_document_ids": [],
@@ -30,7 +30,7 @@
     "document_version": "1.0.0",
     "mode": "git-canonical-overwrite-notion",
     "global_stop": false,
-    "catalog_digest": "1a8c60ee944ecd02eb9df0a268f4092509a09a738b2bdcff98520ff5b2768877",
+    "catalog_digest": "4a3644ea88894ca92e819a1510b774631396892a256403ab36f4a593ced4733e",
     "document_ids": [
       "HERO-ARCH-PRODUCT-DEVELOPMENT-KNOWLEDGE-SYSTEM",
       "HERO-EVIDENCE-BACKOFFICE-DELIVERY-AUDIT-20260911",
@@ -62,7 +62,7 @@
     "document_version": "1.0.0",
     "mode": "git-canonical-create-or-adopt-existing-equivalent",
     "global_stop": false,
-    "catalog_digest": "1a8c60ee944ecd02eb9df0a268f4092509a09a738b2bdcff98520ff5b2768877",
+    "catalog_digest": "4a3644ea88894ca92e819a1510b774631396892a256403ab36f4a593ced4733e",
     "document_ids": [
       "HERO-ROADMAP-NEXT-20-STEPS-20260911-WORKSPACE-PERSISTENCE",
       "HERO-ROADMAP-NEXT-100-STEPS-20260911-PROJECT-CONTROL"
@@ -80,6 +80,93 @@
       }
     ],
     "note": "Owner-approved bounded sync for newly registered documents; an existing conflicting page is never overwritten."
+  },
+  "operational_document_refresh": {
+    "status": "approved",
+    "authorization_id": "NOTION-OPERATIONAL-DOC-REFRESH-20260911-001",
+    "step_id": "NOTION-OPERATIONAL-DOC-REFRESH",
+    "document_version": "1.0.0",
+    "mode": "git-canonical-refresh-existing-mapped-pages",
+    "global_stop": false,
+    "catalog_digest": "a4f369cfb4bc74d3b7e46b0a2147b6cbccba01d05d71d01fa1abe83baf97178a",
+    "document_ids": [
+      "HERO-OPS-NOTION-BULK-SYNC-PLAN",
+      "HERO-OPS-NOTION-SETUP",
+      "HERO-OPS-NOTION-SYNC-RUNBOOK"
+    ],
+    "documents": [
+      {
+        "document_id": "HERO-OPS-NOTION-BULK-SYNC-PLAN",
+        "step_id": "NOTION-OPERATIONAL-DOC-REFRESH-BULK-PLAN",
+        "document_version": "1.0.0"
+      },
+      {
+        "document_id": "HERO-OPS-NOTION-SETUP",
+        "step_id": "NOTION-OPERATIONAL-DOC-REFRESH-SETUP",
+        "document_version": "1.0.0"
+      },
+      {
+        "document_id": "HERO-OPS-NOTION-SYNC-RUNBOOK",
+        "step_id": "NOTION-OPERATIONAL-DOC-REFRESH-RUNBOOK",
+        "document_version": "1.0.0"
+      }
+    ],
+    "note": "Owner-approved bounded refresh of three existing operational pages after the final Test verification; no page creation, deletion or archive is allowed."
+  },
+  "projection_repair": {
+    "status": "approved",
+    "authorization_id": "NOTION-PROJECTION-REPAIR-20260911-001",
+    "step_id": "NOTION-PROJECTION-REPAIR",
+    "document_version": "1.0.0",
+    "mode": "git-canonical-refresh-and-title-repair",
+    "global_stop": false,
+    "catalog_digest": "7c1ce043cc877163fb4f14e90b09795292a6b447b9aa882517b2521e0034ae54",
+    "stale_document_ids": [
+      "HERO-DOC-INDEX",
+      "HERO-EVIDENCE-BACKOFFICE-DELIVERY-AUDIT-20260911",
+      "HERO-ROADMAP-CHANGELOG",
+      "HERO-ROADMAP-STATUS-20260911"
+    ],
+    "title_repair_selector": {
+      "kind": "mapped-internal-documents-with-empty-notion-title",
+      "count": 76,
+      "document_ids_digest": "d9f9292a9ad4509563766c6f67cb2fb8731f2dfc877a643e9314f4972fae38f5"
+    },
+    "note": "Owner-approved bounded repair: refresh four stale Git-canonical pages and set titles only on the exact 76 mapped document pages whose Notion title property is empty. No page creation, deletion or archive is allowed."
+  },
+  "projection_repair_followup": {
+    "status": "approved",
+    "authorization_id": "NOTION-PROJECTION-REPAIR-20260911-002",
+    "step_id": "NOTION-PROJECTION-REPAIR-FOLLOWUP",
+    "document_version": "1.0.0",
+    "mode": "git-canonical-refresh-exact-existing-page",
+    "global_stop": false,
+    "catalog_digest": "6c020123d78d32fe4e7299fda20d06418f3e94b0f3361815f7b5fe4754976ffb",
+    "document_id": "HERO-OPS-HERO-TEST-ENVIRONMENT",
+    "page_id": "3d812710-4ae0-8172-a6ac-f55579725b9b",
+    "note": "Owner-approved bounded follow-up for the exact existing mapped page after the Git canonical document changed; no page creation, title update, deletion or archive is allowed."
+  },
+  "automatic_sync": {
+    "status": "approved",
+    "authorization_id": "NOTION-PRODUCT-SYSTEM-AUTO-SYNC-20260911-001",
+    "step_id": "NOTION-PRODUCT-SYSTEM-AUTO-SYNC",
+    "document_version": "1.0.0",
+    "mode": "git-canonical-internal-only-document-roadmap-task-projection",
+    "global_stop": false,
+    "allowed_classifications": ["internal"],
+    "conflict_policy": "never-overwrite-notion-changes; record-conflict-and-stop-that-record",
+    "excluded_operations": ["notion-page-delete", "notion-page-archive", "production-deploy", "secret-change", "external-spend", "external-message"],
+    "note": "Owner-approved recurring projection for eligible internal Git documents, Hero roadmap and Hero Task Graph. Restricted or sensitive material is excluded and reported; Notion remains rebuildable and non-canonical."
+  },
+  "empty_page_archive": {
+    "status": "approved",
+    "authorization_id": "NOTION-EMPTY-PAGE-ARCHIVE-20260911-001",
+    "step_id": "NOTION-EMPTY-PAGE-ARCHIVE",
+    "document_version": "1.0.0",
+    "mode": "archive-exact-empty-unmapped-page",
+    "global_stop": false,
+    "page_id": "3d812710-4ae0-800a-b703-c34d1f4641f1",
+    "note": "Owner-approved archive of the one exact Notion page proven to have empty Markdown, no Document ID and no mapping. The operation is limited to this page ID."
   },
   "documents": [
     {

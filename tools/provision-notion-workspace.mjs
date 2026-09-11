@@ -29,7 +29,10 @@ const DATABASE_SECTIONS = Object.freeze({
   risks: "decisions-evidence",
   releases: "decisions-evidence",
   "change-proposals": "decisions-evidence",
-  "sync-health": "integration-health"
+  "sync-health": "integration-health",
+  "work-items": "execution-management",
+  tasks: "execution-management",
+  iterations: "execution-management"
 });
 
 const SELECT_OPTIONS = Object.freeze([

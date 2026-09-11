@@ -21,7 +21,7 @@
 
 ## وضعیت عملیاتی فعلی
 
-آخرین snapshot شامل ۱۲۶ سند واجد شرایط است و mappingهای PostgreSQL برای همهٔ آن‌ها `in-sync` هستند. صف conflict خالی است. حل اختلاف فقط با `pnpm notion:resolve-conflicts` و authorization نسخه‌دار انجام می‌شود؛ sync اسناد جدید فقط با `pnpm notion:sync:new-approved-document` و approval متناظر مجاز است. gate عمومی bulk و batch عمداً بسته باقی می‌ماند.
+آخرین snapshot شامل ۱۲۶ سند واجد شرایط است و mappingهای PostgreSQL برای همهٔ آن‌ها `in-sync` هستند. صف conflict خالی است. حل اختلاف فقط با `pnpm notion:resolve-conflicts` و authorization نسخه‌دار انجام می‌شود. علاوه بر اسناد، `pnpm notion:sync:product-system --execute` projection رودمپ، Work Item، Task و Iteration را به‌روز می‌کند. سرویس `notion-auto-sync` همین عملیات را در حالت watch و با فاصلهٔ پیش‌فرض ۵ دقیقه اجرا می‌کند. gate عمومی bulk و batch عمداً بسته باقی می‌ماند.
 
 ## اجرای یک سند
 
@@ -36,6 +36,15 @@
 - Page اشتباه: archive یا delete مستقیم انجام نده؛ ابتدا mapping و تصمیم مالک را بررسی کن؛
 - قطع Notion: feature flag را خاموش کن؛ Git و Product Studio باید سالم بمانند.
 
+## همگام‌سازی خودکار داخلی
+
+- منبع تغییرات Git است؛ اضافه‌شدن سند یا تغییر رودمپ پس از قرارگرفتن در workspace در چرخهٔ بعدی به Notion projection می‌رسد.
+- فقط اسناد `internal` و رکوردهای canonical تعریف‌شده در Catalog/contract ارسال می‌شوند.
+- صفحهٔ `Hero Product System — Control Center` و روابط traceability بین Objective، Initiative، Roadmap Item، Work Item، Task و Iteration نیز توسط projection قابل‌بازسازی نگه‌داری می‌شوند.
+- اگر صفحه در Notion به‌صورت دستی تغییر کرده باشد، checksum اختلاف را به‌عنوان `conflict` ثبت می‌کند و overwrite خودکار انجام نمی‌دهد.
+- خاموش‌کردن فوری: مقدار runtime `HERO_NOTION_PRODUCT_SYSTEM_WRITE_APPROVED` را `false` کن یا سرویس `notion-auto-sync` را متوقف کن؛ Git و Product Studio مستقل باقی می‌مانند.
+- این سرویس Viewهای Notion را نمی‌سازد؛ برای دید بهتر، در Databaseهای `Roadmap Items` و `Tasks` از UI خود Notion Viewهای Timeline و Board بساز. فیلدهای اختیاری `Start` و `End` برای Roadmap آماده‌اند، اما تا زمانی که تاریخ canonical در Git ثبت نشود، Timeline عمداً خالی می‌ماند.
+
 ## گسترش allowlist
 
-افزودن سند، ارسال به workspace یا فعال‌کردن inbound edit برای همهٔ اسناد با این Runbook خودکار نیست و به classification review، مالک سند، reviewer، scope و مجوز بیرونی جدا نیاز دارد.
+افزودن سند خارج از طبقه‌بندی `internal`، ارسال به workspace یا فعال‌کردن inbound edit برای همهٔ اسناد با این Runbook خودکار نیست و به classification review، مالک سند، reviewer، scope و مجوز بیرونی جدا نیاز دارد.
