@@ -23,7 +23,7 @@ function isMarkdownTableSeparator(line) {
 }
 
 export function canonicalizeMarkdown(value) {
-  let normalized = String(value ?? "").replaceAll("\r\n", "\n").replace(/^```text$/gm, "```plain text").replace(/^\[\^([^\]]+)\]:/gm, "REF:$1:").replace(/^\[\\\[([^\]]+)\\\]\]\(\1\):/gm, "REF:$1:").replace(/\[\^([^\]]+)\]/g, "FOOTNOTE:$1").replace(/\[\\\[([^\]]+)\\\]\]\(\1\)/g, "FOOTNOTE:$1").replace(/\[([A-Za-z0-9._:-]+)\]\(https?:\/\/\1\/?\)/g, "$1").replace(/\]\((?!https?:\/\/|mailto:|#)([^)\s]+)\)/g, "](https://$1)").replace(/\[([^\]]+)\]\((?:https?:\/\/)?(?:\.\.?\/|[A-Za-z0-9._-]+\.md)(?:[^)]*)\)/g, "$1").replace(/^\t/gm, "  ").replace(/^ {4}/gm, "  ");
+  let normalized = String(value ?? "").replaceAll("\r\n", "\n").replace(/^```text$/gm, "```plain text").replace(/^\[\^([^\]]+)\]:/gm, "REF:$1:").replace(/^\[\\\[([^\]]+)\\\]\]\(\1\):/gm, "REF:$1:").replace(/\[\^([^\]]+)\]/g, "FOOTNOTE:$1").replace(/\[\\\[([^\]]+)\\\]\]\(\1\)/g, "FOOTNOTE:$1").replace(/\[([A-Za-z0-9._:-]+)\]\(https?:\/\/\1\/?\)/g, "$1").replace(/\]\((?!https?:\/\/|mailto:|#)([^)\s]+)\)/g, "](https://$1)").replace(/\[([^\]]+)\]\((?:https?:\/\/)?(?:\.\.?\/|[A-Za-z0-9._-]+\.md)(?:[^)]*)\)/g, "$1");
   normalized = normalized.replace(/<table(?:\s+[^>]*)?>[\s\S]*?<\/table>/g, match => {
     const rows = [...match.matchAll(/<tr>([\s\S]*?)<\/tr>/g)].map(row => [...row[1].matchAll(/<td>([\s\S]*?)<\/td>/g)].map(cell => cell[1].trim()));
     return `TABLE:${JSON.stringify(rows)}`;
@@ -44,7 +44,53 @@ export function canonicalizeMarkdown(value) {
       output.push(lines[index]);
     }
   }
-  return output.join("\n").replace(/[ \t]+$/gm, "").replace(/\n{2,}/g, "\n").trim();
+  let insideFence = false;
+  let fenceLines = [];
+  let previousOrderedIndent = null;
+  let previousOrderedNumber = 0;
+  const flushFence = closingLine => {
+    const nonEmpty = fenceLines.filter(line => line.trim().length > 0);
+    const commonIndent = nonEmpty.length === 0 ? 0 : Math.min(...nonEmpty.map(line => (line.match(/^[ \t]*/) ?? [""])[0].length));
+    for (const line of fenceLines) output.push(line.replace(new RegExp(`^[ \\t]{0,${commonIndent}}`), ""));
+    output.push(closingLine.trimStart());
+    fenceLines = [];
+    previousOrderedIndent = null;
+    previousOrderedNumber = 0;
+  };
+  for (const line of output.splice(0)) {
+    const trimmed = line.trimStart();
+    if (!insideFence && trimmed.startsWith("```")) {
+      insideFence = true;
+      output.push(trimmed.replace(/^```text$/, "```plain text"));
+      previousOrderedIndent = null;
+      previousOrderedNumber = 0;
+    } else if (insideFence && trimmed.startsWith("```")) {
+      insideFence = false;
+      flushFence(line);
+    } else if (insideFence) {
+      fenceLines.push(line);
+    } else {
+      const unindented = line.replace(/^[ \t]+/, "");
+      const ordered = unindented.match(/^(\d+)\.\s+(.*)$/);
+      if (ordered) {
+        const number = previousOrderedIndent === "" ? previousOrderedNumber + 1 : 1;
+        output.push(`${number}. ${ordered[2]}`);
+        previousOrderedIndent = "";
+        previousOrderedNumber = number;
+      } else {
+        output.push(unindented);
+        previousOrderedIndent = null;
+        previousOrderedNumber = 0;
+      }
+    }
+  }
+  if (insideFence) {
+    const nonEmpty = fenceLines.filter(line => line.trim().length > 0);
+    const commonIndent = nonEmpty.length === 0 ? 0 : Math.min(...nonEmpty.map(line => (line.match(/^[ \t]*/) ?? [""])[0].length));
+    for (const line of fenceLines) output.push(line.replace(new RegExp(`^[ \\t]{0,${commonIndent}}`), ""));
+  }
+  const indentationNormalized = output.join("\n");
+  return indentationNormalized.replace(/[ \t]+$/gm, "").replace(/\n{2,}/g, "\n").trim();
 }
 
 export function hasDocumentMarker(markdown, documentId) {

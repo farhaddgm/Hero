@@ -60,6 +60,8 @@ import { getProductStudioHtml } from "./product-studio-view.mjs";
 import { getPortfolioHtml } from "./portfolio-view.mjs";
 import { getIdentityHtml } from "./identity-view.mjs";
 import { getProjectControlRoomHtml } from "./project-control-room-view.mjs";
+import { getProjectWorkspaceHtml } from "./project-workspace-view.mjs";
+import { createPrivateObjectStore } from "../../../packages/adapters/src/private-object-store.mjs";
 import { OwnerAuthError, createOwnerAuth } from "../../../packages/domain/src/owner-auth.mjs";
 import { AdminAuthError, createAdminAuth } from "../../../packages/domain/src/admin-auth.mjs";
 import { createHumanIdentity, HumanIdentityError } from "../../../packages/domain/src/human-identity.mjs";
@@ -97,10 +99,12 @@ const READ_MODEL_AUDIT_RESOURCES = new Set([
   "/product-studio-document",
   "/project-control",
   "/project-control-data"
+  ,"/workspace"
 ]);
 const BACKOFFICE_PATHS = new Set(["/backoffice", "/backoffice-data", "/backoffice-events"]);
 const PRODUCT_STUDIO_PATHS = new Set(["/product-studio", "/product-studio-data", "/product-studio-document"]);
 const PROJECT_CONTROL_PATHS = new Set(["/project-control", "/project-control-data"]);
+const PROJECT_WORKSPACE_PATHS = new Set(["/workspace"]);
 const PORTFOLIO_PATHS = new Set(["/portfolio", "/portfolio-data"]);
 const IDENTITY_PATHS = new Set(["/identity"]);
 const DEFAULT_BACKOFFICE_RESPONSE_LIMIT_BYTES = 512 * 1024;
@@ -330,12 +334,16 @@ export function createHeroServer(options = {}) {
     ? createProjectAccessMiddleware({ accessRegistry: projectAccessRegistry, identity: humanIdentity })
     : null);
   const projectSettings = options.projectSettings ?? createProjectSettingsRegistry({ now: options.now });
+  const privateObjectStore = options.privateObjectStore ?? (process.env.HERO_PRIVATE_OBJECT_STORE_ENABLED === "true"
+    ? createPrivateObjectStore({ root: process.env.HERO_OBJECT_STORE_DIR ?? path.join(process.env.HERO_DATA_DIR ?? "/var/lib/hero", "objects") })
+    : null);
   const projectWorkspace = options.projectWorkspace ?? createProjectWorkspace({
     ownerUserId: identityOwner.userId,
     now: options.now,
     settings: projectSettings,
     scanner: options.uploadScanner,
-    parser: options.projectInputParser
+    parser: options.projectInputParser,
+    objectStoreAdapter: privateObjectStore
   });
   const projectCollaboration = options.projectCollaboration ?? createProjectCollaboration({ now: options.now });
   const commandCenter = options.commandCenter ?? createCommandCenter({ now: options.now });
@@ -729,9 +737,10 @@ export function createHeroServer(options = {}) {
       const backofficePath = BACKOFFICE_PATHS.has(url.pathname);
       const productStudioPath = PRODUCT_STUDIO_PATHS.has(url.pathname);
       const projectControlPath = PROJECT_CONTROL_PATHS.has(url.pathname);
+      const projectWorkspacePath = PROJECT_WORKSPACE_PATHS.has(url.pathname);
       const portfolioPath = PORTFOLIO_PATHS.has(url.pathname);
       const identityPath = IDENTITY_PATHS.has(url.pathname);
-      if (backofficePath || productStudioPath || projectControlPath || portfolioPath || identityPath) {
+      if (backofficePath || productStudioPath || projectControlPath || projectWorkspacePath || portfolioPath || identityPath) {
         const rate = backofficeRateLimiter.consume(request.socket?.remoteAddress ?? "unknown");
         if (!rate.allowed) {
           response.writeHead(429, {
@@ -747,7 +756,7 @@ export function createHeroServer(options = {}) {
           return;
         }
       }
-      if ((backofficePath || productStudioPath || projectControlPath || portfolioPath || identityPath) && backofficeAuth && !matchesBasicAuth(basicCredentials(request), backofficeAuth)) {
+      if ((backofficePath || productStudioPath || projectControlPath || projectWorkspacePath || portfolioPath || identityPath) && backofficeAuth && !matchesBasicAuth(basicCredentials(request), backofficeAuth)) {
         await recordReadAccess(url.pathname, "rejected");
         response.writeHead(401, {
           "www-authenticate": 'Basic realm="Hero Back Office", charset="UTF-8"',
@@ -758,7 +767,7 @@ export function createHeroServer(options = {}) {
         response.end("Back Office authentication required.");
         return;
       }
-      if ((backofficePath || productStudioPath || projectControlPath || portfolioPath || identityPath) && request.method !== "GET") {
+      if ((backofficePath || productStudioPath || projectControlPath || projectWorkspacePath || portfolioPath || identityPath) && request.method !== "GET") {
         response.writeHead(405, {
           "allow": "GET",
           "content-type": "text/plain; charset=utf-8",
@@ -840,6 +849,13 @@ export function createHeroServer(options = {}) {
         if (!projectId) throw new ProjectWorkspaceError("PROJECT_ID_REQUIRED", "projectId is required.", 400);
         await recordReadAccess("/project-control-data", "accepted", { kind: backofficeAuth ? "backoffice-basic-auth" : "project-owner", id: backofficeAuth ? "backoffice-user" : "development-local" });
         return json(response, 200, { service: HERO_SERVICE, controlRoom: projectControlSnapshot(projectId) }, { maxBytes: backofficeResponseLimitBytes });
+      }
+
+      if (request.method === "GET" && url.pathname === "/workspace") {
+        const projectId = url.searchParams.get("projectId");
+        if (!projectId) throw new ProjectWorkspaceError("PROJECT_ID_REQUIRED", "projectId is required.", 400);
+        await recordReadAccess("/workspace", "accepted", { kind: backofficeAuth ? "backoffice-basic-auth" : "project-owner", id: backofficeAuth ? "backoffice-user" : "development-local" });
+        return html(response, getProjectWorkspaceHtml({ projectId }));
       }
 
       if (request.method === "GET" && url.pathname === "/portfolio") {

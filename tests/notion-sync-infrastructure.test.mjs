@@ -122,6 +122,32 @@ test("Notion checksum treats footnote references as the same projection", () => 
   assert.equal(markdownChecksum(source, "References"), markdownChecksum(notion, "References"));
 });
 
+test("Notion checksum ignores list indentation around fenced code while preserving code indentation", () => {
+  const source = [
+    "- Configuration:",
+    "  ```text",
+    "  {",
+    "    \"nested\": true",
+    "  }",
+    "  ```"
+  ].join("\n");
+  const notion = [
+    "- Configuration:",
+    "\t```plain text",
+    "{",
+    "  \"nested\": true",
+    "}",
+    "\t```"
+  ].join("\n");
+  assert.equal(markdownChecksum(source), markdownChecksum(notion));
+});
+
+test("Notion checksum treats automatic ordered-list renumbering as the same projection", () => {
+  const source = ["1. Router", "5. Output"].join("\n");
+  const notion = ["1. Router", "2. Output"].join("\n");
+  assert.equal(markdownChecksum(source), markdownChecksum(notion));
+});
+
 test("Notion batch sync retries bounded rate limits and freezes a changed mapped page", async () => {
   const delays = [];
   let searches = 0;

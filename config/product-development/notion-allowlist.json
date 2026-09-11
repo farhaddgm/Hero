@@ -10,7 +10,7 @@
     "status": "approved",
     "reviewer": "project-owner",
     "reviewed_at": "2026-09-11",
-    "catalog_digest": "4a3644ea88894ca92e819a1510b774631396892a256403ab36f4a593ced4733e",
+    "catalog_digest": "1a8c60ee944ecd02eb9df0a268f4092509a09a738b2bdcff98520ff5b2768877",
     "candidate_count": 126,
     "default_classification": "internal",
     "excluded_document_ids": [],
@@ -30,7 +30,7 @@
     "document_version": "1.0.0",
     "mode": "git-canonical-overwrite-notion",
     "global_stop": false,
-    "catalog_digest": "4a3644ea88894ca92e819a1510b774631396892a256403ab36f4a593ced4733e",
+    "catalog_digest": "1a8c60ee944ecd02eb9df0a268f4092509a09a738b2bdcff98520ff5b2768877",
     "document_ids": [
       "HERO-ARCH-PRODUCT-DEVELOPMENT-KNOWLEDGE-SYSTEM",
       "HERO-EVIDENCE-BACKOFFICE-DELIVERY-AUDIT-20260911",
@@ -62,9 +62,10 @@
     "document_version": "1.0.0",
     "mode": "git-canonical-create-or-adopt-existing-equivalent",
     "global_stop": false,
-    "catalog_digest": "4a3644ea88894ca92e819a1510b774631396892a256403ab36f4a593ced4733e",
+    "catalog_digest": "1a8c60ee944ecd02eb9df0a268f4092509a09a738b2bdcff98520ff5b2768877",
     "document_ids": [
-      "HERO-ROADMAP-NEXT-20-STEPS-20260911-WORKSPACE-PERSISTENCE"
+      "HERO-ROADMAP-NEXT-20-STEPS-20260911-WORKSPACE-PERSISTENCE",
+      "HERO-ROADMAP-NEXT-100-STEPS-20260911-PROJECT-CONTROL"
     ],
     "documents": [
       {

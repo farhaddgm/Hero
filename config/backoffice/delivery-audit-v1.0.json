@@ -31,9 +31,9 @@
     "registry": "config/backoffice/requirement-trace-v1.0.json",
     "assessed_at": "2026-09-11",
     "implemented": 5,
-    "partial": 75,
-    "missing": 1,
-    "interpretation": "current_strict_requirement_audit; partial is not delivered or verified"
+    "partial": 76,
+    "missing": 0,
+    "interpretation": "current_strict_requirement_audit; partial is not delivered or verified. BO-DAT-001 now has a Hero-owned private-volume adapter and automated persistence evidence, but remains partial until its operational scanner/parser gates are closed."
   },
   "previous_requirement_baseline": {
     "captured_at": "2026-09-10",

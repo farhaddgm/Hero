@@ -1,5 +1,11 @@
 # تغییرات رودمپ شرکت
 
+## ۲۰۲۶-۰۹-۱۱ — Private Object Store و Workspace Console
+
+- افزوده‌شده: Workspace Console با مسیر `/workspace?projectId=…` برای Intake، Foundation، ورودی‌های خصوصی، تنظیمات نسخه‌دار، Policy Pack و rollback؛ همهٔ mutationها همچنان از API هویت انسانی و ProjectGrant می‌گذرند.
+- افزوده‌شده: private object-store متعلق به Hero با کلید مجاز، رد مسیرگریزی، دسترسی‌ندادن به listing و نوشتن اتمی در volume خصوصی Hero.
+- ممیزی: `BO-DAT-001` از `missing` به `partial` ارتقا یافت؛ scanner و parser عملیاتی هنوز گیت باز هستند و این مورد `implemented` اعلام نشده است.
+
 ## ۲۰۲۶-۰۹-۱۱ — Project Control Room برای BO-051..150
 
 - مسیرهای read-only و project-scoped `project-control` و `project-control-data` افزوده شدند.

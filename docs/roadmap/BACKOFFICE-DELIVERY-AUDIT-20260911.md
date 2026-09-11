@@ -6,7 +6,7 @@
 > Type: evidence
 > Scope: hero
 > Status: active
-> Version: 1.1.0
+> Version: 1.2.0
 > Owner: hero-architecture
 > Review cadence: per-change
 > Supersedes: none
@@ -97,11 +97,11 @@
 | وضعیت | تعداد | معنی |
 |---|---:|---|
 | `implemented` | ۵ | الزام پایه با شواهد کافی در سطح تعریف‌شده پیاده‌سازی شده است |
-| `partial` | ۷۵ | پیاده‌سازی داخلی یا شواهدی دارد، اما vertical slice کامل UI/persistence/runtime هنوز اثبات نشده است |
-| `missing` | ۱ | هیچ پیاده‌سازی واقعی برای الزام وجود ندارد |
+| `partial` | ۷۶ | پیاده‌سازی داخلی یا شواهدی دارد، اما vertical slice کامل UI/persistence/runtime هنوز اثبات نشده است |
+| `missing` | ۰ | هیچ الزام کاملاً بدون پیاده‌سازی باقی نمانده است |
 | **جمع** | **۸۱** | همهٔ نیازمندی‌ها دقیقاً یک بار ممیزی شده‌اند |
 
-تنها مورد `missing`، `BO-DAT-001` یعنی private object storage واقعی برای فایل‌های ورودی پروژه است. تبدیل ۳۲ مورد baseline از `missing` به `partial` به دلیل وجود Contract/Domain/API/Test بعدی است و به معنی تحویل کامل آن‌ها نیست. baseline قبلی `5 implemented / 43 partial / 33 missing` در فیلد `previous_baseline` حفظ شده تا تاریخچه بازنویسی نشود.
+`BO-DAT-001` اکنون یک private object-store متعلق به Hero دارد: فقط کلیدهای پروژه‌ای Hero را می‌پذیرد، در volume خصوصی ذخیره می‌کند، مسیرگریزی را رد می‌کند و API فهرست‌کردن یا افشای بایت‌ها ندارد. با وجود این، به دلیل بازبودن scanner و parser عملیاتی، وضعیت آن `partial` است نه `implemented`. baseline قبلی `5 implemented / 43 partial / 33 missing` در فیلد `previous_baseline` حفظ شده تا تاریخچه بازنویسی نشود.
 
 دو شمارش نقش متفاوت دارند: Requirement Trace وضعیت ۸۱ الزام محصول را نشان می‌دهد؛ Delivery Audit وضعیت ۱۷۰ گام اجرایی را. Checker هر دو را هم‌زمان کنترل می‌کند و ارتقای شمارش بدون Evidence را fail-closed رد می‌کند.
 
@@ -132,7 +132,7 @@
 | کنترل | نتیجهٔ واقعی |
 |---|---|
 | `pnpm check:docs` | PASS؛ ۱۲۴ سند، ۲ محصول و صفر خطا |
-| audit checker | PASS؛ ۱۷۰ گام با ۲۰ verified/۱۵۰ remaining و ۸۱ نیازمندی با ۵ implemented/۷۵ partial/۱ missing |
+| audit checker | PASS؛ ۱۷۰ گام با ۲۰ verified/۱۵۰ remaining و ۸۱ نیازمندی با ۵ implemented/۷۶ partial/۰ missing |
 | clean-room | PASS؛ ۴۱۴ فایل بررسی‌شده |
 | build | PASS؛ ۲۲۵ ماژول و ۳۳ فایل JSON |
 | tests | PASS؛ ۳۱۱ موفق، صفر ناموفق، صفر skipped |

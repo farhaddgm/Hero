@@ -19,6 +19,10 @@
 3. `pnpm check:notion` را اجرا کن.
 4. برای سند جدید ابتدا dry-run و سپس approval مستقل ثبت کن.
 
+## وضعیت عملیاتی فعلی
+
+آخرین snapshot شامل ۱۲۶ سند واجد شرایط است و mappingهای PostgreSQL برای همهٔ آن‌ها `in-sync` هستند. صف conflict خالی است. حل اختلاف فقط با `pnpm notion:resolve-conflicts` و authorization نسخه‌دار انجام می‌شود؛ sync اسناد جدید فقط با `pnpm notion:sync:new-approved-document` و approval متناظر مجاز است. gate عمومی bulk و batch عمداً بسته باقی می‌ماند.
+
 ## اجرای یک سند
 
 دستور `pnpm notion:sync-first -- --document=HERO-PRODUCT-HERO-BRIEF` فقط برای allowlist فعلی معتبر است. ابزار برای projection جدید marker شناسهٔ سند را اضافه می‌کند، Page دارای marker یا Page legacy دارای checksum برابر را پیدا می‌کند، checksum را مقایسه می‌کند و در حالت برابر هیچ Page جدیدی نمی‌سازد.
@@ -26,6 +30,7 @@
 ## خرابی و بازیابی
 
 - `conflict`: sync را متوقف کن، هیچ overwrite نکن و diff را بررسی کن؛
+- اگر authorization حل اختلاف فعال و دقیقاً منطبق با snapshot جاری بود، فقط ابزار حل اختلاف محدود را اجرا کن؛ هر Page بعد از write باید با GET و checksum تأیید شود؛
 - `429/529`: اجرای دوباره را طبق Retry-After و سقف retry انجام بده؛
 - marker گمشده در صفحهٔ legacy: فقط در صورت برابری checksum و عنوان، صفحه را شناسایی کن؛ سپس با اجرای مجاز بعدی marker را اضافه کن؛
 - Page اشتباه: archive یا delete مستقیم انجام نده؛ ابتدا mapping و تصمیم مالک را بررسی کن؛

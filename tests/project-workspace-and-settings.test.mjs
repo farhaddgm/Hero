@@ -1,10 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import path from "node:path";
+import os from "node:os";
 
 import { validateProjectSettingsContract } from "../packages/contracts/src/project-settings.mjs";
 import { validateProjectWorkspaceContract } from "../packages/contracts/src/project-workspace.mjs";
 import { createProjectSettingsRegistry, ProjectSettingsError } from "../packages/domain/src/project-settings.mjs";
 import { createProjectWorkspace, ProjectWorkspaceError } from "../packages/domain/src/project-workspace.mjs";
+import { createPrivateObjectStore } from "../packages/adapters/src/private-object-store.mjs";
 import { createHeroServer } from "../apps/control-plane/src/server.mjs";
 import { createHumanIdentity, createTotpCode } from "../packages/domain/src/human-identity.mjs";
 import { createProjectAccessRegistry } from "../packages/domain/src/project-access.mjs";
@@ -45,6 +49,19 @@ test("private input pipeline validates signatures, scan, zip safety, instruction
   assert.throws(() => workspace.upload({ actor: admin, projectId: "project-vpn", type: "zip", filename: "bomb.zip", content: Buffer.from("PKxx"), zipExpandedBytes: 99_000_000 }), error => error.code === "ZIP_BOMB_REJECTED");
   assert.throws(() => workspace.registerLink({ actor: admin, projectId: "project-vpn", url: "https://127.0.0.1/private", label: "bad" }), error => error.code === "SSRF_URL_REJECTED");
   assert.equal(workspace.registerLink({ actor: admin, projectId: "project-vpn", url: "https://example.com/brief", label: "brief" }).fetchState, "pending-separate-authorization");
+});
+
+test("private object store persists Hero upload bytes below an isolated project-owned root", () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "hero-private-object-store-"));
+  try {
+    const store = createPrivateObjectStore({ root });
+    const workspace = createProjectWorkspace({ ownerUserId: "hero-owner", now, objectStoreAdapter: store });
+    workspace.createProject({ actor: owner, projectId: "project-vpn", name: "VPN" });
+    const input = workspace.upload({ actor: admin, projectId: "project-vpn", type: "text", filename: "brief.txt", content: "private project brief", mimeType: "text/plain" });
+    assert.equal(input.storage, "hero-private-volume");
+    assert.equal(store.read({ objectKey: input.objectKey }).toString("utf8"), "private project brief");
+    assert.throws(() => store.read({ objectKey: "hero/uploads/project-vpn/../../escape" }), error => error.code === "OBJECT_STORE_KEY_INVALID");
+  } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
 test("Foundation approval applies a policy pack, import is read-only and archive/delete preserve history", () => {
@@ -143,6 +160,24 @@ test("Project Control Room is Basic-auth protected, project-scoped and never ren
   assert.equal(body.controlRoom.metrics.entities, 0);
   assert.doesNotMatch(JSON.stringify(body), /private workspace input must not appear/);
   assert.equal((await fetch(`${base}/project-control?projectId=project-vpn`, { method: "POST", headers })).status, 405);
+});
+
+test("Workspace Console is network-protected and delegates mutations to the human identity API", async t => {
+  const { workspace } = setup();
+  workspace.createProject({ actor: owner, projectId: "project-vpn", name: "VPN" });
+  const app = createHeroServer({ host: "127.0.0.1", port: 0, now, projectWorkspace: workspace, backofficeAuth: { username: "hero-test-admin", password: "hero-test-password-is-long-enough" } });
+  const address = await app.start(); t.after(() => app.stop());
+  const base = `http://127.0.0.1:${address.port}`;
+  assert.equal((await fetch(`${base}/workspace?projectId=project-vpn`)).status, 401);
+  const headers = { authorization: `Basic ${Buffer.from("hero-test-admin:hero-test-password-is-long-enough").toString("base64")}` };
+  const page = await fetch(`${base}/workspace?projectId=project-vpn`, { headers });
+  assert.equal(page.status, 200);
+  const text = await page.text();
+  assert.match(text, /فضای کاری و تنظیمات پروژه/);
+  assert.match(text, /\/api\/projects\//);
+  assert.match(text, /\/intake/);
+  assert.match(text, /Bearer/);
+  assert.equal((await fetch(`${base}/workspace?projectId=project-vpn`, { method: "POST", headers })).status, 405);
 });
 
 test("Control Plane startup hydrates the project workspace boundary from PostgreSQL metadata", async t => {

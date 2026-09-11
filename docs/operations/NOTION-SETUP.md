@@ -8,7 +8,7 @@
 
 ## وضعیت فعلی
 
-Product Studio و Catalog محلی فعال‌اند. اتصال رسمی Notion در Test برقرار است و صفحهٔ ریشهٔ `Hero Product Development` قابل‌خواندن است. Blueprint شش‌بخشی و ۱۱ Database طبق تأیید مالک ساخته و verify شده‌اند. اتصال PostgreSQL Test، migrationهای `001` تا `014` و mapping پایدار آماده‌اند؛ برای هر ۱۲۴ سند Page و mapping وجود دارد، ۱۰۴ مورد `in-sync` و ۲۰ مورد `conflict` هستند. gate انتشار بسته شده و هیچ conflictی overwrite نشده است.
+Product Studio و Catalog محلی فعال‌اند. اتصال رسمی Notion در Test برقرار است و صفحهٔ ریشهٔ `Hero Product Development` قابل‌خواندن است. Blueprint شش‌بخشی و ۱۱ Database طبق تأیید مالک ساخته و verify شده‌اند. اتصال PostgreSQL Test، migrationهای `001` تا `014` و mapping پایدار آماده‌اند؛ برای هر ۱۲۶ سند Page و mapping وجود دارد و شمارش نهایی ۱۲۶ `in-sync` و صفر `conflict` است. gate عمومی انتشار بسته است و هر overwrite فقط با authorization محدود و ثبت‌شده انجام می‌شود.
 
 ## کارهای لازم مالک، به زبان ساده
 
@@ -43,7 +43,7 @@ Product Studio و Catalog محلی فعال‌اند. اتصال رسمی Notion
 - queue، backoff، idempotency و dead-letter؛
 - قابلیت disable فوری connector.
 
-وضعیت اجرای Test: ۱۲۴ سند واجد شرایط، ۱۳ batch، ۱۲۴ Page قابل‌خواندن، ۱۰۴ `in-sync`، ۲۰ `conflict` و gate نوشتن بسته.
+وضعیت اجرای Test: ۱۲۶ سند واجد شرایط، ۱۳ batch اولیه به‌علاوهٔ دو عملیات محدود تکمیلی، ۱۲۶ mapping در وضعیت `in-sync`، صفر `conflict` و gate عمومی نوشتن بسته.
 
 ### مرحلهٔ D — ویرایش کنترل‌شده Notion
 

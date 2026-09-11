@@ -14,7 +14,7 @@
 
 ## وضعیت فعلی
 
-Catalog فعلی ۱۲۴ سند دارد. بر اساس default امن `internal`، هر ۱۲۴ سند از نظر فنی قابلیت mirror دارند؛ برای هر ۱۲۴ سند Page و mapping پایدار وجود دارد. راستی‌آزمایی مستقل Markdown API نشان داد ۱۰۴ مورد با checksum معنایی فعلی `in-sync` هستند و ۲۰ مورد به‌دلیل اختلاف source/Notion در وضعیت `conflict` نگه داشته شده‌اند؛ هیچ‌کدام overwrite نشده‌اند. classification review روی snapshot فعلی انجام شد و ممیزی خودکار هیچ مورد Secret، PII یا endpoint زنده پیدا نکرد؛ این review به checksum همین snapshot مقید است. Blueprint شش‌بخشی و ۱۱ Database نیز در Notion ساخته و verify شده‌اند. PostgreSQL Test اکنون migrationهای `001` تا `014` و جدول mapping را دارد. gate نوشتن بسته است.
+Catalog فعلی ۱۲۶ سند دارد. بر اساس default امن `internal`، هر ۱۲۶ سند از نظر فنی قابلیت mirror دارند و برای همهٔ آن‌ها Page و mapping پایدار ثبت شده است. پس از حل اختلاف کنترل‌شدهٔ ۲۰ مورد و sync تأییدشدهٔ دو سند جدید، شمارش نهایی PostgreSQL برابر ۱۲۶ `in-sync` و صفر `conflict` است. classification review روی همین snapshot انجام شد و ممیزی خودکار هیچ مورد Secret، PII یا endpoint زنده پیدا نکرد؛ این review به checksum همین snapshot مقید است. Blueprint شش‌بخشی و ۱۱ Database نیز در Notion ساخته و verify شده‌اند. PostgreSQL Test اکنون migrationهای `001` تا `014` و جدول mapping را دارد. gate عمومی نوشتن بسته است.
 
 ## ترتیب اجرا
 
@@ -23,13 +23,15 @@ Catalog فعلی ۱۲۴ سند دارد. بر اساس default امن `internal`
 3. ثبت mapping پایدار در PostgreSQL؛ انجام شد؛
 4. اجرای batch شمارهٔ ۱ با ۱۰ سند کم‌ریسک؛ انجام شد: ۹ synced، یک مورد already-in-sync؛
 5. بررسی checksum، duplicate، rate-limit و conflict؛ انجام شد؛
-6. اجرای batchهای ۲ تا ۱۳ با approval جدا؛ انجام شد و برای هر ۱۱۴ سند Page و mapping ساخته شد؛
-7. راستی‌آزمایی مستقل GET Markdown و ثبت وضعیت mapping؛ انجام شد: ۱۰۴ `in-sync` و ۲۰ `conflict`؛
-8. بستن gate نوشتن و ثبت Evidence نهایی؛ انجام شد؛ هیچ conflictی overwrite نشد.
+6. اجرای batchهای ۲ تا ۱۳ با approval جدا؛ انجام شد و برای ۱۱۴ سند باقی‌ماندهٔ snapshot اولیه Page و mapping ساخته شد؛
+7. راستی‌آزمایی مستقل GET Markdown و ثبت وضعیت mapping؛ انجام شد: snapshot اولیه ۱۰۴ `in-sync` و ۲۰ `conflict` داشت؛
+8. حل اختلاف با authorization محدود و Git به‌عنوان canonical؛ انجام شد: هر ۲۰ مورد بازنویسی و بعد از GET مستقل تأیید شدند؛
+9. sync دو سند جدید با authorization محدود؛ انجام شد: یک مورد `already-in-sync` و یک Page جدید ایجاد و verify شد؛
+10. بررسی نهایی mappingها و بستن gate عمومی نوشتن؛ انجام شد: ۱۲۶ `in-sync` و صفر `conflict`.
 
 ## زمان‌بندی واقعی
 
-پوشش Page و mapping همهٔ اسناد در یک عملیات ۱۳ batch انجام شد: batch اول ۱۰ سند و batchهای ۲ تا ۱۳ مجموعاً ۱۱۴ سند را پوشش دادند. پس از GET مستقل و canonicalization سازگار با Notion، وضعیت نهایی ۱۰۴ `in-sync` و ۲۰ `conflict` است. gate در پایان بسته شد؛ تغییرات آینده فقط با snapshot جدید، classification review و approval batch جدید مجاز است.
+پوشش snapshot اولیه در ۱۳ batch انجام شد: batch اول ۱۰ سند و batchهای ۲ تا ۱۳ مجموعاً ۱۱۴ سند را پوشش دادند. سپس ۲۰ conflict با authorization جداگانه حل شد و دو سندی که بعداً به Catalog اضافه شدند با sync محدود ثبت شدند. وضعیت نهایی mappingها ۱۲۶ `in-sync` و صفر `conflict` است؛ تغییرات آینده فقط با snapshot جدید، classification review و approval محدود جدید مجاز است.
 
 ## گزارش batchها
 
@@ -38,20 +40,23 @@ Catalog فعلی ۱۲۴ سند دارد. بر اساس default امن `internal`
 | ۱ | ۱۰ | Page/mapping ایجاد شد؛ نتیجهٔ اولیه ۹ `synced` و ۱ `already-in-sync` |
 | ۲ تا ۱۲ | ۱۱۰ | Page/mapping ایجاد شد؛ نتیجهٔ اولیه ۱۱۰ `synced` |
 | ۱۳ | ۴ | Page/mapping ایجاد شد؛ نتیجهٔ اولیه ۴ `synced` |
-| جمع | ۱۲۴ | پوشش Page/mapping: ۱۲۴؛ راستی‌آزمایی نهایی: ۱۰۴ `in-sync`، ۲۰ `conflict` |
+| جمع snapshot اولیه | ۱۲۴ | پوشش Page/mapping: ۱۲۴؛ وضعیت قبل از حل اختلاف: ۱۰۴ `in-sync`، ۲۰ `conflict` |
+| حل اختلاف کنترل‌شده | ۲۰ | overwrite فقط روی Pageهای موجود؛ نتیجه: ۲۰ `in-sync` |
+| sync اسناد جدید | ۲ | یک `already-in-sync` و یک `created-and-verified` |
+| وضعیت نهایی | ۱۲۶ | ۱۲۶ `in-sync`، صفر `conflict` |
 
 ## وضعیت نهایی و محدودیت
 
 - منبع canonical همچنان Git است و Notion فقط projection کنترل‌شده است.
 - هیچ سندی در snapshot فعلی به‌دلیل Secret، PII یا endpoint زنده از sync خارج نشد؛ شمارش heuristic هر سه مورد صفر بود.
 - هیچ مجوز bulk دائمی فعال نشد؛ `bulk_write_approved=false` و `batch_write_approved=false` باقی مانده‌اند.
-- ۱۲۴ سند در allowlist ثبت شده‌اند، اما allowlist به‌تنهایی مجوز اجرای آینده نیست؛ هر اجرای جدید باید دوباره gate شود.
+- ۱۲۶ سند در allowlist ثبت شده‌اند، اما allowlist به‌تنهایی مجوز اجرای آینده نیست؛ هر اجرای جدید باید دوباره gate شود.
 - طبقه‌بندی edit class حفظ شده است؛ `mirror-only` و `protected-proposal` در Notion به معنی ویرایش آزاد نیستند.
-- راستی‌آزمایی خواندن ۱۲۴ Page موفق بود، ۰ خطای خواندن و ۰ Page truncated ثبت شد؛ ۱۱۷ Page marker شناسهٔ سند دارند و ۷ Page legacy بدون marker با mapping شناخته می‌شوند.
+- راستی‌آزمایی خواندن snapshot اولیه بدون خطای خواندن و بدون Page truncated انجام شد؛ همهٔ ۲۰ overwrite و هر دو sync جدید نیز با GET بعد از نوشتن verify شدند.
 
-## صف conflict برای تصمیم بعدی مالک
+## صف conflict
 
-این موارد در Git منبع canonical دارند، اما به‌دلیل اختلاف checksum فعلی با projection قبلی بدون overwrite متوقف شده‌اند: `HERO-ARCH-PRODUCT-DEVELOPMENT-KNOWLEDGE-SYSTEM`، `HERO-EVIDENCE-BACKOFFICE-DELIVERY-AUDIT-20260911`، `HERO-EVIDENCE-BACKOFFICE-FOUNDATION-BO-011-020`، `HERO-EVIDENCE-BACKOFFICE-IDENTITY-BO-021-030`، `HERO-OPS-ACCESS-AUDIT-20260904`، `HERO-OPS-BACKOFFICE-SUBDOMAIN`، `HERO-OPS-DOCUMENTATION-LIBRARY-HANDOFF`، `HERO-OPS-HERO-TEST-ENVIRONMENT`، `HERO-OPS-NOTION-SETUP`، `HERO-OPS-OPERATIONAL-DIAGNOSTICS`، `HERO-OPS-OWNER-ACTIONS-NEXT-20260909`، `HERO-OPS-OWNER-ACTIONS-PENDING-20260904`، `HERO-OPS-OWNER-ACTIONS-SIMPLE`، `HERO-ROADMAP-BASELINE-20260904`، `HERO-ROADMAP-EXECUTION-20260909-100-STEPS`، `HERO-ROADMAP-NEXT-100-STEPS-20260904`، `HERO-ROADMAP-OPEN-50-PRIORITY-20260904`، `HERO-ROADMAP-STATUS-20260911`، `HERO-SPEC-015` و `HERO-SPEC-022`.
+صف conflict فعلی خالی است. ۲۰ مورد قبلی با authorization `NOTION-CONFLICT-RESOLUTION-20260911-001` و با حفظ Git به‌عنوان canonical حل شدند؛ این authorization فقط روی Pageهای موجود اعمال شد و create/delete/archive نداشت.
 
 ## مرز ویرایش
 
