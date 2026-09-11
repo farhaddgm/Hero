@@ -19,6 +19,12 @@ test("delivery audit covers every BO-001..BO-170 step exactly once", () => {
     owner_pending: 1,
     deferred: 1
   });
+  assert.equal(result.requirementCount, 81);
+  assert.deepEqual(result.requirementCounts, {
+    implemented: 5,
+    partial: 75,
+    missing: 1
+  });
 });
 
 test("delivery audit fails closed when coverage or totals are overstated", () => {
@@ -29,4 +35,9 @@ test("delivery audit fails closed when coverage or totals are overstated", () =>
   const overstated = structuredClone(source);
   overstated.summary.verified += 1;
   assert.ok(validateBackofficeDeliveryAudit({ audit: overstated }).errors.some(error => error.code === "SUMMARY_MISMATCH"));
+
+  const staleRequirements = structuredClone(source);
+  staleRequirements.requirement_current.partial -= 1;
+  staleRequirements.requirement_current.implemented += 1;
+  assert.ok(validateBackofficeDeliveryAudit({ audit: staleRequirements }).errors.some(error => error.code === "REQUIREMENT_SUMMARY_MISMATCH"));
 });

@@ -5,8 +5,10 @@
 - روشن‌شده: Evidenceهای Batch وجود artifact و نتیجهٔ تست داخلی را نشان می‌دهند و به‌تنهایی معادل قابلیت کامل و قابل‌استفاده نیستند؛
 - ثبت‌شده: رجیستری ماشینی همهٔ `BO-001..BO-170` با پوشش بدون شکاف و وضعیت‌های `verified / partial / gated / owner_pending / deferred`؛
 - نتیجهٔ ممیزی: ۲۰ verified، ۱۲۲ partial، ۲۶ gated، یک owner-pending و یک deferred؛ در نتیجه ۱۵۰ گام تا verifiedشدن کامل باز است؛
+- تکمیل‌شده: ممیزی جاری تک‌تک ۸۱ Requirement با نتیجهٔ ۵ implemented، ۷۵ partial و ۱ missing؛ baseline قبلی ۵/۴۳/۳۳ برای تاریخچه حفظ شد؛
+- روشن‌شده: تنها الزام کاملاً missing، private object storage واقعی است؛ ۷۵ مورد partial همچنان تحویل کامل یا verified محسوب نمی‌شوند؛
 - اصلاح‌شده: وضعیت آغاز قدیمی برنامه و Snapshot وضعیت ۲۰۲۶-۰۹-۱۰؛
-- افزوده‌شده: checker و تست fail-closed برای جلوگیری از حذف، تکرار یا بزرگ‌نمایی شمارش گام‌ها؛
+- افزوده‌شده: checker و تست fail-closed برای جلوگیری از حذف، تکرار یا بزرگ‌نمایی شمارش گام‌ها و نیازمندی‌ها؛
 - تأییدشده: `pnpm check:docs` با ۱۲۴ سند/۲ محصول/صفر خطا و `pnpm check` با Build برابر ۲۲۳ ماژول/۳۳ JSON و ۳۰۶ تست موفق؛
 - مرز: بدون Secret، Production، Provider، هزینه، پیام بیرونی، عملیات مخرب یا اجرای Pilot.
 

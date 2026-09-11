@@ -6,7 +6,7 @@
 > Type: evidence
 > Scope: hero
 > Status: active
-> Version: 1.0.0
+> Version: 1.1.0
 > Owner: hero-architecture
 > Review cadence: per-change
 > Supersedes: none
@@ -90,11 +90,20 @@
 | Production | در این ممیزی هیچ تغییر، deploy یا Secret mutation انجام نشده است |
 | Test/Production parity | قرارداد source/config موجود است؛ برابری runtime فقط با digest یکسان و smoke test جدا اثبات می‌شود |
 
-## ۶. تفسیر درست Requirement Trace
+## ۶. ممیزی جاری ۸۱ Requirement
 
-فایل [requirement-trace-v1.0.json](../../config/backoffice/requirement-trace-v1.0.json) یک **baseline تاریخی در ۲۰۲۶-۰۹-۱۰** با `5 implemented / 43 partial / 33 missing` است. بعد از آن Domain/APIهای متعددی اضافه شده‌اند. این اعداد نباید به‌عنوان شمارش جاری تحویل استفاده شوند و تا ممیزی مجدد تک‌تک ۸۱ Requirement، فقط برای مقایسهٔ baseline معتبرند.
+تک‌تک ۸۱ نیازمندی فایل [requirement-trace-v1.0.json](../../config/backoffice/requirement-trace-v1.0.json) دوباره در برابر source و تست فعلی بررسی شدند. نتیجهٔ سخت‌گیرانهٔ جاری:
 
-منبع جاری شمارش گام‌ها، `delivery-audit-v1.0.json` است. در توسعهٔ بعدی، هر Requirement فقط وقتی ارتقا می‌یابد که Evidence کامل Contract/Implementation/Test/UI یا runtime متناسب با همان الزام ثبت شده باشد.
+| وضعیت | تعداد | معنی |
+|---|---:|---|
+| `implemented` | ۵ | الزام پایه با شواهد کافی در سطح تعریف‌شده پیاده‌سازی شده است |
+| `partial` | ۷۵ | پیاده‌سازی داخلی یا شواهدی دارد، اما vertical slice کامل UI/persistence/runtime هنوز اثبات نشده است |
+| `missing` | ۱ | هیچ پیاده‌سازی واقعی برای الزام وجود ندارد |
+| **جمع** | **۸۱** | همهٔ نیازمندی‌ها دقیقاً یک بار ممیزی شده‌اند |
+
+تنها مورد `missing`، `BO-DAT-001` یعنی private object storage واقعی برای فایل‌های ورودی پروژه است. تبدیل ۳۲ مورد baseline از `missing` به `partial` به دلیل وجود Contract/Domain/API/Test بعدی است و به معنی تحویل کامل آن‌ها نیست. baseline قبلی `5 implemented / 43 partial / 33 missing` در فیلد `previous_baseline` حفظ شده تا تاریخچه بازنویسی نشود.
+
+دو شمارش نقش متفاوت دارند: Requirement Trace وضعیت ۸۱ الزام محصول را نشان می‌دهد؛ Delivery Audit وضعیت ۱۷۰ گام اجرایی را. Checker هر دو را هم‌زمان کنترل می‌کند و ارتقای شمارش بدون Evidence را fail-closed رد می‌کند.
 
 ## ۷. ترتیب اجرای باقی‌مانده پیش از Pilot
 
@@ -123,7 +132,7 @@
 | کنترل | نتیجهٔ واقعی |
 |---|---|
 | `pnpm check:docs` | PASS؛ ۱۲۴ سند، ۲ محصول و صفر خطا |
-| audit checker | PASS؛ ۱۷۰ گام، ۲۰ verified و ۱۵۰ remaining |
+| audit checker | PASS؛ ۱۷۰ گام با ۲۰ verified/۱۵۰ remaining و ۸۱ نیازمندی با ۵ implemented/۷۵ partial/۱ missing |
 | clean-room | PASS؛ ۴۱۲ فایل بررسی‌شده |
 | build | PASS؛ ۲۲۳ ماژول و ۳۳ فایل JSON |
 | tests | PASS؛ ۳۰۶ موفق، صفر ناموفق، صفر skipped |
