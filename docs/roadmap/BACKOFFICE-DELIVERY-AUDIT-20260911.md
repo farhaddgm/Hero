@@ -47,7 +47,7 @@
 |---|---:|---|---|---|
 | WP-00 | BO-001..010 | verified | baseline، trace اولیه، threat model و batch control | بسته است |
 | WP-01 | BO-011..020 | verified | مرزها، contract، event envelope، read model و migration foundation | بسته است |
-| WP-02 | BO-021..030 | partial | Human Identity، Role، ProjectGrant، login/MFA/recovery API و persistence | UI قابل‌استفاده سه Role، recovery واقعی، rate limit و ماتریس runtime |
+| WP-02 | BO-021..030 | partial | Human Identity، Role، ProjectGrant، login/MFA/recovery API، persistence hydration و صفحهٔ `/identity` برای user/grant | enrollment/rotation واقعی MFA، recovery delivery، rate-limit runtime و ماتریس کامل Test |
 | WP-03 | BO-031..042 | partial | Project workspace، create/archive/clone/intake/foundation و storage metadata | object storage خصوصی، scan/parser sandbox، import واقعی و UI |
 | WP-04 | BO-043..052 | partial | settings/policy resolver و rollback contract | Settings UI، provenance/diff/impact، persistence و property tests کامل |
 | WP-05 | BO-053..062 | partial | Portfolio، Product Studio project context و deep-link | shell کامل، Role filtering، pagination، breadcrumb و browser E2E |
@@ -133,9 +133,9 @@
 |---|---|
 | `pnpm check:docs` | PASS؛ ۱۲۴ سند، ۲ محصول و صفر خطا |
 | audit checker | PASS؛ ۱۷۰ گام با ۲۰ verified/۱۵۰ remaining و ۸۱ نیازمندی با ۵ implemented/۷۵ partial/۱ missing |
-| clean-room | PASS؛ ۴۱۲ فایل بررسی‌شده |
-| build | PASS؛ ۲۲۳ ماژول و ۳۳ فایل JSON |
-| tests | PASS؛ ۳۰۶ موفق، صفر ناموفق، صفر skipped |
+| clean-room | PASS؛ ۴۱۴ فایل بررسی‌شده |
+| build | PASS؛ ۲۲۵ ماژول و ۳۳ فایل JSON |
+| tests | PASS؛ ۳۱۱ موفق، صفر ناموفق، صفر skipped |
 | `pnpm check` | PASS |
 
 هشدار نبود Docker داخل خود container فقط محدودیت Docker-in-Docker است؛ verification از روی میزبان با image مرجع اجرا شد و هیچ سرویس runtime تغییر نکرد.

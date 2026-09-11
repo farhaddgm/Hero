@@ -1,5 +1,14 @@
 # تغییرات رودمپ شرکت
 
+## 2026-09-11 — شروع توسعهٔ عمودی Identity و ProjectGrant
+
+- افزوده‌شده: hydration امن User، Grant و Revocation از PostgreSQL؛
+- افزوده‌شده: persistence و audit boundary برای lifecycle هویت بدون ذخیرهٔ Secret خام؛
+- افزوده‌شده: صفحهٔ عملیاتی `/identity` با login/MFA، ایجاد Viewer، Grant، مشاهده/ابطال Grant و logout؛
+- افزوده‌شده: تست‌های hydration، redaction، route protection و Store؛
+- تأییدشده: `pnpm check:docs` با ۱۲۴ سند/۲ محصول/صفر خطا و `pnpm check` با Build برابر ۲۲۵ ماژول/۳۳ JSON و ۳۱۱ تست موفق؛
+- مرز: MFA enrollment/rotation اعضا، recovery delivery، آزمون runtime سه‌نقشی و Production همچنان جداگانه gated هستند.
+
 ## 2026-09-11 — اصلاح معنای «تکمیل ۱۷۰ گام» و ایجاد ممیزی جاری
 
 - روشن‌شده: Evidenceهای Batch وجود artifact و نتیجهٔ تست داخلی را نشان می‌دهند و به‌تنهایی معادل قابلیت کامل و قابل‌استفاده نیستند؛

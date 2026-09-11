@@ -1,0 +1,60 @@
+export function getIdentityHtml() {
+  return `<!doctype html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex,nofollow,noarchive,nosnippet,noimageindex,notranslate">
+    <title>Hero — هویت و دسترسی</title>
+    <style>
+      :root{font-family:IRANSans,IRANSansWeb,Tahoma,Arial,sans-serif;color:#17253b;background:#f4f7fb}*{box-sizing:border-box}body{margin:0}main{width:min(1120px,calc(100% - 32px));margin:0 auto;padding:32px 0}.hero{padding:28px;border:1px solid #dfe7f3;border-radius:20px;background:#fff;box-shadow:0 18px 45px rgba(38,70,113,.08)}h1{margin:0 0 10px;font-size:clamp(1.6rem,3vw,2.25rem)}h2{margin:0 0 12px;font-size:1.1rem}p{color:#60748d;line-height:1.9}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:24px}.card{padding:17px;border:1px solid #e5ebf3;border-radius:14px;background:#fbfcfe}.card h2{margin:0 0 8px;font-size:1rem}.card p{margin:0;font-size:.82rem}.notice{margin-top:22px;padding:14px 16px;border:1px solid #ccece5;border-radius:13px;background:#f0fcf8;color:#187d69;font-size:.82rem;line-height:1.8}.toolbar{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:18px}.form{display:grid;gap:10px}.form.two{grid-template-columns:repeat(2,minmax(0,1fr))}.form.three{grid-template-columns:repeat(3,minmax(0,1fr))}label{display:grid;gap:6px;color:#38516d;font-size:.84rem}input,select,button{font:inherit;border:1px solid #cbd8e8;border-radius:9px;padding:10px 12px;background:#fff;color:#17253b}button{cursor:pointer;background:#245bc4;color:#fff;border-color:#245bc4;font-weight:700}button.secondary{background:#fff;color:#245bc4}.danger{background:#a52d3c;border-color:#a52d3c;color:#fff}.actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.status{min-height:24px;color:#48617b;font-size:.85rem}.error{color:#a52d3c}.success{color:#187d69}.hidden{display:none!important}.table-wrap{overflow:auto;border:1px solid #e5ebf3;border-radius:12px}table{width:100%;border-collapse:collapse;min-width:680px}th,td{text-align:right;padding:11px;border-bottom:1px solid #edf1f6;font-size:.84rem}th{background:#f7f9fc;color:#38516d}.muted{color:#70839a;font-size:.8rem}@media(max-width:720px){.grid,.form.two,.form.three{grid-template-columns:1fr}main{width:min(100% - 18px,1120px);padding:14px 0}}
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="hero">
+        <div class="toolbar"><a href="/backoffice">← بازگشت به مرکز مدیریت</a><span class="muted">Hero / Identity & Project Access</span></div>
+        <h1>هویت، نشست و دسترسی پروژه</h1>
+        <p>مدیریت حساب‌ها و Project Grant با APIهای احراز‌شده انجام می‌شود. احراز هویت شبکه‌ای Basic Auth مرز بیرونی است و نشست انسانی فقط در <code>sessionStorage</code> نگهداری می‌شود.</p>
+        <div class="grid"><article class="card"><h2>Owner / Admin</h2><p>ورود با MFA و step-up برای عملیات حساس.</p></article><article class="card"><h2>Viewer</h2><p>دسترسی مشاهده‌ای و محدود به پروژه‌های مجاز.</p></article><article class="card"><h2>Project Grant</h2><p>نقش هر کاربر برای هر پروژه جداگانه و audit می‌شود.</p></article></div>
+        <div class="notice">رمز عبور، کد MFA و Secret را در URL، log یا درخواست پشتیبانی وارد نکنید.</div>
+      </section>
+
+      <section id="login-card" class="hero" style="margin-top:18px"><h2>ورود انسانی</h2>
+        <form id="login-form" class="form two"><label>ایمیل<input name="email" type="email" autocomplete="username" required></label><label>رمز عبور<input name="password" type="password" autocomplete="current-password" required></label><div class="actions"><button type="submit">دریافت چالش ورود</button></div></form>
+        <form id="mfa-form" class="form two hidden" style="margin-top:12px"><label>کد MFA شش‌رقمی<input name="mfaCode" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required></label><div class="actions"><button type="submit">تکمیل ورود</button><button type="button" id="cancel-mfa" class="secondary">لغو</button></div></form>
+        <p id="login-status" class="status" role="status"></p>
+      </section>
+
+      <section id="workspace" class="hidden"><section class="hero" style="margin-top:18px"><div class="toolbar"><div><h2>مدیریت هویت</h2><p id="principal" class="muted"></p></div><button id="logout" class="secondary">خروج و ابطال نشست</button></div>
+        <h2>ایجاد Viewer</h2><form id="user-form" class="form three"><label>شناسه کاربر<input name="userId" pattern="[A-Za-z][A-Za-z0-9._:-]{2,127}" required></label><label>ایمیل<input name="email" type="email" required></label><label>نام نمایشی<input name="displayName" required></label><label>رمز Viewer<input name="password" type="password" minlength="12" autocomplete="new-password" required></label><div class="actions"><button type="submit">ایجاد کاربر</button></div></form><p id="workspace-status" class="status" role="status"></p>
+      </section>
+      <section class="hero" style="margin-top:18px"><h2>اعطای Project Grant</h2><form id="grant-form" class="form three"><label>شناسه پروژه<input name="projectId" pattern="[A-Za-z][A-Za-z0-9._:-]{2,127}" required></label><label>کاربر<select name="userId" id="grant-user" required></select></label><label>نقش<select name="role"><option value="viewer">Viewer</option><option value="admin">Admin</option></select></label><div class="actions"><button type="submit">ثبت Grant</button></div></form></section>
+      <section class="hero" style="margin-top:18px"><h2>کاربران</h2><div id="users-table" class="table-wrap"></div></section>
+      <section class="hero" style="margin-top:18px"><h2>Grantهای یک پروژه</h2><form id="grants-form" class="form two"><label>شناسه پروژه<input name="projectId" required></label><div class="actions"><button type="submit">نمایش Grantها</button></div></form><div id="grants-table" class="table-wrap" style="margin-top:12px"></div></section></section>
+    </main>
+    <script>
+      (() => {
+        const key = "hero.identity.session";
+        const state = { token: sessionStorage.getItem(key), challengeId: null, users: [] };
+        const $ = selector => document.querySelector(selector);
+        const esc = value => String(value ?? "").replace(/[&<>"']/g, character => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[character]));
+        const status = (selector, message, type = "") => { const node = $(selector); node.textContent = message; node.className = "status " + type; };
+        const api = async (path, options = {}) => { const headers = { "content-type": "application/json", ...(options.headers || {}) }; if (state.token) headers.authorization = "Bearer " + state.token; const response = await fetch(path, { ...options, headers }); const body = await response.json().catch(() => ({})); if (!response.ok) throw new Error(body.message || "درخواست با خطا روبه‌رو شد."); return body; };
+        const fields = form => Object.fromEntries(new FormData(form).entries());
+        const renderUsers = () => { $("#grant-user").innerHTML = state.users.filter(user => user.userId !== "hero-owner").map(user => '<option value="' + esc(user.userId) + '">' + esc(user.displayName) + " (" + esc(user.userId) + ")</option>").join("") || '<option value="">ابتدا Viewer بسازید</option>'; $("#users-table").innerHTML = state.users.length ? '<table><thead><tr><th>شناسه</th><th>ایمیل</th><th>نام</th><th>MFA</th><th>وضعیت</th></tr></thead><tbody>' + state.users.map(user => '<tr><td>' + esc(user.userId) + '</td><td>' + esc(user.email) + '</td><td>' + esc(user.displayName) + '</td><td>' + (user.mfaEnabled || user.mfaRequired ? "لازم" : "اختیاری") + '</td><td>' + esc(user.status) + '</td></tr>').join("") + '</tbody></table>' : '<p class="muted">کاربری ثبت نشده است.</p>'; };
+        const loadUsers = async () => { const body = await api("/api/identity/users"); state.users = body.users || []; renderUsers(); };
+        const showWorkspace = async () => { $("#login-card").classList.add("hidden"); $("#workspace").classList.remove("hidden"); const me = await api("/api/identity/me"); $("#principal").textContent = "نشست فعال: " + me.user.email + " / " + me.principal.role; await loadUsers(); };
+        $("#login-form").addEventListener("submit", async event => { event.preventDefault(); try { const body = await api("/api/identity/login", { method: "POST", body: JSON.stringify(fields(event.currentTarget)) }); state.challengeId = body.login.challengeId; $("#mfa-form").classList.remove("hidden"); $("#login-form").classList.add("hidden"); status("#login-status", body.login.mfaRequired ? "کد MFA را وارد کنید." : "چالش آماده است.", "success"); } catch (error) { status("#login-status", error.message, "error"); } });
+        $("#cancel-mfa").addEventListener("click", () => { state.challengeId = null; $("#mfa-form").classList.add("hidden"); $("#login-form").classList.remove("hidden"); status("#login-status", ""); });
+        $("#mfa-form").addEventListener("submit", async event => { event.preventDefault(); try { const input = fields(event.currentTarget); const body = await api("/api/identity/login/mfa", { method: "POST", body: JSON.stringify({ challengeId: state.challengeId, mfaCode: input.mfaCode }) }); state.token = body.session.token; sessionStorage.setItem(key, state.token); status("#login-status", "ورود موفق بود.", "success"); await showWorkspace(); } catch (error) { status("#login-status", error.message, "error"); } });
+        $("#user-form").addEventListener("submit", async event => { event.preventDefault(); try { await api("/api/identity/users", { method: "POST", body: JSON.stringify(fields(event.currentTarget)) }); event.currentTarget.reset(); status("#workspace-status", "Viewer ایجاد شد.", "success"); await loadUsers(); } catch (error) { status("#workspace-status", error.message, "error"); } });
+        $("#grant-form").addEventListener("submit", async event => { event.preventDefault(); try { const input = fields(event.currentTarget); await api("/api/projects/" + encodeURIComponent(input.projectId) + "/access", { method: "POST", body: JSON.stringify({ userId: input.userId, role: input.role }) }); status("#workspace-status", "Grant ثبت شد.", "success"); } catch (error) { status("#workspace-status", error.message, "error"); } });
+        $("#grants-form").addEventListener("submit", async event => { event.preventDefault(); const form = event.currentTarget; try { const input = fields(form); const body = await api("/api/projects/" + encodeURIComponent(input.projectId) + "/access"); const grants = body.grants || []; $("#grants-table").innerHTML = grants.length ? '<table><thead><tr><th>کاربر</th><th>نقش</th><th>وضعیت</th><th>نسخه</th><th>عملیات</th></tr></thead><tbody>' + grants.map(grant => '<tr><td>' + esc(grant.userId) + '</td><td>' + esc(grant.role) + '</td><td>' + esc(grant.status) + '</td><td>' + esc(grant.version) + '</td><td>' + (grant.status === "active" ? '<button class="danger revoke" data-user="' + esc(grant.userId) + '">ابطال</button>' : "—") + '</td></tr>').join("") + '</tbody></table>' : '<p class="muted">Grantی برای این پروژه وجود ندارد.</p>'; $("#grants-table").querySelectorAll(".revoke").forEach(button => button.addEventListener("click", async () => { try { await api("/api/projects/" + encodeURIComponent(input.projectId) + "/access/revoke", { method: "POST", body: JSON.stringify({ userId: button.dataset.user }) }); form.requestSubmit(); } catch (error) { status("#workspace-status", error.message, "error"); } })); } catch (error) { status("#workspace-status", error.message, "error"); } });
+        $("#logout").addEventListener("click", async () => { try { await api("/api/identity/sessions/revoke", { method: "POST", body: JSON.stringify({ reason: "identity-ui-logout" }) }); } catch {} state.token = null; sessionStorage.removeItem(key); location.reload(); });
+        if (state.token) showWorkspace().catch(() => { state.token = null; sessionStorage.removeItem(key); });
+      })();
+    </script>
+  </body>
+</html>`;
+}

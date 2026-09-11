@@ -1,4 +1,5 @@
 import http from "node:http";
+import crypto from "node:crypto";
 import { timingSafeEqual } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -57,6 +58,7 @@ import { getDashboardHtml } from "./dashboard-view.mjs";
 import { getBackofficeHtml } from "./backoffice-view.mjs";
 import { getProductStudioHtml } from "./product-studio-view.mjs";
 import { getPortfolioHtml } from "./portfolio-view.mjs";
+import { getIdentityHtml } from "./identity-view.mjs";
 import { OwnerAuthError, createOwnerAuth } from "../../../packages/domain/src/owner-auth.mjs";
 import { AdminAuthError, createAdminAuth } from "../../../packages/domain/src/admin-auth.mjs";
 import { createHumanIdentity, HumanIdentityError } from "../../../packages/domain/src/human-identity.mjs";
@@ -96,6 +98,7 @@ const READ_MODEL_AUDIT_RESOURCES = new Set([
 const BACKOFFICE_PATHS = new Set(["/backoffice", "/backoffice-data", "/backoffice-events"]);
 const PRODUCT_STUDIO_PATHS = new Set(["/product-studio", "/product-studio-data", "/product-studio-document"]);
 const PORTFOLIO_PATHS = new Set(["/portfolio", "/portfolio-data"]);
+const IDENTITY_PATHS = new Set(["/identity"]);
 const DEFAULT_BACKOFFICE_RESPONSE_LIMIT_BYTES = 512 * 1024;
 const DEFAULT_BACKOFFICE_RATE_LIMIT_WINDOW_MS = 60_000;
 const DEFAULT_BACKOFFICE_RATE_LIMIT_MAX = 60;
@@ -309,7 +312,8 @@ export function createHeroServer(options = {}) {
     email: process.env.HERO_OWNER_EMAIL,
     displayName: process.env.HERO_OWNER_DISPLAY_NAME ?? "Hero Owner",
     password: process.env.HERO_OWNER_PASSWORD,
-    mfaSecret: process.env.HERO_OWNER_MFA_SECRET
+    mfaSecret: process.env.HERO_OWNER_MFA_SECRET,
+    mfaSecretRef: process.env.HERO_OWNER_MFA_SECRET_REF ?? "env:HERO_OWNER_MFA_SECRET"
   };
   const identityConfiguredFromEnvironment = [process.env.HERO_IDENTITY_SESSION_SECRET, identityOwner.email, identityOwner.password, identityOwner.mfaSecret].every(value => typeof value === "string" && value.length > 0);
   const projectAccessRegistry = options.projectAccessRegistry ?? (identityConfiguredFromEnvironment
@@ -506,6 +510,16 @@ export function createHeroServer(options = {}) {
     }
   }
 
+  async function persistIdentityUser(userId) {
+    if (!postgresRuntime?.projectIdentity || !humanIdentity?.persistenceRecord) return;
+    await postgresRuntime.projectIdentity.saveUser(humanIdentity.persistenceRecord({ userId }));
+  }
+
+  async function persistIdentityAudit({ userId = null, eventType, outcome = "accepted", data = {} }) {
+    if (!postgresRuntime?.projectIdentity?.recordAudit) return;
+    await postgresRuntime.projectIdentity.recordAudit({ auditId: `identity-audit-${crypto.randomUUID()}`, userId, eventType, outcome, data });
+  }
+
   async function executeDashboardCommand(command, input, operation, actor = { kind: "project-owner", id: "hero-owner" }) {
     const projectIdCandidate = input?.projectId ?? input?.organizationId;
     const projectId = typeof projectIdCandidate === "string" && /^[A-Za-z][A-Za-z0-9._:-]{2,127}$/.test(projectIdCandidate)
@@ -561,7 +575,8 @@ export function createHeroServer(options = {}) {
       const backofficePath = BACKOFFICE_PATHS.has(url.pathname);
       const productStudioPath = PRODUCT_STUDIO_PATHS.has(url.pathname);
       const portfolioPath = PORTFOLIO_PATHS.has(url.pathname);
-      if (backofficePath || productStudioPath || portfolioPath) {
+      const identityPath = IDENTITY_PATHS.has(url.pathname);
+      if (backofficePath || productStudioPath || portfolioPath || identityPath) {
         const rate = backofficeRateLimiter.consume(request.socket?.remoteAddress ?? "unknown");
         if (!rate.allowed) {
           response.writeHead(429, {
@@ -577,7 +592,7 @@ export function createHeroServer(options = {}) {
           return;
         }
       }
-      if ((backofficePath || productStudioPath || portfolioPath) && backofficeAuth && !matchesBasicAuth(basicCredentials(request), backofficeAuth)) {
+      if ((backofficePath || productStudioPath || portfolioPath || identityPath) && backofficeAuth && !matchesBasicAuth(basicCredentials(request), backofficeAuth)) {
         await recordReadAccess(url.pathname, "rejected");
         response.writeHead(401, {
           "www-authenticate": 'Basic realm="Hero Back Office", charset="UTF-8"',
@@ -588,7 +603,7 @@ export function createHeroServer(options = {}) {
         response.end("Back Office authentication required.");
         return;
       }
-      if ((backofficePath || productStudioPath || portfolioPath) && request.method !== "GET") {
+      if ((backofficePath || productStudioPath || portfolioPath || identityPath) && request.method !== "GET") {
         response.writeHead(405, {
           "allow": "GET",
           "content-type": "text/plain; charset=utf-8",
@@ -608,6 +623,11 @@ export function createHeroServer(options = {}) {
       if (request.method === "GET" && url.pathname === "/backoffice") {
         await recordReadAccess("/backoffice", "accepted", { kind: backofficeAuth ? "backoffice-basic-auth" : "project-owner", id: backofficeAuth ? "backoffice-user" : "development-local" });
         return html(response, getBackofficeHtml({ initialData: backofficeSnapshot() }));
+      }
+
+      if (request.method === "GET" && url.pathname === "/identity") {
+        await recordReadAccess("/backoffice", "accepted", { kind: backofficeAuth ? "backoffice-basic-auth" : "project-owner", id: backofficeAuth ? "backoffice-user" : "development-local" });
+        return html(response, getIdentityHtml());
       }
 
       if (request.method === "GET" && url.pathname === "/backoffice-data") {
@@ -720,25 +740,33 @@ export function createHeroServer(options = {}) {
       if (request.method === "POST" && url.pathname === "/api/identity/login") {
         if (!humanIdentity?.configured) throw new HumanIdentityError("IDENTITY_NOT_CONFIGURED", "Human identity is not configured.", 503);
         const input = await readJson(request);
-        return json(response, 200, { service: HERO_SERVICE, login: humanIdentity.beginLogin(input) });
+        const login = humanIdentity.beginLogin(input);
+        await persistIdentityAudit({ eventType: "identity.login-challenged", data: { mfaRequired: login.mfaRequired } });
+        return json(response, 200, { service: HERO_SERVICE, login });
       }
 
       if (request.method === "POST" && url.pathname === "/api/identity/login/mfa") {
         if (!humanIdentity?.configured) throw new HumanIdentityError("IDENTITY_NOT_CONFIGURED", "Human identity is not configured.", 503);
         const input = await readJson(request);
-        return json(response, 200, { service: HERO_SERVICE, session: humanIdentity.completeLogin(input) });
+        const session = humanIdentity.completeLogin(input);
+        await persistIdentityAudit({ userId: session.principal.subject, eventType: "identity.session-issued", data: { sessionId: session.principal.sessionId } });
+        return json(response, 200, { service: HERO_SERVICE, session });
       }
 
       if (request.method === "POST" && url.pathname === "/api/identity/recovery/request") {
         if (!humanIdentity?.configured) throw new HumanIdentityError("IDENTITY_NOT_CONFIGURED", "Human identity is not configured.", 503);
         const input = await readJson(request);
-        return json(response, 202, { service: HERO_SERVICE, recovery: humanIdentity.requestOwnerRecovery(input) });
+        const recovery = humanIdentity.requestOwnerRecovery(input);
+        await persistIdentityAudit({ eventType: "identity.recovery-requested", data: { accepted: recovery.accepted } });
+        return json(response, 202, { service: HERO_SERVICE, recovery });
       }
 
       if (request.method === "POST" && url.pathname === "/api/identity/recovery/complete") {
         if (!humanIdentity?.configured) throw new HumanIdentityError("IDENTITY_NOT_CONFIGURED", "Human identity is not configured.", 503);
         const input = await readJson(request);
-        return json(response, 200, { service: HERO_SERVICE, recovery: humanIdentity.completeOwnerRecovery(input) });
+        const recovery = humanIdentity.completeOwnerRecovery(input);
+        await persistIdentityAudit({ userId: identityOwner.userId, eventType: "identity.recovery-completed", data: { recovered: recovery.recovered } });
+        return json(response, 200, { service: HERO_SERVICE, recovery });
       }
 
       if (request.method === "GET" && url.pathname === "/api/identity/me") {
@@ -749,19 +777,32 @@ export function createHeroServer(options = {}) {
       if (request.method === "POST" && url.pathname === "/api/identity/step-up") {
         if (!humanIdentity?.configured || !authenticatedOwner?.source) throw new HumanIdentityError("IDENTITY_AUTH_REQUIRED", "Human authentication is required.", 401);
         const input = await readJson(request);
-        return json(response, 200, { service: HERO_SERVICE, session: humanIdentity.stepUp({ principal: authenticatedOwner, mfaCode: input.mfaCode }) });
+        const session = humanIdentity.stepUp({ principal: authenticatedOwner, mfaCode: input.mfaCode });
+        await persistIdentityAudit({ userId: authenticatedOwner.subject, eventType: "identity.step-up-verified", data: { sessionId: session.principal.sessionId } });
+        return json(response, 200, { service: HERO_SERVICE, session });
       }
 
       if (request.method === "POST" && url.pathname === "/api/identity/sessions/revoke") {
         if (!humanIdentity?.configured || !authenticatedOwner?.source) throw new HumanIdentityError("IDENTITY_AUTH_REQUIRED", "Human authentication is required.", 401);
         const input = await readJson(request);
-        return json(response, 200, { service: HERO_SERVICE, revocation: humanIdentity.revokeSession({ actor: authenticatedOwner, sessionId: input.sessionId, reason: input.reason }) });
+        const revocation = humanIdentity.revokeSession({ actor: authenticatedOwner, sessionId: input.sessionId, reason: input.reason });
+        if (postgresRuntime?.projectIdentity?.revokeSession) await postgresRuntime.projectIdentity.revokeSession({ sessionId: revocation.sessionId, userId: authenticatedOwner.subject, reason: revocation.reason });
+        await persistIdentityAudit({ userId: authenticatedOwner.subject, eventType: "identity.session-revoked", data: { sessionId: revocation.sessionId, reason: revocation.reason } });
+        return json(response, 200, { service: HERO_SERVICE, revocation });
+      }
+
+      if (request.method === "GET" && url.pathname === "/api/identity/users") {
+        if (!humanIdentity?.configured || !authenticatedOwner) throw new HumanIdentityError("IDENTITY_NOT_CONFIGURED", "Human identity is not configured.", 503);
+        return json(response, 200, { service: HERO_SERVICE, users: humanIdentity.listUsers({ actor: authenticatedOwner }) });
       }
 
       if (request.method === "POST" && url.pathname === "/api/identity/users") {
         if (!humanIdentity?.configured || !authenticatedOwner) throw new HumanIdentityError("IDENTITY_NOT_CONFIGURED", "Human identity is not configured.", 503);
         const input = await readJson(request);
-        return json(response, 201, { service: HERO_SERVICE, user: humanIdentity.createUser({ actor: authenticatedOwner, user: input }) });
+        const user = humanIdentity.createUser({ actor: authenticatedOwner, user: input });
+        await persistIdentityUser(user.userId);
+        await persistIdentityAudit({ userId: user.userId, eventType: "identity.user-created", data: { createdBy: authenticatedOwner.subject, role: "viewer" } });
+        return json(response, 201, { service: HERO_SERVICE, user });
       }
 
       if (request.method === "GET" && url.pathname === "/api/portfolio") {
@@ -946,7 +987,12 @@ export function createHeroServer(options = {}) {
           if (!user?.mfaEnabled) throw new HumanIdentityError("MFA_REQUIRED", "An admin ProjectGrant requires enrolled MFA before it can be granted.", 409);
         }
         const grant = projectAccessRegistry.upsertGrant({ actor: authenticatedOwner, grant: { projectId: projectAccessMatch[1], userId: input.userId, role: input.role } });
-        if (grant.role === "admin" && humanIdentity) humanIdentity.setMfaRequired({ actor: authenticatedOwner, userId: grant.userId, required: true });
+        if (grant.role === "admin" && humanIdentity) {
+          humanIdentity.setMfaRequired({ actor: authenticatedOwner, userId: grant.userId, required: true });
+          await persistIdentityUser(grant.userId);
+        }
+        if (postgresRuntime?.projectIdentity?.appendGrant) await postgresRuntime.projectIdentity.appendGrant({ projectId: grant.projectId, userId: grant.userId, role: grant.role, status: grant.status, grantedBy: authenticatedOwner.subject });
+        await persistIdentityAudit({ userId: grant.userId, eventType: "identity.project-grant-upserted", data: { projectId: grant.projectId, role: grant.role, grantedBy: authenticatedOwner.subject } });
         return json(response, 201, { service: HERO_SERVICE, grant });
       }
 
@@ -954,7 +1000,10 @@ export function createHeroServer(options = {}) {
       if (projectAccessRevokeMatch && request.method === "POST") {
         if (!projectAccessRegistry) throw new HumanIdentityError("IDENTITY_NOT_CONFIGURED", "Project identity is not configured.", 503);
         const input = await readJson(request);
-        return json(response, 200, { service: HERO_SERVICE, grant: projectAccessRegistry.revokeGrant({ actor: authenticatedOwner, projectId: projectAccessRevokeMatch[1], userId: input.userId }) });
+        const grant = projectAccessRegistry.revokeGrant({ actor: authenticatedOwner, projectId: projectAccessRevokeMatch[1], userId: input.userId });
+        if (postgresRuntime?.projectIdentity?.appendGrant) await postgresRuntime.projectIdentity.appendGrant({ projectId: grant.projectId, userId: grant.userId, role: grant.role, status: "revoked", grantedBy: authenticatedOwner.subject });
+        await persistIdentityAudit({ userId: grant.userId, eventType: "identity.project-grant-revoked", data: { projectId: grant.projectId, revokedBy: authenticatedOwner.subject } });
+        return json(response, 200, { service: HERO_SERVICE, grant });
       }
 
       const projectOverviewMatch = url.pathname.match(/^\/api\/projects\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/overview$/);
@@ -1581,6 +1630,26 @@ export function createHeroServer(options = {}) {
         ownsPostgresRuntime = true;
       }
       if (postgresRuntime) await postgresRuntime.ping();
+      if (postgresRuntime?.projectIdentity) {
+        const identityStore = postgresRuntime.projectIdentity;
+        if (identityStore.listUsers) {
+          const users = await identityStore.listUsers();
+          for (const user of users) {
+            projectAccessRegistry?.hydrateUser({ user: { userId: user.userId, email: user.email, displayName: user.displayName, role: "viewer", status: user.status, createdAt: user.createdAt } });
+            humanIdentity?.hydrateUser({ user });
+          }
+        }
+        if (identityStore.listCurrentGrants && projectAccessRegistry) {
+          const grants = await identityStore.listCurrentGrants();
+          for (const grant of grants) projectAccessRegistry.hydrateGrant({ grant });
+        }
+        if (identityStore.listSessionRevocations && humanIdentity?.restoreRevocations) {
+          humanIdentity.restoreRevocations(await identityStore.listSessionRevocations());
+        }
+        if (humanIdentity?.persistenceRecord && identityStore.saveUser) {
+          await identityStore.saveUser(humanIdentity.persistenceRecord({ userId: identityOwner.userId }));
+        }
+      }
       if (postgresRuntime?.pricingCatalogStore && typeof pricingCatalog.publish === "function") {
         const currentPricingCatalog = await postgresRuntime.pricingCatalogStore.readCurrent();
         if (currentPricingCatalog) {

@@ -1007,7 +1007,7 @@
       "type": "evidence",
       "scope": "hero",
       "status": "active",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "owner": "hero-architecture",
       "canonical": true,
       "supersedes": [],

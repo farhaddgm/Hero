@@ -122,28 +122,29 @@ export function createHumanIdentity({
     if (window.count > 10) throw new HumanIdentityError("LOGIN_RATE_LIMITED", "Too many login attempts. Try again later.", 429);
   }
 
-  function addAccount({ actor, userId, email, displayName, password, mfaSecret, mfaRequired, recoveryCodes = [] }, { bootstrapOwner = false } = {}) {
+  function addAccount({ actor, userId, email, displayName, password, passwordHash, passwordSalt, mfaSecret, mfaSecretRef = null, mfaRequired, recoveryCodes = [], status = "active", createdAt = now(), recoveredAt = null, recoveryCooldownUntil = 0 }, { bootstrapOwner = false, hydrate = false } = {}) {
     const normalizedUserId = assertIdentifier("userId", userId);
     const normalizedEmail = normalizeEmail(email);
     if (accounts.has(normalizedUserId) || accountByEmail.has(normalizedEmail)) throw new HumanIdentityError("USER_EXISTS", "A user with this identifier or email already exists.", 409);
     const required = mfaRequired ?? normalizedUserId === ownerUserId;
-    if (required && (typeof mfaSecret !== "string" || mfaSecret.length < 12)) throw new HumanIdentityError("MFA_REQUIRED", "Owner and admin accounts require an MFA secret reference.", 400);
-    const salt = crypto.randomBytes(16).toString("base64url");
+    if (required && !hydrate && (typeof mfaSecret !== "string" || mfaSecret.length < 12)) throw new HumanIdentityError("MFA_REQUIRED", "Owner and admin accounts require an MFA secret reference.", 400);
+    const salt = passwordSalt ?? crypto.randomBytes(16).toString("base64url");
     const account = {
       userId: normalizedUserId,
       email: normalizedEmail,
       displayName: String(displayName ?? normalizedUserId).trim().slice(0, 160),
       passwordSalt: salt,
-      passwordHash: hashPassword(assertPassword(password), salt),
+      passwordHash: passwordHash ?? hashPassword(assertPassword(password), salt),
       mfaSecret: mfaSecret ?? null,
+      mfaSecretRef: typeof mfaSecretRef === "string" ? mfaSecretRef.slice(0, 240) : null,
       mfaRequired: Boolean(required),
       recoveryCodeHashes: recoveryCodes.map(code => crypto.createHash("sha256").update(String(code)).digest("hex")),
-      status: "active",
-      createdAt: now(),
-      recoveredAt: null,
-      recoveryCooldownUntil: 0
+      status: status === "disabled" ? "disabled" : "active",
+      createdAt,
+      recoveredAt,
+      recoveryCooldownUntil
     };
-    if (!bootstrapOwner) accessRegistry.createUser({ actor, user: { userId: normalizedUserId, email: normalizedEmail, displayName: account.displayName, role: "viewer" } });
+    if (!bootstrapOwner && !hydrate) accessRegistry.createUser({ actor, user: { userId: normalizedUserId, email: normalizedEmail, displayName: account.displayName, role: "viewer" } });
     accounts.set(normalizedUserId, account);
     accountByEmail.set(normalizedEmail, normalizedUserId);
     return publicAccount(account);
@@ -179,6 +180,19 @@ export function createHumanIdentity({
     createUser({ actor, user }) {
       if (actor?.role !== "project-owner") throw new ProjectAccessError("OWNER_REQUIRED", "Only the owner may invite a user.", 403);
       return addAccount({ actor, ...user });
+    },
+    hydrateUser({ user }) {
+      if (!user || user.userId === ownerUserId || accounts.has(user.userId)) return this.getUser(user?.userId);
+      return addAccount({ ...user, passwordHash: user.passwordHash, passwordSalt: user.passwordSalt, mfaSecret: null, mfaSecretRef: user.mfaSecretRef, mfaRequired: user.mfaRequired, status: user.status }, { hydrate: true });
+    },
+    persistenceRecord({ userId }) {
+      const account = accounts.get(assertIdentifier("userId", userId));
+      if (!account) throw new HumanIdentityError("USER_NOT_FOUND", "User does not exist.", 404);
+      return copy({ userId: account.userId, email: account.email, displayName: account.displayName, passwordHash: account.passwordHash, passwordSalt: account.passwordSalt, mfaSecretRef: account.mfaSecretRef, mfaRequired: account.mfaRequired, status: account.status, createdAt: account.createdAt });
+    },
+    listUsers({ actor }) {
+      if (actor?.role !== "project-owner") throw new ProjectAccessError("OWNER_REQUIRED", "Only the owner may list users.", 403);
+      return Object.freeze([...accounts.values()].map(publicAccount));
     },
     setMfaRequired({ actor, userId, required = true, mfaSecret }) {
       if (actor?.role !== "project-owner") throw new ProjectAccessError("OWNER_REQUIRED", "Only the owner may change MFA policy.", 403);
@@ -237,6 +251,11 @@ export function createHumanIdentity({
       const record = copy({ sessionId: normalizedSessionId, subject: principal.subject, reason: String(reason).slice(0, 240), revokedAt: now() });
       revokedSessions.set(normalizedSessionId, record);
       return record;
+    },
+    restoreRevocations(records = []) {
+      for (const record of records) {
+        if (record?.sessionId && record?.userId) revokedSessions.set(record.sessionId, copy({ sessionId: record.sessionId, subject: record.userId, reason: String(record.reason ?? "restored").slice(0, 240), revokedAt: record.revokedAt ?? now() }));
+      }
     },
     requestOwnerRecovery({ email }) {
       const account = activeAccountByEmail(email);
