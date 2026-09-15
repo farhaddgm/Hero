@@ -45,6 +45,33 @@ export function createProjectSettingsRegistry({ now = () => new Date().toISOStri
     history.set(historyKey, [...previous, stored]);
     return stored;
   }
+  function hydrateRecord(record) {
+    if (!record || typeof record !== "object") throw new ProjectSettingsError("INVALID_HYDRATION", "Setting record is invalid.", 500);
+    const normalizedProjectId = assertId("projectId", record.projectId);
+    const normalizedPath = assertPath(record.path ?? record.settingPath);
+    const layer = record.layer ?? record.settingsLayer;
+    layerRank(layer); assertSafe(record.value ?? record.settingValue);
+    if (!Number.isInteger(record.version ?? record.settingVersion) || (record.version ?? record.settingVersion) < 1) throw new ProjectSettingsError("INVALID_HYDRATION", "Setting version is invalid.", 500);
+    const normalized = copy({
+      ...record,
+      projectId: normalizedProjectId,
+      path: normalizedPath,
+      layer,
+      runId: record.runId ?? record.run_id ?? null,
+      version: record.version ?? record.settingVersion,
+      value: structuredClone(record.value ?? record.settingValue),
+      actor: record.actor ?? record.actorId,
+      source: record.source ?? layer,
+      state: record.state ?? "active",
+      recordedAt: record.recordedAt ?? record.recorded_at ?? now()
+    });
+    const historyKey = `${normalizedProjectId}:${normalizedPath}`;
+    const previous = history.get(historyKey) ?? [];
+    const withoutDuplicate = previous.filter(item => item.version !== normalized.version || item.layer !== normalized.layer || item.runId !== normalized.runId);
+    history.set(historyKey, [...withoutDuplicate, normalized].sort((left, right) => left.version - right.version));
+    records.set(key(normalizedProjectId, normalizedPath, layer, normalized.runId), normalized);
+    return normalized;
+  }
   function templateValues({ projectType = "application", riskLevel = "standard" } = {}) {
     if (!POLICY_RISK_LEVELS.includes(riskLevel)) throw new ProjectSettingsError("INVALID_RISK_LEVEL", "Risk level is invalid.", 400);
     const risk = riskLevel === "high";
@@ -97,6 +124,11 @@ export function createProjectSettingsRegistry({ now = () => new Date().toISOStri
       policyPacks.set(projectId, copy({ ...pack, state: "applied", appliedAt: now() })); return Object.freeze(applied);
     },
     setValue,
+    hydrateRecord,
+    listRecords({ projectId } = {}) {
+      if (projectId) assertId("projectId", projectId);
+      return Object.freeze([...records.values()].filter(item => !projectId || item.projectId === projectId).sort((a, b) => a.projectId.localeCompare(b.projectId) || a.path.localeCompare(b.path) || a.version - b.version).map(copy));
+    },
     removeOverride({ actor, projectId, path, layer = "project-override", runId = null, expectedVersion, reason }) {
       const current = records.get(key(assertId("projectId", projectId), assertPath(path), layer, runId));
       if (!current) throw new ProjectSettingsError("SETTING_NOT_FOUND", "No override exists to remove.", 404);

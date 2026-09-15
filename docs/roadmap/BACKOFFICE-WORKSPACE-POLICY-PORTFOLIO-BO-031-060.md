@@ -6,11 +6,13 @@
 > Type: evidence
 > Scope: hero
 > Status: active
-> Version: 1.0.0
+> Version: 1.0.2
 > Owner: hero-architecture
 > Review cadence: none
 > Supersedes: none
 > Superseded by: none
+
+> یادداشت تفسیر: این سند وجود پیاده‌سازی و تست داخلی Batch را ثبت می‌کند، نه بسته‌شدن کامل UI، storage و runtime Exit Gate. وضعیت جاری در `HERO-EVIDENCE-BACKOFFICE-DELIVERY-AUDIT-20260911` مقدم است.
 
 ## مجوز و مرز
 
@@ -47,3 +49,7 @@
 - هیچ Test deploy، Pilot، Production، Secret reveal/change، external spend/message، Notion write، GitHub fetch یا URL fetch اجرا نشد.
 
 image مرجع باینری `pnpm` ندارد؛ بنابراین همان زنجیرهٔ تعریف‌شده در `package.json` با `npm run check` اجرا شده است. این Evidence صرفاً صحت source را ثبت می‌کند و مجوز هیچ محیط یا عملیات خارجی نیست.
+
+## الحاق ۲۰۲۶-۰۹-۱۱ — بازگشت نسخه‌دار به Draft
+
+ایجاد Project اکنون با `lifecycle/status=draft` انجام می‌شود. Owner می‌تواند فقط یک Project `active`، `intake` یا `foundation-review` را با `expectedVersion` و دلیل ثبت‌شده به Draft برگرداند. این mutation overwrite نیست: نسخهٔ جدید Project و Foundation پیشنهادی جدید append می‌شوند و Foundation قبلی باقی می‌ماند. endpoint آن `/api/projects/:projectId/return-to-draft` است و به authorization پروژه و Owner-only domain check متکی است. آزمون HTTP و domain این مسیر را پوشش می‌دهد.

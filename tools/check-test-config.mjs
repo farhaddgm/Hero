@@ -1,5 +1,9 @@
 const REQUIRED_SECRETS = Object.freeze([
   "HERO_OWNER_AUTH_SECRET",
+  "HERO_IDENTITY_SESSION_SECRET",
+  "HERO_OWNER_EMAIL",
+  "HERO_OWNER_PASSWORD",
+  "HERO_OWNER_MFA_SECRET",
   "HERO_BACKOFFICE_USER",
   "HERO_BACKOFFICE_PASSWORD",
   "HERO_POSTGRES_URL",
@@ -16,6 +20,50 @@ function hasMinimumLength(env, name, minimum, errors) {
   if (value.length < minimum) errors.push(`${name} باید حداقل ${minimum} نویسه باشد.`);
 }
 
+function validateOwnerEmail(env, errors) {
+  const value = env.HERO_OWNER_EMAIL;
+  if (isPlaceholder(value)) return;
+  const email = value.trim().toLowerCase();
+  if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    errors.push("HERO_OWNER_EMAIL باید یک ایمیل معتبر باشد.");
+  }
+}
+
+function validateOwnerIdentifier(env, errors) {
+  const value = env.HERO_IDENTITY_OWNER_USER_ID ?? "hero-owner";
+  if (!/^[A-Za-z][A-Za-z0-9._:-]{2,127}$/.test(value)) {
+    errors.push("HERO_IDENTITY_OWNER_USER_ID معتبر نیست.");
+  }
+}
+
+function validateMfaSecret(env, errors) {
+  const value = env.HERO_OWNER_MFA_SECRET;
+  if (isPlaceholder(value)) return;
+  const trimmed = value.trim();
+  if (/^base32:/i.test(trimmed)) {
+    const encoded = trimmed.slice(trimmed.indexOf(":") + 1).replace(/[\s-]/g, "").replace(/=+$/g, "");
+    if (encoded.length < 16 || !/^[A-Z2-7]+$/i.test(encoded)) {
+      errors.push("HERO_OWNER_MFA_SECRET با پیشوند base32: باید حداقل ۱۶ نویسهٔ Base32 معتبر داشته باشد.");
+    }
+    return;
+  }
+  if (/^(?:legacy|legacy-utf8|utf8):/i.test(trimmed)) {
+    const legacy = trimmed.slice(trimmed.indexOf(":") + 1);
+    if (legacy.length < 12) errors.push("HERO_OWNER_MFA_SECRET در حالت legacy باید حداقل ۱۲ نویسه باشد.");
+    return;
+  }
+  if (trimmed.length < 12) errors.push("HERO_OWNER_MFA_SECRET legacy باید حداقل ۱۲ نویسه باشد.");
+}
+
+function validateSecretStore(env, errors) {
+  if (env.HERO_SECRET_STORE_ENABLED !== "true") errors.push("HERO_SECRET_STORE_ENABLED باید true باشد.");
+  if (env.HERO_SECRET_STORE_DIR !== "/var/lib/hero/secret-store") errors.push("HERO_SECRET_STORE_DIR باید /var/lib/hero/secret-store باشد.");
+  const masterKey = env.HERO_SECRET_STORE_MASTER_KEY;
+  if (!isPlaceholder(masterKey) && !/^(?:[a-f0-9]{64}|[A-Za-z0-9_-]{43})$/i.test(masterKey.trim())) {
+    errors.push("HERO_SECRET_STORE_MASTER_KEY باید ۳۲ بایت hex یا Base64URL باشد.");
+  }
+}
+
 export function validateTestEnvironment(env = process.env) {
   const errors = [];
   const exact = [
@@ -25,7 +73,9 @@ export function validateTestEnvironment(env = process.env) {
     ["HERO_EXPOSE_PORT", "43101"],
     ["HERO_DATA_DIR", "/var/lib/hero"],
     ["HERO_REQUIRE_POSTGRES", "true"],
-    ["HERO_ENABLE_REAL_PROVIDERS", "false"]
+    ["HERO_ENABLE_REAL_PROVIDERS", "false"],
+    ["HERO_SECRET_STORE_ENABLED", "true"],
+    ["HERO_SECRET_STORE_DIR", "/var/lib/hero/secret-store"]
   ];
 
   for (const [name, expected] of exact) {
@@ -35,8 +85,14 @@ export function validateTestEnvironment(env = process.env) {
     if (isPlaceholder(env[name])) errors.push(`${name} در Secret Store تنظیم نشده است.`);
   }
   hasMinimumLength(env, "HERO_OWNER_AUTH_SECRET", 32, errors);
+  hasMinimumLength(env, "HERO_IDENTITY_SESSION_SECRET", 32, errors);
+  hasMinimumLength(env, "HERO_OWNER_PASSWORD", 12, errors);
   hasMinimumLength(env, "HERO_BACKOFFICE_PASSWORD", 16, errors);
   hasMinimumLength(env, "HERO_POSTGRES_PASSWORD", 16, errors);
+  validateOwnerEmail(env, errors);
+  validateOwnerIdentifier(env, errors);
+  validateMfaSecret(env, errors);
+  validateSecretStore(env, errors);
 
   if (!isPlaceholder(env.HERO_POSTGRES_URL)) {
     try {

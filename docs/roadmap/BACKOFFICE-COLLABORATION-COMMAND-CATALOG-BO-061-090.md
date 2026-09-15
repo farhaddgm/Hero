@@ -6,11 +6,13 @@
 > Type: evidence
 > Scope: hero
 > Status: active
-> Version: 1.0.0
+> Version: 1.0.1
 > Owner: hero-architecture
 > Review cadence: none
 > Supersedes: none
 > Superseded by: none
+
+> یادداشت تفسیر: این سند وجود پیاده‌سازی و تست داخلی Batch را ثبت می‌کند، نه عملیاتی‌شدن کامل Conversation، Command execution و UI. وضعیت جاری در `HERO-EVIDENCE-BACKOFFICE-DELIVERY-AUDIT-20260911` مقدم است.
 
 ## دامنه
 

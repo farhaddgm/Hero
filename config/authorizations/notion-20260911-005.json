@@ -1,0 +1,30 @@
+{
+  "schema": "hero.authorization-snapshot/v1",
+  "authorizationId": "NOTION-EMPTY-PAGE-ARCHIVE-20260911-001",
+  "status": "active",
+  "grantedBy": "project-owner",
+  "grantedAt": "2026-09-11",
+  "grantSource": "owner-instruction-to-complete-notion-projection-repair",
+  "validUntil": "owner-revocation",
+  "globalStop": false,
+  "operations": ["read", "notion-page-archive"],
+  "excludedOperations": [
+    "production-deploy",
+    "destructive-data-operation",
+    "external-spend",
+    "secret-change",
+    "external-message",
+    "irreversible-operation",
+    "notion-write",
+    "notion-page-create",
+    "notion-page-delete",
+    "notion-page-title-update",
+    "github-write"
+  ],
+  "steps": [{"stepId":"NOTION-EMPTY-PAGE-ARCHIVE","documentVersion":"1.0.0"}],
+  "scope": {
+    "mode": "archive-exact-empty-unmapped-page",
+    "pageId": "3d812710-4ae0-800a-b703-c34d1f4641f1"
+  },
+  "note": "Only the exact empty, unmapped page ID may be archived after a fresh read-only proof of empty content and no mapping."
+}

@@ -1,0 +1,33 @@
+{
+  "schema": "hero.authorization-snapshot/v1",
+  "authorizationId": "BATCH-BACKOFFICE-20260911-020",
+  "status": "active",
+  "grantedBy": "project-owner",
+  "grantedAt": "2026-09-11",
+  "grantSource": "owner-request-to-repair-backoffice-login-and-add-complete-feature-help",
+  "validUntil": "owner-revocation",
+  "globalStop": false,
+  "operations": ["diagnose", "design", "document", "develop", "test", "review", "build", "test-deploy", "secret-change"],
+  "excludedOperations": ["production-deploy", "destructive-data-operation", "external-spend", "external-message", "irreversible-operation", "pilot-execution", "notion-write", "github-write"],
+  "documents": [
+    { "documentId": "HERO-SPEC-022", "documentVersion": "1.0.0" },
+    { "documentId": "HERO-SPEC-023", "documentVersion": "1.0.0" },
+    { "documentId": "HERO-ROADMAP-BACKOFFICE-COMMAND-CENTER-V1", "documentVersion": "1.1.0" },
+    { "documentId": "HERO-ROADMAP-BACKOFFICE-UI-UX-V1", "documentVersion": "1.0.0" }
+  ],
+  "steps": [
+    { "stepId": "BO-025", "documentVersion": "1.0.0" },
+    { "stepId": "BO-026", "documentVersion": "1.0.0" },
+    { "stepId": "BO-030", "documentVersion": "1.0.0" },
+    { "stepId": "UX-G06", "documentVersion": "1.0.0" },
+    { "stepId": "UX-G07", "documentVersion": "1.0.0" },
+    { "stepId": "UX-G08", "documentVersion": "1.0.0" },
+    { "stepId": "UX-G09", "documentVersion": "1.0.0" }
+  ],
+  "scope": {
+    "environment": "development-and-test",
+    "service": "hero-control-plane",
+    "action": "repair-human-identity-bootstrap-rotate-test-access-and-add-accessible-feature-help"
+  },
+  "note": "Owner explicitly authorized the Test credential repair required to restore access. Secret values remain outside Git and must not be logged. Production, Pilot, Provider, external write/message/spend and destructive operations remain excluded."
+}

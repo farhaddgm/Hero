@@ -3,13 +3,15 @@
   "mode": "controlled-test",
   "bulk_write_approved": false,
   "batch_size": 10,
-  "allowed_classifications": ["internal"],
+  "allowed_classifications": [
+    "internal"
+  ],
   "classification_review": {
     "status": "approved",
     "reviewer": "project-owner",
-    "reviewed_at": "2026-09-10",
-    "catalog_digest": "d46709611a0eebbb37dbc8830c793370e05402fb1d79630f6fda26f02eeaa726",
-    "candidate_count": 105,
+    "reviewed_at": "2026-09-11",
+    "catalog_digest": "6673d4c58ab1fe257c32526702153eccdbce0d085c13f837a50661886ce2b0ac",
+    "candidate_count": 130,
     "default_classification": "internal",
     "excluded_document_ids": [],
     "scan": {
@@ -17,7 +19,154 @@
       "pii_shaped": 0,
       "production_or_live_endpoint_shaped": 0
     },
-    "notes": "Owner-approved review of the current catalog snapshot; no sensitive-content flags were found. Re-review is required when the catalog digest changes."
+    "notes": "Owner-approved review of the current catalog snapshot; no sensitive-content flags were found, and no document was excluded. Re-review is required when the catalog digest changes."
+  },
+  "batch_write_approved": false,
+  "approved_batch": 13,
+  "conflict_resolution": {
+    "status": "approved",
+    "authorization_id": "NOTION-CONFLICT-RESOLUTION-20260911-001",
+    "step_id": "NOTION-CONFLICT-RESOLUTION",
+    "document_version": "1.0.0",
+    "mode": "git-canonical-overwrite-notion",
+    "global_stop": false,
+    "catalog_digest": "4a3644ea88894ca92e819a1510b774631396892a256403ab36f4a593ced4733e",
+    "document_ids": [
+      "HERO-ARCH-PRODUCT-DEVELOPMENT-KNOWLEDGE-SYSTEM",
+      "HERO-EVIDENCE-BACKOFFICE-DELIVERY-AUDIT-20260911",
+      "HERO-EVIDENCE-BACKOFFICE-FOUNDATION-BO-011-020",
+      "HERO-EVIDENCE-BACKOFFICE-IDENTITY-BO-021-030",
+      "HERO-OPS-ACCESS-AUDIT-20260904",
+      "HERO-OPS-BACKOFFICE-SUBDOMAIN",
+      "HERO-OPS-DOCUMENTATION-LIBRARY-HANDOFF",
+      "HERO-OPS-HERO-TEST-ENVIRONMENT",
+      "HERO-OPS-NOTION-SETUP",
+      "HERO-OPS-OPERATIONAL-DIAGNOSTICS",
+      "HERO-OPS-OWNER-ACTIONS-NEXT-20260909",
+      "HERO-OPS-OWNER-ACTIONS-PENDING-20260904",
+      "HERO-OPS-OWNER-ACTIONS-SIMPLE",
+      "HERO-ROADMAP-BASELINE-20260904",
+      "HERO-ROADMAP-EXECUTION-20260909-100-STEPS",
+      "HERO-ROADMAP-NEXT-100-STEPS-20260904",
+      "HERO-ROADMAP-OPEN-50-PRIORITY-20260904",
+      "HERO-ROADMAP-STATUS-20260911",
+      "HERO-SPEC-015",
+      "HERO-SPEC-022"
+    ],
+    "note": "Owner-approved conflict resolution; only existing mapped pages are eligible and every write requires post-write Markdown verification."
+  },
+  "new_document_sync": {
+    "status": "approved",
+    "authorization_id": "NOTION-DOCUMENT-SYNC-20260911-001",
+    "step_id": "NOTION-DOCUMENT-SYNC-CURRENT-CATALOG-20260911",
+    "document_version": "1.0.0",
+    "mode": "git-canonical-create-or-adopt-existing-equivalent",
+    "global_stop": false,
+    "catalog_digest": "4a3644ea88894ca92e819a1510b774631396892a256403ab36f4a593ced4733e",
+    "document_ids": [
+      "HERO-ROADMAP-NEXT-20-STEPS-20260911-WORKSPACE-PERSISTENCE",
+      "HERO-ROADMAP-NEXT-100-STEPS-20260911-PROJECT-CONTROL"
+    ],
+    "documents": [
+      {
+        "document_id": "HERO-ROADMAP-NEXT-20-STEPS-20260911-WORKSPACE-PERSISTENCE",
+        "step_id": "NOTION-DOCUMENT-SYNC-HERO-ROADMAP-NEXT-20-STEPS-20260911",
+        "document_version": "1.0.0"
+      },
+      {
+        "document_id": "HERO-ROADMAP-NEXT-100-STEPS-20260911-PROJECT-CONTROL",
+        "step_id": "NOTION-DOCUMENT-SYNC-HERO-ROADMAP-NEXT-100-STEPS-20260911-PROJECT-CONTROL",
+        "document_version": "1.0.0"
+      }
+    ],
+    "note": "Owner-approved bounded sync for newly registered documents; an existing conflicting page is never overwritten."
+  },
+  "operational_document_refresh": {
+    "status": "approved",
+    "authorization_id": "NOTION-OPERATIONAL-DOC-REFRESH-20260911-001",
+    "step_id": "NOTION-OPERATIONAL-DOC-REFRESH",
+    "document_version": "1.0.0",
+    "mode": "git-canonical-refresh-existing-mapped-pages",
+    "global_stop": false,
+    "catalog_digest": "a4f369cfb4bc74d3b7e46b0a2147b6cbccba01d05d71d01fa1abe83baf97178a",
+    "document_ids": [
+      "HERO-OPS-NOTION-BULK-SYNC-PLAN",
+      "HERO-OPS-NOTION-SETUP",
+      "HERO-OPS-NOTION-SYNC-RUNBOOK"
+    ],
+    "documents": [
+      {
+        "document_id": "HERO-OPS-NOTION-BULK-SYNC-PLAN",
+        "step_id": "NOTION-OPERATIONAL-DOC-REFRESH-BULK-PLAN",
+        "document_version": "1.0.0"
+      },
+      {
+        "document_id": "HERO-OPS-NOTION-SETUP",
+        "step_id": "NOTION-OPERATIONAL-DOC-REFRESH-SETUP",
+        "document_version": "1.0.0"
+      },
+      {
+        "document_id": "HERO-OPS-NOTION-SYNC-RUNBOOK",
+        "step_id": "NOTION-OPERATIONAL-DOC-REFRESH-RUNBOOK",
+        "document_version": "1.0.0"
+      }
+    ],
+    "note": "Owner-approved bounded refresh of three existing operational pages after the final Test verification; no page creation, deletion or archive is allowed."
+  },
+  "projection_repair": {
+    "status": "approved",
+    "authorization_id": "NOTION-PROJECTION-REPAIR-20260911-001",
+    "step_id": "NOTION-PROJECTION-REPAIR",
+    "document_version": "1.0.0",
+    "mode": "git-canonical-refresh-and-title-repair",
+    "global_stop": false,
+    "catalog_digest": "7c1ce043cc877163fb4f14e90b09795292a6b447b9aa882517b2521e0034ae54",
+    "stale_document_ids": [
+      "HERO-DOC-INDEX",
+      "HERO-EVIDENCE-BACKOFFICE-DELIVERY-AUDIT-20260911",
+      "HERO-ROADMAP-CHANGELOG",
+      "HERO-ROADMAP-STATUS-20260911"
+    ],
+    "title_repair_selector": {
+      "kind": "mapped-internal-documents-with-empty-notion-title",
+      "count": 76,
+      "document_ids_digest": "d9f9292a9ad4509563766c6f67cb2fb8731f2dfc877a643e9314f4972fae38f5"
+    },
+    "note": "Owner-approved bounded repair: refresh four stale Git-canonical pages and set titles only on the exact 76 mapped document pages whose Notion title property is empty. No page creation, deletion or archive is allowed."
+  },
+  "projection_repair_followup": {
+    "status": "approved",
+    "authorization_id": "NOTION-PROJECTION-REPAIR-20260911-002",
+    "step_id": "NOTION-PROJECTION-REPAIR-FOLLOWUP",
+    "document_version": "1.0.0",
+    "mode": "git-canonical-refresh-exact-existing-page",
+    "global_stop": false,
+    "catalog_digest": "6c020123d78d32fe4e7299fda20d06418f3e94b0f3361815f7b5fe4754976ffb",
+    "document_id": "HERO-OPS-HERO-TEST-ENVIRONMENT",
+    "page_id": "3d812710-4ae0-8172-a6ac-f55579725b9b",
+    "note": "Owner-approved bounded follow-up for the exact existing mapped page after the Git canonical document changed; no page creation, title update, deletion or archive is allowed."
+  },
+  "automatic_sync": {
+    "status": "approved",
+    "authorization_id": "NOTION-PRODUCT-SYSTEM-AUTO-SYNC-20260911-001",
+    "step_id": "NOTION-PRODUCT-SYSTEM-AUTO-SYNC",
+    "document_version": "1.0.0",
+    "mode": "git-canonical-internal-only-document-roadmap-task-projection",
+    "global_stop": false,
+    "allowed_classifications": ["internal"],
+    "conflict_policy": "never-overwrite-notion-changes; record-conflict-and-stop-that-record",
+    "excluded_operations": ["notion-page-delete", "notion-page-archive", "production-deploy", "secret-change", "external-spend", "external-message"],
+    "note": "Owner-approved recurring projection for eligible internal Git documents, Hero roadmap and Hero Task Graph. Restricted or sensitive material is excluded and reported; Notion remains rebuildable and non-canonical."
+  },
+  "empty_page_archive": {
+    "status": "approved",
+    "authorization_id": "NOTION-EMPTY-PAGE-ARCHIVE-20260911-001",
+    "step_id": "NOTION-EMPTY-PAGE-ARCHIVE",
+    "document_version": "1.0.0",
+    "mode": "archive-exact-empty-unmapped-page",
+    "global_stop": false,
+    "page_id": "3d812710-4ae0-800a-b703-c34d1f4641f1",
+    "note": "Owner-approved archive of the one exact Notion page proven to have empty Markdown, no Document ID and no mapping. The operation is limited to this page ID."
   },
   "documents": [
     {
@@ -25,11 +174,783 @@
       "write_policy": "proposal-editable",
       "external_write_approved": true,
       "reason": "First controlled Notion sync approved by project owner."
+    },
+    {
+      "document_id": "HERO-OPS-DOCUMENTATION-LIBRARY-HANDOFF",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Controlled low-risk batch 1 approval."
+    },
+    {
+      "document_id": "HERO-OPS-BACKOFFICE-SUBDOMAIN",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Controlled low-risk batch 1 approval."
+    },
+    {
+      "document_id": "HERO-OPS-CLEAN-LINUX-RECOVERY",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Controlled low-risk batch 1 approval."
+    },
+    {
+      "document_id": "HERO-OPS-HERO-TEST-ENVIRONMENT",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Controlled low-risk batch 1 approval."
+    },
+    {
+      "document_id": "HERO-OPS-MOVE-TO-ANOTHER-SERVER",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Controlled low-risk batch 1 approval."
+    },
+    {
+      "document_id": "HERO-OPS-OPERATIONAL-DIAGNOSTICS",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Controlled low-risk batch 1 approval."
+    },
+    {
+      "document_id": "HERO-OPS-OWNER-ACTIONS-NEXT-20260909",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Controlled low-risk batch 1 approval."
+    },
+    {
+      "document_id": "HERO-OPS-OWNER-ACTIONS-PENDING-20260904",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Controlled low-risk batch 1 approval."
+    },
+    {
+      "document_id": "HERO-OPS-OWNER-ACTIONS-SIMPLE",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Controlled low-risk batch 1 approval."
+    },
+    {
+      "document_id": "HERO-ARCH-AI-ORCHESTRATION",
+      "write_policy": "protected-proposal",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ARCH-ASSURANCE-GATE",
+      "write_policy": "protected-proposal",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ARCH-AUTHORIZATION-ENGINE",
+      "write_policy": "mirror-only",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ARCH-BACKOFFICE",
+      "write_policy": "protected-proposal",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ARCH-CRITICAL-PRINCIPLES",
+      "write_policy": "protected-proposal",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ARCH-DATA-MODEL",
+      "write_policy": "protected-proposal",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ARCH-ENVIRONMENT-AND-PRODUCT-RELEASE-MODEL",
+      "write_policy": "mirror-only",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ARCH-ISOLATED-RUNNER",
+      "write_policy": "protected-proposal",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ARCH-MOBILE-FACTORY",
+      "write_policy": "protected-proposal",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ARCH-OVERVIEW",
+      "write_policy": "protected-proposal",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ARCH-PORTABILITY",
+      "write_policy": "protected-proposal",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ARCH-PRODUCT-DEVELOPMENT-KNOWLEDGE-SYSTEM",
+      "write_policy": "protected-proposal",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ARCH-QUALITY-GATE",
+      "write_policy": "protected-proposal",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ARCH-RELEASE-FLOW",
+      "write_policy": "mirror-only",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ARCH-TEAM-OPERATING-MODEL",
+      "write_policy": "protected-proposal",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ARCH-TEAM-PRINCIPLES-DEFAULTS",
+      "write_policy": "protected-proposal",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ARCH-TEAM-RESEARCH-AND-OUTPUT-DECISION",
+      "write_policy": "protected-proposal",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ARCH-WEB-FACTORY",
+      "write_policy": "protected-proposal",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ARCH-WORKFLOW-ENGINE",
+      "write_policy": "protected-proposal",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ADR-0001",
+      "write_policy": "protected-proposal",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ADR-0002",
+      "write_policy": "protected-proposal",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ADR-0003",
+      "write_policy": "protected-proposal",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ADR-0004",
+      "write_policy": "protected-proposal",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ADR-0005",
+      "write_policy": "protected-proposal",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ADR-0006",
+      "write_policy": "protected-proposal",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ADR-0007",
+      "write_policy": "protected-proposal",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ADR-0008",
+      "write_policy": "protected-proposal",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ADR-0009",
+      "write_policy": "protected-proposal",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-GOV-AUTHORITY",
+      "write_policy": "protected-proposal",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-GOV-CHANGE-CONTROL",
+      "write_policy": "protected-proposal",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-GOV-DEFINITION-OF-DONE",
+      "write_policy": "protected-proposal",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-GOV-DOCUMENTATION-GOVERNANCE",
+      "write_policy": "protected-proposal",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-GOV-PROJECT-CHARTER",
+      "write_policy": "protected-proposal",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-DOC-INDEX",
+      "write_policy": "notion-working-note",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-OPS-ACCESS-AUDIT-20260904",
+      "write_policy": "mirror-only",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-OPS-EXTERNAL-SPEND-AUTHORIZATION",
+      "write_policy": "mirror-only",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-OPS-GITHUB-RELEASE-AUTOMATION",
+      "write_policy": "mirror-only",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-OPS-PILOT-READINESS",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-OPS-PILOT-REQUEST-20260910",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-OPS-RECOVERY-EVIDENCE-20260830",
+      "write_policy": "mirror-only",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-OPS-REMOTE-HANDOFF",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-OPS-SECRET-MANAGEMENT",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ROADMAP-BASELINE-20260904",
+      "write_policy": "mirror-only",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ROADMAP-CANDIDATE-EVIDENCE-20260904",
+      "write_policy": "mirror-only",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ROADMAP-CHANGELOG",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ROADMAP-EXECUTION-20260909-100-STEPS",
+      "write_policy": "mirror-only",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ROADMAP-NEXT-10-STEPS-20260831-BATCH-2",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ROADMAP-NEXT-10-STEPS-20260831",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ROADMAP-NEXT-10-STEPS-20260904-BATCH-3",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ROADMAP-NEXT-100-STEPS-20260904",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ROADMAP-NEXT-20-STEPS-20260904",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ROADMAP-OPEN-50-PRIORITY-20260904",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ROADMAP-ROADMAP-2-0-TEAM-OPERATING-MODEL",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ROADMAP-STATUS-20260910",
+      "write_policy": "mirror-only",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ROADMAP-STATUS-20260911",
+      "write_policy": "mirror-only",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ROADMAP-FUTURE-REQUIRED-PRICING-CATALOG",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ROADMAP-BACKOFFICE-COMMAND-CENTER-V1",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-EVIDENCE-BACKOFFICE-BASELINE-BO-001-010",
+      "write_policy": "mirror-only",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-EVIDENCE-BACKOFFICE-FOUNDATION-BO-011-020",
+      "write_policy": "mirror-only",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-EVIDENCE-BACKOFFICE-IDENTITY-BO-021-030",
+      "write_policy": "mirror-only",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-EVIDENCE-BACKOFFICE-WORKSPACE-POLICY-PORTFOLIO-BO-031-060",
+      "write_policy": "mirror-only",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-EVIDENCE-BACKOFFICE-COLLABORATION-COMMAND-CATALOG-BO-061-090",
+      "write_policy": "mirror-only",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-EVIDENCE-BACKOFFICE-CATALOG-INTELLIGENCE-INBOX-BO-091-120",
+      "write_policy": "mirror-only",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-PRODUCT-VPN-PILOT-BRIEF",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-PRODUCT-VPN-PILOT-TEST",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-PRODUCT-VPN-PILOT-PRODUCTION",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-SPEC-001",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-SPEC-002",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-SPEC-003",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-SPEC-004",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-SPEC-005",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-SPEC-006",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-SPEC-007",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-SPEC-008",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-SPEC-009",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-SPEC-010",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-SPEC-011",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-SPEC-012",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-SPEC-013",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-SPEC-014",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-SPEC-015",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-SPEC-016",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-SPEC-017",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-SPEC-018",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-SPEC-019",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-SPEC-020",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-SPEC-021",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-SPEC-022",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-TEMPLATE-ADR",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-TEMPLATE-CANONICAL-DOCUMENT",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-TEMPLATE-PRODUCT-REFERENCE",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-TEMPLATE-RUNBOOK",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-PRODUCT-HERO-TEST",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-PRODUCT-HERO-RELEASE",
+      "write_policy": "mirror-only",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-OPS-NOTION-SETUP",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ADR-0010",
+      "write_policy": "protected-proposal",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ADR-0011",
+      "write_policy": "protected-proposal",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ADR-0012",
+      "write_policy": "protected-proposal",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ADR-0013",
+      "write_policy": "protected-proposal",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ADR-0014",
+      "write_policy": "protected-proposal",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ADR-0015",
+      "write_policy": "protected-proposal",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-SPEC-PRODUCT-DOCUMENT-CATALOG",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-SPEC-ROADMAP-GRAPH-COMPLETENESS",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-SPEC-NOTION-WORKSPACE-SCHEMA",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-SPEC-NOTION-SYNC-CONTRACT",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-GOV-PRODUCT-DEVELOPMENT-ACCESS",
+      "write_policy": "protected-proposal",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-OPS-NOTION-SYNC-RUNBOOK",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-OPS-PRODUCT-DEVELOPMENT-PILOT",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ADR-0016",
+      "write_policy": "protected-proposal",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-EVIDENCE-BACKOFFICE-ENVIRONMENT-DELIVERY-HARDENING-FINAL-BO-121-170",
+      "write_policy": "mirror-only",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-EVIDENCE-BACKOFFICE-DELIVERY-AUDIT-20260911",
+      "write_policy": "mirror-only",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-OPS-BACKOFFICE-RUNBOOK",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-REF-BACKOFFICE-GLOSSARY",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-OPS-NOTION-BULK-SYNC-PLAN",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved controlled continuation batch."
+    },
+    {
+      "document_id": "HERO-ROADMAP-STATUS-20260911",
+      "write_policy": "mirror-only",
+      "external_write_approved": true,
+      "reason": "Owner-approved current-catalog document sync; evidence is mirrored from Git."
+    },
+    {
+      "document_id": "HERO-ROADMAP-NEXT-20-STEPS-20260911-WORKSPACE-PERSISTENCE",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved current-catalog document sync; roadmap is mirrored from Git."
+    },
+    {
+      "document_id": "HERO-ROADMAP-NEXT-100-STEPS-20260911-PROJECT-CONTROL",
+      "write_policy": "proposal-editable",
+      "external_write_approved": true,
+      "reason": "Owner-approved current-catalog document sync; roadmap is mirrored from Git."
     }
   ],
+  "product_system_conflict_resolution": {
+    "status": "approved",
+    "authorization_id": "NOTION-PRODUCT-SYSTEM-CONFLICT-FOLLOWUP-20260911-001",
+    "step_id": "NOTION-PRODUCT-SYSTEM-CONFLICT-FOLLOWUP",
+    "document_version": "1.0.0",
+    "mode": "git-canonical-overwrite-exact-existing-mapped-pages",
+    "global_stop": false,
+    "catalog_digest": "02e32a601cc6969400fa8ff5b90217f36ecdbc87c3f205cc45b19e4906ebdd24",
+    "document_ids": [
+      "HERO-EVIDENCE-BACKOFFICE-FOUNDATION-BO-011-020",
+      "HERO-EVIDENCE-BACKOFFICE-IDENTITY-BO-021-030",
+      "HERO-OPS-NOTION-SETUP"
+    ],
+    "note": "Owner-approved bounded follow-up for the exact existing mapped pages left stale by the legacy checksum format. No page creation, deletion or archive."
+  },
   "default_policy": "deny",
   "notes": [
     "This allowlist does not authorize production or restricted-content sync.",
-    "Adding a document requires classification review and a separately recorded owner decision."
+    "Adding a document requires classification review and a separately recorded owner decision.",
+    "All 126 eligible internal documents are approved for controlled projection; existing mappings are covered by batches 1-13 and newly registered documents are covered by bounded sync authorizations."
   ]
 }

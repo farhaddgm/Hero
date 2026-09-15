@@ -714,7 +714,11 @@ export function createAiOrchestration(options = {}) {
     try {
       if (provider.mode === "disabled") throw new AiOrchestrationError("PROVIDER_DISABLED", "Provider is disabled.");
       if (typeof provider.adapter?.validateConnection !== "function") throw new AiOrchestrationError("HEALTH_CHECK_UNAVAILABLE", "Provider health check is unavailable.");
-      const result = await withTimeout(provider.adapter.validateConnection(), timeoutMs);
+      const requestedProfileId = input.profileId === undefined || input.profileId === null ? null : assertIdentifier("profileId", input.profileId);
+      const profile = requestedProfileId ? readProfile(requestedProfileId) : null;
+      if (profile && profile.providerId !== providerId) throw new AiOrchestrationError("PROFILE_PROVIDER_MISMATCH", "The selected Profile belongs to a different Provider.");
+      const credentialRef = profile?.credentialRef ?? (input.credentialRef === undefined || input.credentialRef === null ? undefined : assertText("credentialRef", input.credentialRef, { maximum: 160 }));
+      const result = await withTimeout(provider.adapter.validateConnection({ credentialRef }), timeoutMs);
       if (result?.status !== "ok") throw new AiOrchestrationError("PROVIDER_UNHEALTHY", "Provider health check did not return ok.");
     } catch (error) {
       status = "blocked";
@@ -1197,6 +1201,35 @@ export function createAiOrchestration(options = {}) {
     return remember(scope, value, { decision: resolved, idempotent: false });
   }
 
+  function usageByProvider({ projectId = null } = {}) {
+    const totals = new Map();
+    for (const invocation of invocations.values()) {
+      if (projectId !== null && invocation.projectId !== projectId) continue;
+      const current = totals.get(invocation.providerId) ?? {
+        providerId: invocation.providerId,
+        invocationCount: 0,
+        completedCount: 0,
+        failedCount: 0,
+        blockedCount: 0,
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        costUnits: 0
+      };
+      const usage = invocation.status === "completed" ? invocation.response?.usage ?? {} : {};
+      current.invocationCount += 1;
+      if (invocation.status === "completed") current.completedCount += 1;
+      else if (invocation.status === "failed") current.failedCount += 1;
+      else if (invocation.status === "blocked") current.blockedCount += 1;
+      current.inputTokens += Number.isInteger(usage.inputTokens) ? usage.inputTokens : 0;
+      current.outputTokens += Number.isInteger(usage.outputTokens) ? usage.outputTokens : 0;
+      current.totalTokens += Number.isInteger(usage.totalTokens) ? usage.totalTokens : 0;
+      current.costUnits += Number.isInteger(usage.costUnits) ? usage.costUnits : 0;
+      totals.set(invocation.providerId, current);
+    }
+    return Object.freeze([...totals.values()].sort((left, right) => left.providerId.localeCompare(right.providerId)).map(immutableCopy));
+  }
+
   function snapshot() {
     return immutableCopy({
       contract: getAiOrchestrationContractSummary(),
@@ -1207,6 +1240,7 @@ export function createAiOrchestration(options = {}) {
       defaultRolePolicies: [...rolePolicies.values()],
       circuitBreaker: circuitBreaker ? { ...circuitBreaker, states: [...circuitStates.entries()].map(([providerId, state]) => ({ providerId, ...circuitSnapshot(providerId) })) } : { enabled: false, states: [] },
       externalSpendBudgets: [...externalSpendBudgets.values()].map(budget => ({ ...budget })),
+      usageByProvider: usageByProvider(),
       counts: { providers: providers.size, models: models.size, profiles: profiles.size, bindings: currentBindings.size, rolePolicies: rolePolicies.size, invocations: invocations.size, evaluations: evaluations.size, decisions: decisions.size },
       activity: activitySnapshot()
     });
@@ -1369,6 +1403,7 @@ export function createAiOrchestration(options = {}) {
     readDecision: decisionId => decisions.has(decisionId) ? immutableCopy(decisions.get(decisionId)) : null,
     snapshot,
     activitySnapshot,
+    usageByProvider,
     persistenceSnapshot,
     hydrate,
     events: (after = 0) => eventLog.readAfter(after),

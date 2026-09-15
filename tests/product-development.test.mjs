@@ -8,9 +8,11 @@ import { createNotionWorkspaceBlueprint, validateRoadmapGraph } from "../package
 import { createProductDevelopmentCatalog, ProductDevelopmentError } from "../packages/domain/src/product-development.mjs";
 import { createNotionSyncService } from "../packages/domain/src/notion-sync.mjs";
 import { createNotionSyncRegistry } from "../packages/domain/src/notion-sync-registry.mjs";
+import { createNotionProductProjection } from "../packages/domain/src/notion-product-projection.mjs";
 import { createRoadmapGraph, evaluateProductCompleteness } from "../packages/domain/src/roadmap-completeness.mjs";
 import { createHeroServer } from "../apps/control-plane/src/server.mjs";
 import { createOwnerAuth } from "../packages/domain/src/owner-auth.mjs";
+import { createProjectWorkspace } from "../packages/domain/src/project-workspace.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -48,11 +50,33 @@ test("Roadmap graph validates dependencies and Completeness blocks missing requi
 test("Notion workspace blueprint and mapping registry are deterministic and conflict-safe", () => {
   const blueprint = createNotionWorkspaceBlueprint();
   assert.equal(blueprint.initialAllowlist[0], "HERO-PRODUCT-HERO-BRIEF");
-  assert.equal(blueprint.databases.length, 11);
+  assert.equal(blueprint.databases.length, 14);
   const registry = createNotionSyncRegistry({ now: () => "2026-09-10T12:00:00.000Z" });
   registry.put({ documentId: "HERO-PRODUCT-HERO-BRIEF", pageId: "b55c9c91-384d-452b-81db-d1ef79372b75", sourceChecksum: "source-a", notionChecksum: "notion-a", canonicalCommit: "commit-a", status: "in-sync", editPolicy: "proposal-editable" });
   assert.equal(registry.compare({ documentId: "HERO-PRODUCT-HERO-BRIEF", sourceChecksum: "source-a", notionChecksum: "notion-a", canonicalCommit: "commit-a" }).state, "in-sync");
   assert.equal(registry.compare({ documentId: "HERO-PRODUCT-HERO-BRIEF", sourceChecksum: "source-b", notionChecksum: "notion-b", canonicalCommit: "commit-b" }).state, "conflict");
+});
+
+test("Notion product projection preserves the canonical roadmap and creates execution records", () => {
+  const catalog = createProductDevelopmentCatalog({ root, sourceCommit: "test-snapshot", now: () => "2026-09-10T12:00:00.000Z" });
+  const snapshot = catalog.snapshot();
+  const projection = createNotionProductProjection({ roadmap: snapshot.roadmap, roadmapGraph: snapshot.roadmapGraph, products: snapshot.products });
+  assert.deepEqual({
+    objectives: projection.objectives.length,
+    initiatives: projection.initiatives.length,
+    roadmapItems: projection.roadmapItems.length,
+    workItems: projection.workItems.length,
+    tasks: projection.tasks.length,
+    iterations: projection.iterations.length,
+    products: projection.products.length
+  }, { objectives: 1, initiatives: 2, roadmapItems: 50, workItems: 50, tasks: 50, iterations: 1, products: 2 });
+  assert.equal(projection.roadmapItems[0].id, "HERO-ROADMAP-001");
+  assert.equal(projection.initiatives.every(initiative => initiative.objectiveId === "HERO-OBJ-TRUSTWORTHY-PRODUCT-OS"), true);
+  assert.equal(projection.workItems[0].roadmapId, projection.roadmapItems[0].id);
+  assert.equal(projection.tasks[0].workItemId, projection.workItems[0].id);
+  assert.equal(projection.tasks[0].iterationId, projection.iterations[0].id);
+  assert.equal(projection.products.find(product => product.id === "HERO-PRODUCT-HERO-001").completenessStatus, "ready");
+  assert.match(projection.tasks[0].checksum, /^[a-f0-9]{64}$/);
 });
 
 test("Product Catalog search, document reads and proposal boundary are safe", () => {
@@ -70,20 +94,48 @@ test("Product Catalog search, document reads and proposal boundary are safe", ()
   assert.equal(catalog.listChangeProposals().length, 1);
 });
 
-test("Product Studio exposes catalog and document content without requiring Notion", async t => {
-  const app = createHeroServer({ host: "127.0.0.1", port: 0, repositoryRoot: root, now: () => "2026-09-10T12:00:00.000Z" });
+test("Product Studio requires a project selection and returns only the selected project snapshot", async t => {
+  const now = () => "2026-09-10T12:00:00.000Z";
+  const workspace = createProjectWorkspace({ ownerUserId: "hero-owner", now });
+  workspace.createProject({ actor: { subject: "hero-owner", role: "project-owner" }, projectId: "project-vpn", name: "VPN" });
+  const app = createHeroServer({ host: "127.0.0.1", port: 0, repositoryRoot: root, now, projectWorkspace: workspace });
   const address = await app.start();
   t.after(() => app.stop());
   const base = `http://127.0.0.1:${address.port}`;
-  const page = await fetch(`${base}/product-studio`);
+  const selection = await fetch(`${base}/product-studio`, { redirect: "manual" });
+  assert.equal(selection.status, 302);
+  assert.equal(selection.headers.get("location"), "/portfolio?select=project&next=studio");
+  const page = await fetch(`${base}/product-studio?projectId=project-vpn`);
   assert.equal(page.status, 200);
   assert.match(await page.text(), /مرکز توسعهٔ محصول و دانش Hero/);
-  const data = await (await fetch(`${base}/product-studio-data`)).json();
-  assert.equal(data.summary.productCount, 2);
-  assert.equal(data.roadmapGraph.summary.nodeCount, 8);
+  const data = await (await fetch(`${base}/product-studio-data?projectId=project-vpn`)).json();
+  assert.equal(data.scope.projectId, "project-vpn");
+  assert.equal(data.summary.productCount, 1);
+  assert.equal(data.products[0].name, "VPN");
+  assert.equal(data.roadmapGraph.summary.nodeCount, 4);
   assert.equal(data.notion.configured, false);
-  const document = await (await fetch(`${base}/product-studio-document?documentId=HERO-PRODUCT-HERO-BRIEF`)).json();
-  assert.match(document.document.content, /مأموریت/);
+  const unscopedData = await fetch(`${base}/product-studio-data`);
+  assert.equal(unscopedData.status, 400);
+  const unscopedDocument = await fetch(`${base}/product-studio-document?documentId=HERO-PRODUCT-HERO-BRIEF`);
+  assert.equal(unscopedDocument.status, 400);
+});
+
+test("Portfolio deep-links to a project-scoped Product Studio workspace", async t => {
+  const workspace = createProjectWorkspace({ ownerUserId: "hero-owner", now: () => "2026-09-10T12:00:00.000Z" });
+  workspace.createProject({ actor: { subject: "hero-owner", role: "project-owner" }, projectId: "project-vpn", name: "VPN Pilot", description: "First product pilot" });
+  const app = createHeroServer({ host: "127.0.0.1", port: 0, repositoryRoot: root, now: () => "2026-09-10T12:00:00.000Z", projectWorkspace: workspace });
+  const address = await app.start();
+  t.after(() => app.stop());
+  const base = `http://127.0.0.1:${address.port}`;
+  const portfolio = await fetch(`${base}/portfolio`);
+  assert.equal(portfolio.status, 200);
+  assert.match(await portfolio.text(), /\/api\/portal\?surface=studio&amp;projectId=project-vpn/);
+  const data = await (await fetch(`${base}/product-studio-data?projectId=project-vpn`)).json();
+  assert.equal(data.projectOverview.project.projectId, "project-vpn");
+  assert.equal(data.projectOverview.project.name, "VPN Pilot");
+  const page = await fetch(`${base}/product-studio?projectId=project-vpn`);
+  assert.equal(page.status, 200);
+  assert.match(await page.text(), /فضای پروژه/);
 });
 
 test("Product Development API remains owner-authenticated and proposal-only", async t => {
@@ -128,12 +180,20 @@ test("Notion Adapter stays disabled by default and uses current Markdown API whe
   await adapter.getMarkdownPage("b55c9c91-384d-452b-81db-d1ef79372b75");
   await adapter.updateMarkdownPage("b55c9c91-384d-452b-81db-d1ef79372b75", { type: "replace_content", replace_content: { new_str: "# Updated" } });
   await adapter.searchPages("Hero");
-  assert.equal(requests.length, 4);
+  await adapter.listViews({ databaseId: "b55c9c91-384d-452b-81db-d1ef79372b75" });
+  await adapter.getView("b55c9c91-384d-452b-81db-d1ef79372b75");
+  await adapter.createView({ database_id: "b55c9c91-384d-452b-81db-d1ef79372b75", data_source_id: "b55c9c91-384d-452b-81db-d1ef79372b75", name: "Hero — Test", type: "table" });
+  await adapter.updateView("b55c9c91-384d-452b-81db-d1ef79372b75", { name: "Hero — Test" });
+  assert.equal(requests.length, 8);
   assert.equal(requests[0].url, "https://api.notion.com/v1/pages");
   assert.equal(requests[1].url.endsWith("/markdown"), true);
   assert.equal(requests[2].options.headers["Notion-Version"], "2026-03-11");
   assert.equal(requests[0].options.headers.authorization, "Bearer secret-token");
   assert.equal(requests[3].url, "https://api.notion.com/v1/search");
+  assert.equal(requests[4].url, "https://api.notion.com/v1/views?database_id=b55c9c91-384d-452b-81db-d1ef79372b75");
+  assert.equal(requests[5].url, "https://api.notion.com/v1/views/b55c9c91-384d-452b-81db-d1ef79372b75");
+  assert.equal(requests[6].url, "https://api.notion.com/v1/views");
+  assert.equal(requests[7].url, "https://api.notion.com/v1/views/b55c9c91-384d-452b-81db-d1ef79372b75");
 });
 
 test("Notion sync requires explicit external-write authorization", async () => {

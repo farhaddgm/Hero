@@ -6,6 +6,8 @@ Hero پایه‌ی مستقل و قابل‌انتقال یک ارکستریتو
 
 ## وضعیت فعلی
 
+ممیزی جاری Back Office در [BACKOFFICE-DELIVERY-AUDIT-20260911](docs/roadmap/BACKOFFICE-DELIVERY-AUDIT-20260911.md) ثبت شده است. عبارت «پوشش ۱۷۰ گام» به معنی تکمیل ۱۷۰ قابلیت قابل‌استفاده نیست: وضعیت سخت‌گیرانهٔ فعلی `20 verified`، `122 partial`، `26 gated`، `1 owner_pending` و `1 deferred` است. ممیزی مستقل ۸۱ نیازمندی نیز `5 implemented`، `75 partial` و `1 missing` را ثبت می‌کند. رجیستری‌های ماشینی در `config/backoffice/` نگهداری می‌شوند و `pnpm check:backoffice-delivery-audit` حذف، تکرار یا بزرگ‌نمایی وضعیت را رد می‌کند.
+
 گام‌های HERO-001 تا HERO-019، پیاده‌سازی محلی HERO-022/HERO-023 و قراردادهای HERO-020/HERO-021 این موارد را فراهم می‌کنند؛ HERO-024 تا HERO-026 همچنان گیت‌های عملیاتیِ بازنشده دارند:
 
 - قرارداد تجربه کاربر فارسی و ساده، با وضعیت‌های قابل‌فهم، حالت راهنما و اختیار کامل Snapshot نسخه‌دار
@@ -94,6 +96,8 @@ APIهای `/api/*` فقط با نشست امضاشدهٔ مالک پروژه ق�
 `127.0.0.1` عمداً فقط loopback است؛ بنابراین لینکی که از یک کامپیوتر دیگر، یک VM دیگر یا محیط مرورگر جدا باز شود، به این سرویس نمی‌رسد. برای دسترسی شبکه‌ای باید جداگانه bind address، firewall، احراز هویت مشاهده‌ای و ترجیحاً reverse proxy امن طراحی و مجاز شوند؛ تغییر پیش‌فرض به `0.0.0.0` انجام نشده است.
 
 اگر Back Office قرار است پشت HTTPS و یک زیردامنهٔ عمومی قرار بگیرد، `HERO_BACKOFFICE_USER` و `HERO_BACKOFFICE_PASSWORD` را فقط در Secret Store محیط اجرا تنظیم کنید؛ password حداقل ۱۶ نویسه باشد. اپلیکیشن در این حالت مسیرهای `/backoffice`، `/backoffice-data` و `/backoffice-events` را با Basic Auth محافظت می‌کند. همهٔ پاسخ‌های Hero سیاست `X-Robots-Tag: noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate` دارند و صفحه‌های HTML همین سیاست را با meta tag نیز اعلام می‌کنند؛ `robots.txt` کل مسیر را `Disallow` می‌کند و sitemap عمومی وجود ندارد. این‌ها از ایندکس‌شدن معمول جلوگیری می‌کنند، اما جایگزین احراز هویت، TLS، firewall یا reverse proxy نیستند.
+
+برای ثبت کلید Providerهای AI در محیط Test، Owner ابتدا از مسیر canonical `https://test.hero.beeproject.ir/api/portal?surface=identity` وارد می‌شود، سپس در نوار کناری «اتصال‌های AI» و دکمهٔ «رفتن به ثبت امن کلید» را انتخاب می‌کند؛ راهنمای کامل و گام‌به‌گام در [ثبت امن کلیدهای AI در Hero Test](docs/operations/HERO-TEST-AI-SECRET-STORE.md) است. مسیرهای قدیمی `/backoffice` و `/portfolio` برای ورود انسانی این کار استفاده نمی‌شوند. Secret Store داخلی Test مقدارها را رمزنگاری می‌کند و فقط مرجع/وضعیت را نمایش می‌دهد؛ این مسیر برای Production فعال نیست.
 
 قرارداد جداسازی Secretهای Test و Production، الگوی مهاجرت پروژه‌به‌پروژه و کنترل جلوگیری از ورود فایل runtime به Git در [docs/operations/SECRET-MANAGEMENT.md](docs/operations/SECRET-MANAGEMENT.md) ثبت شده است. مقدار Secret چند پروژه نباید در یک فایل `.env` مشترک قرار بگیرد.
 

@@ -23,6 +23,9 @@ const FILES = Object.freeze([
   "packages/adapters/migrations/011_project_workspace_and_settings.sql",
   "packages/adapters/src/postgresql-project-workspace-store.mjs",
   "apps/control-plane/src/portfolio-view.mjs",
+  "apps/control-plane/src/product-studio-view.mjs",
+  "apps/control-plane/src/project-control-room-view.mjs",
+  "apps/control-plane/src/server.mjs",
   "tests/project-workspace-and-settings.test.mjs"
 ]);
 function absolute(root, candidate) { const resolved = path.resolve(root, candidate); if (!isInsideRoot(resolved, root)) throw new Error(`Path outside root: ${candidate}`); return resolved; }
@@ -43,6 +46,11 @@ export function validateBackofficeWorkspace(options = {}) {
   }
   const roadmap = text(root, FILES[0]); for (const id of Array.from({ length: 30 }, (_, index) => step(index + 31))) if (!roadmap.includes(`| \`${id}\` |`)) errors.push({ code: "ROADMAP_STEP_MISSING", detail: id });
   const migration = text(root, "packages/adapters/migrations/011_project_workspace_and_settings.sql"); for (const marker of ["project_registry_versions", "project_input_metadata", "foundation_proposal_versions", "project_setting_versions", "project_import_plans", "append_only_guard"]) if (!migration.includes(marker)) errors.push({ code: "MIGRATION_MARKER_MISSING", detail: marker });
+  const workspace = text(root, "packages/domain/src/project-workspace.mjs"); for (const marker of ["hydrateProject", "hydrateInput", "hydrateFoundation", "hydrateImport", "listImportPlans"]) if (!workspace.includes(marker)) errors.push({ code: "WORKSPACE_HYDRATION_MARKER_MISSING", detail: marker });
+  const settings = text(root, "packages/domain/src/project-settings.mjs"); for (const marker of ["hydrateRecord", "listRecords", "recordedAt"]) if (!settings.includes(marker)) errors.push({ code: "SETTINGS_HYDRATION_MARKER_MISSING", detail: marker });
+  const server = text(root, "apps/control-plane/src/server.mjs"); for (const marker of ["persistWorkspaceProject", "persistWorkspaceInput", "persistWorkspaceProposal", "persistWorkspaceSettings", "listSettings", "listProjects"]) if (!server.includes(marker)) errors.push({ code: "WORKSPACE_PERSISTENCE_MARKER_MISSING", detail: marker });
+  const studio = text(root, "apps/control-plane/src/product-studio-view.mjs"); for (const marker of ["workspace-panel", "Foundation", "inputCount", "settings", "surface=control"]) if (!studio.includes(marker)) errors.push({ code: "WORKSPACE_UI_MARKER_MISSING", detail: marker });
+  const controlRoom = text(root, "apps/control-plane/src/project-control-room-view.mjs"); for (const marker of ["اتاق کنترل پروژه", "metadata امن", "Provider زنده"]) if (!controlRoom.includes(marker)) errors.push({ code: "PROJECT_CONTROL_ROOM_MARKER_MISSING", detail: marker });
   const registry = JSON.parse(text(root, "docs/registry/document-registry.json")); const ids = new Map(registry.documents.map(document => [document.id, document.status]));
   for (const id of ["HERO-ADR-0013", "HERO-EVIDENCE-BACKOFFICE-WORKSPACE-POLICY-PORTFOLIO-BO-031-060"]) if (ids.get(id) !== "active") errors.push({ code: "DOCUMENT_NOT_ACTIVE", detail: id });
   return Object.freeze({ ok: errors.length === 0, stepCount: allSteps.length, errors: Object.freeze(errors) });

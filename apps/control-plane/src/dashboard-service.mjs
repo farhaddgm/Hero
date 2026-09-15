@@ -327,6 +327,17 @@ export function createControlDashboard(options = {}) {
 
   function backofficeSnapshot() {
     const current = snapshot();
+    const providerHealth = new Map();
+    for (const event of aiOrchestration.events()) {
+      if (event.type !== "ai.provider-health-checked" || !event.data?.providerId) continue;
+      providerHealth.set(event.data.providerId, Object.freeze({
+        status: event.data.status,
+        code: event.data.code,
+        checkedAt: event.occurredAt,
+        latencyMs: event.data.latencyMs ?? null
+      }));
+    }
+    const providerUsage = new Map((current.aiOrchestration.usageByProvider ?? []).map(item => [item.providerId, item]));
     const diagnostics = operationalDiagnostics();
     const teams = current.teamControl.teams.map(team => {
       const approvalValues = Object.values(team.approvals);
@@ -752,13 +763,37 @@ export function createControlDashboard(options = {}) {
           role,
           versions: Object.freeze(typeof aiOrchestration.rolePolicyHistory === "function" ? aiOrchestration.rolePolicyHistory(role) : [])
         }))),
-        providers: Object.freeze((aiConfiguration.providers ?? []).map(provider => Object.freeze({
-          providerId: provider.providerId,
-          mode: provider.mode,
-          displayName: provider.displayName,
-          capabilities: Object.freeze([...(provider.capabilities ?? [])]),
-          registeredAt: provider.registeredAt
-        }))),
+        providers: Object.freeze((aiConfiguration.providers ?? []).map(provider => {
+          const latestHealth = providerHealth.get(provider.providerId) ?? null;
+          const connectionState = provider.mode === "disabled"
+            ? "disabled"
+            : provider.mode === "deterministic"
+              ? "local-ready"
+              : latestHealth?.status === "healthy"
+                ? "healthy"
+                : latestHealth?.status === "blocked"
+                  ? "blocked"
+                  : "not-verified";
+          return Object.freeze({
+            providerId: provider.providerId,
+            mode: provider.mode,
+            displayName: provider.displayName,
+            capabilities: Object.freeze([...(provider.capabilities ?? [])]),
+            registeredAt: provider.registeredAt,
+            connection: Object.freeze({ state: connectionState, latestHealth }),
+            usage: Object.freeze(providerUsage.get(provider.providerId) ?? {
+              providerId: provider.providerId,
+              invocationCount: 0,
+              completedCount: 0,
+              failedCount: 0,
+              blockedCount: 0,
+              inputTokens: 0,
+              outputTokens: 0,
+              totalTokens: 0,
+              costUnits: 0
+            })
+          });
+        })),
         models: Object.freeze((aiConfiguration.models ?? []).map(model => Object.freeze({
           providerId: model.providerId,
           modelId: model.modelId,
@@ -793,6 +828,7 @@ export function createControlDashboard(options = {}) {
           boundAt: binding.boundAt
         }))),
         activity: current.aiOrchestration.activity,
+        usageByProvider: current.aiOrchestration.usageByProvider ?? [],
         providerMode: current.providerMode,
         liveStatus: "گیت‌شده؛ بدون credential، cost policy و مجوز مستقل هیچ تماس بیرونی انجام نمی‌شود"
       }),
@@ -1339,6 +1375,11 @@ export function createControlDashboard(options = {}) {
     return runAiCommand(aiOrchestration.registerProvider, { ...payload, ...(adapter ? { adapter } : {}) }, actor);
   }
 
+  function checkAiProviderHealth(input = {}) {
+    const { actor: inputActor, ...payload } = input;
+    return runAiCommand(aiOrchestration.checkProviderHealth, payload, inputActor ?? { kind: "project-owner", id: "hero-owner" });
+  }
+
   function registerAiModel(input = {}) {
     const { actor: inputActor, ...payload } = input;
     return runAiCommand(aiOrchestration.registerModel, payload, inputActor ?? { kind: "project-owner", id: "hero-owner" });
@@ -1772,6 +1813,7 @@ export function createControlDashboard(options = {}) {
     recordProjectMemory,
     assembleAiContext,
     registerAiProvider,
+    checkAiProviderHealth,
     registerAiModel,
     registerAiProfile,
     bindAiRole,

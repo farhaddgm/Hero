@@ -66,6 +66,7 @@ test("AI orchestration contract keeps roles, provider modes and authority separa
   assert.ok(summary.roles.includes("analyst"));
   assert.ok(summary.roles.includes("executor"));
   assert.ok(summary.providers.includes("openai-compatible"));
+  assert.ok(summary.providers.includes("cursor"));
   assert.match(summary.invariants.join(" "), /Team != AI Role/);
   assert.equal(summary.contextRecipientRoles.executor, "implementer");
   assert.deepEqual(summary.workflows.development, ["planner", "executor", "verifier", "code-reviewer"]);

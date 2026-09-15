@@ -2,10 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { validateProjectIdentityContract } from "../packages/contracts/src/project-identity.mjs";
-import { createHumanIdentity, createTotpCode, HumanIdentityError } from "../packages/domain/src/human-identity.mjs";
+import { createHumanIdentity, createTotpCode, HumanIdentityError, HUMAN_IDENTITY_SESSION_TTL_SECONDS } from "../packages/domain/src/human-identity.mjs";
 import { createProjectAccessMiddleware } from "../packages/domain/src/project-access-middleware.mjs";
 import { createProjectAccessRegistry, ProjectAccessError } from "../packages/domain/src/project-access.mjs";
 import { createHeroServer } from "../apps/control-plane/src/server.mjs";
+import { createControlDashboard } from "../apps/control-plane/src/dashboard-service.mjs";
 
 const ownerSecret = "owner-mfa-secret-for-identity-tests";
 const sessionSecret = "identity-session-test-secret-12345678901234567890";
@@ -33,6 +34,28 @@ function ownerPrincipal(identity) {
   return ownerLogin(identity).principal;
 }
 
+test("RFC 6238 Base32 TOTP matches the published SHA-1 vector while legacy UTF-8 generation stays stable", () => {
+  const rfcSecret = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ";
+  assert.equal(createTotpCode(`base32:${rfcSecret}`, 59), "287082");
+  const legacySecret = "JBSWY3DPEHPK3PXP";
+  assert.equal(createTotpCode(legacySecret, epoch), createTotpCode(`legacy-utf8:${legacySecret}`, epoch));
+  assert.throws(() => createTotpCode("base32:not-valid!", epoch), error => error.code === "MFA_SECRET_INVALID");
+});
+
+test("unprefixed legacy-compatible secrets also verify a standard Base32 authenticator code", () => {
+  const base32Secret = "JBSWY3DPEHPK3PXP";
+  const access = createProjectAccessRegistry({ ownerUserId: "hero-owner", ownerUser: { email: "owner@example.test", displayName: "Owner" }, now });
+  const identity = createHumanIdentity({
+    accessRegistry: access,
+    sessionSecret,
+    now,
+    owner: { userId: "hero-owner", email: "owner@example.test", displayName: "Owner", password: "Owner password 123", mfaSecret: base32Secret }
+  });
+  const challenge = identity.beginLogin({ email: "owner@example.test", password: "Owner password 123" });
+  const login = identity.completeLogin({ challengeId: challenge.challengeId, mfaCode: createTotpCode(`base32:${base32Secret}`, epoch) });
+  assert.equal(login.principal.role, "project-owner");
+});
+
 test("fixed three-role project permission matrix is deny-by-default", () => {
   assert.deepEqual(validateProjectIdentityContract(), []);
   const { access, identity } = setup();
@@ -57,6 +80,7 @@ test("email/password login requires MFA for owner/admin and issues a scoped prin
   assert.throws(() => identity.completeLogin({ challengeId: challenge.challengeId, mfaCode: "000000" }), error => error instanceof HumanIdentityError && error.code === "MFA_INVALID");
   const login = identity.completeLogin({ challengeId: challenge.challengeId, mfaCode: createTotpCode("admin-mfa-secret-123", epoch) });
   assert.equal(login.principal.subject, "project-admin");
+  assert.equal(login.principal.expiresAt, epoch + HUMAN_IDENTITY_SESSION_TTL_SECONDS);
   const middleware = createProjectAccessMiddleware({ accessRegistry: access, identity });
   const scope = middleware.requireProject({ principal: login.principal, projectId: "project-vpn", action: "project.write" });
   assert.equal(scope.cacheKey, "hero:cache:project-vpn");
@@ -79,6 +103,354 @@ test("owner recovery revokes prior sessions and enforces a sensitive-action cool
   const recovered = identity.completeLogin({ challengeId: oldChallenge.challengeId, mfaCode: createTotpCode(ownerSecret, epoch) }).principal;
   assert.throws(() => identity.assertSensitiveActionAllowed({ principal: recovered, action: "secret.reveal" }), error => error.code === "RECOVERY_COOLDOWN_ACTIVE");
   assert.equal(prior.principal.role, "project-owner");
+});
+
+test("identity hydration restores persisted users without persisting MFA secrets", () => {
+  const first = setup();
+  const owner = ownerPrincipal(first.identity);
+  first.identity.createUser({ actor: owner, user: {
+    userId: "project-admin",
+    email: "admin@example.test",
+    displayName: "Admin",
+    password: "Admin password 123",
+    mfaSecret: "admin-mfa-secret-123",
+    mfaSecretRef: "env:HERO_ADMIN_MFA_SECRET",
+    mfaRequired: true
+  } });
+  const persisted = first.identity.persistenceRecord({ userId: "project-admin" });
+  assert.equal("mfaSecret" in persisted, false);
+
+  const access = createProjectAccessRegistry({ ownerUserId: "hero-owner", ownerUser: { email: "owner@example.test", displayName: "Owner" }, now });
+  const identity = createHumanIdentity({
+    accessRegistry: access,
+    sessionSecret,
+    now,
+    owner: { userId: "hero-owner", email: "owner@example.test", displayName: "Owner", password: "Owner password 123", mfaSecret: ownerSecret }
+  });
+  access.hydrateUser({ user: { userId: persisted.userId, email: persisted.email, displayName: persisted.displayName, role: "viewer" } });
+  identity.hydrateUser({ user: persisted });
+  const challenge = identity.beginLogin({ email: "admin@example.test", password: "Admin password 123" });
+  assert.equal(challenge.mfaRequired, true);
+  assert.throws(() => identity.completeLogin({ challengeId: challenge.challengeId, mfaCode: "000000" }), error => error.code === "MFA_INVALID");
+});
+
+test("identity page is network-protected and exposes the real identity workflow", async t => {
+  const { access, identity } = setup();
+  const app = createHeroServer({ host: "127.0.0.1", port: 0, now, projectAccessRegistry: access, humanIdentity: identity, backofficeAuth: { username: "backoffice", password: "backoffice-password-123456" } });
+  const address = await app.start();
+  t.after(() => app.stop());
+  const base = `http://127.0.0.1:${address.port}`;
+  assert.equal((await fetch(`${base}/identity`)).status, 401);
+  const credentials = Buffer.from("backoffice:backoffice-password-123456").toString("base64");
+  const page = await fetch(`${base}/identity`, { headers: { authorization: `Basic ${credentials}` } });
+  const body = await page.text();
+  assert.equal(page.status, 200);
+  assert.match(body, /\/api\/identity\/login/);
+  assert.match(body, /\/api\/identity\/status/);
+  assert.match(body, /\/api\/identity\/users/);
+  assert.doesNotMatch(body, /sessionStorage\.(?:setItem|getItem)\([^)]*(?:identity|session|token|password|mfa)/i);
+  assert.match(body, /credentials: "same-origin"/);
+  assert.match(body, /نشست امن شش‌ساعته/);
+  assert.match(body, /identity-configuration-status/);
+  assert.match(body, /این دو رمز مستقل‌اند/);
+  const status = await fetch(`${base}/api/identity/status`);
+  assert.equal(status.status, 200);
+  assert.deepEqual((await status.json()).identity, {
+    configured: true,
+    humanLoginAvailable: true,
+    networkBoundary: "human-session-portal-with-legacy-basic",
+    ownerMfaRequired: true,
+    totp: "rfc6238-base32-with-legacy-verification",
+    persistence: "not-connected",
+    recoveryDelivery: "not-configured",
+    sessionTtlSeconds: 21_600
+  });
+});
+
+test("AI Connections keeps the legacy Portfolio route while the browser portal is the canonical human-session path", async t => {
+  const { access, identity } = setup();
+  const app = createHeroServer({ host: "127.0.0.1", port: 0, now, projectAccessRegistry: access, humanIdentity: identity, backofficeAuth: { username: "backoffice", password: "backoffice-password-123456" } });
+  const address = await app.start();
+  t.after(() => app.stop());
+  const base = `http://127.0.0.1:${address.port}`;
+  const authorization = `Basic ${Buffer.from("backoffice:backoffice-password-123456").toString("base64")}`;
+
+  const canonical = await fetch(`${base}/portfolio?surface=ai`, { headers: { authorization } });
+  assert.equal(canonical.status, 200);
+  assert.match(await canonical.text(), /Providerها و سلامت اتصال/);
+
+  const legacy = await fetch(`${base}/backoffice?surface=ai`, { headers: { authorization }, redirect: "manual" });
+  assert.equal(legacy.status, 302);
+  assert.equal(legacy.headers.get("location"), "/portfolio?surface=ai");
+});
+
+test("the browser portal keeps an active Human session inside AI Connections and rejects Basic Auth as a portal principal", async t => {
+  const { access, identity } = setup();
+  const app = createHeroServer({ host: "127.0.0.1", port: 0, now, projectAccessRegistry: access, humanIdentity: identity, backofficeAuth: { username: "backoffice", password: "backoffice-password-123456" } });
+  const address = await app.start();
+  t.after(() => app.stop());
+  const base = `http://127.0.0.1:${address.port}`;
+  const unauthenticated = await fetch(`${base}/api/portal?surface=ai`, { redirect: "manual" });
+  assert.equal(unauthenticated.status, 302);
+  assert.match(unauthenticated.headers.get("location"), /^\/api\/portal\?surface=identity&returnTo=/);
+  const identityPage = await fetch(`${base}/api/portal?surface=identity`);
+  assert.equal(identityPage.status, 200);
+  assert.match(await identityPage.text(), /ورود انسانی/);
+
+  const login = await fetch(`${base}/api/identity/login`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "owner@example.test", password: "Owner password 123" }) });
+  const challengeId = (await login.json()).login.challengeId;
+  const complete = await fetch(`${base}/api/identity/login/mfa`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ challengeId, mfaCode: createTotpCode(ownerSecret, epoch) }) });
+  const cookie = complete.headers.get("set-cookie").split(";", 1)[0];
+  const ai = await fetch(`${base}/api/portal?surface=ai`, { headers: { cookie } });
+  assert.equal(ai.status, 200);
+  assert.match(await ai.text(), /Providerها و سلامت اتصال/);
+  const aiRefresh = await fetch(`${base}/api/portal-data?surface=ai`, { headers: { cookie } });
+  assert.equal(aiRefresh.status, 200);
+  assert.equal((await aiRefresh.json()).service, "hero-control-plane");
+  assert.equal((await fetch(`${base}/api/portal-data?surface=ai`)).status, 401);
+  const basic = Buffer.from("backoffice:backoffice-password-123456").toString("base64");
+  const basicOnly = await fetch(`${base}/api/portal?surface=ai`, { headers: { authorization: `Basic ${basic}` }, redirect: "manual" });
+  assert.equal(basicOnly.status, 302, "Basic Auth alone must never bypass the Human session portal");
+});
+
+test("Human Identity issues a six-hour HttpOnly browser session that survives refreshes and tabs", async t => {
+  const { access, identity } = setup();
+  const app = createHeroServer({ host: "127.0.0.1", port: 0, now, projectAccessRegistry: access, humanIdentity: identity });
+  const address = await app.start();
+  t.after(() => app.stop());
+  const base = `http://127.0.0.1:${address.port}`;
+  const login = await fetch(`${base}/api/identity/login`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email: "owner@example.test", password: "Owner password 123" })
+  });
+  assert.equal(login.status, 200);
+  const challengeId = (await login.json()).login.challengeId;
+  const complete = await fetch(`${base}/api/identity/login/mfa`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ challengeId, mfaCode: createTotpCode(ownerSecret, epoch) })
+  });
+  assert.equal(complete.status, 200);
+  const setCookie = complete.headers.get("set-cookie");
+  assert.ok(setCookie);
+  assert.match(setCookie, /__Host-hero-human-session=/);
+  assert.match(setCookie, /Max-Age=21600/);
+  assert.match(setCookie, /Path=\//);
+  assert.match(setCookie, /Secure/);
+  assert.match(setCookie, /HttpOnly/);
+  assert.match(setCookie, /SameSite=Strict/);
+  const cookie = setCookie.split(";", 1)[0];
+
+  const refresh = await fetch(`${base}/api/identity/me`, { headers: { cookie } });
+  assert.equal(refresh.status, 200);
+  assert.equal((await refresh.json()).principal.role, "project-owner");
+  const otherTab = await fetch(`${base}/api/identity/me`, { headers: { cookie, authorization: "Basic outer-network-gate" } });
+  assert.equal(otherTab.status, 200);
+
+  const advice = await fetch(`${base}/api/walkthrough/advice?projectId=project-vpn`, {
+    method: "POST",
+    headers: { cookie, origin: base, "content-type": "application/json" },
+    body: JSON.stringify({ stepId: "intake", projectId: "project-vpn", question: "برای هدف چه پیشنهادی داری؟" })
+  });
+  assert.equal(advice.status, 200);
+  const advisor = (await advice.json()).advisor;
+  assert.equal(advisor.mode, "local-contextual-guidance");
+  assert.equal(advisor.providerInvoked, false);
+  assert.equal(advisor.stepId, "intake");
+  assert.equal(advisor.proposedFields.some(field => field.name === "goal"), true);
+  assert.equal(JSON.stringify(advisor).includes("برای هدف چه پیشنهادی داری؟"), false, "questions must not be persisted or echoed");
+
+  const smartTesterQuery = new URLSearchParams({ surface: "/workspace", featureKey: "workspace.intake", projectId: "project-vpn", boxId: "intake-card", boxTitle: "تعریف اولیهٔ پروژه", boxDescription: "این باکس مسئله، هدف و شیوهٔ تأیید پروژه را برای شروع جریان Hero ثبت می‌کند." }).toString();
+  const smartTesterContext = await fetch(`${base}/api/smart-tester/context?${smartTesterQuery}`, { headers: { cookie } });
+  assert.equal(smartTesterContext.status, 200);
+  assert.equal((await smartTesterContext.json()).smartTester.context.featureKey, "workspace.intake");
+  const smartTesterRun = await fetch(`${base}/api/smart-tester/run?${smartTesterQuery}`, {
+    method: "POST",
+    headers: { cookie, origin: base, "content-type": "application/json" },
+    body: JSON.stringify({ surface: "/workspace", featureKey: "workspace.intake", boxId: "intake-card", projectId: "project-vpn" })
+  });
+  assert.equal(smartTesterRun.status, 200);
+  const smartTester = (await smartTesterRun.json()).smartTester;
+  assert.match(smartTester.reportId, /^[0-9a-f-]{36}$/i);
+  assert.equal(smartTester.report.context.projectId, "project-vpn");
+  assert.equal(smartTester.report.context.boxTitle, "تعریف اولیهٔ پروژه");
+  assert.equal(smartTester.report.checks.some(check => check.id === "browser.e2e" && check.status === "not-run"), true);
+  const smartTesterAdvice = await fetch(`${base}/api/smart-tester/advice?${smartTesterQuery}`, {
+    method: "POST",
+    headers: { cookie, origin: base, "content-type": "application/json" },
+    body: JSON.stringify({ surface: "/workspace", featureKey: "workspace.intake", boxId: "intake-card", projectId: "project-vpn", reportId: smartTester.reportId, question: "اول کدام دسته از گزارش را بررسی کنم؟" })
+  });
+  assert.equal(smartTesterAdvice.status, 200);
+  const smartTesterAdvisor = (await smartTesterAdvice.json()).smartTester.advisor;
+  assert.equal(smartTesterAdvisor.providerInvoked, false);
+  assert.doesNotMatch(smartTesterAdvisor.response, /اول کدام/);
+  assert.match(smartTesterAdvisor.response, /تعریف اولیهٔ پروژه/);
+  const smartTesterOptions = await fetch(`${base}/api/smart-tester/options?projectId=project-vpn`, { headers: { cookie } });
+  assert.equal(smartTesterOptions.status, 200);
+  assert.equal((await smartTesterOptions.json()).smartTester.options.localAdvisor.id, "local");
+  const smartTesterDiagnosis = await fetch(`${base}/api/smart-tester/diagnose?${smartTesterQuery}`, {
+    method: "POST",
+    headers: { cookie, origin: base, "content-type": "application/json" },
+    body: JSON.stringify({ surface: "/workspace", featureKey: "workspace.intake", boxId: "intake-card", projectId: "project-vpn", reportId: smartTester.reportId, chatInformed: true })
+  });
+  assert.equal(smartTesterDiagnosis.status, 200);
+  const diagnosis = (await smartTesterDiagnosis.json()).smartTester;
+  assert.match(diagnosis.errorReportId, /^[0-9a-f-]{36}$/i);
+  const smartTesterSubmit = await fetch(`${base}/api/smart-tester/errors/submit?${smartTesterQuery}`, {
+    method: "POST",
+    headers: { cookie, origin: base, "content-type": "application/json" },
+    body: JSON.stringify({ surface: "/workspace", featureKey: "workspace.intake", boxId: "intake-card", projectId: "project-vpn", errorReportId: diagnosis.errorReportId })
+  });
+  assert.equal(smartTesterSubmit.status, 201);
+  assert.match((await smartTesterSubmit.json()).smartTester.document.documentId, /^smart-tester-errors:project-vpn$/);
+  assert.equal((await fetch(`${base}/api/smart-tester/run?${smartTesterQuery}`, {
+    method: "POST",
+    headers: { cookie, origin: base, "content-type": "application/json" },
+    body: JSON.stringify({ surface: "/workspace", featureKey: "workspace.intake", projectId: "project-crm" })
+  })).status, 400, "the body must not switch the authorised project scope");
+
+  const advisorOptions = await fetch(`${base}/api/projects/project-vpn/walkthrough-advisor/options`, { headers: { cookie } });
+  assert.equal(advisorOptions.status, 200);
+  const options = (await advisorOptions.json()).advisorOptions;
+  assert.equal(options.projectId, "project-vpn");
+  assert.equal(options.localAdvisor.id, "local");
+  assert.deepEqual(options.profiles, []);
+  assert.equal(JSON.stringify(options).includes("credentialRef"), false);
+
+  const providerFromHumanSession = await fetch(`${base}/api/ai/providers`, {
+    method: "POST",
+    headers: { cookie, origin: base, "content-type": "application/json" },
+    body: JSON.stringify({ providerId: "deterministic", mode: "deterministic", displayName: "Local test provider", capabilities: [], idempotencyKey: "human-owner-provider-001" })
+  });
+  assert.equal(providerFromHumanSession.status, 201, "the Owner browser session may register safe global AI metadata");
+
+  const liveInvocationFromHumanSession = await fetch(`${base}/api/ai/invocations`, {
+    method: "POST",
+    headers: { cookie, origin: base, "content-type": "application/json" },
+    body: JSON.stringify({ invocationId: "human-owner-live-invocation", providerId: "deterministic", modelId: "local", profileId: "local", projectId: "project-vpn", taskId: "test", stepId: "test", idempotencyKey: "human-owner-live-invocation-001" })
+  });
+  assert.equal(liveInvocationFromHumanSession.status, 403, "a browser session must not gain an unscoped live invocation path");
+
+  const invalidAdvice = await fetch(`${base}/api/walkthrough/advice?projectId=project-vpn`, {
+    method: "POST",
+    headers: { cookie, origin: base, "content-type": "application/json" },
+    body: JSON.stringify({ stepId: "not-a-step", projectId: "project-vpn" })
+  });
+  assert.equal(invalidAdvice.status, 400);
+  assert.equal((await invalidAdvice.json()).code, "WALKTHROUGH_ADVICE_INVALID");
+
+  const missingOrigin = await fetch(`${base}/api/identity/sessions/revoke`, {
+    method: "POST",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({ reason: "test-missing-origin" })
+  });
+  assert.equal(missingOrigin.status, 403);
+  assert.equal((await missingOrigin.json()).code, "IDENTITY_CSRF_ORIGIN_REQUIRED");
+
+  const revoke = await fetch(`${base}/api/identity/sessions/revoke`, {
+    method: "POST",
+    headers: { cookie, origin: base, "content-type": "application/json" },
+    body: JSON.stringify({ reason: "test-browser-logout" })
+  });
+  assert.equal(revoke.status, 200);
+  assert.match(revoke.headers.get("set-cookie"), /__Host-hero-human-session=; Max-Age=0/);
+  assert.equal((await fetch(`${base}/api/identity/me`, { headers: { cookie } })).status, 401);
+});
+
+test("identity status is safely readable and login fails explicitly when human identity is not configured", async t => {
+  const app = createHeroServer({ host: "127.0.0.1", port: 0, humanIdentity: { configured: false }, backofficeAuth: { username: "backoffice", password: "backoffice-password-123456" } });
+  const address = await app.start();
+  t.after(() => app.stop());
+  const base = `http://127.0.0.1:${address.port}`;
+  const status = await fetch(`${base}/api/identity/status`);
+  assert.equal(status.status, 200);
+  const payload = await status.json();
+  assert.equal(payload.identity.configured, false);
+  assert.equal(payload.identity.humanLoginAvailable, false);
+  assert.equal("email" in payload.identity, false);
+  const login = await fetch(`${base}/api/identity/login`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "owner@example.test", password: "Owner password 123" }) });
+  assert.equal(login.status, 503);
+  assert.equal((await login.json()).code, "IDENTITY_NOT_CONFIGURED");
+});
+
+test("Walk-Through lists only active Project-bound advisor Profiles and preserves the local fallback", async t => {
+  const { access, identity } = setup();
+  const owner = ownerLogin(identity);
+  const dashboard = createControlDashboard({ now });
+  const actor = { kind: "project-owner", id: "hero-owner" };
+  dashboard.registerAiProvider({ providerId: "deterministic", mode: "deterministic", displayName: "Local Advisor", capabilities: [], idempotencyKey: "advisor-provider-001", actor });
+  dashboard.registerAiModel({ providerId: "deterministic", modelId: "local-advisor-v1", displayName: "Local Advisor v1", metadata: {}, idempotencyKey: "advisor-model-001", actor });
+  dashboard.registerAiProfile({ profileId: "walkthrough-analyst-v1", role: "analyst", providerId: "deterministic", modelId: "local-advisor-v1", credentialRef: "runtime:local-advisor", promptVersion: "walkthrough-prompt-v1", contextPolicy: "project-approved-context", toolPolicy: "read-only", outputSchema: "analysis-v1", status: "active", timeoutMs: 1000, maxRetries: 0, maxOutputTokens: 128, maxCostUnits: 0, costLatencyPriority: "balanced", idempotencyKey: "advisor-profile-001", actor });
+  dashboard.bindAiRole({ bindingId: "walkthrough-analyst-binding-v1", projectId: "project-vpn", teamId: null, skillId: null, role: "analyst", profileId: "walkthrough-analyst-v1", supersedesBindingId: null, idempotencyKey: "advisor-binding-001", actor });
+  const app = createHeroServer({ host: "127.0.0.1", port: 0, now, dashboard, projectAccessRegistry: access, humanIdentity: identity });
+  const address = await app.start();
+  t.after(() => app.stop());
+  const base = `http://127.0.0.1:${address.port}`;
+  const headers = { authorization: `Bearer ${owner.token}`, "content-type": "application/json" };
+  const options = await fetch(`${base}/api/projects/project-vpn/walkthrough-advisor/options`, { headers });
+  assert.equal(options.status, 200);
+  const payload = (await options.json()).advisorOptions;
+  assert.equal(payload.localAdvisor.selectable, true);
+  assert.equal(payload.profiles.length, 1);
+  assert.deepEqual(payload.profiles[0], {
+    profileId: "walkthrough-analyst-v1",
+    role: "analyst",
+    providerId: "deterministic",
+    providerName: "Local Advisor",
+    modelId: "local-advisor-v1",
+    modelName: "Local Advisor v1",
+    profileVersion: 1,
+    outputSchema: "analysis-v1",
+    connectionState: "local-ready",
+    selectable: true,
+    selectionNotice: "پاسخ deterministic و بدون هزینهٔ Provider خارجی است."
+  });
+  assert.equal(JSON.stringify(payload).includes("credentialRef"), false);
+  const advice = await fetch(`${base}/api/walkthrough/advice?projectId=project-vpn`, { method: "POST", headers, body: JSON.stringify({ stepId: "intake", projectId: "project-vpn", advisorProfileId: "walkthrough-analyst-v1", question: "برای هدف چه پیشنهادی داری؟" }) });
+  assert.equal(advice.status, 200);
+  const selected = (await advice.json()).advisor.selectedAdvisor;
+  assert.deepEqual(selected, { kind: "profile", profileId: "walkthrough-analyst-v1", providerId: "deterministic", modelId: "local-advisor-v1", profileVersion: 1, dispatch: "selection-recorded-awaiting-separate-external-authorization" });
+  const unavailable = await fetch(`${base}/api/walkthrough/advice?projectId=project-vpn`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ stepId: "intake", projectId: "project-vpn", advisorProfileId: "missing-advisor-v1", question: "راهنمای Intake" })
+  });
+  assert.equal(unavailable.status, 400, "a caller cannot bypass the picker with an unbound or unavailable profile");
+  assert.equal((await unavailable.json()).code, "WALKTHROUGH_ADVISOR_PROFILE_UNAVAILABLE");
+});
+
+test("Control Plane startup hydrates identity users, grants and revocations from its PostgreSQL boundary", async t => {
+  const first = setup();
+  const owner = ownerPrincipal(first.identity);
+  first.identity.createUser({ actor: owner, user: { userId: "project-viewer", email: "viewer@example.test", password: "Viewer password 123" } });
+  first.access.upsertGrant({ actor: owner, grant: { projectId: "project-vpn", userId: "project-viewer", role: "viewer" } });
+  const persistedUser = first.identity.persistenceRecord({ userId: "project-viewer" });
+  const persistedGrant = first.access.listProjectGrants({ principal: owner, projectId: "project-vpn" })[0];
+  const saved = [];
+  const second = setup();
+  const app = createHeroServer({
+    host: "127.0.0.1",
+    port: 0,
+    now,
+    projectAccessRegistry: second.access,
+    humanIdentity: second.identity,
+    postgresRuntime: {
+      async ping() { return { status: "ok" }; },
+      projectIdentity: {
+        async listUsers() { return [persistedUser]; },
+        async listCurrentGrants() { return [persistedGrant]; },
+        async listSessionRevocations() { return []; },
+        async saveUser(user) { saved.push(user); }
+      }
+    }
+  });
+  await app.start();
+  t.after(() => app.stop());
+  const restored = second.identity.getUser("project-viewer");
+  assert.equal(restored.email, "viewer@example.test");
+  assert.equal(second.access.authorize({ principal: { subject: "project-viewer", role: "member" }, projectId: "project-vpn", action: "project.read" }).role, "viewer");
+  assert.equal(saved.some(user => user.userId === "hero-owner"), true);
 });
 
 test("HTTP middleware enforces grants, Viewer read-only access and cross-project denial", async t => {
@@ -106,6 +478,19 @@ test("HTTP middleware enforces grants, Viewer read-only access and cross-project
   const viewerHeaders = { authorization: `Bearer ${viewer}`, "content-type": "application/json" };
   assert.equal((await fetch(`${base}/api/projects/project-vpn/overview`, { headers: viewerHeaders })).status, 200);
   assert.equal((await fetch(`${base}/api/projects/project-crm/overview`, { headers: viewerHeaders })).status, 403);
+  const viewerAdvice = await fetch(`${base}/api/walkthrough/advice?projectId=project-vpn`, {
+    method: "POST",
+    headers: viewerHeaders,
+    body: JSON.stringify({ stepId: "intake", projectId: "project-vpn", question: "راهنمای Intake" })
+  });
+  assert.equal(viewerAdvice.status, 200, "a Viewer may read local guidance for a granted project");
+  assert.equal((await fetch(`${base}/api/walkthrough/advice?projectId=project-crm`, {
+    method: "POST",
+    headers: viewerHeaders,
+    body: JSON.stringify({ stepId: "intake", projectId: "project-crm" })
+  })).status, 403, "the advisor must not cross a Project Grant boundary");
+  assert.equal((await fetch(`${base}/api/smart-tester/context?surface=%2Fworkspace&featureKey=workspace.intake&projectId=project-vpn`, { headers: viewerHeaders })).status, 403, "Smart Tester remains owner-only even when a Viewer can read project guidance");
   assert.equal((await fetch(`${base}/api/projects/project-vpn/access`, { method: "POST", headers: viewerHeaders, body: JSON.stringify({ userId: "project-viewer", role: "viewer" }) })).status, 403);
   assert.equal((await fetch(`${base}/api/projects/project-vpn/access`, { headers: ownerHeaders })).status, 200);
+  assert.equal((await fetch(`${base}/api/identity/users`, { headers: ownerHeaders })).status, 200);
 });

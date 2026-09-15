@@ -50,28 +50,30 @@ export class NotionSyncStoreError extends Error {
 export function createPostgresNotionSyncStore({ client, pool, now = () => new Date().toISOString() } = {}) {
   assertTarget({ client, pool });
   const target = client ?? pool;
+  async function put(mapping) {
+    const value = assertMapping(mapping);
+    const result = await target.query(
+      `INSERT INTO notion_document_mappings
+        (document_id, page_id, canonical_commit, source_checksum, notion_checksum, sync_state, edit_policy, last_successful_sync, updated_at, data)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       ON CONFLICT (document_id) DO UPDATE SET
+         page_id = EXCLUDED.page_id,
+         canonical_commit = EXCLUDED.canonical_commit,
+         source_checksum = EXCLUDED.source_checksum,
+         notion_checksum = EXCLUDED.notion_checksum,
+         sync_state = EXCLUDED.sync_state,
+         edit_policy = EXCLUDED.edit_policy,
+         last_successful_sync = EXCLUDED.last_successful_sync,
+         updated_at = EXCLUDED.updated_at,
+         data = EXCLUDED.data
+       RETURNING document_id, page_id, canonical_commit, source_checksum, notion_checksum, sync_state, edit_policy, last_successful_sync, updated_at, data`,
+      [value.documentId, value.pageId, value.canonicalCommit, value.sourceChecksum, value.notionChecksum ?? null, value.status, value.editPolicy, value.lastSuccessfulSync ?? null, value.updatedAt ?? now(), value.data ?? {}]
+    );
+    return rowToMapping(result.rows?.[0]);
+  }
   return Object.freeze({
-    async upsert(mapping) {
-      const value = assertMapping(mapping);
-      const result = await target.query(
-        `INSERT INTO notion_document_mappings
-          (document_id, page_id, canonical_commit, source_checksum, notion_checksum, sync_state, edit_policy, last_successful_sync, updated_at, data)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-         ON CONFLICT (document_id) DO UPDATE SET
-           page_id = EXCLUDED.page_id,
-           canonical_commit = EXCLUDED.canonical_commit,
-           source_checksum = EXCLUDED.source_checksum,
-           notion_checksum = EXCLUDED.notion_checksum,
-           sync_state = EXCLUDED.sync_state,
-           edit_policy = EXCLUDED.edit_policy,
-           last_successful_sync = EXCLUDED.last_successful_sync,
-           updated_at = EXCLUDED.updated_at,
-           data = EXCLUDED.data
-         RETURNING document_id, page_id, canonical_commit, source_checksum, notion_checksum, sync_state, edit_policy, last_successful_sync, updated_at, data`,
-        [value.documentId, value.pageId, value.canonicalCommit, value.sourceChecksum, value.notionChecksum ?? null, value.status, value.editPolicy, value.lastSuccessfulSync ?? null, value.updatedAt ?? now(), value.data ?? {}]
-      );
-      return rowToMapping(result.rows?.[0]);
-    },
+    put,
+    upsert: put,
     async get(documentId) {
       if (!IDENTIFIER.test(documentId ?? "")) throw new NotionSyncStoreError("INVALID_DOCUMENT_ID", "documentId is invalid.");
       const result = await target.query(

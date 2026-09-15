@@ -1,0 +1,26 @@
+{
+  "schema": "hero.authorization-snapshot/v1",
+  "authorizationId": "BATCH-BACKOFFICE-20260911-018",
+  "status": "active",
+  "grantedBy": "project-owner",
+  "grantedAt": "2026-09-11",
+  "grantSource": "owner-request-to-complete-incomplete-backoffice-work",
+  "validUntil": "owner-revocation",
+  "globalStop": false,
+  "operations": ["develop", "test", "review", "secret-change"],
+  "excludedOperations": ["production-deploy", "destructive-data-operation", "external-spend", "external-message", "irreversible-operation", "pilot-execution", "notion-write", "github-write"],
+  "documents": [
+    { "documentId": "HERO-SPEC-022", "documentVersion": "1.0.0" },
+    { "documentId": "HERO-ROADMAP-BACKOFFICE-COMMAND-CENTER-V1", "documentVersion": "1.0.0" }
+  ],
+  "steps": [
+    { "stepId": "BO-INF-003", "documentVersion": "1.0.0" },
+    { "stepId": "BO-SEC-002", "documentVersion": "1.0.0" }
+  ],
+  "scope": {
+    "environment": "test",
+    "service": "hero-postgres",
+    "action": "synchronize runtime credential without revealing the value"
+  },
+  "note": "Owner authorization recorded for Test PostgreSQL recovery only. No Production, Provider, Pilot, external message, destructive operation or external spend is authorized."
+}

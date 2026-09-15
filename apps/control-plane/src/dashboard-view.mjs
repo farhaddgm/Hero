@@ -1,3 +1,5 @@
+import { getHeroGlobalNavigation, getHeroShellScript, getHeroShellStyles } from "./hero-shell.mjs";
+
 export function getDashboardHtml() {
   return `<!doctype html>
 <html lang="fa" dir="rtl">
@@ -8,7 +10,8 @@ export function getDashboardHtml() {
     <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate">
     <title>Hero — اتاق کنترل</title>
     <style>
-      :root { color-scheme: light; font-family: Tahoma, Arial, sans-serif; background: #f5f5f9; color: #1f2233; }
+      ${getHeroShellStyles()}
+      :root { color-scheme: light; font-family: Vazirmatn, sans-serif; background: #f5f5f9; color: #1f2233; }
       * { box-sizing: border-box; }
       body { margin: 0; min-width: 320px; }
       main { max-width: 1160px; margin: auto; padding: 28px 18px 52px; }
@@ -56,14 +59,15 @@ export function getDashboardHtml() {
     </style>
   </head>
   <body>
-    <main>
+    ${getHeroGlobalNavigation({ active: "backoffice", environment: "Private · Safe Lab" })}
+    <main id="hero-main" tabindex="-1">
       <header class="hero">
         <div><h1>Hero</h1><p class="subtitle">اتاق کنترل ساده برای ساخت و آزمون امن اپلیکیشن</p></div>
         <span id="stop-badge" class="badge safe">آمادهٔ کنترل</span>
       </header>
       <section class="grid" aria-live="polite">
         <section class="card">
-          <h2>درخواست جدید</h2>
+          <h2 data-hero-info-key="lab.newRequest">درخواست جدید</h2>
           <form id="request-form">
             <label>چه می‌خواهید بسازیم؟<input id="title" name="title" required minlength="3" maxlength="120" placeholder="مثلاً: صفحهٔ ورود کاربران"></label>
             <label>توضیح ساده (اختیاری)<textarea id="description" name="description" maxlength="1000" placeholder="کافی است با زبان خودتان توضیح دهید."></textarea></label>
@@ -73,29 +77,29 @@ export function getDashboardHtml() {
           <p id="notice" class="notice" role="status"></p>
         </section>
         <section class="card">
-          <h2>کنترل‌ها</h2>
-          <div class="control-row"><div><strong id="autonomy-title">تأیید موردی</strong><div class="subtitle">اختیار کامل فقط درخواست تازه را آمادهٔ اجرا می‌کند.</div></div><label class="switch"><input id="autonomy" type="checkbox">اختیار کامل</label></div>
-          <div class="control-row"><div><strong>توقف اضطراری</strong><div class="subtitle">تأیید یا شروع اجرای جدید را فوری می‌بندد.</div></div><button id="global-stop" class="danger" type="button">فعال‌سازی توقف</button></div>
-          <div class="control-row"><div><strong>محدودهٔ فعلی</strong><div class="subtitle" id="provider-mode">Fake Agent only</div></div><span class="badge safe">بدون هزینه</span></div>
+          <h2 data-hero-info-key="lab.controls">کنترل‌ها</h2>
+          <div class="control-row"><div><strong id="autonomy-title" data-hero-info-key="lab.autonomy" data-hero-info-label="سطح خودکارسازی">تأیید موردی</strong><div class="subtitle">اختیار کامل فقط درخواست تازه را آمادهٔ اجرا می‌کند.</div></div><label class="switch"><input id="autonomy" type="checkbox">اختیار کامل</label></div>
+          <div class="control-row"><div><strong data-hero-info-key="lab.globalStop" data-hero-info-label="توقف اضطراری">توقف اضطراری</strong><div class="subtitle">تأیید یا شروع اجرای جدید را فوری می‌بندد.</div></div><button id="global-stop" class="danger" type="button">فعال‌سازی توقف</button></div>
+          <div class="control-row"><div><strong data-hero-info-key="lab.currentScope" data-hero-info-label="محدودهٔ فعلی">محدودهٔ فعلی</strong><div class="subtitle" id="provider-mode">Fake Agent only</div></div><span class="badge safe">بدون هزینه</span></div>
         </section>
         <section class="card wide">
-          <h2>تیم‌های شرکت و گیت کنترل</h2>
+          <h2 data-hero-info-key="lab.teamControl">تیم‌های شرکت و گیت کنترل</h2>
           <p class="subtitle">هر تیم قرارداد، آموزش و وضعیت مستقل دارد. مالک پروژه می‌تواند هر بخش از قرارداد را تأیید یا برای بازکاری برگرداند.</p>
           <div id="teams" class="teams"></div>
         </section>
         <section class="card wide">
-          <h2>لایهٔ Multi-AI و تصمیم‌سازی</h2>
+          <h2 data-hero-info-key="lab.multiAiDecision">لایهٔ Multi-AI و تصمیم‌سازی</h2>
           <p class="subtitle">این بخش وضعیت مشاهده‌ایِ نقش‌ها و شواهد AI را نشان می‌دهد؛ ارزیابی مجوز نیست و Provider زنده در این مرحله متصل نیست.</p>
           <div id="ai-summary" class="ai-summary"></div>
         </section>
         <section class="card wide">
-          <h2>اصول حیاتی و فلو انتشار</h2>
+          <h2 data-hero-info-key="lab.criticalPrinciplesRelease">اصول حیاتی و فلو انتشار</h2>
           <p class="subtitle">هر اصل نسخه‌دار و owner-gated است. مسیر انتشار فقط از همان commitِ تست‌شده عبور می‌کند: test → تست و شواهد → تأیید مالک → فرمان مستقل production.</p>
           <div id="principles" class="principles"></div>
           <div id="releases" class="releases"></div>
         </section>
         <section class="card wide">
-          <h2>درخواست‌ها و برنامهٔ اجرا</h2>
+          <h2 data-hero-info-key="lab.requestsExecutionPlan">درخواست‌ها و برنامهٔ اجرا</h2>
           <div id="requests" class="requests"></div>
         </section>
       </section>
@@ -122,7 +126,7 @@ export function getDashboardHtml() {
         if (request.result) { const result = element('div', request.result.summary + ' تلاش‌ها: ' + request.result.attempts.map(item => item.outcome).join('، ') + ' · رویدادها: ' + request.result.eventCount, 'result'); card.append(result); }
         const actions = element('div', '', 'actions');
         if (['نیازمند تأیید', 'متوقف'].includes(request.status)) actions.append(actionButton('تأیید', '', () => command('/api/requests/' + request.requestId + '/approve', {}, 'درخواست آمادهٔ اجرا شد.'), ui.state.globalStop));
-        if (!['تکمیل', 'رد شد'].includes(request.status)) actions.append(actionButton('رد', 'secondary', () => command('/api/requests/' + request.requestId + '/reject', {}, 'درخواست رد شد.'));
+        if (!['تکمیل', 'رد شد'].includes(request.status)) actions.append(actionButton('رد', 'secondary', () => command('/api/requests/' + request.requestId + '/reject', {}, 'درخواست رد شد.')));
         if (request.status === 'آماده اجرا') { actions.append(actionButton('اجرای Fake Agent', '', () => command('/api/requests/' + request.requestId + '/run', {}, 'اجرای آزمایشی کامل شد.'), ui.state.globalStop)); actions.append(actionButton('توقف درخواست', 'danger', () => command('/api/requests/' + request.requestId + '/stop', {}, 'درخواست متوقف شد.'))); }
         card.append(actions); return card;
       }
@@ -148,14 +152,14 @@ export function getDashboardHtml() {
       function renderAiSummary(ai) {
         const contract = ai?.contract ?? {}; const counts = ai?.counts ?? {};
         const metrics = [
-          ['نقش‌ها', (contract.roles ?? []).length],
-          ['Providerها', counts.providers ?? 0],
-          ['Profileها', counts.profiles ?? 0],
-          ['Invocationها', counts.invocations ?? 0],
-          ['Evaluationها', counts.evaluations ?? 0],
-          ['تصمیم‌ها', counts.decisions ?? 0]
+          ['نقش‌ها', (contract.roles ?? []).length, 'lab.aiRoles'],
+          ['Providerها', counts.providers ?? 0, 'lab.providers'],
+          ['Profileها', counts.profiles ?? 0, 'lab.profiles'],
+          ['Invocationها', counts.invocations ?? 0, 'lab.invocations'],
+          ['Evaluationها', counts.evaluations ?? 0, 'lab.evaluations'],
+          ['تصمیم‌ها', counts.decisions ?? 0, 'lab.decisions']
         ];
-        ui.aiSummary.replaceChildren(); metrics.forEach(([label, value]) => { const metric = element('div', '', 'ai-metric'); metric.append(element('strong', String(value)), element('span', label)); ui.aiSummary.append(metric); });
+        ui.aiSummary.replaceChildren(); metrics.forEach(([label, value, infoKey]) => { const metric = element('div', '', 'ai-metric'); const featureLabel = element('span', label); featureLabel.dataset.heroInfoKey = infoKey; featureLabel.dataset.heroInfoLabel = label; metric.append(element('strong', String(value)), featureLabel); ui.aiSummary.append(metric); });
         const details = element('p', 'نقش‌ها: ' + (contract.roles ?? []).join('، ') + ' · پیش‌فرض اجرا: Codex · Provider زنده: متصل نیست', 'subtitle'); ui.aiSummary.append(details);
       }
       function renderPrinciple(principle) {
@@ -184,7 +188,7 @@ export function getDashboardHtml() {
         ui.teams.replaceChildren(); const teams = state.teamControl?.teams ?? []; if (!teams.length) ui.teams.append(element('p', 'تیمی ثبت نشده است.', 'empty')); else teams.forEach(team => ui.teams.append(renderTeam(team)));
         renderAiSummary(state.aiOrchestration);
         ui.principles.replaceChildren(); const principles = state.principlesControl?.principles ?? []; if (!principles.length) ui.principles.append(element('p', 'اصلی ثبت نشده است.', 'empty')); else principles.forEach(principle => ui.principles.append(renderPrinciple(principle)));
-        ui.releases.replaceChildren(); const releases = state.releaseControl?.releases ?? []; if (releases.length) { ui.releases.append(element('h3', 'انتشارها')); releases.forEach(release => ui.releases.append(renderRelease(release))); }
+        ui.releases.replaceChildren(); const releases = state.releaseControl?.releases ?? []; if (releases.length) { const heading = element('h3', 'انتشارها'); heading.dataset.heroInfoKey = 'lab.releases'; ui.releases.append(heading); releases.forEach(release => ui.releases.append(renderRelease(release))); }
         ui.requests.replaceChildren(); if (!state.requests.length) ui.requests.append(element('p', 'هنوز درخواستی ثبت نشده است.', 'empty')); else state.requests.forEach(request => ui.requests.append(renderRequest(request)));
       }
       document.getElementById('request-form').addEventListener('submit', async event => { event.preventDefault(); const form = new FormData(event.currentTarget); await command('/api/requests', { title: form.get('title'), description: form.get('description'), scenario: form.get('scenario') }, 'برنامهٔ اولیه ساخته شد.'); event.currentTarget.reset(); });
@@ -192,6 +196,7 @@ export function getDashboardHtml() {
       document.getElementById('global-stop').addEventListener('click', () => command('/api/global-stop', { active: !ui.state.globalStop }, ui.state.globalStop ? 'توقف اضطراری برداشته شد.' : 'توقف اضطراری فعال شد.'));
       refresh().catch(error => setNotice(error.message));
     </script>
+    ${getHeroShellScript()}
   </body>
 </html>`;
 }

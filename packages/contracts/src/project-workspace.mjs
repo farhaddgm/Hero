@@ -9,9 +9,10 @@ export function getProjectWorkspaceContractSummary() {
     version: PROJECT_WORKSPACE_CONTRACT_VERSION,
     lifecycle: PROJECT_LIFECYCLES,
     inputTypes: PROJECT_INPUT_TYPES,
-    upload: "private project-scoped object key, quota, checksum, signature validation and scan result",
+    upload: "private project-scoped object key, quota, checksum, signature validation and scan result; PostgreSQL stores metadata only",
     import: "GitHub inventory is read-only and never fetches, commits, changes Secrets or deploys without a separate authorization",
-    clone: "copies approved structure/settings only; Secret, data, memory and private history are excluded"
+    clone: "copies approved structure/settings only; Secret, data, memory and private history are excluded",
+    persistence: "append-only project, input, foundation and import metadata with startup hydration"
   });
 }
 

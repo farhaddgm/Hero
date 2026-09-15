@@ -7,6 +7,7 @@ const DEFAULT_ENDPOINTS = Object.freeze({
   openai: "https://api.openai.com/v1/responses",
   anthropic: "https://api.anthropic.com/v1/messages",
   google: "https://generativelanguage.googleapis.com/v1beta",
+  cursor: "https://api.cursor.com",
   "openai-compatible": "http://127.0.0.1:43101/v1/chat/completions"
 });
 
@@ -210,9 +211,14 @@ function createHttpAdapter({ providerId, endpoint, credentialEnv, credentialReso
     return copy({ output, usage: buildUsage(parseResponse.usage(body), costAccountingFor(input)), providerRequestId: typeof body?.id === "string" ? body.id : null, pricing: readiness.pricing });
   }
 
-  async function validateConnection() {
+  async function validateConnection(input = {}) {
     if (!pricingCatalog && !legacyAccounting) throw new AiProviderAdapterError("COST_ACCOUNTING_NOT_CONFIGURED", "Live provider health requires a versioned Pricing Catalog.");
-    await resolve(credentialEnv ? `env:${credentialEnv}` : "env:placeholder").catch(error => { throw error; });
+    const credentialRef = typeof input?.credentialRef === "string" && input.credentialRef.trim()
+      ? input.credentialRef.trim()
+      : (credentialEnv ? `env:${credentialEnv}` : "env:placeholder");
+    // Credential resolvers may be synchronous (environment/local stores) or
+    // asynchronous (remote Secret Managers); normalize both contracts here.
+    await Promise.resolve(resolve(credentialRef));
     return copy({ status: "ok", providerId, mode: "configured-no-network-health-check" });
   }
 
@@ -292,6 +298,55 @@ export function createGoogleGeminiAdapter(options = {}) {
   });
 }
 
+/**
+ * Cursor is connected as a managed coding-agent platform rather than being
+ * misrepresented as an OpenAI-compatible chat endpoint.  The current Hero
+ * orchestration contract can safely verify that its runtime credential and
+ * pricing boundary are ready, but dispatching a Cursor Cloud Agent requires a
+ * repository-scoped, separately authorised workflow.  Keeping that boundary
+ * explicit lets the Back Office show and test the connection without turning a
+ * guide/chat selection into an unexpected code-writing external operation.
+ */
+export function createCursorCloudAgentAdapter(options = {}) {
+  const providerId = "cursor";
+  const endpoint = assertEndpoint(options.endpoint ?? DEFAULT_ENDPOINTS.cursor);
+  const credentialEnv = options.credentialEnv ?? "HERO_CURSOR_API_KEY";
+  const configuredCredentialEnv = assertCredentialEnv(credentialEnv);
+  const env = options.env ?? process.env;
+  const resolve = options.credentialResolver ?? (ref => resolveCredential({ credentialRef: ref, credentialEnv: configuredCredentialEnv, env }));
+  assertFunction("credentialResolver", resolve);
+  const pricingCatalog = options.pricingCatalog;
+
+  async function validateConnection(input = {}) {
+    if (!pricingCatalog) throw new AiProviderAdapterError("COST_ACCOUNTING_NOT_CONFIGURED", "Cursor readiness requires a versioned Pricing Catalog.");
+    const credentialRef = typeof input?.credentialRef === "string" && input.credentialRef.trim()
+      ? input.credentialRef.trim()
+      : `env:${configuredCredentialEnv}`;
+    await Promise.resolve(resolve(credentialRef));
+    return copy({ status: "ok", providerId, mode: "configured-no-network-health-check" });
+  }
+
+  async function assertDispatchReady() {
+    throw new AiProviderAdapterError("CURSOR_AGENT_WORKFLOW_REQUIRED", "Cursor Cloud Agent dispatch requires a repository-scoped workflow and separate external authorization.");
+  }
+
+  async function generate() {
+    throw new AiProviderAdapterError("CURSOR_AGENT_WORKFLOW_REQUIRED", "Cursor is not a direct chat provider in Hero. Use its separately authorized coding-agent workflow.");
+  }
+
+  return Object.freeze({
+    providerId,
+    mode: "live",
+    endpoint,
+    credentialEnv: configuredCredentialEnv,
+    validateConnection,
+    assertDispatchReady,
+    generate,
+    listCapabilities: () => Object.freeze(["cursor-cloud-agent", "runtime-credentials", "connection-readiness-only", "repository-scoped-dispatch"]),
+    adapterId: `hero-live-cursor-${randomUUID().slice(0, 8)}`
+  });
+}
+
 export function createOpenAiCompatibleAdapter(options = {}) {
   const endpoint = options.endpoint ?? DEFAULT_ENDPOINTS["openai-compatible"];
   return createHttpAdapter({
@@ -316,6 +371,7 @@ export function createConfiguredAiProviderAdapters(options = {}) {
     openai: createOpenAiResponsesAdapter(options.openai),
     anthropic: createAnthropicMessagesAdapter(options.anthropic),
     google: createGoogleGeminiAdapter(options.google),
+    cursor: createCursorCloudAgentAdapter(options.cursor),
     "openai-compatible": createOpenAiCompatibleAdapter(options["openai-compatible"])
   });
 }

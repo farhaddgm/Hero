@@ -15,6 +15,7 @@ export const AI_PROVIDER_IDS = Object.freeze([
   "openai",
   "anthropic",
   "google",
+  "cursor",
   "openai-compatible",
   "deterministic"
 ]);

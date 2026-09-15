@@ -110,6 +110,7 @@ test("AI orchestration endpoint exposes replaceable roles without implying live 
   const payload = await response.json();
   assert.ok(payload.aiOrchestrationContract.roles.includes("decision-maker"));
   assert.ok(payload.aiOrchestrationContract.providers.includes("openai-compatible"));
+  assert.ok(payload.aiOrchestrationContract.providers.includes("cursor"));
   assert.match(payload.aiOrchestrationContract.invariants.join(" "), /Team != AI Role/);
 });
 

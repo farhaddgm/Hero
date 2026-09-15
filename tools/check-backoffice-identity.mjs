@@ -15,9 +15,14 @@ const PATHS = Object.freeze({
   access: "packages/domain/src/project-access.mjs",
   middleware: "packages/domain/src/project-access-middleware.mjs",
   identity: "packages/domain/src/human-identity.mjs",
+  accessRegistry: "packages/domain/src/project-access.mjs",
   migration: "packages/adapters/migrations/010_project_identity_and_grants.sql",
   store: "packages/adapters/src/postgresql-project-identity-store.mjs",
-  tests: "tests/project-identity.test.mjs"
+  tests: "tests/project-identity.test.mjs",
+  identityView: "apps/control-plane/src/identity-view.mjs",
+  server: "apps/control-plane/src/server.mjs",
+  testConfig: "tools/check-test-config.mjs",
+  compose: "compose.yaml"
 });
 const EXPECTED_STEPS = Object.freeze(Array.from({ length: 10 }, (_, index) => `BO-${String(index + 21).padStart(3, "0")}`));
 const REQUIRED_EXCLUSIONS = Object.freeze(["production-deploy", "destructive-data-operation", "external-spend", "secret-change", "external-message", "irreversible-operation", "pilot-execution", "notion-write"]);
@@ -52,7 +57,21 @@ export function validateBackofficeIdentity(options = {}) {
   const migration = readText(root, PATHS.migration);
   for (const marker of ["human_users", "project_grant_versions", "human_session_revocations", "human_identity_audit", "mfa_secret_ref", "append_only_guard"]) if (!migration.includes(marker)) add(errors, "MIGRATION_MARKER_MISSING", marker);
   const identity = readText(root, PATHS.identity);
-  for (const marker of ["beginLogin", "completeLogin", "completeOwnerRecovery", "assertSensitiveActionAllowed"]) if (!identity.includes(marker)) add(errors, "IDENTITY_MARKER_MISSING", marker);
+  for (const marker of ["beginLogin", "completeLogin", "completeOwnerRecovery", "assertSensitiveActionAllowed", "hydrateUser", "persistenceRecord", "restoreRevocations", "listUsers", "decodeBase32", "base32:", "legacy-utf8"]) if (!identity.includes(marker)) add(errors, "IDENTITY_MARKER_MISSING", marker);
+  const access = readText(root, PATHS.accessRegistry);
+  for (const marker of ["hydrateUser", "hydrateGrant", "listAccessibleProjectIds"]) if (!access.includes(marker)) add(errors, "ACCESS_MARKER_MISSING", marker);
+  const store = readText(root, PATHS.store);
+  for (const marker of ["listUsers", "listCurrentGrants", "listSessionRevocations", "recordAudit"]) if (!store.includes(marker)) add(errors, "STORE_MARKER_MISSING", marker);
+  const identityView = readText(root, PATHS.identityView);
+  for (const marker of ["/api/identity/status", "/api/identity/login", "/api/identity/users", "/api/projects/", "credentials: \"same-origin\"", "نشست امن شش‌ساعته", "identity-configuration-status", "این دو رمز مستقل‌اند"]) if (!identityView.includes(marker)) add(errors, "IDENTITY_UI_MARKER_MISSING", marker);
+  const server = readText(root, PATHS.server);
+  for (const marker of ["/api/identity/status", "identityStatusSnapshot", "rfc6238-base32-with-legacy-verification"]) if (!server.includes(marker)) add(errors, "IDENTITY_SERVER_MARKER_MISSING", marker);
+  const testConfig = readText(root, PATHS.testConfig);
+  const compose = readText(root, PATHS.compose);
+  for (const marker of ["HERO_IDENTITY_SESSION_SECRET", "HERO_OWNER_EMAIL", "HERO_OWNER_PASSWORD", "HERO_OWNER_MFA_SECRET"]) {
+    if (!testConfig.includes(marker)) add(errors, "IDENTITY_PREFLIGHT_MARKER_MISSING", marker);
+    if (!compose.includes(`${marker}: \${${marker}:-}`)) add(errors, "IDENTITY_COMPOSE_MARKER_MISSING", marker);
+  }
   const documents = new Map((registry.documents ?? []).map(document => [document.id, document]));
   if (documents.get("HERO-ADR-0012")?.status !== "active") add(errors, "ADR_NOT_REGISTERED", "HERO-ADR-0012");
   if (documents.get("HERO-EVIDENCE-BACKOFFICE-IDENTITY-BO-021-030")?.status !== "active") add(errors, "EVIDENCE_NOT_REGISTERED", "HERO-EVIDENCE-BACKOFFICE-IDENTITY-BO-021-030");

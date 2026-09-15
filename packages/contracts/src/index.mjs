@@ -458,3 +458,4 @@ export { INFRASTRUCTURE_CONTROL_CONTRACT_VERSION, HERO_ENVIRONMENTS, NODE_STATES
 export { DELIVERY_CONTROL_CONTRACT_VERSION, DELIVERY_RELEASE_STATES, DELIVERY_TARGETS, getDeliveryControlContractSummary, validateDeliveryControlContract } from "./delivery-control.mjs";
 export { OPERATIONAL_HARDENING_CONTRACT_VERSION, SUPPORTED_LOCALES, RETENTION_MINIMUMS, getOperationalHardeningContractSummary, validateOperationalHardeningContract } from "./operational-hardening.mjs";
 export { FINAL_READINESS_CONTRACT_VERSION, READINESS_STATES, getFinalReadinessContractSummary, validateFinalReadinessContract } from "./final-readiness.mjs";
+export { BACKOFFICE_COMPLETION_CONTRACT_VERSION, COMPLETION_CAPABILITIES, COMPLETION_EVIDENCE_KINDS, COMPLETION_LOCALES, COMPLETION_ROLES, COMPLETION_SETTING_LAYERS, getBackofficeCompletionContractSummary, validateBackofficeCompletionContract } from "./backoffice-completion.mjs";

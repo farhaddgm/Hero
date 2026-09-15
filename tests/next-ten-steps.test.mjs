@@ -185,7 +185,7 @@ test("Back Office Basic Auth protects the public surface and indexing is disable
   const page = await fetch(`${baseUrl}/backoffice`, { headers: { authorization: `Basic ${credentials}` } });
   assert.equal(page.status, 200);
   assert.equal(page.headers.get("x-robots-tag"), "noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate");
-  assert.match(await page.text(), /<meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate">/);
+  assert.match(await page.text(), /<meta name="robots" content="noindex,nofollow,noarchive,nosnippet,noimageindex,notranslate">/);
   const dashboard = await fetch(`${baseUrl}/`);
   assert.equal(dashboard.status, 200);
   assert.equal(dashboard.headers.get("x-robots-tag"), "noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate");

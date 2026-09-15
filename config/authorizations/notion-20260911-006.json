@@ -1,0 +1,32 @@
+{
+  "schema": "hero.authorization-snapshot/v1",
+  "authorizationId": "NOTION-PROJECTION-REPAIR-20260911-002",
+  "status": "active",
+  "grantedBy": "project-owner",
+  "grantedAt": "2026-09-11",
+  "grantSource": "owner-instruction-to-complete-notion-projection-repair",
+  "validUntil": "owner-revocation",
+  "globalStop": false,
+  "operations": ["read", "notion-write", "notion-canonical-refresh"],
+  "excludedOperations": [
+    "production-deploy",
+    "destructive-data-operation",
+    "external-spend",
+    "secret-change",
+    "external-message",
+    "irreversible-operation",
+    "notion-page-create",
+    "notion-page-title-update",
+    "notion-page-delete",
+    "notion-page-archive",
+    "github-write"
+  ],
+  "steps": [{"stepId":"NOTION-PROJECTION-REPAIR-FOLLOWUP","documentVersion":"1.0.0"}],
+  "scope": {
+    "mode": "git-canonical-refresh-exact-existing-page",
+    "catalogDigest": "6c020123d78d32fe4e7299fda20d06418f3e94b0f3361815f7b5fe4754976ffb",
+    "documentId": "HERO-OPS-HERO-TEST-ENVIRONMENT",
+    "pageId": "3d812710-4ae0-8172-a6ac-f55579725b9b"
+  },
+  "note": "Only the exact existing mapped page may be refreshed after read-only verification against the current Git catalog. No create, title update, delete or archive operation is authorized."
+}

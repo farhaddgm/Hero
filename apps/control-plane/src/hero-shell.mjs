@@ -1,0 +1,1321 @@
+import { HERO_PROJECT_WALKTHROUGH_FIELD_GUIDANCE, HERO_PROJECT_WALKTHROUGH_STEPS } from "./project-walkthrough.mjs";
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, character => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  })[character]);
+}
+
+export const HERO_FEATURE_HELP = Object.freeze({
+  "portfolio.projects": "تعداد پروژه‌هایی که حساب فعلی اجازهٔ مشاهدهٔ آن‌ها را دارد؛ پروژه‌های خارج از دسترسی در این شمارش دیده نمی‌شوند.",
+  "portfolio.health": "Health جمع‌بندی قابل‌توضیح از وضعیت پروژه است. وضعیت unknown به معنی سالم‌بودن نیست و یعنی Evidence کافی ثبت نشده است.",
+  "portfolio.attention": "پروژه‌های مسدود، هشدار‌دار یا فاقد دادهٔ کافی که بهتر است پیش از ادامه بررسی شوند.",
+  "portfolio.upcoming": "مجموع Taskها و گام‌های بعدی ثبت‌شده در Roadmap پروژه‌های قابل مشاهده.",
+  "portfolio.ownerBriefing": "مسیر کوتاه از نشانه‌های کلان Portfolio به گیت، Evidence و اقدام project-scoped مربوط به همان پروژه.",
+  "portfolio.availableProjects": "فهرست پروژه‌های مجاز برای حساب فعلی؛ هر کارت به Studio، Workspace و Operations همان Project متصل است.",
+  "portfolio.tokenUsage": "مصرف Token ثبت‌شده برای پروژه. نبود مقدار به صورت نامشخص نمایش داده می‌شود و صفر فرض نمی‌شود.",
+  "portfolio.lastTask": "آخرین Task تکمیل‌شده‌ای که برای این پروژه در read model ثبت شده است.",
+  "portfolio.nextTasks": "کارهای برنامه‌ریزی‌شدهٔ بعدی پروژه؛ ترتیب و تعداد از Roadmap فعلی خوانده می‌شود.",
+  "portfolio.latestOutput": "جدیدترین Artifact یا خروجی قابل تحویل ثبت‌شده برای پروژه، بدون نمایش Secret یا محتوای خصوصی.",
+  "portfolio.nextRoadmap": "نزدیک‌ترین گام‌های Roadmap که وضعیت حرکت پروژه را توضیح می‌دهند.",
+  "portfolio.createProject": "فقط Owner می‌تواند Project جدید و Foundation اولیهٔ آن را ایجاد کند؛ Admin و Viewer این اختیار را ندارند.",
+  "command.adminAccess": "نشست انسانی با cookie امن و HttpOnly در مرورگر نگهداری می‌شود؛ مقدار آن برای JavaScript قابل خواندن نیست و عملیات همچنان با نقش و مجوز پروژه کنترل می‌شود.",
+  "command.statusOverview": "نمای فشردهٔ شاخص‌های سازمان، AI، درخواست‌ها و وضعیت کنترل‌ها؛ این شاخص‌ها به‌تنهایی مجوز اجرا نیستند.",
+  "command.currentGates": "گیت‌ها مشخص می‌کنند کدام مرحله آماده، نیازمند تصمیم یا مسدود است و اقدام بعدی چیست.",
+  "command.systemModel": "رابطهٔ Owner، Control Plane، تیم‌های سازمانی و نقش‌های AI را نشان می‌دهد؛ Team با AI Role یک مفهوم نیست.",
+  "capability.portfolioHealth": "پایش هم‌زمان پروژه‌ها، Roadmap، سلامت و حرکت از نمای کلان به جزئیات هر پروژه.",
+  "capability.teamRolePerformance": "مدیریت قرارداد تیم‌ها، Roleها، اصول، ارزیابی عملکرد و شواهد بازکاری.",
+  "capability.aiModel": "کاتالوگ Provider، Model، Profile و Role Binding نسخه‌دار؛ ثبت تنظیم به معنی فعال‌کردن Provider زنده نیست.",
+  "capability.documentsKnowledge": "مرجع اسناد canonical، دانش، Evidence، provenance و پیشنهاد انتقال دانش بین پروژه‌ها.",
+  "capability.commandApproval": "ساخت فرمان، Preview اثر و ریسک، Approval، صف و وضعیت Run؛ عملیات حساس گیت مستقل دارند.",
+  "capability.inboxObservability": "اعلان‌ها، Audit و Trace project-scoped برای تشخیص رویداد مهم و پیگیری علت تا Evidence.",
+  "capability.costPerformance": "مصرف Token، دقت، خطا و بازکاری را به تفکیک پروژه، تیم، Role و Run قابل پیگیری می‌کند.",
+  "capability.serverEnvironment": "مدیریت Development، Test و Production، اتصال Server و وضعیت Provision؛ Production همیشه مجوز مستقل می‌خواهد.",
+  "capability.deliveryOutput": "Release، Artifact، Export و بستهٔ قابل انتقال پروژه را بدون قرار دادن Secret در خروجی مدیریت می‌کند.",
+  "capability.settingsPolicy": "تنظیمات لایه‌ای و نسخه‌دار پروژه، Policy Pack، provenance و Rollback بدون بازنویسی تاریخچه.",
+  "capability.identityAccess": "مدیریت Owner، Admin، Viewer، MFA، نشست و Project Grant با جداسازی کامل پروژه‌ها.",
+  "capability.helpContracts": "راهنمای اصطلاحات، نقش‌ها، قراردادها و مرزهای اختیار برای تفسیر درست داده‌های پنل.",
+  "teams.contracts": "قرارداد هر تیم مسئولیت، ورودی، خروجی، اختیار تصمیم، اصول و معیار آمادگی آن تیم را نسخه‌دار نگه می‌دارد.",
+  "teams.contractProgress": "درصد کامل‌بودن قرارداد تیم براساس بخش‌های لازم؛ جایگزین ارزیابی کیفیت خروجی نیست.",
+  "teams.readiness": "نشان می‌دهد تیم پیش‌نیازهای تعریف‌شده برای دریافت کار پروژه را دارد یا هنوز blocker دارد.",
+  "teams.autonomy": "حد استقلال تیم در اجرای کارهای مجاز؛ عملیات حساس حتی در حالت خودکار از گیت‌های غیرقابل‌تضعیف عبور می‌کنند.",
+  "teams.assignmentReview": "وضعیت تخصیص تیم به پروژه و بازبینی‌های ثبت‌شده برای همان مسئولیت.",
+  "teams.inputs": "داده‌ها و Evidenceهایی که تیم برای شروع مسئولیت خود باید دریافت کند.",
+  "teams.outputs": "خروجی‌های مرجعی که تیم باید تولید و با Evidence قابل بررسی تحویل دهد.",
+  "teams.decisionRights": "تصمیم‌هایی که تیم در محدودهٔ قرارداد خود می‌تواند بگیرد؛ اختیار Owner یا گیت حساس منتقل نمی‌شود.",
+  "teams.defaultStages": "مرحله‌های پیش‌فرض جریان توسعه که این تیم در آن‌ها مشارکت دارد.",
+  "teams.principles": "اصول پایدار تیم؛ هر تغییر نسخهٔ تازه می‌سازد و تأیید قبلی را برای بازبینی مجدد باز می‌کند.",
+  "teams.partners": "تیم‌های همکار و مرزهای handoff که برای تکمیل مسئولیت این تیم لازم‌اند.",
+  "teams.versionedKnowledge": "تاریخچهٔ نسخه‌های قرارداد و دانش تیم؛ نسخه‌های گذشته حذف یا بی‌ردپا ویرایش نمی‌شوند.",
+  "teams.knowledgeProvenance": "منبع، نسخه، تأییدکننده و تازگی دانش مورد استفادهٔ تیم را قابل پیگیری می‌کند.",
+  "teams.contractHistory": "نسخه‌های قبلی قرارداد تیم و علت تغییر را نگه می‌دارد تا هیچ تصمیمی بی‌ردپا بازنویسی نشود.",
+  "teams.approvalStatus": "نشان می‌دهد کدام بخش قرارداد تأیید، رد یا منتظر بازبینی Owner است؛ کامل‌بودن با تأیید یکسان نیست.",
+  "teams.trainingBenchmark": "وضعیت آموزش و Benchmark تیم پیش از دریافت کار واقعی پروژه.",
+  "teams.assignments": "تخصیص‌های ثبت‌شدهٔ تیم به پروژه‌ها و نقش عملیاتی آن‌ها.",
+  "teams.deliverableReviews": "بازبینی خروجی‌های تیم و نتیجهٔ پذیرش، اصلاح یا رد آن‌ها.",
+  "teams.rework": "درخواست‌های بازکاری، علت و نتیجهٔ اصلاح برای سنجش کیفیت و تکرار خطا.",
+  "teams.researchRequests": "پژوهش‌های درخواست‌شده برای بهبود تصمیم، اصول یا دانش تیم.",
+  "teams.appliedResearch": "گزارش‌های پژوهشی که پس از تأیید به دانش یا اصول تیم اعمال شده‌اند.",
+  "ai.rolesActivity": "فعالیت نقش‌های AI در جریان‌ها؛ Role نوع قابلیت است و هویت یا مسئولیت سازمانی Team نیست.",
+  "ai.invocations": "تعداد فراخوانی‌های ثبت‌شدهٔ AI با Role، Profile، Model، Token و correlation؛ مقدار صفر به معنی نبود Event ثبت‌شده است.",
+  "ai.evaluations": "ارزیابی‌های نسخه‌دار کیفیت، ایمنی و تطابق خروجی؛ Evaluation به‌تنهایی مجوز اجرای بعدی نیست.",
+  "ai.decisions": "تصمیم‌های حاصل از چند ارزیابی و Policy همراه با Evidence و دلیل انتخاب.",
+  "ai.providerState": "وضعیت ثبت و اتصال Providerها؛ ثبت‌شده با متصل و مجاز برای هزینه‌کردن یکسان نیست.",
+  "ai.benchmarkState": "خلاصهٔ آخرین Benchmarkهای synthetic برای مقایسهٔ Modelها بدون استفاده از دادهٔ واقعی پروژه.",
+  "ai.organizationAdvisor": "پیشنهادهای AI دربارهٔ تیم، Role یا Model؛ پیشنهاد هیچ تغییری را بدون Policy یا Approval اعمال نمی‌کند.",
+  "ai.benchmarkHistory": "نتیجهٔ Benchmarkهای synthetic و نسخه‌دار؛ این Evidence مجوز Provider زنده یا هزینه ایجاد نمی‌کند.",
+  "ai.versionedConfiguration": "ثبت نسخهٔ جدید Provider، Model، Profile، Binding، Skill یا Policy بدون تغییر بی‌ردپای نسخهٔ قبل.",
+  "ai.providers": "سرویس ارائه‌دهندهٔ مدل و وضعیت اتصال آن؛ Credential فقط به صورت reference نگهداری می‌شود.",
+  "ai.connectionHealth": "وضعیت اتصال بر اساس آخرین Health check ثبت‌شده نمایش داده می‌شود. «تست آماده‌بودن» فقط وجود ارجاع Secret و Policy زمان اجرا را بدون نمایش Secret، فراخوانی Model یا هزینه بررسی می‌کند؛ Dispatch زنده همچنان به بودجه و مجوز مستقل نیاز دارد.",
+  "ai.credentialStore": "محل ثبت امن کلید Provider در محیط Test. مقدار کلید رمزنگاری می‌شود و فقط مرجع، وضعیت و نسخهٔ آن در بک‌آفیس قابل مشاهده است؛ مقدار خام هرگز در UI، لاگ، Event یا گزارش برنمی‌گردد.",
+  "ai.tokenUsage": "مصرف Token و هزینهٔ ثبت‌شده به تفکیک Provider از Invocationهای واقعی یا deterministic خوانده می‌شود. نبود رکورد، صفرسازی پنهان یا تأیید بودجه نیست.",
+  "ai.models": "مدل‌های قابل انتخاب همراه با Provider، قابلیت و وضعیت نسخهٔ ثبت‌شده.",
+  "ai.profiles": "ترکیب نسخه‌دار Model، Prompt، ابزار و محدودیت که رفتار یک Agent را تعیین می‌کند.",
+  "ai.roleBindings": "اتصال نسخه‌دار یک AI Role به Profile مشخص در Scope پروژه یا جریان. در نقشهٔ تخصیص، هر پروژه جدا نشان داده می‌شود؛ تغییر یک Binding، پروژه‌های دیگر یا تاریخچهٔ نسخهٔ قبل را تغییر نمی‌دهد.",
+  "ai.skills": "قابلیت‌های بسته‌بندی‌شده و قابل کنترل که می‌توانند به Role یا Agent Profile متصل شوند.",
+  "ai.skillBindings": "Scope و Policy اتصال Skill به Role؛ این اتصال به‌تنهایی مجوز اجرای بیرونی نمی‌دهد.",
+  "ai.rolePolicies": "قواعد پیش‌فرض مدل، ابزار، هزینه و رفتار هر Role که نسخه‌دار و قابل بازگشت هستند.",
+  "project.globalSettings": "تنظیمات مشترک Hero، اتصال‌ها، امنیت و قراردادهای اجرایی با نمایش provenance و نسخه.",
+  "project.identityScope": "هویت سرویس و مرز Project Scope که از نشت داده یا دسترسی بین پروژه‌ها جلوگیری می‌کند.",
+  "project.runtimeConnections": "وضعیت اتصال runtime، Repository و سرویس‌ها با reference امن؛ Secret خام نمایش داده نمی‌شود.",
+  "project.persistenceRecovery": "قرارداد ذخیره‌سازی، backup، restore و hydration برای ادامهٔ پایدار پس از restart.",
+  "project.securityPrivacy": "کنترل‌های Secret، دادهٔ Production، redaction، retention و جداسازی امنیتی.",
+  "project.governanceGates": "گیت‌های Approval، Global Stop و عملیات حساسی که Admin نیز نمی‌تواند آن‌ها را دور بزند.",
+  "project.catalogCounts": "شمارش Entityهای ثبت‌شده در کاتالوگ‌های نسخه‌دار؛ این عدد کیفیت یا آمادگی آن‌ها را تضمین نمی‌کند.",
+  "project.viewDataBoundary": "مرز دادهٔ هر نمای Back Office و اطلاعاتی که عمداً برای کاهش افشا نمایش داده نمی‌شود.",
+  "project.plannerDecision": "طرح‌های ثبت‌شده، آمادگی تیم، escalation و وضعیت تصمیم خروجی پیش از dispatch.",
+  "project.projectionMemory": "سلامت Projection و بازسازی read model همراه با حافظه و Context نسخه‌دار و redacted.",
+  "project.currentMemory": "metadata حافظهٔ فعال پروژه؛ متن حساس یا محتوای کامل حافظه در این نما نمایش داده نمی‌شود.",
+  "project.contextRetrieval": "رکورد انتخاب حافظه برای Task، Step، Role و نسخهٔ سند تا پاسخ AI قابل بازپخش باشد.",
+  "operations.timeline": "Timeline خلاصهٔ امن Eventها برای ردیابی تغییرات، بدون Prompt، Credential یا خروجی خام AI.",
+  "operations.organizationEvaluation": "ارزیابی عملکرد سازمان بر پایهٔ Evidence؛ نتیجه پیشنهاد است و خودش مجوز تغییر تیم نیست.",
+  "operations.nextSteps": "اقدام‌های بعدی محاسبه‌شده از وضعیت فعلی، گیت‌ها و blockerها.",
+  "operations.priorityLedger": "دفتر نسخه‌دار گام‌های اولویت‌دار و وضعیت واقعی آن‌ها؛ Done فقط با Evidence معتبر است.",
+  "operations.ownerActions": "تصمیم‌ها و اقدام‌های منتظر Owner یا Admin مجاز که پیش از ادامهٔ جریان باید تعیین تکلیف شوند.",
+  "operations.invariantBoundaries": "قواعد غیرقابل‌تضعیف مانند Global Stop، Secret safety، جداسازی پروژه و گیت Production.",
+  "guide.aiRoles": "تعریف، ورودی و خروجی همهٔ AI Roleهای ثبت‌شده برای خواندن دقیق گزارش‌ها.",
+  "guide.conceptsContracts": "واژه‌نامهٔ قراردادها و مفاهیم کلیدی Back Office برای جلوگیری از برداشت اشتباه.",
+  "guide.walkthrough": "راهنمای عملی و project-scoped برای حرکت از ورود تا آماده‌سازی پروژه. فقط عملیات واقعاً موجود را قابل اقدام نشان می‌دهد.",
+  "guide.serviceSettings": "تنظیم فعال‌بودن Walk-Through برای همین پروژه. غیرفعال‌سازی، راهنمای فعال این مرورگر را هم متوقف می‌کند؛ دادهٔ پروژه حذف نمی‌شود.",
+  "guide.setupProgress": "پیشرفت فقط از دادهٔ واقعی Intake، ورودی، Foundation و Settings محاسبه می‌شود؛ بازدید از یک صفحه Done محسوب نمی‌شود.",
+  "guide.gatedCapability": "گام گیت‌شده به مجوز، Evidence یا اتصال عملیاتی مستقل نیاز دارد. این راهنما هیچ گیتی را دور نمی‌زند.",
+  "guide.consultation": "مشاورهٔ گام‌محور زمینهٔ همان فیلدها را می‌داند و پاسخ را به‌شکل گفت‌وگو نشان می‌دهد. می‌توانید از میان Profileهای آمادهٔ همان پروژه انتخاب کنید؛ Provider زنده تنها پس از Health، بودجه و مجوز هزینهٔ مستقل قابل فراخوانی است. متن گفتگو ذخیره نمی‌شود.",
+  "guide.minimize": "کمینه‌سازی، راهنمای فعال را به نشان H در لبهٔ انتخاب‌شده تبدیل می‌کند. وضعیت راهنما حفظ می‌شود و با کلیک روی H همان گام بازمی‌گردد.",
+  "studio.sourceOfTruth": "Git و Document Registry مرجع canonical محصول‌اند؛ Notion یک Projection قابل بازسازی است.",
+  "studio.productsMetric": "تعداد Productهای ثبت‌شده در Product Registry فعلی.",
+  "studio.documentsMetric": "تعداد کل اسناد ثبت‌شده، مستقل از فعال یا بازنشسته‌بودن نسخه.",
+  "studio.activeDocumentsMetric": "تعداد اسناد canonical با وضعیت فعال در رجیستری فعلی.",
+  "studio.roadmapMetric": "تعداد آیتم‌های Roadmap نسخهٔ جاری؛ این عدد به معنی تکمیل آن‌ها نیست.",
+  "studio.completenessMetric": "میانگین کامل‌بودن محاسبه‌شده بر پایهٔ اسناد الزامی؛ نبود Evidence به‌عنوان کامل محاسبه نمی‌شود.",
+  "studio.canonicalDocuments": "اسناد ثبت‌شده همراه با نسخه، مالک، checksum و وضعیت canonical.",
+  "studio.roadmapGates": "رودمپ و گیت‌های توسعه؛ وضعیت تکمیل فقط با Evidence معتبر نمایش داده می‌شود.",
+  "studio.strategyExecutionGraph": "وابستگی میان راهبرد، milestone و گام اجرایی برای آشکارکردن blocker و چرخه.",
+  "studio.products": "محصول‌ها با Scope، اسناد inherited، اسناد اختصاصی و completeness مستقل.",
+  "studio.notionProjection": "وضعیت Projection اسناد به Notion؛ قطع اتصال، مرجع Git را از کار نمی‌اندازد.",
+  "studio.errorsGaps": "خطاها و شکاف‌هایی که باید رفع یا صریحاً پذیرفته شوند تا ادعای کامل‌بودن معتبر باشد.",
+  "studio.projectWorkspace": "نمای project-scoped از Intake، Foundation، ورودی‌ها، تنظیمات و Import plan.",
+  "studio.projectIdentity": "نام، شناسه، lifecycle و نسخهٔ Project انتخاب‌شده؛ این داده‌ها Scope سایر بخش‌های همین نما را تعیین می‌کنند.",
+  "studio.intake": "تعریف مسئله، هدف، کاربران و سطح خودکارسازی که نقطهٔ شروع جریان توسعه است.",
+  "studio.foundation": "پیشنهاد پایهٔ تیم، Roadmap، Policy و معماری که پیش از اجرا نیازمند تأیید است.",
+  "studio.projectInputs": "فایل‌ها و لینک‌های ورودی پروژه؛ فقط metadata امن در فهرست عمومی Studio دیده می‌شود.",
+  "studio.effectiveSettings": "مقدار مؤثر تنظیمات پس از ترکیب default، project override و run override همراه با provenance.",
+  "studio.importPlans": "برنامهٔ read-only برای واردکردن Repository موجود؛ ثبت برنامه به معنی fetch، commit یا deploy نیست.",
+  "studio.operationalControls": "پیوند به Collaboration، Command، Catalog، Health، Inbox، Infrastructure و Delivery همان پروژه.",
+  "studio.versionedEndpoints": "Endpointهای نسخه‌دار Workspace و Operations که درخواست‌های همین Project را بدون تغییر Scope هدایت می‌کنند.",
+  "workspace.projectContext": "Project و نشست انسانی فعلی که تمام خواندن‌ها و تغییرات Workspace به آن محدود می‌شوند.",
+  "workspace.intake": "ویرایش نسخه‌دار هدف، کاربران و شیوهٔ تأیید پروژه.",
+  "workspace.foundationProposal": "تأیید یا بازگرداندن Foundation پیشنهادی پیش از شروع Flow پروژه.",
+  "workspace.projectInputs": "ثبت ورودی خصوصی پس از کنترل ایمنی؛ فهرست فقط metadata و نتیجهٔ scan/parse را نشان می‌دهد.",
+  "workspace.recall": "فراخوانی، آخرین دادهٔ ثبت‌شده در همین Scope پروژه را فقط به فرم بازمی‌گرداند؛ تا زمانی که دکمهٔ ثبت را نزنید هیچ نسخهٔ جدیدی ساخته نمی‌شود. متن خصوصی فقط با کلیک صریح Owner یا Admin، کنترل مجوز و تطبیق checksum بازخوانی می‌شود.",
+  "workspace.versionedSettings": "تغییر لایه‌ای تنظیمات با دلیل، اثر و provenance؛ Secret یا Deploy از این فرم اجرا نمی‌شود.",
+  "workspace.settingPresets": "الگوهای متداول مسیر و مقدار اولیهٔ تنظیم را پر می‌کنند. برای تنظیم سفارشی، «مسیر دلخواه» را انتخاب و مسیر JSON-safe را وارد کنید. Run override علاوه بر مسیر و مقدار، شناسهٔ Run مشخص می‌خواهد.",
+  "workspace.policyPack": "اعمال مجموعهٔ تنظیمات پیشنهادی و تأییدشده؛ قواعد امنیتی غیرقابل‌تضعیف باقی می‌مانند.",
+  "workspace.rollback": "بازگشت با ساخت نسخهٔ جدید از مقدار قدیمی؛ تاریخچه حذف یا بازنویسی نمی‌شود.",
+  "control.activeTeams": "تعداد تیم‌های فعال و تخصیص‌یافته در Scope همین پروژه.",
+  "control.projectOperations": "نمای project-scoped و redacted عملیات Hero است. فقط metadata و Evidence امن را نشان می‌دهد و به‌تنهایی Provider، Secret، Pilot یا Production را اجرا نمی‌کند.",
+  "control.commands": "فرمان‌ها و عملیات ثبت‌شدهٔ پروژه، مستقل از اینکه هنوز منتظر Approval یا اجرا باشند.",
+  "control.catalogEntities": "اجزای ثبت‌شدهٔ سیستم و وابستگی‌های project-scoped آن‌ها.",
+  "control.openNotifications": "اعلان‌های باز و اقدام‌پذیر پروژه پس از deduplication.",
+  "control.readiness": "جمع‌بندی گیت‌های مهاجرت، سناریو، traceability و پذیرش پیش از Pilot یا Production.",
+  "control.collaborationMemory": "گفتگوها، تیم‌ها و حافظهٔ پروژه با provenance و جداسازی بین پروژه‌ای.",
+  "control.commandOperations": "فرمان، Approval، Queue، Run و وضعیت بازیابی عملیات پروژه.",
+  "control.catalogDrift": "کاتالوگ اجزا، وابستگی‌ها، تغییر ناهمخوان و Proposal اصلاح بدون overwrite خودکار.",
+  "control.performanceHealth": "مصرف Token، بودجه، ارزیابی دقت، خطا، بازکاری و Health قابل‌توضیح.",
+  "control.inboxObservability": "Inbox، Audit، Trace و SLIهای عملیاتی پروژه.",
+  "control.infrastructure": "Repository، Server، Node، Environment، Secret reference و egress policy؛ Production مجوز مستقل دارد.",
+  "control.deliveryArtifacts": "Release، Artifact، Export، portability و acceptance خروجی پروژه.",
+  "control.hardening": "Retention، cleanup dry-run، audit امنیت و پوشش کنترل‌های مقاوم‌سازی.",
+  "control.finalReadiness": "مهاجرت، بازسازی، سناریوهای ایزوله، traceability و تصمیم نهایی پیش از Pilot.",
+  "identity.ownerAdmin": "Owner دسترسی سراسری و مدیریت Project/User دارد؛ Admin فقط Projectهای اعطاشده را ویرایش می‌کند و نمی‌تواند کاربر یا Project بسازد یا حذف کند.",
+  "identity.viewer": "Viewer فقط Projectهای اعطاشده را می‌بیند و هیچ تغییری ثبت نمی‌کند.",
+  "identity.projectGrant": "اتصال نسخه‌دار یک User به یک Project با نقش Admin یا Viewer؛ فقط Owner آن را ایجاد یا ابطال می‌کند.",
+  "identity.humanLogin": "ورود داخلی با ایمیل، رمز و MFA؛ این مرحله بعد از محافظ شبکه‌ای Back Office انجام می‌شود.",
+  "identity.loginSteps": "راهنمای سه مرحلهٔ ورود Test: نخست Basic Auth پنجرهٔ مرورگر، سپس ایمیل و رمز حساب انسانی، و در پایان کد شش‌رقمیِ درحال‌تغییر Authenticator. این سه مقدار جای هم استفاده نمی‌شوند.",
+  "identity.configurationStatus": "آمادگی واقعی سرویس Human Identity را پیش از ارسال رمز بررسی می‌کند؛ عبور از Basic Auth به معنی آماده‌بودن این لایه نیست.",
+  "identity.management": "مدیریت حساب‌ها، نشست‌ها و Project Grantها با Audit و دسترسی Owner-only.",
+  "identity.createViewer": "ساخت حساب Viewer توسط Owner؛ پس از آن دسترسی هر Project جداگانه اعطا می‌شود.",
+  "identity.assignGrant": "اعطای نقش Admin یا Viewer برای یک Project مشخص؛ دسترسی به پروژه‌های دیگر ایجاد نمی‌شود.",
+  "identity.users": "فهرست حساب‌های انسانی و وضعیت MFA/فعال‌بودن بدون نمایش Password یا Secret.",
+  "identity.projectGrants": "نسخه‌ها و وضعیت Grantهای یک Project؛ ابطال تاریخچهٔ قبلی را حذف نمی‌کند.",
+  "lab.newRequest": "درخواست نمونه برای برنامه‌ریزی و آزمون در Safe Lab؛ Provider زنده یا Production را اجرا نمی‌کند.",
+  "lab.controls": "کنترل سطح خودکارسازی و Global Stop برای شبیه‌سازی جریان امن.",
+  "lab.autonomy": "در Safe Lab تعیین می‌کند اجرای شبیه‌سازی‌شده منتظر تأیید بماند یا پس از گیت‌های مجاز خودکار ادامه دهد.",
+  "lab.globalStop": "توقف اضطراری ایجاد یا تأیید Run تازه را می‌بندد؛ داده را حذف نمی‌کند و به معنی شکست پروژه نیست.",
+  "lab.currentScope": "محدودهٔ فعال آزمایش؛ Fake Agent یعنی Provider زنده، هزینه و Production درگیر نیستند.",
+  "lab.teamControl": "وضعیت تیم‌ها و گیت آمادگی آن‌ها در محیط آزمایشی.",
+  "lab.multiAiDecision": "نمای نقش‌ها، Profileها، Invocation، Evaluation و Decision در حالت Fake Agent.",
+  "lab.criticalPrinciplesRelease": "اصول حیاتی و فلو انتشار آزمایشی؛ هیچ مجوز Production از این نما ایجاد نمی‌شود.",
+  "lab.requestsExecutionPlan": "درخواست‌های ثبت‌شده و برنامهٔ اجرای شبیه‌سازی‌شده در Safe Lab.",
+  "lab.aiRoles": "تعداد AI Roleهای قراردادی حاضر در شبیه‌سازی؛ Role با Team یا User یکسان نیست.",
+  "lab.providers": "تعداد Providerهای ثبت‌شده در حالت مشاهده‌ای؛ Safe Lab هیچ Provider زنده‌ای را فعال نمی‌کند.",
+  "lab.profiles": "تعداد Agent Profileهای نسخه‌دار مورد استفادهٔ سناریوی آزمایشی.",
+  "lab.invocations": "Invocationهای Fake Agent ثبت‌شده برای بازپخش جریان بدون هزینهٔ Provider.",
+  "lab.evaluations": "Evaluationهای synthetic برای آزمون تصمیم‌سازی در Safe Lab.",
+  "lab.decisions": "تصمیم‌های ثبت‌شدهٔ سناریوی شبیه‌سازی؛ مجوز عملیات بیرونی محسوب نمی‌شوند.",
+  "lab.releases": "Releaseهای نمایشی در فلو Test؛ هیچ‌کدام مجوز یا استقرار Production ایجاد نمی‌کنند."
+});
+
+function serializeFeatureHelp() {
+  return JSON.stringify(HERO_FEATURE_HELP)
+    .replaceAll("&", "\\u0026")
+    .replaceAll("<", "\\u003c")
+    .replaceAll(">", "\\u003e")
+    .replaceAll("\u2028", "\\u2028")
+    .replaceAll("\u2029", "\\u2029");
+}
+
+function icon(name) {
+  const paths = {
+    portfolio: '<path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h4A1.5 1.5 0 0 1 11 5.5v4A1.5 1.5 0 0 1 9.5 11h-4A1.5 1.5 0 0 1 4 9.5v-4Zm9 0A1.5 1.5 0 0 1 14.5 4h4A1.5 1.5 0 0 1 20 5.5v4a1.5 1.5 0 0 1-1.5 1.5h-4A1.5 1.5 0 0 1 13 9.5v-4Zm-9 9A1.5 1.5 0 0 1 5.5 13h4a1.5 1.5 0 0 1 1.5 1.5v4A1.5 1.5 0 0 1 9.5 20h-4A1.5 1.5 0 0 1 4 18.5v-4Zm9 0a1.5 1.5 0 0 1 1.5-1.5h4a1.5 1.5 0 0 1 1.5 1.5v4a1.5 1.5 0 0 1-1.5 1.5h-4a1.5 1.5 0 0 1-1.5-1.5v-4Z"/>',
+    command: '<path d="M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Zm2 5 3 3-3 3m5 0h5"/>',
+    studio: '<path d="M5 3h11a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm13 4h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-1M7 8h7M7 12h7M7 16h4"/>',
+    workspace: '<path d="M4 7.5h16v11A1.5 1.5 0 0 1 18.5 20h-13A1.5 1.5 0 0 1 4 18.5v-11ZM8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m-5 5h2"/>',
+    control: '<path d="M4 6h9M17 6h3M4 12h3m4 0h9M4 18h7m4 0h5M13 4v4M7 10v4m4 2v4"/>',
+    walkthrough: '<path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 0-3 3V4Zm3 5h7M8 13h7M8 17h4"/><path d="m17 20 1.5 1.5L22 18"/>',
+    identity: '<path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm7 8a7 7 0 0 0-14 0m12-8 2 2 4-4"/>',
+    search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>',
+    theme: '<path d="M20 15.2A8 8 0 0 1 8.8 4 8.5 8.5 0 1 0 20 15.2Z"/>'
+  };
+  return `<svg class="hero-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${paths[name] ?? paths.command}</svg>`;
+}
+
+export function getHeroShellStyles() {
+  return `
+    @font-face {
+      font-family: "Vazirmatn";
+      src: url("/api/ui-assets/vazirmatn.woff2") format("woff2");
+      font-style: normal;
+      font-weight: 100 900;
+      font-display: swap;
+    }
+    :root, body, button, input, select, textarea { font-family: Vazirmatn, sans-serif !important; }
+    :root {
+      font-family: Vazirmatn, sans-serif;
+      --hero-ink: #172033;
+      --hero-muted: #67738a;
+      --hero-canvas: #f3f5f9;
+      --hero-surface: #ffffff;
+      --hero-surface-raised: #ffffff;
+      --hero-line: #dfe5ee;
+      --hero-line-strong: #cbd4e2;
+      --hero-brand: #4f46e5;
+      --hero-brand-hover: #4338ca;
+      --hero-brand-soft: #eef2ff;
+      --hero-success: #087f5b;
+      --hero-success-soft: #e8f7f1;
+      --hero-warning: #9a5b00;
+      --hero-warning-soft: #fff4d8;
+      --hero-danger: #b4234d;
+      --hero-danger-soft: #fff0f3;
+      --hero-shadow-sm: 0 1px 2px rgba(20, 29, 48, .04), 0 5px 16px rgba(20, 29, 48, .04);
+      --hero-shadow-lg: 0 24px 70px rgba(16, 24, 40, .18);
+    }
+    :root[data-hero-theme="dark"] {
+      color-scheme: dark;
+      --hero-ink: #eef2ff;
+      --hero-muted: #aeb8cc;
+      --hero-canvas: #0d1220;
+      --hero-surface: #141b2d;
+      --hero-surface-raised: #1b2439;
+      --hero-line: #2b354c;
+      --hero-line-strong: #3b4862;
+      --hero-brand: #8b83ff;
+      --hero-brand-hover: #a39dff;
+      --hero-brand-soft: #28274d;
+      --hero-success: #52d6a2;
+      --hero-success-soft: #17392f;
+      --hero-warning: #ffc260;
+      --hero-warning-soft: #40331c;
+      --hero-danger: #ff84a2;
+      --hero-danger-soft: #492334;
+      --ink: var(--hero-ink);
+      --muted: var(--hero-muted);
+      --line: var(--hero-line);
+      --surface: var(--hero-surface);
+      --canvas: var(--hero-canvas);
+      --primary: var(--hero-brand);
+      --primary-soft: var(--hero-brand-soft);
+      --teal: var(--hero-success);
+      --teal-soft: var(--hero-success-soft);
+      --amber: var(--hero-warning);
+      --amber-soft: var(--hero-warning-soft);
+      --rose: var(--hero-danger);
+      --rose-soft: var(--hero-danger-soft);
+    }
+    .hero-skip-link { position: fixed; inset-inline-start: 16px; top: -80px; z-index: 10000; padding: 10px 14px; border-radius: 10px; background: #111827; color: #fff; text-decoration: none; }
+    .hero-skip-link:focus { top: 12px; }
+    .hero-appbar { position: sticky; top: 0; z-index: 900; min-height: 68px; border-bottom: 1px solid rgba(203, 212, 226, .78); background: color-mix(in srgb, var(--hero-surface) 92%, transparent); color: var(--hero-ink); backdrop-filter: blur(18px) saturate(1.35); }
+    .hero-appbar-inner { width: min(1560px, calc(100% - 32px)); min-height: 68px; margin: 0 auto; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 18px; }
+    .hero-app-brand { display: inline-flex; align-items: center; gap: 10px; color: inherit; text-decoration: none; white-space: nowrap; }
+    .hero-app-mark { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 12px; background: linear-gradient(145deg, #625bf6, #3931b6); color: #fff; font: 900 16px/1 system-ui, sans-serif; box-shadow: 0 7px 18px rgba(79,70,229,.25); }
+    .hero-app-brand-copy { display: grid; gap: 1px; }
+    .hero-app-brand-copy strong { font: 850 13px/1.3 Vazirmatn, sans-serif; letter-spacing: .01em; }
+    .hero-app-brand-copy small { color: var(--hero-muted); font: 650 9px/1.2 Vazirmatn, sans-serif; letter-spacing: .12em; text-transform: uppercase; }
+    .hero-app-actions { justify-self: end; }
+    .hero-side-nav { position: fixed; z-index: 850; top: 84px; bottom: 18px; inset-inline-end: 18px; display: grid; grid-template-rows: auto minmax(0, 1fr); width: 244px; overflow: hidden; border: 1px solid var(--hero-line); border-radius: 16px; background: color-mix(in srgb, var(--hero-surface-raised) 94%, transparent); box-shadow: var(--hero-shadow-lg); backdrop-filter: blur(16px) saturate(1.2); }
+    .hero-side-nav-head { display: flex; align-items: center; gap: 8px; padding: 13px 13px 10px; border-bottom: 1px solid var(--hero-line); color: var(--hero-muted); font-size: .67rem; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }.hero-side-nav-head span { display: grid; place-items: center; width: 23px; height: 23px; border-radius: 7px; background: var(--hero-brand-soft); color: var(--hero-brand); font: 900 .8rem/1 system-ui, sans-serif; letter-spacing: 0; }
+    .hero-global-nav { display: grid; align-content: start; min-width: 0; gap: 4px; overflow-y: auto; overscroll-behavior: contain; padding: 8px; scrollbar-color: var(--hero-line-strong) transparent; scrollbar-width: thin; }
+    .hero-global-nav a { position: relative; display: grid; grid-template-columns: 20px minmax(0, 1fr); align-items: center; gap: 9px; min-height: 46px; padding: 8px 11px; border-radius: 11px; color: var(--hero-muted); text-decoration: none; }
+    .hero-global-nav a:hover { background: var(--hero-brand-soft); color: var(--hero-brand); }
+    .hero-global-nav a[aria-current="page"] { background: var(--hero-brand-soft); color: var(--hero-brand); font-weight: 800; }
+    .hero-global-nav a[aria-current="page"]::after { position: absolute; inset-inline-end: 0; top: 11px; bottom: 11px; width: 3px; border-radius: 3px; background: var(--hero-brand); content: ""; }
+    .hero-nav-copy { display: grid; min-width: 0; gap: 1px; }
+    .hero-nav-copy b { font-size: 11px; line-height: 1.3; }
+    .hero-nav-copy small { opacity: .75; font: 600 8px/1.2 Vazirmatn, sans-serif; direction: ltr; }
+    .hero-icon { width: 17px; height: 17px; flex: 0 0 17px; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+    .hero-app-actions { display: flex; align-items: center; gap: 7px; }
+    .hero-project-context { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; max-width: 260px; padding: 5px 8px 5px 6px; border: 1px solid var(--hero-line-strong); border-radius: 10px; background: var(--hero-surface); color: var(--hero-ink); text-decoration: none; box-shadow: var(--hero-shadow-sm); }
+    .hero-project-context > span { display: grid; min-width: 0; gap: 1px; }
+    .hero-project-context b { overflow: hidden; font-size: 10px; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; direction: ltr; }
+    .hero-project-context small { color: var(--hero-muted); font-size: 8px; line-height: 1.2; }
+    .hero-project-context em { display: grid; place-items: center; width: 23px; height: 23px; flex: 0 0 23px; border-radius: 7px; background: var(--hero-brand-soft); color: var(--hero-brand); font-size: 13px; font-style: normal; }
+    .hero-project-context:hover, .hero-project-context:focus-visible { border-color: var(--hero-brand); color: var(--hero-brand); outline: 0; }
+    .hero-shell-button { min-height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 7px 10px; border: 1px solid var(--hero-line); border-radius: 10px; background: var(--hero-surface); color: var(--hero-muted); cursor: pointer; font: 750 11px/1.2 inherit; }
+    .hero-shell-button:hover { border-color: var(--hero-line-strong); color: var(--hero-ink); box-shadow: var(--hero-shadow-sm); }
+    .hero-environment { display: inline-flex; align-items: center; gap: 7px; min-height: 34px; padding: 6px 9px; border: 1px solid var(--hero-line); border-radius: 999px; color: var(--hero-muted); font-size: 10px; font-weight: 750; white-space: nowrap; }
+    .hero-environment::before { width: 7px; height: 7px; border-radius: 50%; background: var(--hero-success); box-shadow: 0 0 0 3px var(--hero-success-soft); content: ""; }
+    .hero-command-dialog { width: min(650px, calc(100% - 30px)); max-height: min(700px, calc(100vh - 50px)); padding: 0; border: 1px solid var(--hero-line); border-radius: 18px; background: var(--hero-surface-raised); color: var(--hero-ink); box-shadow: var(--hero-shadow-lg); }
+    .hero-command-dialog::backdrop { background: rgba(8, 15, 30, .54); backdrop-filter: blur(3px); }
+    .hero-command-head { display: flex; align-items: center; gap: 10px; padding: 14px; border-bottom: 1px solid var(--hero-line); }
+    .hero-command-head input { min-width: 0; flex: 1; min-height: 42px; padding: 9px 2px; border: 0; outline: 0; background: transparent; color: var(--hero-ink); font: 700 14px/1.4 inherit; }
+    .hero-command-head kbd { padding: 4px 7px; border: 1px solid var(--hero-line-strong); border-bottom-width: 2px; border-radius: 6px; color: var(--hero-muted); background: var(--hero-canvas); font: 700 9px/1 Vazirmatn, sans-serif; }
+    .hero-command-list { display: grid; gap: 4px; max-height: 520px; overflow: auto; padding: 10px; }
+    .hero-command-list a { display: grid; grid-template-columns: 36px minmax(0,1fr) auto; align-items: center; gap: 10px; padding: 10px; border-radius: 11px; color: inherit; text-decoration: none; }
+    .hero-command-list a:hover, .hero-command-list a:focus-visible { outline: 0; background: var(--hero-brand-soft); color: var(--hero-brand); }
+    .hero-command-symbol { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: var(--hero-canvas); }
+    .hero-command-copy { display: grid; gap: 2px; }
+    .hero-command-copy strong { font-size: 12px; }
+    .hero-command-copy small { color: var(--hero-muted); font-size: 10px; }
+    .hero-command-group { padding: 8px 10px 2px; color: var(--hero-muted); font-size: 9px; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
+    .hero-command-empty { padding: 28px; color: var(--hero-muted); text-align: center; font-size: 12px; }
+    [data-hero-info-key], .hero-feature-name { position: relative; }
+    .hero-feature-with-info { display: inline-flex !important; align-items: center; gap: .38rem; max-width: 100%; }
+    .hero-info-trigger { display: inline-grid; place-items: center; width: 1.75rem; height: 1.75rem; min-width: 1.75rem; padding: 0; border: 1px solid var(--hero-line-strong); border-radius: 999px; background: var(--hero-surface); color: var(--hero-muted); box-shadow: none; cursor: help; font: 850 .72rem/1 Vazirmatn, sans-serif; text-transform: lowercase; vertical-align: middle; }
+    .hero-info-trigger:hover, .hero-info-trigger:focus-visible, .hero-info-trigger[aria-expanded="true"] { border-color: var(--hero-brand); outline: 0; background: var(--hero-brand-soft); color: var(--hero-brand); box-shadow: 0 0 0 3px color-mix(in srgb, var(--hero-brand) 16%, transparent); }
+    .hero-feature-tooltip { position: fixed; z-index: 12000; width: min(330px, calc(100vw - 24px)); padding: 11px 13px; border: 1px solid var(--hero-line-strong); border-radius: 12px; background: var(--hero-surface-raised); color: var(--hero-ink); box-shadow: var(--hero-shadow-lg); font: 650 .82rem/1.8 Vazirmatn, sans-serif; text-align: start; direction: rtl; pointer-events: none; opacity: 0; transform: translateY(4px); transition: opacity .12s ease, transform .12s ease; }
+    .hero-feature-tooltip[data-open="true"] { opacity: 1; transform: translateY(0); }
+    .hero-smart-testable { position: relative; }
+    .hero-smart-tester-trigger { position: absolute; z-index: 5; top: 8px; inset-inline-end: 8px; display: grid; place-items: center; width: 24px; height: 24px; min-width: 24px; padding: 0; border: 1px solid color-mix(in srgb, var(--hero-brand) 42%, var(--hero-line)); border-radius: 999px; background: var(--hero-surface-raised); color: var(--hero-brand); box-shadow: 0 4px 10px rgba(29,36,79,.14); cursor: pointer; font: 900 .86rem/1 system-ui, sans-serif; direction: ltr; }
+    .hero-smart-tester-trigger:hover, .hero-smart-tester-trigger:focus-visible { border-color: var(--hero-brand); outline: 0; background: var(--hero-brand); color: #fff; box-shadow: 0 0 0 3px color-mix(in srgb, var(--hero-brand) 18%, transparent); }
+    .hero-smart-tester-panel { position: fixed; z-index: 11030; top: 82px; right: 12px; display: grid; grid-template-rows: auto auto minmax(0,1fr) auto auto; gap: 9px; width: min(420px, calc(100vw - 24px)); height: min(680px, calc(100vh - 94px)); max-height: calc(100vh - 94px); min-width: 0; box-sizing: border-box; margin: 0; padding: 14px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--hero-brand) 46%, var(--hero-line)); border-radius: 15px; background: var(--hero-surface-raised); color: var(--hero-ink); box-shadow: 0 22px 56px rgba(32,27,116,.25); direction: rtl; contain: layout paint style; isolation: isolate; }
+    .hero-smart-tester-panel[data-hero-smart-tester-side="left"] { right: auto; left: 12px; }.hero-smart-tester-panel[data-hero-smart-tester-side="right"] { right: 12px; left: auto; }
+    .hero-smart-tester-head, .hero-smart-tester-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }.hero-smart-tester-head { display: grid; gap: 3px; justify-content: stretch; }.hero-smart-tester-head h2 { min-width: 0; margin: 0; color: var(--hero-brand); font-size: .9rem; line-height: 1.55; overflow-wrap: anywhere; }.hero-smart-tester-head p { width: 100%; min-width: 0; margin: 0; color: var(--hero-muted); font-size: .7rem; line-height: 1.75; overflow-wrap: anywhere; }.hero-smart-tester-status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; clip-path: inset(50%); }
+    .hero-smart-tester-panel button { min-height: 32px; padding: 6px 9px; border: 1px solid var(--hero-line-strong); border-radius: 8px; background: var(--hero-surface); color: var(--hero-brand); cursor: pointer; font: 800 .72rem/1.2 Vazirmatn, sans-serif; }.hero-smart-tester-panel button:hover, .hero-smart-tester-panel button:focus-visible { border-color: var(--hero-brand); outline: 0; background: var(--hero-brand-soft); }.hero-smart-tester-panel button[disabled] { opacity: .52; cursor: wait; }
+    .hero-smart-tester-scroll { display: grid; align-content: start; gap: 8px; min-width: 0; min-height: 0; overflow: auto; padding: 1px 2px; overscroll-behavior: contain; scrollbar-gutter: stable; }.hero-smart-tester-message, .hero-smart-tester-report { min-width: 0; max-width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid var(--hero-line); border-radius: 10px; background: var(--hero-surface); font-size: .74rem; line-height: 1.82; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }.hero-smart-tester-message span, .hero-smart-tester-report span { display: block; min-width: 0; max-width: 100%; overflow-wrap: anywhere; word-break: break-word; }.hero-smart-tester-message[data-speaker="user"] { border-inline-start: 3px solid var(--hero-brand); background: color-mix(in srgb, var(--hero-brand-soft) 42%, var(--hero-surface)); }.hero-smart-tester-message[data-speaker="assistant"] { background: color-mix(in srgb, var(--hero-success-soft) 31%, var(--hero-surface)); }.hero-smart-tester-message b, .hero-smart-tester-report b { display: block; min-width: 0; margin-bottom: 4px; color: var(--hero-brand); font-size: .67rem; overflow-wrap: anywhere; }.hero-smart-tester-report[data-state="attention"] { border-color: color-mix(in srgb, var(--hero-warning) 45%, var(--hero-line)); }.hero-smart-tester-report[data-state="not-run"] { border-style: dashed; color: var(--hero-muted); }
+    .hero-smart-tester-form { display: grid; min-width: 0; gap: 7px; }.hero-smart-tester-form textarea { width: 100%; min-height: 70px; max-height: 150px; box-sizing: border-box; padding: 8px; border: 1px solid var(--hero-line-strong); border-radius: 9px; background: var(--hero-surface); color: var(--hero-ink); font: 700 .75rem/1.7 Vazirmatn, sans-serif; resize: vertical; }.hero-smart-tester-selector { display: grid; min-width: 0; gap: 4px; color: var(--hero-muted); font-size: .68rem; font-weight: 800; }.hero-smart-tester-selector select { width: 100%; min-width: 0; min-height: 34px; box-sizing: border-box; padding: 6px 8px; border: 1px solid var(--hero-line-strong); border-radius: 8px; background: var(--hero-surface); color: var(--hero-ink); font: 700 .72rem/1.4 Vazirmatn, sans-serif; }.hero-smart-tester-actions button { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+    .hero-action-feedback { position: fixed; z-index: 12030; right: 18px; bottom: 18px; left: auto; display: grid; gap: 9px; width: min(460px, calc(100vw - 36px)); max-height: min(46vh, 420px); box-sizing: border-box; padding: 15px; overflow: auto; border: 1px solid var(--hero-line-strong); border-radius: 15px; background: var(--hero-surface-raised); color: var(--hero-ink); box-shadow: var(--hero-shadow-lg); direction: rtl; contain: layout paint style; isolation: isolate; }
+    .hero-action-feedback[data-hero-action-feedback-side="left"] { right: auto; left: 18px; }.hero-action-feedback[data-hero-action-feedback-side="right"] { right: 18px; left: auto; }
+    .hero-action-feedback[data-state="success"] { border-color: color-mix(in srgb, var(--hero-success) 48%, var(--hero-line)); }.hero-action-feedback[data-state="error"] { border-color: color-mix(in srgb, var(--hero-danger) 55%, var(--hero-line)); }
+    .hero-action-feedback-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }.hero-action-feedback-head h2 { margin: 0; color: var(--hero-ink); font-size: .9rem; line-height: 1.5; }.hero-action-feedback[data-state="success"] .hero-action-feedback-head h2 { color: var(--hero-success); }.hero-action-feedback[data-state="error"] .hero-action-feedback-head h2 { color: var(--hero-danger); }
+    .hero-action-feedback-status { margin: 0; color: var(--hero-muted); font-size: .76rem; line-height: 1.85; overflow-wrap: anywhere; }.hero-action-feedback-meta { margin: 0; color: var(--hero-muted); font-size: .66rem; line-height: 1.7; }.hero-action-feedback-actions { display: flex; flex-wrap: wrap; gap: 7px; }.hero-action-feedback button { min-height: 33px; padding: 7px 10px; border: 1px solid var(--hero-line-strong); border-radius: 8px; background: var(--hero-surface); color: var(--hero-brand); cursor: pointer; font: 800 .72rem/1.2 Vazirmatn, sans-serif; }.hero-action-feedback button:hover, .hero-action-feedback button:focus-visible { border-color: var(--hero-brand); outline: 0; background: var(--hero-brand-soft); }.hero-action-feedback button[data-kind="close"] { color: var(--hero-muted); }.hero-action-feedback button[data-kind="smart"] { border-color: color-mix(in srgb, var(--hero-brand) 48%, var(--hero-line)); color: var(--hero-brand); }.hero-action-feedback button[data-kind="move"] { color: var(--hero-muted); }.hero-action-feedback button[data-kind="move"][aria-pressed="true"] { border-color: var(--hero-brand); background: var(--hero-brand-soft); color: var(--hero-brand); cursor: default; }
+    .hero-walkthrough-coach, .hero-walkthrough-advisor { position: fixed; z-index: 11000; top: 92px; right: 12px; display: grid; gap: 9px; width: min(440px, calc(100vw - 24px)); max-height: calc(100vh - 104px); overflow: auto; box-sizing: border-box; margin: 0; padding: 14px 15px; border: 1px solid color-mix(in srgb, var(--hero-brand) 45%, var(--hero-line)); border-radius: 14px; background: var(--hero-surface-raised); color: var(--hero-ink); box-shadow: 0 18px 44px rgba(47,43,160,.22); direction: rtl; overscroll-behavior: contain; contain: layout paint style; isolation: isolate; }
+    .hero-walkthrough-coach[data-hero-walkthrough-side="left"] { right: auto; left: 12px; }.hero-walkthrough-coach[data-hero-walkthrough-side="right"] { right: 12px; left: auto; }
+    .hero-walkthrough-advisor { z-index: 11010; border-color: color-mix(in srgb, var(--hero-success) 42%, var(--hero-line)); }.hero-walkthrough-advisor[data-hero-walkthrough-side="left"] { right: auto; left: 12px; }.hero-walkthrough-advisor[data-hero-walkthrough-side="right"] { right: 12px; left: auto; }
+    .hero-walkthrough-coach strong { color: var(--hero-brand); font-size: .88rem; }.hero-walkthrough-coach p { margin: 0; color: var(--hero-muted); font-size: .78rem; line-height: 1.85; }.hero-walkthrough-coach-actions, .hero-walkthrough-advisor-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }.hero-walkthrough-coach a, .hero-walkthrough-coach button, .hero-walkthrough-advisor button { min-height: 32px; padding: 6px 9px; border: 1px solid var(--hero-line-strong); border-radius: 8px; background: var(--hero-surface); color: var(--hero-brand); font: 800 .72rem/1.2 Vazirmatn, sans-serif; text-decoration: none; cursor: pointer; }.hero-walkthrough-coach button[disabled], .hero-walkthrough-advisor button[disabled] { opacity:.48; cursor:not-allowed; }.hero-walkthrough-progress, .hero-walkthrough-advisor-status { color: var(--hero-muted); font-size: .67rem; font-weight: 800; }.hero-walkthrough-completion { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); clip-path:inset(50%); white-space:nowrap; }.hero-walkthrough-advisor-status[data-state="error"] { color: var(--hero-danger); }.hero-walkthrough-advisor-selector { display:grid; gap:5px; color:var(--hero-muted); font-size:.7rem; font-weight:800; }.hero-walkthrough-advisor-selector select { width:100%; min-height:34px; box-sizing:border-box; padding:6px 8px; border:1px solid var(--hero-line-strong); border-radius:8px; background:var(--hero-surface); color:var(--hero-ink); font:700 .72rem/1.35 Vazirmatn,sans-serif; }.hero-walkthrough-advisor-messages { display:grid; gap:8px; max-height:260px; overflow:auto; padding:2px; }.hero-walkthrough-advisor-message { padding:10px; border:1px solid var(--hero-line); border-radius:10px; color:var(--hero-ink); font-size:.75rem; line-height:1.82; white-space:pre-wrap; overflow-wrap:anywhere; }.hero-walkthrough-advisor-message[data-speaker="assistant"] { background:color-mix(in srgb,var(--hero-success-soft) 34%,var(--hero-surface)); }.hero-walkthrough-advisor-message[data-speaker="user"] { background:color-mix(in srgb,var(--hero-brand-soft) 42%,var(--hero-surface)); border-inline-start:3px solid var(--hero-brand); }.hero-walkthrough-advisor-message b { display:block; margin-bottom:4px; color:var(--hero-brand); font-size:.67rem; }.hero-walkthrough-advisor form { display: grid; gap: 7px; }.hero-walkthrough-advisor textarea { width: 100%; box-sizing: border-box; min-height: 76px; padding: 8px; border: 1px solid var(--hero-line-strong); border-radius: 9px; resize: vertical; background: var(--hero-surface); color: var(--hero-ink); font: 700 .75rem/1.7 Vazirmatn, sans-serif; }.hero-walkthrough-launcher { position: fixed; z-index: 11000; top: 92px; display: grid; place-items: center; width: 42px; height: 42px; padding: 0; border: 1px solid color-mix(in srgb, var(--hero-brand) 52%, var(--hero-line)); border-radius: 12px; background: var(--hero-surface-raised); color: var(--hero-brand); box-shadow: var(--hero-shadow-lg); cursor: pointer; font: 900 1rem/1 Vazirmatn, sans-serif; direction: ltr; }.hero-walkthrough-launcher[data-hero-walkthrough-side="left"] { left: 12px; right: auto; }.hero-walkthrough-launcher[data-hero-walkthrough-side="right"] { right: 12px; left: auto; }.hero-walkthrough-launcher:hover, .hero-walkthrough-launcher:focus-visible { outline: 0; background: var(--hero-brand); color: #fff; }.hero-walkthrough-target { outline: 3px solid color-mix(in srgb, var(--hero-brand) 25%, transparent); outline-offset: 5px; scroll-margin-top: 112px; transition: outline-color .16s ease; }
+    [data-hero-theme="dark"] body { background: var(--hero-canvas) !important; color: var(--hero-ink); }
+    [data-hero-theme="dark"] .hero-appbar, [data-hero-theme="dark"] .hero-shell-button,
+    [data-hero-theme="dark"] .section, [data-hero-theme="dark"] .panel,
+    [data-hero-theme="dark"] .card, [data-hero-theme="dark"] .hero,
+    [data-hero-theme="dark"] .side-nav, [data-hero-theme="dark"] .content-panel,
+    [data-hero-theme="dark"] .project-card, [data-hero-theme="dark"] .context,
+    [data-hero-theme="dark"] dialog { border-color: var(--hero-line) !important; background: var(--hero-surface) !important; color: var(--hero-ink) !important; }
+    [data-hero-theme="dark"] input, [data-hero-theme="dark"] textarea, [data-hero-theme="dark"] select,
+    [data-hero-theme="dark"] .metric, [data-hero-theme="dark"] .setting-card,
+    [data-hero-theme="dark"] .team-card, [data-hero-theme="dark"] .contract-card,
+    [data-hero-theme="dark"] .row { border-color: var(--hero-line) !important; background: var(--hero-surface-raised) !important; color: var(--hero-ink) !important; }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .001ms !important; animation-duration: .001ms !important; animation-iteration-count: 1 !important; } }
+    .hero-side-nav ~ #hero-main { max-width: calc(100% - 296px); margin-inline-start: auto !important; margin-inline-end: 278px !important; }
+    @media (max-width: 1160px) { .hero-app-actions { display: none; } .hero-side-nav { width: 222px; }.hero-side-nav ~ #hero-main { max-width: calc(100% - 268px); margin-inline-end: 254px !important; } }
+    @media (max-width: 760px) { .hero-appbar { position: static; } .hero-appbar-inner { width: min(100% - 20px, 740px); grid-template-columns: 1fr; gap: 7px; padding: 10px 0; } .hero-app-brand { justify-self: start; } .hero-side-nav { position: static; width: min(100% - 20px, 740px); max-height: 254px; margin: 10px auto 0; border-radius: 13px; } .hero-side-nav ~ #hero-main { max-width: none; margin-inline: auto !important; } .hero-global-nav a { min-height: 40px; } .hero-nav-copy small { display: none; } .hero-walkthrough-coach, .hero-walkthrough-advisor, .hero-smart-tester-panel, .hero-action-feedback { top: auto; right: 10px; bottom: 10px; left: 10px; width: auto; max-height: min(62vh, 540px); } .hero-walkthrough-coach[data-hero-walkthrough-side="left"], .hero-walkthrough-coach[data-hero-walkthrough-side="right"], .hero-walkthrough-advisor[data-hero-walkthrough-side="left"], .hero-walkthrough-advisor[data-hero-walkthrough-side="right"], .hero-smart-tester-panel[data-hero-smart-tester-side="left"], .hero-smart-tester-panel[data-hero-smart-tester-side="right"], .hero-action-feedback[data-hero-action-feedback-side="left"], .hero-action-feedback[data-hero-action-feedback-side="right"] { right: 10px; left: 10px; } .hero-walkthrough-launcher { top:auto; bottom:10px; } .hero-walkthrough-launcher[data-hero-walkthrough-side="left"] { left:10px; }.hero-walkthrough-launcher[data-hero-walkthrough-side="right"] { right:10px; } }
+  `;
+}
+
+export function getHeroGlobalNavigation({ active = "portfolio", projectId = null, environment = "Private" } = {}) {
+  // The browser portal is delivered under /api because the Test proxy already
+  // forwards that namespace to Hero. The portal itself requires the secure
+  // Human Identity cookie and Project Grant; this prevents a stale outer
+  // Basic-Auth rule from interrupting an already logged-in user.
+  const portalHref = (surface, parameters = {}) => {
+    const query = new URLSearchParams({ surface, ...parameters });
+    return `/api/portal?${query.toString()}`;
+  };
+  const selectionHref = next => portalHref("portfolio", { select: "project", next });
+  const commandHref = projectId ? portalHref("command", { projectId }) : selectionHref("command");
+  const studioHref = projectId ? portalHref("studio", { projectId }) : selectionHref("studio");
+  const workspaceHref = projectId ? portalHref("workspace", { projectId }) : selectionHref("workspace");
+  const controlHref = projectId ? portalHref("control", { projectId }) : selectionHref("control");
+  const aiConnectionsHref = `${portalHref("ai")}#ai`;
+  const walkthroughHref = portalHref("walkthrough", projectId ? { projectId } : {});
+  const entries = [
+    ["portfolio", portalHref("portfolio", { select: "project" }), "انتخاب پروژه", "Projects", "portfolio", false],
+    ["backoffice", commandHref, "مرکز فرمان", "Command", "command", true],
+    ["studio", studioHref, "استودیوی محصول", "Studio", "studio", true],
+    ["workspace", workspaceHref, "فضای پروژه", "Workspace", "workspace", true],
+    ["control", controlHref, "عملیات پروژه", "Operations", "control", true],
+    ["ai", aiConnectionsHref, "اتصال‌های AI", "AI Connections", "ai", false],
+    ["walkthrough", walkthroughHref, "راهنمای ساخت", "Guide", "walkthrough", true],
+    ["identity", portalHref("identity"), "هویت و دسترسی", "Access", "identity", false]
+  ];
+  const links = entries.map(([id, href, fa, en, iconName, scoped]) => `<a href="${escapeHtml(href)}"${id === active ? ' aria-current="page"' : ""}${scoped ? ' data-hero-project-link="true"' : ""}><span aria-hidden="true">${icon(iconName)}</span><span class="hero-nav-copy"><b>${fa}</b><small>${en}</small></span></a>`).join("");
+  return `
+    <a class="hero-skip-link" href="#hero-main">رفتن به محتوای اصلی / Skip to content</a>
+    <header class="hero-appbar" data-hero-shell="v1" role="banner">
+      <div class="hero-appbar-inner">
+        <a class="hero-app-brand" href="${portalHref("portfolio")}" aria-label="Hero Portfolio">
+          <span class="hero-app-mark" aria-hidden="true">H</span>
+          <span class="hero-app-brand-copy"><strong>Hero</strong><small>Private Control Plane</small></span>
+        </a>
+        <div class="hero-app-actions">
+          ${projectId ? `<a class="hero-project-context" href="${portalHref("portfolio", { select: "project" })}" title="تغییر پروژهٔ فعال"><em aria-hidden="true">◈</em><span><small>پروژهٔ فعال / Active project</small><b>${escapeHtml(projectId)}</b></span></a>` : ""}
+          <span class="hero-environment" title="محیط خصوصی و محافظت‌شده">${escapeHtml(environment)}</span>
+          <button class="hero-shell-button" type="button" data-hero-smart-tester-toggle aria-pressed="false" aria-label="روشن کردن اسمارت تستر"><span aria-hidden="true">✦</span><span>اسمارت تستر</span></button>
+          <button class="hero-shell-button" type="button" data-hero-theme-button aria-label="تغییر پوسته">${icon("theme")}<span>پوسته</span></button>
+          <button class="hero-shell-button" type="button" data-hero-command-button aria-haspopup="dialog">${icon("search")}<span>جست‌وجو</span><kbd>⌘K</kbd></button>
+        </div>
+      </div>
+    </header>
+    <aside class="hero-side-nav" aria-label="ناوبری اصلی Hero">
+      <div class="hero-side-nav-head"><span aria-hidden="true">≡</span> ناوبری / Navigation</div>
+      <nav class="hero-global-nav" aria-label="ناوبری اصلی / Primary navigation">${links}</nav>
+    </aside>
+    <dialog class="hero-command-dialog" data-hero-command-dialog aria-labelledby="hero-command-title">
+      <div class="hero-command-head">${icon("search")}<input id="hero-command-title" data-hero-command-input type="search" autocomplete="off" placeholder="جست‌وجوی صفحه یا قابلیت…" aria-label="جست‌وجوی صفحه یا قابلیت"><kbd>ESC</kbd></div>
+      <div class="hero-command-list" data-hero-command-list>
+        <div class="hero-command-group">Navigate / ناوبری</div>
+        ${entries.map(([id, href, fa, en, iconName, scoped]) => `<a href="${escapeHtml(href)}" data-hero-command="${escapeHtml(`${fa} ${en} ${id}`)}"${scoped ? ' data-hero-project-link="true"' : ""}><span class="hero-command-symbol">${icon(iconName)}</span><span class="hero-command-copy"><strong>${fa}</strong><small>${en}</small></span><small>↵</small></a>`).join("")}
+        <div class="hero-command-empty" data-hero-command-empty hidden>نتیجه‌ای پیدا نشد / No result</div>
+      </div>
+    </dialog>
+    <div id="hero-feature-tooltip" class="hero-feature-tooltip" role="tooltip" hidden></div>
+  `;
+}
+
+export function getHeroShellScript() {
+  return `<script>(() => {
+    const root = document.documentElement;
+    const themeKey = 'hero.ui.theme';
+    const storedTheme = localStorage.getItem(themeKey);
+    if (storedTheme === 'dark') root.dataset.heroTheme = 'dark';
+    const dialog = document.querySelector('[data-hero-command-dialog]');
+    const input = document.querySelector('[data-hero-command-input]');
+    const button = document.querySelector('[data-hero-command-button]');
+    const activeProjectKey = 'hero.active-project-id';
+    const projectPattern = /^[a-z][a-z0-9-]{2,62}$/;
+    const urlProjectId = new URL(location.href).searchParams.get('projectId');
+    const storedProjectId = localStorage.getItem(activeProjectKey);
+    const projectId = projectPattern.test(urlProjectId || '') ? urlProjectId : (projectPattern.test(storedProjectId || '') ? storedProjectId : null);
+    if (projectPattern.test(urlProjectId || '')) localStorage.setItem(activeProjectKey, urlProjectId);
+    if (projectId) document.querySelectorAll('[data-hero-project-link]').forEach(link => {
+      const url = new URL(link.getAttribute('href'), location.origin);
+      url.searchParams.set('projectId', projectId);
+      link.setAttribute('href', url.pathname + url.search);
+    });
+    document.addEventListener('click', event => {
+      const projectLink = event.target.closest?.('[data-hero-select-project]');
+      const selectedId = projectLink?.dataset?.heroSelectProject;
+      if (projectPattern.test(selectedId || '')) localStorage.setItem(activeProjectKey, selectedId);
+    });
+    const openCommand = () => { if (!dialog) return; dialog.showModal(); input.value = ''; filterCommands(''); queueMicrotask(() => input.focus()); };
+    const filterCommands = query => {
+      if (!dialog) return;
+      const needle = String(query || '').trim().toLocaleLowerCase();
+      let visible = 0;
+      dialog.querySelectorAll('[data-hero-command]').forEach(item => { const show = !needle || item.dataset.heroCommand.toLocaleLowerCase().includes(needle); item.hidden = !show; if (show) visible += 1; });
+      const empty = dialog.querySelector('[data-hero-command-empty]'); if (empty) empty.hidden = visible > 0;
+    };
+    button?.addEventListener('click', openCommand);
+    input?.addEventListener('input', event => filterCommands(event.target.value));
+    dialog?.addEventListener('click', event => { if (event.target === dialog) dialog.close(); });
+    document.addEventListener('keydown', event => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLocaleLowerCase() === 'k') { event.preventDefault(); openCommand(); }
+      if (event.key === 'Escape' && dialog?.open) dialog.close();
+    });
+    const themeButton = document.querySelector('[data-hero-theme-button]');
+    const syncThemeButton = () => themeButton?.setAttribute('aria-pressed', String(root.dataset.heroTheme === 'dark'));
+    syncThemeButton();
+    themeButton?.addEventListener('click', () => {
+      const next = root.dataset.heroTheme === 'dark' ? 'light' : 'dark';
+      if (next === 'dark') root.dataset.heroTheme = 'dark'; else delete root.dataset.heroTheme;
+      localStorage.setItem(themeKey, next);
+      syncThemeButton();
+    });
+    // Process-action feedback is deliberately centralized here so every
+    // mutation form/button gets the same outcome surface without changing
+    // navigation or read-only controls. The wrapper observes only same-origin
+    // mutation requests armed by a real process action.
+    const heroActionReadOnly = /(?:بازخوانی|فراخوانی|نمایش|مشاهده|به‌روزرسانی|بازگشت|انصراف|لغو|بستن|cancel|close|refresh|recall|open|view)/i;
+    const heroActionExcluded = '.hero-global-nav,.hero-command-dialog,.hero-smart-tester-panel,.hero-walkthrough-coach,.hero-walkthrough-advisor';
+    const heroActionMutation = /^(POST|PUT|PATCH|DELETE)$/;
+    const heroActionFeedbackKey = 'hero.action-feedback.v1';
+    const heroActionFeedbackSideKey = 'hero.action-feedback.side.v1';
+    let pendingHeroAction = null;
+    let pendingHeroActionTimer = null;
+    let activeHeroActionFeedback = null;
+    const heroActionFeedbackSide = () => { try { const side = localStorage.getItem(heroActionFeedbackSideKey); return side === 'left' || side === 'right' ? side : 'right'; } catch { return 'right'; } };
+    const setHeroActionFeedbackSide = side => { try { localStorage.setItem(heroActionFeedbackSideKey, side); } catch { /* browser-local preference only */ } };
+    const heroActionText = node => String(node?.getAttribute?.('aria-label') || node?.textContent || node?.labels?.[0]?.textContent || '').replace(/\\s+/g, ' ').trim().slice(0, 160);
+    const heroActionButton = node => node?.closest?.('button,input[type="submit"],input[type="button"],input[type="checkbox"][data-hero-process-action],#autonomy') || null;
+    const heroActionIsSubmit = node => { const button = heroActionButton(node); if (!button || !button.form) return false; const type = (button.getAttribute('type') || (button.tagName === 'BUTTON' ? 'submit' : 'button')).toLowerCase(); return type === 'submit' || type === ''; };
+    const heroActionIsProcess = node => {
+      const button = heroActionButton(node);
+      if (!button || !button.isConnected || button.closest(heroActionExcluded)) return false;
+      if (button.matches('[data-hero-info-trigger],[data-hero-smart-tester-trigger],[data-hero-theme-button],[data-hero-command-button],[data-hero-process-ignore]')) return false;
+      if (button.closest('nav')) return false;
+      const label = heroActionText(button);
+      if (!label || heroActionReadOnly.test(label)) return false;
+      if (button.dataset.heroProcessAction === 'true' || button.id === 'autonomy') return true;
+      if (button.id === 'global-stop' || button.id === 'logout' || button.classList.contains('danger') || button.classList.contains('write')) return true;
+      if (heroActionIsSubmit(button) && !/(?:نمایش|مشاهده|بازخوانی|فراخوانی|جست‌وجو|search|view|open|refresh|recall)/i.test(label)) return true;
+      return false;
+    };
+    const clearPendingHeroAction = () => { pendingHeroAction = null; if (pendingHeroActionTimer) { clearTimeout(pendingHeroActionTimer); pendingHeroActionTimer = null; } };
+    const armHeroAction = trigger => {
+      if (!heroActionIsProcess(trigger)) return;
+      if (pendingHeroActionTimer) clearTimeout(pendingHeroActionTimer);
+      pendingHeroAction = Object.freeze({ trigger: heroActionButton(trigger), label: heroActionText(trigger) || 'اقدام فرایندی', startedAt: Date.now() });
+      pendingHeroActionTimer = window.setTimeout(clearPendingHeroAction, 20_000);
+    };
+    const heroActionFeatureKey = trigger => {
+      const marker = trigger?.closest?.('[data-hero-info-key]') || trigger?.closest?.('[data-hero-guide-target]')?.querySelector?.('[data-hero-info-key]');
+      return marker?.dataset?.heroInfoKey || null;
+    };
+    const heroActionDetail = (body, status, fallback) => {
+      const candidate = body?.message || body?.error?.message || (typeof body?.error === 'string' ? body.error : '') || body?.notice || body?.reason || body?.code;
+      const detail = String(candidate || fallback || '').replace(/((?:password|secret|credential|api[ _-]?key|token|mfa|رمز(?:\\s*عبور)?|کلید\\s*api)\\s*[:=]\\s*)[^\\s,;]+/gi, '$1[redacted]').replace(/\\s+/g, ' ').trim().slice(0, 700);
+      return detail || (status ? 'پاسخ سرویس: ' + status : 'پاسخی از سرویس دریافت نشد.');
+    };
+    const normalizeHeroActionFeedback = value => {
+      if (!value || typeof value !== 'object') return null;
+      const label = String(value.label || 'اقدام فرایندی').replace(/\\s+/g, ' ').trim().slice(0, 160);
+      const detail = heroActionDetail({ message: value.detail }, Number.isInteger(value.status) ? value.status : 0, 'وضعیت اقدام ثبت شد.');
+      const method = /^(POST|PUT|PATCH|DELETE)$/i.test(String(value.method || '')) ? String(value.method).toUpperCase() : 'POST';
+      const path = typeof value.path === 'string' && /^\\/api\\/[A-Za-z0-9._/-]{1,180}$/.test(value.path) ? value.path : '/api/unknown';
+      const status = Number.isInteger(value.status) && value.status >= 0 && value.status <= 599 ? value.status : 0;
+      const featureKey = typeof value.featureKey === 'string' && /^[a-z][a-zA-Z0-9]*(?:\\.[a-z][a-zA-Z0-9]*)+$/.test(value.featureKey) ? value.featureKey : null;
+      return Object.freeze({ ok: value.ok === true, label, detail, method, path, status, featureKey });
+    };
+    const readHeroActionFeedback = () => { try { return normalizeHeroActionFeedback(JSON.parse(sessionStorage.getItem(heroActionFeedbackKey) || 'null')); } catch { return null; } };
+    const persistHeroActionFeedback = value => { try { sessionStorage.setItem(heroActionFeedbackKey, JSON.stringify(value)); } catch { /* browser-local persistence only */ } };
+    const forgetHeroActionFeedback = () => { try { sessionStorage.removeItem(heroActionFeedbackKey); } catch { /* browser-local persistence only */ } };
+    const closeHeroActionFeedback = ({ restoreFocus = false, forget = true } = {}) => {
+      const popup = activeHeroActionFeedback || document.querySelector('[data-hero-action-feedback]');
+      if (!popup) { if (forget) forgetHeroActionFeedback(); return; }
+      const trigger = popup._heroActionTrigger;
+      popup.remove(); if (activeHeroActionFeedback === popup) activeHeroActionFeedback = null;
+      if (forget) forgetHeroActionFeedback();
+      if (restoreFocus && trigger?.isConnected) trigger.focus({ preventScroll: true });
+    };
+    const showHeroActionFeedback = ({ ok, label, status, detail, trigger = null, method, path, featureKey = null, restored = false }) => {
+      const record = normalizeHeroActionFeedback({ ok, label, status, detail, method, path, featureKey });
+      if (!record) return;
+      closeHeroActionFeedback({ forget: false });
+      if (!restored) persistHeroActionFeedback(record);
+      const popup = document.createElement('aside');
+      popup.className = 'hero-action-feedback'; popup.dataset.state = record.ok ? 'success' : 'error'; popup.dataset.heroActionFeedback = 'true'; popup.dataset.heroActionFeedbackSide = heroActionFeedbackSide(); popup.setAttribute('role', 'dialog'); popup.setAttribute('aria-modal', 'false'); popup.setAttribute('aria-live', 'assertive'); popup.setAttribute('tabindex', '-1'); popup._heroActionTrigger = trigger;
+      const head = document.createElement('header'); head.className = 'hero-action-feedback-head'; const title = document.createElement('h2'); title.textContent = record.ok ? 'عملیات با موفقیت انجام شد' : 'عملیات ناموفق بود'; head.append(title); popup.append(head);
+      const statusNode = document.createElement('p'); statusNode.className = 'hero-action-feedback-status'; statusNode.textContent = record.detail || (record.ok ? 'تغییر موردنظر ثبت شد.' : 'سرویس نتوانست اقدام را تکمیل کند.'); popup.append(statusNode);
+      const meta = document.createElement('p'); meta.className = 'hero-action-feedback-meta'; meta.textContent = record.label + ' · ' + record.method + ' · HTTP ' + (record.status || '—') + ' · ' + record.path; popup.append(meta);
+      const actions = document.createElement('div'); actions.className = 'hero-action-feedback-actions';
+      let side = popup.dataset.heroActionFeedbackSide;
+      const moveLeft = document.createElement('button'); moveLeft.type = 'button'; moveLeft.dataset.kind = 'move'; moveLeft.textContent = 'انتقال به لبهٔ چپ'; moveLeft.setAttribute('aria-label', moveLeft.textContent);
+      const moveRight = document.createElement('button'); moveRight.type = 'button'; moveRight.dataset.kind = 'move'; moveRight.textContent = 'انتقال به لبهٔ راست'; moveRight.setAttribute('aria-label', moveRight.textContent);
+      const applySide = nextSide => { side = nextSide; popup.dataset.heroActionFeedbackSide = side; setHeroActionFeedbackSide(side); for (const button of [moveLeft, moveRight]) { const selected = button === (side === 'left' ? moveLeft : moveRight); button.setAttribute('aria-pressed', String(selected)); button.disabled = selected; } };
+      moveLeft.addEventListener('click', () => applySide('left'));
+      moveRight.addEventListener('click', () => applySide('right'));
+      if (record.ok) {
+        const next = document.createElement('button'); next.type = 'button'; next.dataset.kind = 'continue'; next.textContent = 'ادامه'; next.addEventListener('click', () => closeHeroActionFeedback({ restoreFocus: true })); actions.append(moveLeft, moveRight, next);
+      } else {
+        const smart = document.createElement('button'); smart.type = 'button'; smart.dataset.kind = 'smart'; smart.textContent = 'تحلیل با اسمارت تستر'; smart.addEventListener('click', () => {
+          const open = window.heroSmartTester?.openForElement;
+          if (typeof open === 'function') open(trigger || document.body, { label: record.label, featureKey: record.featureKey || heroActionFeatureKey(trigger), actionFailure: { label: record.label, method: record.method, path: record.path, status: record.status, message: record.detail } });
+        });
+        const close = document.createElement('button'); close.type = 'button'; close.dataset.kind = 'close'; close.textContent = 'بستن'; close.addEventListener('click', () => closeHeroActionFeedback({ restoreFocus: true })); actions.append(smart, close);
+        actions.prepend(moveLeft, moveRight);
+      }
+      popup.append(actions); document.body.append(popup); activeHeroActionFeedback = popup; applySide(side); if (!restored) popup.focus({ preventScroll: true });
+    };
+    const originalHeroFetch = window.fetch.bind(window);
+    window.fetch = async (input, init = {}) => {
+      const method = String(init?.method || (typeof Request !== 'undefined' && input instanceof Request ? input.method : 'GET')).toUpperCase();
+      let requestUrl = null;
+      try { requestUrl = new URL(typeof input === 'string' ? input : input?.url || String(input), location.href); } catch { /* ignore malformed/non-URL input */ }
+      const sameOriginMutation = Boolean(requestUrl && requestUrl.origin === location.origin && heroActionMutation.test(method));
+      const excludedMutation = Boolean(requestUrl && (/^\\/api\\/smart-tester\\//.test(requestUrl.pathname) || requestUrl.pathname === '/api/walkthrough/advice'));
+      const action = sameOriginMutation && !excludedMutation && pendingHeroAction && Date.now() - pendingHeroAction.startedAt < 20_000 ? pendingHeroAction : null;
+      if (action) clearPendingHeroAction();
+      try {
+        const response = await originalHeroFetch(input, init);
+        if (action) {
+          let body = {}; try { body = await response.clone().json(); } catch { /* empty/stream response */ }
+          showHeroActionFeedback({ ok: response.ok, label: action.label, status: response.status, detail: heroActionDetail(body, response.status, response.ok ? action.label + ' ثبت شد.' : action.label + ' انجام نشد.'), trigger: action.trigger, method, path: requestUrl.pathname, featureKey: heroActionFeatureKey(action.trigger) });
+        }
+        return response;
+      } catch (error) {
+        if (action) showHeroActionFeedback({ ok: false, label: action.label, status: 0, detail: 'ارتباط با سرویس برقرار نشد؛ وضعیت شبکه و نشست را بررسی کنید.', trigger: action.trigger, method, path: requestUrl?.pathname || '/api/unknown', featureKey: heroActionFeatureKey(action.trigger) });
+        throw error;
+      }
+    };
+    document.addEventListener('submit', event => {
+      const trigger = event.submitter || event.currentTarget?.querySelector?.('button[type="submit"],button:not([type]),input[type="submit"]');
+      if (heroActionIsProcess(trigger)) armHeroAction(trigger);
+    }, true);
+    document.addEventListener('click', event => {
+      const trigger = heroActionButton(event.target);
+      if (heroActionIsProcess(trigger) && !heroActionIsSubmit(trigger)) armHeroAction(trigger);
+    }, true);
+    document.addEventListener('change', event => {
+      const trigger = heroActionButton(event.target);
+      if (heroActionIsProcess(trigger)) armHeroAction(trigger);
+    }, true);
+    const persistedHeroActionFeedback = readHeroActionFeedback();
+    if (persistedHeroActionFeedback) queueMicrotask(() => showHeroActionFeedback({ ...persistedHeroActionFeedback, restored: true }));
+    const featureHelp = ${serializeFeatureHelp()};
+    const walkthroughSteps = ${JSON.stringify(HERO_PROJECT_WALKTHROUGH_STEPS.map(step => ({ ...step, fieldGuidance: HERO_PROJECT_WALKTHROUGH_FIELD_GUIDANCE[step.id] || [] }))).replaceAll("&", "\\u0026").replaceAll("<", "\\u003c").replaceAll(">", "\\u003e")};
+    const mainWalkthroughSteps = walkthroughSteps.filter(step => step.flow !== 'outside-main');
+    let featureTooltip = document.getElementById('hero-feature-tooltip');
+    let activeInfoTrigger = null;
+    const infoLabel = node => {
+      const explicit = node.dataset.heroInfoLabel;
+      if (explicit) return explicit;
+      const clone = node.cloneNode(true);
+      clone.querySelectorAll('.hero-info-trigger').forEach(item => item.remove());
+      return clone.textContent.trim() || 'این قابلیت';
+    };
+    const installInfoTriggers = container => {
+      const nodes = [];
+      if (container?.nodeType === 1 && container.matches?.('[data-hero-info-key]')) nodes.push(container);
+      container?.querySelectorAll?.('[data-hero-info-key]').forEach(node => nodes.push(node));
+      nodes.forEach(node => {
+        const key = node.dataset.heroInfoKey;
+        if (!featureHelp[key] || node.querySelector(':scope > .hero-info-trigger')) return;
+        node.classList.add('hero-feature-with-info');
+        const trigger = document.createElement('button');
+        trigger.type = 'button';
+        trigger.className = 'hero-info-trigger';
+        trigger.dataset.heroInfoTrigger = key;
+        trigger.setAttribute('aria-label', 'توضیح دربارهٔ ' + infoLabel(node));
+        trigger.setAttribute('aria-describedby', 'hero-feature-tooltip');
+        trigger.setAttribute('aria-expanded', 'false');
+        trigger.textContent = 'i';
+        node.append(trigger);
+      });
+    };
+    const tooltipHost = trigger => trigger.closest('dialog[open]') || document.body;
+    const placeInfoTooltip = () => {
+      if (!activeInfoTrigger || !featureTooltip || featureTooltip.hidden) return;
+      const rect = activeInfoTrigger.getBoundingClientRect();
+      const tip = featureTooltip.getBoundingClientRect();
+      const gap = 9; const edge = 12;
+      let top = rect.bottom + gap;
+      if (top + tip.height > innerHeight - edge) top = rect.top - tip.height - gap;
+      top = Math.max(edge, Math.min(top, innerHeight - tip.height - edge));
+      let left = document.documentElement.dir === 'rtl' ? rect.right - tip.width : rect.left;
+      left = Math.max(edge, Math.min(left, innerWidth - tip.width - edge));
+      featureTooltip.style.top = top + 'px'; featureTooltip.style.left = left + 'px';
+    };
+    const showInfoTooltip = trigger => {
+      const text = featureHelp[trigger?.dataset?.heroInfoTrigger];
+      if (!text || !featureTooltip) return;
+      if (featureTooltip.parentElement !== tooltipHost(trigger)) tooltipHost(trigger).append(featureTooltip);
+      if (activeInfoTrigger && activeInfoTrigger !== trigger) activeInfoTrigger.setAttribute('aria-expanded', 'false');
+      activeInfoTrigger = trigger; trigger.setAttribute('aria-expanded', 'true');
+      featureTooltip.textContent = text; featureTooltip.hidden = false; featureTooltip.dataset.open = 'true';
+      placeInfoTooltip();
+    };
+    const hideInfoTooltip = () => {
+      if (!featureTooltip) return;
+      activeInfoTrigger?.setAttribute('aria-expanded', 'false'); activeInfoTrigger = null;
+      delete featureTooltip.dataset.open; featureTooltip.hidden = true;
+    };
+    installInfoTriggers(document);
+    new MutationObserver(records => records.forEach(record => record.addedNodes.forEach(node => installInfoTriggers(node)))).observe(document.body, { childList: true, subtree: true });
+    document.addEventListener('pointerover', event => { const trigger = event.target.closest?.('[data-hero-info-trigger]'); if (trigger) showInfoTooltip(trigger); });
+    document.addEventListener('pointerout', event => { const trigger = event.target.closest?.('[data-hero-info-trigger]'); if (trigger && !trigger.contains(event.relatedTarget)) hideInfoTooltip(); });
+    document.addEventListener('focusin', event => { const trigger = event.target.closest?.('[data-hero-info-trigger]'); if (trigger) showInfoTooltip(trigger); });
+    document.addEventListener('focusout', event => { if (event.target.closest?.('[data-hero-info-trigger]')) hideInfoTooltip(); });
+    document.addEventListener('click', event => { const trigger = event.target.closest?.('[data-hero-info-trigger]'); if (trigger) { event.preventDefault(); if (activeInfoTrigger === trigger) hideInfoTooltip(); else showInfoTooltip(trigger); } });
+    document.addEventListener('keydown', event => { if (event.key === 'Escape' && activeInfoTrigger) { const trigger = activeInfoTrigger; hideInfoTooltip(); trigger.focus(); } });
+    window.addEventListener('scroll', placeInfoTooltip, true); window.addEventListener('resize', placeInfoTooltip);
+    // Smart Tester is a development-only overlay for Hero itself. Its switch
+    // is deliberately browser-local and off by default: enabling it neither
+    // changes a project nor grants any execution, provider or deploy power.
+    const smartTesterEnabledKey = 'hero.smart-tester.enabled.v1';
+    const smartTesterSideKey = 'hero.smart-tester.side.v1';
+    const smartTesterDefaultFeature = {
+      '/portfolio': 'portfolio.projects', '/product-studio': 'studio.sourceOfTruth', '/workspace': 'workspace.projectContext',
+      '/project-control': 'control.projectOperations', '/command': 'command.statusOverview', '/ai': 'ai.connections', '/identity': 'identity.management', '/walkthrough': 'guide.walkthrough', '/backoffice': 'command.statusOverview'
+    };
+    const smartTesterSurfaceAliases = { identity: '/identity', portfolio: '/portfolio', command: '/command', studio: '/product-studio', workspace: '/workspace', control: '/project-control', walkthrough: '/walkthrough', ai: '/ai' };
+    const smartTesterSurface = () => { const url = new URL(location.href); if (url.pathname === '/api/portal') return smartTesterSurfaceAliases[url.searchParams.get('surface') || 'portfolio'] || '/portfolio'; return smartTesterDefaultFeature[url.pathname] ? url.pathname : '/portfolio'; };
+    const smartTesterCandidateSelector = '.hero-page-header,.page-head,.topbar,.top,.hero-head,.section,.panel,.card,.metric,.project-card,.team-card,.focus-card,.decision-card,.content-panel,.context,[data-hero-guide-target]';
+    const smartTesterExcludedSelector = '.hero-smart-tester-panel,.hero-walkthrough-coach,.hero-walkthrough-advisor,.hero-feature-tooltip,.hero-command-dialog';
+    let activeSmartTesterPanel = null;
+    const smartTesterEnabled = () => { try { return localStorage.getItem(smartTesterEnabledKey) === 'true'; } catch { return false; } };
+    const smartTesterSide = () => { try { const side = localStorage.getItem(smartTesterSideKey); return side === 'left' || side === 'right' ? side : 'right'; } catch { return 'right'; } };
+    const setSmartTesterSide = side => { try { localStorage.setItem(smartTesterSideKey, side); } catch { /* browser-local preference only */ } };
+    const getSmartTesterLabel = node => {
+      const heading = node.querySelector?.('h1,h2,h3,[data-hero-info-key]');
+      const copy = heading?.cloneNode?.(true); copy?.querySelectorAll?.('[data-hero-info-trigger]').forEach(item => item.remove());
+      const text = copy?.textContent?.trim() || node.dataset.heroGuideTarget || node.dataset.heroInfoKey || 'این بخش';
+      return text.replace(/\s+/g, ' ').slice(0, 120) || 'این بخش';
+    };
+    const getSmartTesterFeature = node => {
+      const marker = node.matches?.('[data-hero-info-key]') ? node : node.querySelector?.('[data-hero-info-key]');
+      const key = marker?.dataset?.heroInfoKey;
+      if (typeof key === 'string' && /^[a-z][a-zA-Z0-9]*(?:\.[a-z][a-zA-Z0-9]*)+$/.test(key)) return key;
+      return smartTesterDefaultFeature[smartTesterSurface()] || 'command.statusOverview';
+    };
+    const getSmartTesterBoxId = (node, featureKey) => {
+      const candidates = [node?.dataset?.heroSmartTesterContext, node?.id, node?.dataset?.heroGuideTarget, featureKey];
+      return candidates.find(value => typeof value === 'string' && /^[A-Za-z][A-Za-z0-9._:-]{0,127}$/.test(value)) || featureKey;
+    };
+    const getSmartTesterDescription = (node, featureKey, label) => {
+      const marker = node.matches?.('[data-hero-info-key]') ? node : node.querySelector?.('[data-hero-info-key]');
+      const key = marker?.dataset?.heroInfoKey || featureKey;
+      const explicit = node?.dataset?.heroSmartTesterDescription;
+      const text = typeof explicit === 'string' && explicit.trim() ? explicit : featureHelp[key];
+      if (typeof text === 'string' && text.trim()) return text.replace(/\s+/g, ' ').slice(0, 280);
+      return 'این باکس نقش «' + label + '» را در جریان جاری Hero نمایش یا مدیریت می‌کند.';
+    };
+    const clearSmartTesterPanel = ({ restoreFocus = false } = {}) => {
+      const panel = activeSmartTesterPanel || document.querySelector('[data-hero-smart-tester-panel]');
+      if (!panel) return;
+      const trigger = panel._heroSmartTesterTrigger;
+      panel.remove(); if (activeSmartTesterPanel === panel) activeSmartTesterPanel = null;
+      if (restoreFocus && trigger?.isConnected) trigger.focus({ preventScroll: true });
+    };
+    const uninstallSmartTesterTriggers = () => {
+      clearSmartTesterPanel();
+      document.querySelectorAll('[data-hero-smart-tester-trigger]').forEach(trigger => trigger.remove());
+      document.querySelectorAll('.hero-smart-testable').forEach(node => node.classList.remove('hero-smart-testable'));
+    };
+    const installSmartTesterTriggers = container => {
+      if (!smartTesterEnabled()) return;
+      const nodes = [];
+      if (container?.nodeType === 1 && container.matches?.(smartTesterCandidateSelector)) nodes.push(container);
+      container?.querySelectorAll?.(smartTesterCandidateSelector).forEach(node => nodes.push(node));
+      for (const node of nodes) {
+        if (!node.isConnected || node.closest(smartTesterExcludedSelector) || node.closest('a,button,label') || node.querySelector(':scope > [data-hero-smart-tester-trigger]')) continue;
+        // Do not make an anchor or existing button a parent of another control.
+        if (node.matches('a,button,input,select,textarea,label,form,dialog')) continue;
+        node.classList.add('hero-smart-testable');
+        const trigger = document.createElement('button'); trigger.type = 'button'; trigger.className = 'hero-smart-tester-trigger';
+        const featureKey = getSmartTesterFeature(node); const label = getSmartTesterLabel(node);
+        trigger.dataset.heroSmartTesterTrigger = 'true'; trigger.dataset.heroSmartTesterFeature = featureKey; trigger.dataset.heroSmartTesterLabel = label; trigger.dataset.heroSmartTesterBoxId = getSmartTesterBoxId(node, featureKey); trigger.dataset.heroSmartTesterDescription = getSmartTesterDescription(node, featureKey, label);
+        trigger.setAttribute('aria-label', 'باز کردن اسمارت تستر برای ' + trigger.dataset.heroSmartTesterLabel); trigger.title = 'اسمارت تستر این بخش'; trigger.textContent = '✦';
+        node.append(trigger);
+      }
+    };
+    const renderSmartTesterReport = (container, report) => {
+      const summary = report?.summary || {}; const heading = document.createElement('article'); heading.className = 'hero-smart-tester-report'; heading.dataset.state = summary.state || 'attention';
+      const title = document.createElement('b'); title.textContent = 'گزارش تست · ' + (summary.state === 'attention' ? 'نیازمند توجه' : 'تکمیل‌شده با مرزهای روشن');
+      const body = document.createElement('span'); body.textContent = (summary.passed ?? 0) + ' عبور · ' + (summary.attention ?? 0) + ' نیازمند توجه · ' + (summary.notRun ?? 0) + ' اجرا نشده'; heading.append(title, body); container.append(heading);
+      for (const check of Array.isArray(report?.checks) ? report.checks : []) {
+        const row = document.createElement('article'); row.className = 'hero-smart-tester-report'; row.dataset.state = check.status || 'attention';
+        const rowTitle = document.createElement('b'); rowTitle.textContent = check.area + ' · ' + (check.status === 'passed' ? 'عبور' : check.status === 'not-run' ? 'اجرا نشد' : 'نیازمند توجه');
+        const detail = document.createElement('span'); detail.textContent = check.detail || 'جزئیات گزارش نشد.'; row.append(rowTitle, detail); container.append(row);
+      }
+      for (const limit of Array.isArray(report?.limits) ? report.limits : []) { const row = document.createElement('article'); row.className = 'hero-smart-tester-report'; row.dataset.state = 'not-run'; const title = document.createElement('b'); title.textContent = 'مرز اجرا'; const detail = document.createElement('span'); detail.textContent = limit; row.append(title, detail); container.append(row); }
+    };
+    const renderSmartTesterErrorReport = (container, report) => {
+      const summary = report?.summary || {}; const heading = document.createElement('article'); heading.className = 'hero-smart-tester-report'; heading.dataset.state = summary.findingCount ? 'attention' : 'passed';
+      const title = document.createElement('b'); title.textContent = 'گزارش خطایاب · ' + (summary.findingCount ? 'نیازمند رسیدگی' : 'خطای قطعی تأیید نشد');
+      const body = document.createElement('span'); body.textContent = (summary.findingCount ?? 0) + ' یافته · ' + (summary.notRun ?? 0) + ' بررسی اجرا نشده'; heading.append(title, body); container.append(heading);
+      for (const finding of Array.isArray(report?.findings) ? report.findings : []) { const row = document.createElement('article'); row.className = 'hero-smart-tester-report'; row.dataset.state = 'attention'; const rowTitle = document.createElement('b'); rowTitle.textContent = (finding.severity || 'medium') + ' · ' + (finding.area || 'بخش'); const detail = document.createElement('span'); detail.textContent = (finding.title || 'یافته') + ' — ' + (finding.evidence || '') + ' پیشنهاد: ' + (finding.recommendation || ''); row.append(rowTitle, detail); container.append(row); }
+      for (const step of Array.isArray(report?.reproductionSteps) ? report.reproductionSteps : []) { const row = document.createElement('article'); row.className = 'hero-smart-tester-report'; row.dataset.state = 'not-run'; const rowTitle = document.createElement('b'); rowTitle.textContent = 'گام بازتولید'; const detail = document.createElement('span'); detail.textContent = step; row.append(rowTitle, detail); container.append(row); }
+    };
+    const openSmartTester = async (trigger, overrides = {}) => {
+      if (!smartTesterEnabled() || !trigger) return;
+      if (activeSmartTesterPanel?.isConnected) { if (activeSmartTesterPanel._heroSmartTesterTrigger === trigger) { activeSmartTesterPanel.focus({ preventScroll: true }); return; } clearSmartTesterPanel(); }
+      const featureKey = overrides.featureKey || trigger.dataset?.heroSmartTesterFeature || getSmartTesterFeature(trigger.parentElement); const label = overrides.label || trigger.dataset?.heroSmartTesterLabel || 'این بخش'; const boxId = overrides.boxId || trigger.dataset?.heroSmartTesterBoxId || getSmartTesterBoxId(trigger.parentElement, featureKey); const boxDescription = overrides.boxDescription || trigger.dataset?.heroSmartTesterDescription || getSmartTesterDescription(trigger.parentElement, featureKey, label);
+      const panel = document.createElement('aside'); panel.className = 'hero-smart-tester-panel'; panel.dataset.heroSmartTesterPanel = 'true'; panel.dataset.heroSmartTesterSide = smartTesterSide(); panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-modal', 'false'); panel.setAttribute('tabindex', '-1'); panel._heroSmartTesterTrigger = trigger;
+      const head = document.createElement('header'); head.className = 'hero-smart-tester-head'; const title = document.createElement('h2'); title.textContent = label; const contextText = document.createElement('p'); contextText.textContent = boxDescription; const status = document.createElement('p'); status.className = 'hero-smart-tester-status'; status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite'); status.textContent = 'در حال آماده‌سازی زمینهٔ امن این بخش…'; head.append(title, contextText, status);
+      const selectorWrap = document.createElement('label'); selectorWrap.className = 'hero-smart-tester-selector'; selectorWrap.textContent = 'تحلیلگر و نسخه'; const selector = document.createElement('select'); selector.name = 'advisorProfileId'; selector.setAttribute('aria-label', 'انتخاب AI و نسخه'); const localOption = document.createElement('option'); localOption.value = 'local'; localOption.textContent = 'تحلیلگر محلی Hero · بدون هزینه'; selector.append(localOption); selectorWrap.append(selector);
+      const scroll = document.createElement('section'); scroll.className = 'hero-smart-tester-scroll'; scroll.setAttribute('aria-label', 'گفت‌وگو و گزارش اسمارت تستر');
+      const form = document.createElement('form'); form.className = 'hero-smart-tester-form'; const question = document.createElement('textarea'); question.name = 'question'; question.maxLength = 1500; question.placeholder = 'دربارهٔ همین بخش سؤال کنید؛ Secret، رمز یا دادهٔ شخصی وارد نکنید.'; question.setAttribute('aria-label', 'پرسش برای اسمارت تستر'); const formActions = document.createElement('div'); formActions.className = 'hero-smart-tester-actions'; const ask = document.createElement('button'); ask.type = 'submit'; ask.textContent = 'ارسال پرسش'; formActions.append(ask); form.append(question, formActions);
+      const actions = document.createElement('div'); actions.className = 'hero-smart-tester-actions'; const test = document.createElement('button'); test.type = 'button'; test.textContent = 'تست این بخش'; const diagnose = document.createElement('button'); diagnose.type = 'button'; diagnose.textContent = 'خطایاب'; const submitError = document.createElement('button'); submitError.type = 'button'; submitError.textContent = 'ثبت در دفتر خطا'; submitError.disabled = true; const move = document.createElement('button'); move.type = 'button'; const close = document.createElement('button'); close.type = 'button'; close.textContent = 'بستن'; actions.append(test, diagnose, submitError, move, close); panel.append(head, selectorWrap, scroll, form, actions); document.body.append(panel); activeSmartTesterPanel = panel;
+      let reportId = null; let errorReportId = null; let context = null; let side = panel.dataset.heroSmartTesterSide; let chatInformed = false; const actionFailure = overrides.actionFailure && typeof overrides.actionFailure === 'object' ? overrides.actionFailure : null;
+      const appendMessage = (speaker, value) => { const item = document.createElement('article'); item.className = 'hero-smart-tester-message'; item.dataset.speaker = speaker; const speakerName = document.createElement('b'); speakerName.textContent = speaker === 'user' ? 'شما' : 'اسمارت تستر'; const text = document.createElement('span'); text.textContent = value; item.append(speakerName, text); scroll.append(item); scroll.scrollTop = scroll.scrollHeight; };
+      const endpoint = path => { const url = new URL(path, location.origin); url.searchParams.set('surface', smartTesterSurface()); url.searchParams.set('featureKey', featureKey); url.searchParams.set('boxId', boxId); url.searchParams.set('boxTitle', label); url.searchParams.set('boxDescription', boxDescription); if (projectId) url.searchParams.set('projectId', projectId); return url.pathname + url.search; };
+      const applySide = nextSide => { side = nextSide; panel.dataset.heroSmartTesterSide = side; setSmartTesterSide(side); move.textContent = side === 'right' ? 'انتقال به لبهٔ چپ' : 'انتقال به لبهٔ راست'; move.setAttribute('aria-label', move.textContent); };
+      const loadOptions = async () => { const response = await fetch(endpoint('/api/smart-tester/options'), { credentials: 'same-origin', cache: 'no-store' }); const body = await response.json().catch(() => ({})); if (!response.ok) throw new Error(body.message || body.code || 'فهرست AIهای Smart Tester دریافت نشد.'); const options = body.smartTester?.options || {}; for (const profile of Array.isArray(options.profiles) ? options.profiles : []) { const option = document.createElement('option'); option.value = profile.profileId; option.textContent = (profile.providerName || profile.providerId) + ' / ' + (profile.modelName || profile.modelId) + ' · v' + (profile.profileVersion || '?') + (profile.selectable ? '' : ' · آماده نیست'); option.disabled = profile.selectable !== true; selector.append(option); } if (!options.profiles?.length && options.models?.length) { for (const model of options.models) { const option = document.createElement('option'); option.value = 'unavailable:' + model.providerId + ':' + model.modelId; option.textContent = model.displayName + ' · Profile فعال ندارد'; option.disabled = true; selector.append(option); } } };
+      const loadContext = async () => { try { await Promise.all([loadOptions(), (async () => { const response = await fetch(endpoint('/api/smart-tester/context'), { credentials: 'same-origin', cache: 'no-store' }); const body = await response.json().catch(() => ({})); if (!response.ok) throw new Error(body.message || body.code || 'زمینهٔ اسمارت تستر در دسترس نیست.'); context = body.smartTester?.context || null; })()]); status.textContent = 'زمینهٔ امن همین باکس آماده است.'; if (actionFailure?.message) appendMessage('assistant', 'این گفت‌وگو به شکست «' + (actionFailure.label || label) + '» متصل است؛ برای گزارش دقیق، «خطایاب» را اجرا کنید.'); } catch (error) { status.dataset.state = 'error'; status.textContent = error.message || 'برای استفاده، ورود انسانی مالک را بررسی کنید.'; appendMessage('assistant', 'زمینهٔ این باکس دریافت نشد. نشست انسانی مالک و Scope پروژه را بررسی کنید.'); ask.disabled = true; test.disabled = true; diagnose.disabled = true; } };
+      const sendAdvice = async rawQuestion => { if (!context) return; ask.disabled = true; chatInformed = true; status.dataset.state = ''; status.textContent = 'در حال آماده‌سازی پاسخ زمینه‌مند…'; appendMessage('user', rawQuestion); try { const response = await fetch(endpoint('/api/smart-tester/advice'), { method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ surface: context.pathname, featureKey: context.featureKey, boxId: context.boxId, projectId: context.projectId, question: rawQuestion, reportId, advisorProfileId: selector.value === 'local' ? null : selector.value, actionFailure }) }); const body = await response.json().catch(() => ({})); if (!response.ok) throw new Error(body.message || body.code || 'پاسخ اسمارت تستر دریافت نشد.'); const advisor = body.smartTester?.advisor; appendMessage('assistant', advisor?.response || 'پاسخ قابل‌نمایش وجود ندارد.'); status.textContent = advisor?.selectedAdvisor?.kind === 'profile' ? 'پاسخ با Profile انتخابی تولید شد.' : (reportId ? 'پاسخ با آگاهی از آخرین گزارش تست ارائه شد.' : 'پاسخ زمینه‌مند آماده شد.'); } catch (error) { status.dataset.state = 'error'; status.textContent = error.message || 'پاسخ در دسترس نیست.'; appendMessage('assistant', 'پاسخ در این لحظه در دسترس نیست. نشست انسانی و Scope پروژه را بررسی کنید.'); } finally { ask.disabled = false; } };
+      form.addEventListener('submit', event => { event.preventDefault(); const value = question.value.trim(); if (!value) { question.focus(); status.dataset.state = 'error'; status.textContent = 'ابتدا پرسش خود را بنویسید.'; return; } question.value = ''; void sendAdvice(value); });
+      test.addEventListener('click', async () => { if (!context) return; test.disabled = true; status.dataset.state = ''; status.textContent = 'در حال اجرای بررسی محدود UI، UX، backend و قرارداد کد…'; try { const response = await fetch(endpoint('/api/smart-tester/run'), { method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ surface: context.pathname, featureKey: context.featureKey, boxId: context.boxId, projectId: context.projectId }) }); const body = await response.json().catch(() => ({})); if (!response.ok) throw new Error(body.message || body.code || 'گزارش تست دریافت نشد.'); reportId = body.smartTester?.reportId || null; renderSmartTesterReport(scroll, body.smartTester?.report); status.textContent = 'گزارش قابل‌بحث آماده است.'; scroll.scrollTop = scroll.scrollHeight; } catch (error) { status.dataset.state = 'error'; status.textContent = error.message || 'اجرای تست ناموفق بود.'; } finally { test.disabled = false; } });
+      diagnose.addEventListener('click', async () => { if (!context) return; diagnose.disabled = true; status.dataset.state = ''; status.textContent = 'در حال تهیهٔ گزارش دقیق خطا از UI، UX، backend و قرارداد کد…'; try { const response = await fetch(endpoint('/api/smart-tester/diagnose'), { method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ surface: context.pathname, featureKey: context.featureKey, boxId: context.boxId, projectId: context.projectId, reportId, chatInformed, actionFailure }) }); const body = await response.json().catch(() => ({})); if (!response.ok) throw new Error(body.message || body.code || 'گزارش خطایاب دریافت نشد.'); errorReportId = body.smartTester?.errorReportId || null; renderSmartTesterErrorReport(scroll, body.smartTester?.errorReport); submitError.disabled = !errorReportId || !context.projectId; status.textContent = context.projectId ? 'گزارش خطایاب آماده است؛ برای ثبت در دفتر خطای پروژه، تأیید کنید.' : 'گزارش آماده است؛ برای ثبت آن ابتدا یک پروژه را انتخاب کنید.'; scroll.scrollTop = scroll.scrollHeight; } catch (error) { status.dataset.state = 'error'; status.textContent = error.message || 'خطایابی ناموفق بود.'; } finally { diagnose.disabled = false; } });
+      submitError.addEventListener('click', async () => { if (!context || !errorReportId || !context.projectId) return; if (!window.confirm('گزارش پاک‌سازی‌شده در دفتر خطاهای همین پروژه ثبت شود؟')) return; submitError.disabled = true; status.textContent = 'در حال ثبت گزارش در سند مرجع خطاهای پروژه…'; try { const response = await fetch(endpoint('/api/smart-tester/errors/submit'), { method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ surface: context.pathname, featureKey: context.featureKey, boxId: context.boxId, projectId: context.projectId, errorReportId }) }); const body = await response.json().catch(() => ({})); if (!response.ok) throw new Error(body.message || body.code || 'ثبت گزارش در دفتر خطا ناموفق بود.'); const document = body.smartTester?.document; status.textContent = 'گزارش در «' + (document?.title || 'دفتر خطای پروژه') + '» ثبت شد (' + (document?.entryCount ?? 0) + ' مورد).'; } catch (error) { status.dataset.state = 'error'; status.textContent = error.message || 'ثبت گزارش ناموفق بود.'; submitError.disabled = false; } });
+      move.addEventListener('click', () => applySide(side === 'right' ? 'left' : 'right')); close.addEventListener('click', () => clearSmartTesterPanel({ restoreFocus: true })); applySide(side); panel.focus({ preventScroll: true }); await loadContext();
+    };
+    const smartTesterToggle = document.querySelector('[data-hero-smart-tester-toggle]');
+    const syncSmartTesterToggle = () => { const enabled = smartTesterEnabled(); smartTesterToggle?.setAttribute('aria-pressed', String(enabled)); if (smartTesterToggle) { smartTesterToggle.title = enabled ? 'خاموش کردن اسمارت تستر' : 'روشن کردن اسمارت تستر'; smartTesterToggle.setAttribute('aria-label', smartTesterToggle.title); } };
+    const setSmartTesterEnabled = enabled => { try { localStorage.setItem(smartTesterEnabledKey, String(enabled === true)); } catch { /* the current document still updates */ } if (enabled) installSmartTesterTriggers(document); else uninstallSmartTesterTriggers(); syncSmartTesterToggle(); };
+    smartTesterToggle?.addEventListener('click', () => setSmartTesterEnabled(!smartTesterEnabled()));
+    document.addEventListener('click', event => { const trigger = event.target.closest?.('[data-hero-smart-tester-trigger]'); if (!trigger) return; event.preventDefault(); event.stopPropagation(); void openSmartTester(trigger); });
+    const smartTesterObserver = new MutationObserver(records => { if (!smartTesterEnabled()) return; for (const record of records) for (const node of record.addedNodes) installSmartTesterTriggers(node); });
+    smartTesterObserver.observe(document.body, { childList: true, subtree: true });
+    window.heroSmartTester = Object.freeze({
+      enable: () => setSmartTesterEnabled(true),
+      disable: () => setSmartTesterEnabled(false),
+      isEnabled: smartTesterEnabled,
+      close: () => clearSmartTesterPanel({ restoreFocus: true }),
+      openForElement: (element, overrides = {}) => {
+        if (!smartTesterEnabled()) setSmartTesterEnabled(true);
+        const target = element?.nodeType === 1 ? element : document.body;
+        void openSmartTester(target, overrides);
+      }
+    });
+    syncSmartTesterToggle(); installSmartTesterTriggers(document);
+    const walkthroughStateKey = 'hero.project-walkthrough.state.v1';
+    const walkthroughServicePrefix = 'hero.project-walkthrough.enabled.';
+    const walkthroughCoachSideKey = 'hero.project-walkthrough.coach-side.v1';
+    const walkthroughAdvisorSideKey = 'hero.project-walkthrough.advisor-side.v1';
+    const walkthroughCoachMinimizedKey = 'hero.project-walkthrough.coach-minimized.v1';
+    const walkthroughOwnerDismissedKey = 'hero.project-walkthrough.owner-dismissed.v1';
+    const walkthroughOwnerLoginKey = 'hero.project-walkthrough.owner-login.v1';
+    const noProjectWalkthroughSteps = new Set(['identity', 'project-selection', 'create-project']);
+    const stepById = id => walkthroughSteps.find(step => step.id === id) || null;
+    const usableProjectId = value => projectPattern.test(value || '') ? value : null;
+    const readWalkthroughState = () => {
+      try {
+        const value = JSON.parse(localStorage.getItem(walkthroughStateKey) || 'null');
+        if (!value || value.version !== 1 || !stepById(value.stepId)) return null;
+        return value;
+      } catch { return null; }
+    };
+    const writeWalkthroughState = value => {
+      const next = { ...value, version: 1, updatedAt: Date.now() };
+      localStorage.setItem(walkthroughStateKey, JSON.stringify(next));
+      return next;
+    };
+    const stateProjectId = state => usableProjectId(new URL(location.href).searchParams.get('projectId')) || usableProjectId(state?.projectId) || usableProjectId(localStorage.getItem(activeProjectKey));
+    const serviceSettingKey = projectId => walkthroughServicePrefix + projectId;
+    const serviceEnabled = projectId => !projectId || localStorage.getItem(serviceSettingKey(projectId)) !== 'false';
+    const setServiceEnabled = (projectId, enabled) => {
+      if (!usableProjectId(projectId)) return;
+      localStorage.setItem(serviceSettingKey(projectId), String(enabled === true));
+      if (enabled !== true) stopWalkthrough('service-disabled');
+    };
+    const portalHref = (surface, params = {}) => {
+      const url = new URL('/api/portal', location.origin);
+      url.searchParams.set('surface', surface);
+      for (const [key, value] of Object.entries(params)) if (value !== null && value !== undefined && value !== '') url.searchParams.set(key, value);
+      return url.pathname + url.search;
+    };
+    const walkthroughSurfaceForRoute = route => {
+      const url = new URL(route, location.origin);
+      if (url.pathname === '/identity') return 'identity';
+      if (url.pathname === '/workspace') return 'workspace';
+      if (url.pathname === '/product-studio') return 'studio';
+      if (url.pathname === '/project-control') return 'control';
+      if (url.pathname === '/walkthrough') return 'walkthrough';
+      if (url.pathname === '/portfolio' && url.searchParams.get('surface') === 'command') return 'command';
+      if (url.pathname === '/portfolio' && url.searchParams.get('surface') === 'walkthrough') return 'walkthrough';
+      return 'portfolio';
+    };
+    const guideHref = projectId => portalHref('walkthrough', usableProjectId(projectId) ? { projectId } : {});
+    let activeWalkthroughCoach = null;
+    let activeWalkthroughAdvisor = null;
+    const preferredSide = (storageKey, fallback) => {
+      try { const side = localStorage.getItem(storageKey); return side === 'left' || side === 'right' ? side : fallback; } catch { return fallback; }
+    };
+    const setPreferredSide = (storageKey, side) => {
+      try { localStorage.setItem(storageKey, side); } catch { /* preference remains for this page */ }
+    };
+    let coachMinimizedInMemory = null;
+    const isCoachMinimized = () => {
+      if (typeof coachMinimizedInMemory === 'boolean') return coachMinimizedInMemory;
+      try { return localStorage.getItem(walkthroughCoachMinimizedKey) === 'true'; } catch { return false; }
+    };
+    const setCoachMinimized = minimized => {
+      coachMinimizedInMemory = minimized === true;
+      try { localStorage.setItem(walkthroughCoachMinimizedKey, String(minimized === true)); } catch { /* private mode can still use the visible state */ }
+    };
+    const removeWalkthroughLauncher = () => document.querySelector('[data-hero-walkthrough-launcher]')?.remove();
+    const clearWalkthroughAdvisor = () => {
+      const advisor = activeWalkthroughAdvisor || document.querySelector('[data-hero-walkthrough-advisor]');
+      if (!advisor) return;
+      advisor._heroWalkthroughCleanup?.();
+      advisor.remove();
+      if (activeWalkthroughAdvisor === advisor) activeWalkthroughAdvisor = null;
+    };
+    const clearWalkthroughCoach = ({ preserveLauncher = false, preserveAdvisor = false } = {}) => {
+      if (!preserveAdvisor) clearWalkthroughAdvisor();
+      if (!preserveLauncher) removeWalkthroughLauncher();
+      const coach = activeWalkthroughCoach || document.querySelector('[data-hero-walkthrough-coach]');
+      if (!coach) return;
+      coach._heroWalkthroughCleanup?.();
+      const target = coach._heroWalkthroughTarget;
+      if (target) {
+        target.classList.remove('hero-walkthrough-target');
+        if (coach._heroWalkthroughAddedTabIndex) target.removeAttribute('tabindex');
+        if (coach._heroWalkthroughPreviousDescription === null) target.removeAttribute('aria-describedby');
+        else target.setAttribute('aria-describedby', coach._heroWalkthroughPreviousDescription);
+      }
+      coach.remove();
+      if (activeWalkthroughCoach === coach) activeWalkthroughCoach = null;
+    };
+    const routeForWalkthroughStep = (stepId, preferredProjectId = null) => {
+      let step = stepById(stepId);
+      let projectId = usableProjectId(preferredProjectId) || usableProjectId(localStorage.getItem(activeProjectKey));
+      if (!step) step = stepById('project-selection') || mainWalkthroughSteps[0];
+      if (!noProjectWalkthroughSteps.has(step.id) && !projectId) step = stepById('project-selection');
+      const source = new URL(step.route, location.origin);
+      const url = new URL('/api/portal', location.origin);
+      url.searchParams.set('surface', walkthroughSurfaceForRoute(step.route));
+      for (const key of ['select', 'next', 'open']) if (source.searchParams.has(key)) url.searchParams.set(key, source.searchParams.get(key));
+      if (!noProjectWalkthroughSteps.has(step.id) && projectId) url.searchParams.set('projectId', projectId);
+      url.searchParams.set('walkthrough', step.id);
+      return url.pathname + url.search;
+    };
+    const stopWalkthrough = (status = 'closed') => {
+      const previous = readWalkthroughState();
+      if (previous) writeWalkthroughState({ ...previous, active: false, status, stoppedAt: Date.now() });
+      if (status === 'closed-by-user') { try { localStorage.setItem(walkthroughOwnerDismissedKey, 'true'); } catch { /* an unavailable browser store must not block closing the guide */ } }
+      setCoachMinimized(false);
+      clearWalkthroughCoach();
+    };
+    const startWalkthrough = ({ stepId = 'project-selection', projectId = null } = {}) => {
+      let step = stepById(stepId) || stepById('project-selection') || mainWalkthroughSteps[0];
+      const explicitProjectId = usableProjectId(projectId);
+      // A new/default guide always begins by asking the Owner to choose a
+      // scope. A project retained in browser navigation must not silently
+      // make the first numbered step look as though a choice was made.
+      const scopedProjectId = step.id === 'project-selection' && !explicitProjectId
+        ? null
+        : explicitProjectId || usableProjectId(localStorage.getItem(activeProjectKey));
+      if (!noProjectWalkthroughSteps.has(step.id) && !scopedProjectId) step = stepById('project-selection');
+      if (scopedProjectId) localStorage.setItem(activeProjectKey, scopedProjectId);
+      try { localStorage.removeItem(walkthroughOwnerDismissedKey); } catch { /* a manual restart still works in this page */ }
+      setCoachMinimized(false); clearWalkthroughCoach();
+      writeWalkthroughState({ active: true, status: 'active', stepId: step.id, projectId: scopedProjectId, startedAt: Date.now() });
+      location.assign(routeForWalkthroughStep(step.id, scopedProjectId));
+    };
+    const continueWalkthrough = ({ stepId, projectId = null } = {}) => {
+      const previous = readWalkthroughState();
+      if (!previous?.active) return startWalkthrough({ stepId, projectId });
+      const step = stepById(stepId) || stepById(previous.stepId) || stepById('project-selection') || mainWalkthroughSteps[0];
+      const scopedProjectId = usableProjectId(projectId) || stateProjectId(previous);
+      if (scopedProjectId) localStorage.setItem(activeProjectKey, scopedProjectId);
+      setCoachMinimized(false); clearWalkthroughCoach();
+      writeWalkthroughState({ ...previous, active: true, status: 'active', stepId: step.id, projectId: scopedProjectId });
+      location.assign(routeForWalkthroughStep(step.id, scopedProjectId));
+    };
+    const resumeWalkthrough = () => {
+      const state = readWalkthroughState();
+      if (!state?.active) return startWalkthrough();
+      const projectId = usableProjectId(state.projectId);
+      if (projectId && !serviceEnabled(projectId)) return;
+      location.assign(routeForWalkthroughStep(state.stepId, projectId));
+    };
+    const moveWalkthrough = direction => {
+      const state = readWalkthroughState();
+      if (!state?.active) return startWalkthrough();
+      const current = stepById(state.stepId);
+      const projectId = usableProjectId(state.projectId);
+      let target = direction > 0
+        ? stepById(current?.nextId)
+        : walkthroughSteps.find(step => step.nextId === current?.id) || null;
+      // A selected Project is already the result of either an existing Draft
+      // or a newly-created Draft. Do not force it through the owner-only
+      // optional creation screen; it remains directly reachable from Guide.
+      if (projectId && target?.id === 'create-project') {
+        target = direction > 0
+          ? stepById(target.nextId)
+          : walkthroughSteps.find(step => step.nextId === target.id) || null;
+      }
+      if (!target) {
+        if (direction > 0) {
+          stopWalkthrough('completed');
+          location.assign(guideHref(stateProjectId(state)));
+        }
+        return;
+      }
+      let next = target;
+      if (!noProjectWalkthroughSteps.has(next.id) && !projectId) next = stepById('project-selection');
+      setCoachMinimized(false); clearWalkthroughAdvisor();
+      writeWalkthroughState({ ...state, active: true, status: 'active', stepId: next.id, projectId });
+      location.assign(routeForWalkthroughStep(next.id, projectId));
+    };
+    const requestedWalkthroughStep = new URL(location.href).searchParams.get('walkthrough');
+    if (stepById(requestedWalkthroughStep)) {
+      const previous = readWalkthroughState();
+      const selectedProjectId = stateProjectId(previous);
+      writeWalkthroughState({ ...previous, active: true, status: 'active', stepId: requestedWalkthroughStep, projectId: selectedProjectId, startedAt: previous?.startedAt ?? Date.now() });
+      const next = new URL(location.href); next.searchParams.delete('walkthrough'); history.replaceState(null, '', next.pathname + next.search + next.hash);
+    }
+    // A project card can navigate directly to a surface without carrying the
+    // walkthrough query parameter. Reconcile the persisted step with the
+    // surface that is actually open so a minimized H launcher never points at
+    // a target that cannot exist on the current page.
+    const walkthroughStepForSurface = surface => ({
+      portfolio: 'project-selection',
+      workspace: 'intake',
+      studio: 'studio-review',
+      command: 'command-center',
+      control: 'operations-review'
+    }[surface] || null);
+    const currentWalkthroughSurface = () => {
+      const url = new URL(location.href);
+      if (url.pathname === '/api/portal') return url.searchParams.get('surface') || 'portfolio';
+      return walkthroughSurfaceForRoute(url.pathname + url.search);
+    };
+    const normalizeWalkthroughStateForSurface = () => {
+      const active = readWalkthroughState();
+      if (!active || new URL(location.href).searchParams.has('walkthrough')) return active;
+      if (stepById(active.stepId)?.flow === 'outside-main') {
+        const resumed = { ...active, active: true, status: 'active', stepId: 'project-selection', projectId: stateProjectId(active) };
+        writeWalkthroughState(resumed);
+        return resumed;
+      }
+      const surface = currentWalkthroughSurface();
+      const expectedStep = walkthroughStepForSurface(surface);
+      if (!expectedStep) return active;
+      const projectId = stateProjectId(active);
+      const routeSteps = {
+        portfolio: new Set(['project-selection', 'create-project']),
+        workspace: new Set(['intake', 'inputs', 'foundation', 'settings']),
+        studio: new Set(['studio-review']),
+        command: new Set(['command-center']),
+        control: new Set(['operations-review', 'team-research', 'live-execution', 'test-delivery', 'production'])
+      }[surface];
+      if (routeSteps?.has(active.stepId)) return active;
+      const next = { ...active, active: true, status: 'active', stepId: expectedStep, projectId };
+      writeWalkthroughState(next);
+      return next;
+    };
+    normalizeWalkthroughStateForSurface();
+    document.addEventListener('click', event => {
+      const projectLink = event.target.closest?.('[data-hero-select-project]');
+      const selectedId = usableProjectId(projectLink?.dataset?.heroSelectProject);
+      const state = readWalkthroughState();
+      if (selectedId && state?.active) {
+        const linkUrl = projectLink?.href ? new URL(projectLink.href, location.origin) : null;
+        const nextStep = walkthroughStepForSurface(linkUrl?.searchParams.get('surface'));
+        writeWalkthroughState({ ...state, projectId: selectedId, ...(state.stepId === 'project-selection' && nextStep ? { stepId: nextStep } : {}) });
+      }
+    });
+    const restoreWalkthroughCoach = () => {
+      // Reconcile once more at click time. A project page may have been opened
+      // in another tab (or a framework navigation may have changed the
+      // surface) after the initial shell bootstrap, so the persisted step can
+      // be stale even though the H launcher is visible.
+      const active = normalizeWalkthroughStateForSurface() || readWalkthroughState();
+      if (!active?.active) return;
+      setCoachMinimized(false);
+      removeWalkthroughLauncher();
+      // Dynamic pages can replace their target just as H is clicked. Retry on
+      // two frames, then leave a safe launcher fallback in place. The target
+      // observer replaces that fallback with the coach when it is ready.
+      requestAnimationFrame(() => {
+        installWalkthroughCoach();
+        requestAnimationFrame(installWalkthroughCoach);
+      });
+      window.setTimeout(() => {
+        const current = readWalkthroughState();
+        if (current?.active && !document.querySelector('[data-hero-walkthrough-coach]')) showWalkthroughLauncher(current);
+      }, 220);
+    };
+    const showWalkthroughLauncher = active => {
+      removeWalkthroughLauncher();
+      const launcher = document.createElement('button'); launcher.type = 'button'; launcher.className = 'hero-walkthrough-launcher';
+      launcher.dataset.heroWalkthroughLauncher = active.stepId;
+      launcher.dataset.heroWalkthroughSide = preferredSide(walkthroughCoachSideKey, 'right');
+      launcher.setAttribute('aria-label', 'بازگرداندن پنجرهٔ راهنمای Walk-Through'); launcher.title = 'بازگرداندن راهنما'; launcher.textContent = 'H';
+      launcher.addEventListener('click', restoreWalkthroughCoach);
+      document.body.append(launcher);
+    };
+    window.heroWalkthrough = Object.freeze({
+      start: startWalkthrough,
+      resume: resumeWalkthrough,
+      continue: continueWalkthrough,
+      previous: () => moveWalkthrough(-1),
+      next: () => moveWalkthrough(1),
+      stop: stopWalkthrough,
+      minimize: () => { const state = readWalkthroughState(); if (state?.active) { setCoachMinimized(true); clearWalkthroughCoach({ preserveLauncher: true }); showWalkthroughLauncher(state); } },
+      restore: restoreWalkthroughCoach,
+      setServiceEnabled,
+      getState: readWalkthroughState,
+      getGuideHref: guideHref
+    });
+    window.dispatchEvent(new Event('hero-walkthrough-ready'));
+    const isWalkthroughTargetReady = target => {
+      if (!target?.isConnected || target.hidden || target.getClientRects().length === 0) return false;
+      const style = getComputedStyle(target);
+      return style.display !== 'none' && style.visibility !== 'hidden';
+    };
+    const installWalkthroughCoach = () => {
+      const active = readWalkthroughState();
+      if (!active?.active) return;
+      const currentStep = stepById(active.stepId);
+      // Identity and access are useful supporting capabilities, but are not
+      // numbered product-development stages. They remain reachable from the
+      // full guide without creating an invalid "0 of N" floating coach.
+      if (!currentStep?.target || currentStep.flow === 'outside-main') return;
+      const projectIdForGuide = usableProjectId(active.projectId) || (currentStep.id === 'project-selection' ? null : stateProjectId(active));
+      if (projectIdForGuide && !serviceEnabled(projectIdForGuide)) return;
+      const target = document.querySelector('[data-hero-guide-target="' + currentStep.target + '"]');
+      const existingCoach = activeWalkthroughCoach || document.querySelector('[data-hero-walkthrough-coach]');
+      // Dynamic surfaces replace their cards during refresh. A coach bound to
+      // the removed card must be rebound only after the replacement is ready.
+      if (existingCoach?.dataset.heroWalkthroughCoach === currentStep.id && existingCoach._heroWalkthroughTarget === target && isWalkthroughTargetReady(target)) return;
+      if (existingCoach) clearWalkthroughCoach();
+      // The minimized state is independent from target rendering. Keep the H
+      // affordance available while a dynamic card is still loading; the
+      // mutation observer and retry loop will install the coach once ready.
+      if (isCoachMinimized()) { showWalkthroughLauncher(active); return; }
+      if (!isWalkthroughTargetReady(target)) return;
+      removeWalkthroughLauncher();
+      const index = mainWalkthroughSteps.findIndex(step => step.id === currentStep.id);
+      const previousStep = walkthroughSteps.find(step => step.nextId === currentStep.id) || null;
+      const nextStep = stepById(currentStep.nextId);
+      const defaultCoachSide = target.getBoundingClientRect().left + target.getBoundingClientRect().width / 2 >= innerWidth / 2 ? 'left' : 'right';
+      let coachSide = preferredSide(walkthroughCoachSideKey, defaultCoachSide);
+      const coach = document.createElement('aside'); coach.className = 'hero-walkthrough-coach'; coach.dataset.heroWalkthroughCoach = currentStep.id; coach.dataset.heroWalkthroughSide = coachSide; coach.setAttribute('role', 'region'); coach.setAttribute('tabindex', '-1'); coach.style.visibility = 'hidden';
+      const progress = document.createElement('span'); progress.className = 'hero-walkthrough-progress'; progress.textContent = 'گام ' + (index + 1) + ' از ' + mainWalkthroughSteps.length;
+      const title = document.createElement('strong'); title.id = 'hero-walkthrough-title-' + currentStep.id; title.textContent = currentStep.title; coach.setAttribute('aria-labelledby', title.id);
+      const summary = document.createElement('p'); summary.textContent = currentStep.summary;
+      const actions = document.createElement('div'); actions.className = 'hero-walkthrough-coach-actions';
+      const next = document.createElement('button'); next.type = 'button'; next.textContent = nextStep ? 'گام بعد' : 'پایان Walk-Through';
+      const previous = document.createElement('button'); previous.type = 'button'; previous.textContent = 'گام قبل'; previous.disabled = !previousStep; previous.addEventListener('click', () => moveWalkthrough(-1));
+      const completion = document.createElement('span'); completion.className = 'hero-walkthrough-completion'; completion.setAttribute('aria-live', 'polite');
+      const recheck = document.createElement('button'); recheck.type = 'button'; recheck.textContent = 'بازخوانی وضعیت'; recheck.setAttribute('aria-label', 'بازخوانی معیار تکمیل همین گام');
+      const moveSide = document.createElement('button'); moveSide.type = 'button';
+      const consultation = document.createElement('button'); consultation.type = 'button'; consultation.textContent = 'مشاوره'; consultation.setAttribute('aria-label', 'باز کردن مشاورهٔ AI برای این گام');
+      const minimize = document.createElement('button'); minimize.type = 'button'; minimize.textContent = 'کمینه‌سازی'; minimize.setAttribute('aria-label', 'کمینه‌سازی راهنمای Walk-Through');
+      const guide = document.createElement('a'); guide.href = guideHref(projectIdForGuide); guide.textContent = 'بازگشت به راهنمای کامل';
+      const dismiss = document.createElement('button'); dismiss.type = 'button'; dismiss.textContent = 'بستن کامل Walk-Through فعال'; dismiss.addEventListener('click', () => stopWalkthrough('closed-by-user'));
+      actions.append(next, previous, recheck, consultation, moveSide, minimize, guide, dismiss); coach.append(progress, title, summary, completion, actions);
+      coach._heroWalkthroughTarget = target;
+      coach._heroWalkthroughPreviousDescription = target.getAttribute('aria-describedby');
+      coach._heroWalkthroughAddedTabIndex = !target.hasAttribute('tabindex');
+      if (coach._heroWalkthroughAddedTabIndex) target.setAttribute('tabindex', '-1');
+      target.setAttribute('aria-describedby', [coach._heroWalkthroughPreviousDescription, title.id].filter(Boolean).join(' '));
+      const placeCoach = () => {
+        if (!coach.isConnected) return;
+        if (innerWidth <= 760) { coach.style.top = ''; return; }
+        const edge = 12; const bubble = coach.getBoundingClientRect();
+        coach.style.top = Math.round(Math.max(edge, Math.min(92, innerHeight - bubble.height - edge))) + 'px';
+      };
+      const applyCoachSide = side => {
+        coachSide = side; coach.dataset.heroWalkthroughSide = side;
+        moveSide.textContent = side === 'right' ? 'انتقال به لبهٔ چپ' : 'انتقال به لبهٔ راست';
+        moveSide.setAttribute('aria-label', moveSide.textContent);
+        setPreferredSide(walkthroughCoachSideKey, side);
+        schedulePlacement();
+        activeWalkthroughAdvisor?._heroWalkthroughReposition?.();
+      };
+      moveSide.addEventListener('click', () => applyCoachSide(coachSide === 'right' ? 'left' : 'right'));
+      minimize.addEventListener('click', () => { setCoachMinimized(true); clearWalkthroughCoach({ preserveLauncher: true }); showWalkthroughLauncher(active); });
+      let placementFrame = null;
+      const schedulePlacement = () => {
+        if (placementFrame !== null) return;
+        placementFrame = requestAnimationFrame(() => { placementFrame = null; placeCoach(); });
+      };
+      const requiresRecordedCompletion = new Set(['identity', 'project-selection', 'intake', 'inputs', 'foundation', 'settings']);
+      // These are genuine product-delivery gates, not presentation steps. The
+      // guide must remain honest and cannot mark them complete before the
+      // corresponding execution/evidence capability exists.
+      const unavailableExecutionSteps = new Set(['team-research', 'live-execution', 'test-delivery', 'production']);
+      if ((!nextStep && unavailableExecutionSteps.has(currentStep.id)) || (nextStep && (requiresRecordedCompletion.has(currentStep.id) || unavailableExecutionSteps.has(currentStep.id)))) next.disabled = true;
+      const checkRecordedCompletion = async () => {
+        if (unavailableExecutionSteps.has(currentStep.id)) {
+          const messages = {
+            'team-research': 'این مرحله هنوز اجرای تحقیق و گفت‌وگوی پایدار تیمی ندارد؛ Walk-Through در همین گیت متوقف می‌ماند تا قابلیت و Evidence واقعی فراهم شود.',
+            'live-execution': 'اتصال زندهٔ Provider، GitHub و Server هنوز گیت‌شده است. بدون Credential، مجوز هزینه و Approval مستقل، راهنما به تحویل واقعی پیش نمی‌رود.',
+            'test-delivery': 'Release، Artifact و آزمون بازیابی روی مقصد پاک هنوز عملیاتی نشده‌اند؛ تا Evidence واقعی ثبت نشود، راهنما این گام را کامل اعلام نمی‌کند.',
+            production: 'Production عمداً پایان خودکار Walk-Through نیست. تا Evidence Test، portability، backup/restore و Approval جداگانه فراهم نشود، این گیت باز می‌ماند.'
+          };
+          completion.textContent = messages[currentStep.id]; next.disabled = true; return false;
+        }
+        if (!nextStep || !requiresRecordedCompletion.has(currentStep.id)) { completion.textContent = currentStep.completion === 'gated' || currentStep.availability === 'partial' ? 'این گام وضعیت یا گیت را نشان می‌دهد؛ اجرای واقعی جداگانه مجاز می‌شود.' : ''; next.disabled = false; return true; }
+        next.disabled = true; completion.textContent = 'در حال خواندن معیار تکمیل از دادهٔ واقعی…';
+        try {
+          if (currentStep.id === 'project-selection') {
+            const selected = stateProjectId(readWalkthroughState());
+            if (!selected) { completion.textContent = 'برای ادامه، یک پروژه را از Portfolio انتخاب کنید.'; return false; }
+            completion.textContent = 'پروژهٔ فعال انتخاب شده است.'; next.disabled = false; return true;
+          }
+          if (currentStep.id === 'identity') {
+            const response = await fetch('/api/identity/me', { credentials: 'same-origin', cache: 'no-store' });
+            if (!response.ok) { completion.textContent = 'برای ادامه، ابتدا ورود انسانی و MFA را کامل کنید.'; return false; }
+            completion.textContent = 'نشست انسانی معتبر است.'; next.disabled = false; return true;
+          }
+          const scopedProjectId = stateProjectId(readWalkthroughState());
+          if (!scopedProjectId) { completion.textContent = 'Scope پروژه انتخاب نشده است؛ به Portfolio برگردید.'; return false; }
+          const response = await fetch('/api/projects/' + encodeURIComponent(scopedProjectId) + '/workspace-overview', { credentials: 'same-origin', cache: 'no-store' });
+          const body = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(body.message || body.code || 'دادهٔ پروژه خوانده نشد.');
+          const overview = body.overview || {}; const intake = overview.intake || {}; const foundation = overview.foundationProposal || {};
+          const complete = currentStep.id === 'intake' ? Boolean(intake.goal && intake.users && intake.autonomy)
+            : currentStep.id === 'inputs' ? Array.isArray(overview.inputs) && overview.inputs.length > 0
+              : currentStep.id === 'foundation' ? foundation.state === 'approved'
+                : currentStep.id === 'settings' ? Array.isArray(overview.settings) && overview.settings.some(item => item.path !== 'backoffice.walkthrough.enabled')
+                  : true;
+          if (!complete) { const labels = { intake: 'هدف، کاربران و سطح خودکارسازی را ثبت کنید.', inputs: 'حداقل یک ورودی متن یا لینک عمومی ثبت کنید.', foundation: 'Foundation را تأیید یا بازنگری کنید تا وضعیت واقعی آن به‌روز شود.', settings: 'حداقل یک تنظیم نسخه‌دار پروژه ثبت کنید.' }; completion.textContent = labels[currentStep.id] || 'این گام هنوز کامل نشده است.'; return false; }
+          completion.textContent = 'معیار تکمیل از دادهٔ واقعی این پروژه تأیید شد.'; next.disabled = false; return true;
+        } catch (error) { completion.textContent = error.message || 'بازخوانی معیار تکمیل ناموفق بود.'; return false; }
+        finally { schedulePlacement(); }
+      };
+      recheck.addEventListener('click', () => { void checkRecordedCompletion(); });
+      next.addEventListener('click', () => {
+        if (unavailableExecutionSteps.has(currentStep.id)) { void checkRecordedCompletion(); return; }
+        if (!nextStep || !requiresRecordedCompletion.has(currentStep.id)) { moveWalkthrough(1); return; }
+        void checkRecordedCompletion().then(complete => { if (complete) moveWalkthrough(1); });
+      });
+      const cleanup = () => { if (placementFrame !== null) cancelAnimationFrame(placementFrame); window.removeEventListener('resize', schedulePlacement); };
+      coach._heroWalkthroughCleanup = cleanup;
+      document.body.append(coach); target.classList.add('hero-walkthrough-target'); activeWalkthroughCoach = coach;
+      window.addEventListener('resize', schedulePlacement);
+      target.focus({ preventScroll: true }); target.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      applyCoachSide(coachSide);
+      requestAnimationFrame(() => { placeCoach(); coach.style.visibility = 'visible'; coach.focus({ preventScroll: true }); void checkRecordedCompletion(); });
+      const openAdvisor = () => {
+        if (activeWalkthroughAdvisor?.isConnected) { activeWalkthroughAdvisor.focus({ preventScroll: true }); return; }
+        clearWalkthroughAdvisor();
+        let advisorSide = preferredSide(walkthroughAdvisorSideKey, coachSide === 'right' ? 'left' : 'right');
+        const advisor = document.createElement('aside'); advisor.className = 'hero-walkthrough-advisor'; advisor.dataset.heroWalkthroughAdvisor = currentStep.id; advisor.dataset.heroWalkthroughSide = advisorSide; advisor.setAttribute('role', 'dialog'); advisor.setAttribute('aria-modal', 'false'); advisor.setAttribute('tabindex', '-1'); advisor.style.visibility = 'hidden';
+        advisor.setAttribute('aria-label', 'گفت‌وگوی مشاورهٔ Walk-Through');
+        const selectorWrap = document.createElement('label'); selectorWrap.className = 'hero-walkthrough-advisor-selector'; selectorWrap.textContent = 'AI و نسخه';
+        const selector = document.createElement('select'); selector.name = 'advisorProfileId'; selector.setAttribute('aria-label', 'انتخاب AI و نسخه برای مشاورهٔ Walk-Through');
+        const localOption = document.createElement('option'); localOption.value = 'local'; localOption.textContent = 'راهنمای محلی Hero · بدون هزینه'; selector.append(localOption); selectorWrap.append(selector);
+        const conversation = document.createElement('section'); conversation.className = 'hero-walkthrough-advisor-messages'; conversation.setAttribute('aria-live', 'polite'); conversation.setAttribute('aria-label', 'گفت‌وگوی مشاور');
+        const status = document.createElement('span'); status.className = 'hero-walkthrough-advisor-status';
+        const form = document.createElement('form'); const question = document.createElement('textarea'); question.name = 'question'; question.maxLength = 1500; question.placeholder = 'پرسش خود را دربارهٔ همین گام بنویسید.'; question.setAttribute('aria-label', 'پرسش برای مشاور AI');
+        const submit = document.createElement('button'); submit.type = 'submit'; submit.textContent = 'ارسال پرسش';
+        const closeAdvisor = document.createElement('button'); closeAdvisor.type = 'button'; closeAdvisor.textContent = 'بستن'; closeAdvisor.setAttribute('aria-label', 'بستن پنجرهٔ مشاوره');
+        const formActions = document.createElement('div'); formActions.className = 'hero-walkthrough-advisor-actions'; formActions.append(submit, closeAdvisor); form.append(question, formActions);
+        advisor.append(selectorWrap, conversation, status, form);
+        const appendAdvisorMessage = (speaker, value) => { const message = document.createElement('article'); message.className = 'hero-walkthrough-advisor-message'; message.dataset.speaker = speaker; const label = document.createElement('b'); label.textContent = speaker === 'user' ? 'شما' : 'مشاور'; const text = document.createElement('span'); text.textContent = value; message.append(label, text); conversation.append(message); conversation.scrollTop = conversation.scrollHeight; };
+        const renderAdvisorMessage = text => appendAdvisorMessage('assistant', text);
+        const placeAdvisor = () => {
+          if (!advisor.isConnected) return;
+          if (innerWidth <= 760) { advisor.style.top = ''; return; }
+          const edge = 12; const bubble = advisor.getBoundingClientRect(); const coachRect = coach.isConnected ? coach.getBoundingClientRect() : null;
+          const preferredTop = coachRect && advisorSide === coachSide ? coachRect.bottom + 12 : 92;
+          advisor.style.top = Math.round(Math.max(edge, Math.min(preferredTop, innerHeight - bubble.height - edge))) + 'px';
+        };
+        let advisorPlacementFrame = null;
+        const scheduleAdvisorPlacement = () => { if (advisorPlacementFrame !== null) return; advisorPlacementFrame = requestAnimationFrame(() => { advisorPlacementFrame = null; placeAdvisor(); }); };
+        const applyAdvisorSide = side => { advisorSide = side; advisor.dataset.heroWalkthroughSide = side; setPreferredSide(walkthroughAdvisorSideKey, side); scheduleAdvisorPlacement(); };
+        const advisorSelectionStorageKey = projectIdForGuide ? 'hero.project-walkthrough.advisor.' + projectIdForGuide + '.v1' : null;
+        const restoreAdvisorSelection = () => { if (!advisorSelectionStorageKey) return; try { const saved = localStorage.getItem(advisorSelectionStorageKey); if (saved && Array.from(selector.options).some(option => option.value === saved && !option.disabled)) selector.value = saved; } catch { /* default local advisor remains available */ } };
+        const saveAdvisorSelection = () => { if (!advisorSelectionStorageKey) return; try { localStorage.setItem(advisorSelectionStorageKey, selector.value); } catch { /* preference is optional */ } };
+        const loadAdvisorOptions = async () => {
+          if (!projectIdForGuide) return;
+          const response = await fetch('/api/projects/' + encodeURIComponent(projectIdForGuide) + '/walkthrough-advisor/options', { credentials: 'same-origin', cache: 'no-store' });
+          const body = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(body.message || body.code || 'فهرست AIهای قابل‌استفاده دریافت نشد.');
+          const options = body.advisorOptions || {};
+          for (const profile of Array.isArray(options.profiles) ? options.profiles : []) {
+            const option = document.createElement('option'); option.value = profile.profileId;
+            option.textContent = (profile.providerName || profile.providerId) + ' / ' + (profile.modelName || profile.modelId) + ' · v' + (profile.profileVersion || '?') + (profile.selectable ? '' : ' · آماده نیست');
+            option.disabled = profile.selectable !== true;
+            selector.append(option);
+          }
+          restoreAdvisorSelection();
+        };
+        selector.addEventListener('change', saveAdvisorSelection);
+        const askAdvisor = async rawQuestion => {
+          submit.disabled = true; status.dataset.state = ''; status.textContent = 'در حال تحلیل پرسش در زمینهٔ همین گام…';
+          if (rawQuestion) appendAdvisorMessage('user', rawQuestion);
+          try {
+            const endpoint = new URL('/api/walkthrough/advice', location.origin);
+            if (projectIdForGuide) endpoint.searchParams.set('projectId', projectIdForGuide);
+            const response = await fetch(endpoint.pathname + endpoint.search, { method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ stepId: currentStep.id, projectId: projectIdForGuide, advisorProfileId: selector.value === 'local' ? null : selector.value, question: rawQuestion }) });
+            const body = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(body.message || body.code || 'مشاوره در دسترس نیست.');
+            const advisorResponse = body.advisor || {};
+            renderAdvisorMessage(advisorResponse.response || 'برای این گام پاسخ قابل‌نمایش وجود ندارد.');
+            status.textContent = '';
+          } catch (error) {
+            renderAdvisorMessage('مشاوره در این لحظه در دسترس نیست. برای ادامه، ورود انسانی و Scope پروژه را بررسی کنید.'); status.dataset.state = 'error'; status.textContent = error.message;
+          } finally { submit.disabled = false; scheduleAdvisorPlacement(); }
+        };
+        form.addEventListener('submit', event => { event.preventDefault(); const text = question.value.trim(); if (!text) { question.focus(); status.dataset.state = 'error'; status.textContent = 'ابتدا پرسش خود را بنویسید.'; return; } question.value = ''; askAdvisor(text); });
+        closeAdvisor.addEventListener('click', () => { clearWalkthroughAdvisor(); consultation.focus({ preventScroll: true }); });
+        advisor._heroWalkthroughReposition = scheduleAdvisorPlacement;
+        advisor._heroWalkthroughCleanup = () => { if (advisorPlacementFrame !== null) cancelAnimationFrame(advisorPlacementFrame); window.removeEventListener('resize', scheduleAdvisorPlacement); };
+        document.body.append(advisor); activeWalkthroughAdvisor = advisor; window.addEventListener('resize', scheduleAdvisorPlacement); applyAdvisorSide(advisorSide); requestAnimationFrame(() => { placeAdvisor(); advisor.style.visibility = 'visible'; question.focus({ preventScroll: true }); });
+        void loadAdvisorOptions().catch(error => { status.dataset.state = 'error'; status.textContent = error.message || 'فهرست AIها دریافت نشد؛ راهنمای محلی همچنان قابل استفاده است.'; });
+      };
+      consultation.addEventListener('click', openAdvisor);
+    };
+    // Project surfaces can render targets asynchronously and replace cards on
+    // refresh. Coalesce those mutations into one retry: the fixed coach stays
+    // outside normal layout and cannot make the surface move or flicker.
+    let walkthroughInstallFrame = null;
+    const scheduleWalkthroughCoachInstall = () => {
+      if (walkthroughInstallFrame !== null) return;
+      walkthroughInstallFrame = requestAnimationFrame(() => {
+        walkthroughInstallFrame = null;
+        installWalkthroughCoach();
+      });
+    };
+    const walkthroughTargetObserver = new MutationObserver(() => {
+      if (readWalkthroughState()?.active) scheduleWalkthroughCoachInstall();
+    });
+    walkthroughTargetObserver.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['hidden', 'class', 'data-hero-guide-target']
+    });
+    window.addEventListener('pageshow', scheduleWalkthroughCoachInstall);
+    window.addEventListener('popstate', scheduleWalkthroughCoachInstall);
+    window.addEventListener('hero-walkthrough-targets-changed', scheduleWalkthroughCoachInstall);
+    window.addEventListener('storage', event => {
+      if (event.key === walkthroughOwnerDismissedKey && event.newValue === 'true') {
+        setCoachMinimized(false); clearWalkthroughCoach(); return;
+      }
+      if (event.key === walkthroughStateKey) {
+        if (!readWalkthroughState()?.active) { setCoachMinimized(false); clearWalkthroughCoach(); return; }
+        scheduleWalkthroughCoachInstall(); return;
+      }
+      if (event.key?.startsWith(walkthroughServicePrefix)) scheduleWalkthroughCoachInstall();
+    });
+    const ownerWalkthroughDismissed = () => { try { return localStorage.getItem(walkthroughOwnerDismissedKey) === 'true'; } catch { return false; } };
+    const consumeOwnerWalkthroughLogin = () => { try { const pending = sessionStorage.getItem(walkthroughOwnerLoginKey) === 'true'; sessionStorage.removeItem(walkthroughOwnerLoginKey); return pending; } catch { return false; } };
+    const activateDefaultWalkthroughForOwner = async () => {
+      const loginJustCompleted = consumeOwnerWalkthroughLogin();
+      if (ownerWalkthroughDismissed()) return;
+      try {
+        const response = await fetch('/api/identity/me', { credentials: 'same-origin', cache: 'no-store' });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok || body?.principal?.role !== 'project-owner') return;
+        const current = readWalkthroughState();
+        if (current?.active && !loginJustCompleted) { scheduleWalkthroughCoachInstall(); return; }
+        const initial = { active: true, status: 'active', stepId: 'project-selection', projectId: null, startedAt: Date.now() };
+        setCoachMinimized(false); writeWalkthroughState(initial);
+        if (currentWalkthroughSurface() !== 'portfolio') { location.assign(routeForWalkthroughStep(initial.stepId)); return; }
+        scheduleWalkthroughCoachInstall();
+      } catch { /* unauthenticated and degraded surfaces must remain usable */ }
+    };
+    scheduleWalkthroughCoachInstall();
+    void activateDefaultWalkthroughForOwner();
+  })();</script>`;
+}

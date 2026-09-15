@@ -1,0 +1,40 @@
+{
+  "schema": "hero.authorization-snapshot/v1",
+  "authorizationId": "NOTION-PROJECTION-REPAIR-20260911-001",
+  "status": "active",
+  "grantedBy": "project-owner",
+  "grantedAt": "2026-09-11",
+  "grantSource": "owner-instruction-to-complete-notion-projection-repair",
+  "validUntil": "owner-revocation",
+  "globalStop": false,
+  "operations": ["read", "notion-write", "notion-canonical-refresh", "notion-page-title-update"],
+  "excludedOperations": [
+    "production-deploy",
+    "destructive-data-operation",
+    "external-spend",
+    "secret-change",
+    "external-message",
+    "irreversible-operation",
+    "notion-page-create",
+    "notion-page-delete",
+    "notion-page-archive",
+    "github-write"
+  ],
+  "steps": [{"stepId":"NOTION-PROJECTION-REPAIR","documentVersion":"1.0.0"}],
+  "scope": {
+    "mode": "git-canonical-refresh-and-title-repair",
+    "catalogDigest": "7c1ce043cc877163fb4f14e90b09795292a6b447b9aa882517b2521e0034ae54",
+    "staleDocumentIds": [
+      "HERO-DOC-INDEX",
+      "HERO-EVIDENCE-BACKOFFICE-DELIVERY-AUDIT-20260911",
+      "HERO-ROADMAP-CHANGELOG",
+      "HERO-ROADMAP-STATUS-20260911"
+    ],
+    "titleRepairSelector": {
+      "kind": "mapped-internal-documents-with-empty-notion-title",
+      "count": 76,
+      "documentIdsDigest": "d9f9292a9ad4509563766c6f67cb2fb8731f2dfc877a643e9314f4972fae38f5"
+    }
+  },
+  "note": "Only four named stale pages and the exact 76 mapped pages selected by the title-repair selector may be changed. No create, delete, archive or Git write is authorized."
+}

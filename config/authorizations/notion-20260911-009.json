@@ -1,0 +1,42 @@
+{
+  "schema": "hero.authorization-snapshot/v1",
+  "authorizationId": "NOTION-PRODUCT-SYSTEM-VIEWS-SETUP-20260911-001",
+  "status": "active",
+  "grantedBy": "project-owner",
+  "grantedAt": "2026-09-11",
+  "grantSource": "owner-instruction-to-build-all-useful-notion-dashboards-charts-and-calendars",
+  "validUntil": "owner-revocation",
+  "globalStop": false,
+  "operations": [
+    "read",
+    "notion-write",
+    "notion-view-create",
+    "notion-view-update",
+    "notion-dashboard-create",
+    "notion-data-source-update",
+    "notion-page-create"
+  ],
+  "excludedOperations": [
+    "notion-view-delete",
+    "notion-page-delete",
+    "notion-page-archive",
+    "production-deploy",
+    "destructive-data-operation",
+    "external-spend",
+    "secret-change",
+    "external-message",
+    "irreversible-operation",
+    "github-write"
+  ],
+  "steps": [{
+    "stepId": "NOTION-PRODUCT-SYSTEM-VIEWS-SETUP",
+    "documentVersion": "1.0.0"
+  }],
+  "scope": {
+    "mode": "hero-product-system-managed-views-only",
+    "allowedClassifications": ["internal"],
+    "conflictPolicy": "never-delete-or-archive-existing-views",
+    "datePolicy": "never-invent-canonical-dates"
+  },
+  "note": "Create or update only the named managed views, dashboards, dashboard widgets and planning date fields for the Hero Product System. Existing unrecognized views are preserved. Empty canonical dates remain empty until the roadmap source supplies dates."
+}

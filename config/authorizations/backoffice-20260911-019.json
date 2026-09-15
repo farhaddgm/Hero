@@ -1,0 +1,38 @@
+{
+  "schema": "hero.authorization-snapshot/v1",
+  "authorizationId": "BATCH-BACKOFFICE-20260911-019",
+  "status": "active",
+  "grantedBy": "project-owner",
+  "grantedAt": "2026-09-11",
+  "grantSource": "owner-request-to-design-implement-test-and-prepare-backoffice-ui-ux",
+  "validUntil": "owner-revocation",
+  "globalStop": false,
+  "operations": ["research", "design", "document", "version", "develop", "test", "review", "build", "test-deploy"],
+  "excludedOperations": ["production-deploy", "destructive-data-operation", "external-spend", "secret-change", "external-message", "irreversible-operation", "pilot-execution", "notion-write", "github-write"],
+  "documents": [
+    { "documentId": "HERO-SPEC-022", "documentVersion": "1.0.0" },
+    { "documentId": "HERO-SPEC-023", "documentVersion": "1.0.0" },
+    { "documentId": "HERO-ROADMAP-BACKOFFICE-COMMAND-CENTER-V1", "documentVersion": "1.1.0" },
+    { "documentId": "HERO-ROADMAP-BACKOFFICE-UI-UX-V1", "documentVersion": "1.0.0" }
+  ],
+  "steps": [
+    { "stepId": "BO-053", "documentVersion": "1.0.0" },
+    { "stepId": "BO-054", "documentVersion": "1.0.0" },
+    { "stepId": "BO-056", "documentVersion": "1.0.0" },
+    { "stepId": "BO-057", "documentVersion": "1.0.0" },
+    { "stepId": "BO-059", "documentVersion": "1.0.0" },
+    { "stepId": "BO-062", "documentVersion": "1.0.0" },
+    { "stepId": "BO-149", "documentVersion": "1.0.0" },
+    { "stepId": "BO-150", "documentVersion": "1.0.0" },
+    { "stepId": "BO-156", "documentVersion": "1.0.0" },
+    { "stepId": "BO-158", "documentVersion": "1.0.0" },
+    { "stepId": "BO-165", "documentVersion": "1.0.0" },
+    { "stepId": "BO-167", "documentVersion": "1.0.0" }
+  ],
+  "scope": {
+    "environment": "development-and-test",
+    "service": "hero-control-plane",
+    "action": "backoffice-ui-ux-design-implementation-verification-and-test-promotion"
+  },
+  "note": "Source changes are shared by Test and Production. Production promotion remains a separate gate and is not authorized by this snapshot. No Provider, Secret, Pilot, external write or spend is authorized."
+}

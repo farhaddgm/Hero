@@ -1,7 +1,7 @@
 # فهرست مرکزی مستندات Hero
 
 - Document ID: `HERO-DOC-INDEX`
-- Version: `1.2.0`
+- Version: `1.4.0`
 - Status: `active`
 - Owner: `hero-documentation`
 - Scope: `hero`
@@ -15,7 +15,7 @@
 
 Git repository منبع حقیقت است. Notion و Confluence فقط mirror خواندنی اختیاری‌اند. سندی که در Document registry ثبت نشده باشد canonical نیست.
 
-قراردادهای جدید سیستم توسعهٔ محصول در [ADR-0010](decisions/ADR-0010-product-development-source-of-truth.md)، [Roadmap Graph و Completeness](specs/ROADMAP-GRAPH-COMPLETENESS-v1.0.md)، [Notion Workspace Schema](specs/NOTION-WORKSPACE-SCHEMA-v1.0.md) و [Notion Sync Contract](specs/NOTION-SYNC-CONTRACT-v1.0.md) ثبت شده‌اند.
+قراردادهای جدید سیستم توسعهٔ محصول در [ADR-0010](decisions/ADR-0010-product-development-source-of-truth.md)، [Roadmap Graph و Completeness](specs/ROADMAP-GRAPH-COMPLETENESS-v1.0.md)، [Notion Workspace Schema](specs/NOTION-WORKSPACE-SCHEMA-v1.0.md) و [Notion Sync Contract](specs/NOTION-SYNC-CONTRACT-v1.0.md) ثبت شده‌اند. قرارداد رابط Back Office و Product Studio در [HERO-023](specs/HERO-023-v1.0.md) قرار دارد.
 
 ## مسیر استفاده
 
@@ -94,8 +94,12 @@ Product ابتدا با owner و Evidence در Product registry ثبت می‌ش
 | `HERO-OPS-EXTERNAL-SPEND-AUTHORIZATION` | `active` | [راهنمای Provider واقعی و مجوز هزینه](operations/EXTERNAL-SPEND-AUTHORIZATION.md) |
 | `HERO-OPS-GITHUB-RELEASE-AUTOMATION` | `active` | [خودکارسازی نسخه و تحویل Hero در GitHub](operations/GITHUB-RELEASE-AUTOMATION.md) |
 | `HERO-OPS-HERO-TEST-ENVIRONMENT` | `active` | [محیط Test برای خود Hero](operations/HERO-TEST-ENVIRONMENT.md) |
+| `HERO-OPS-HERO-TEST-AI-SECRET-STORE` | `active` | [راهنمای ثبت امن کلیدهای AI در Hero Test](operations/HERO-TEST-AI-SECRET-STORE.md) |
+| `HERO-OPS-PROJECT-WALKTHROUGH` | `active` | [راهنمای جامع گام‌به‌گام ساخت محصول با Hero](operations/HERO-PROJECT-WALKTHROUGH.md) |
+| `HERO-OPS-SMART-TESTER` | `active` | [اسمارت تستر Back Office Hero](operations/HERO-SMART-TESTER.md) |
 | `HERO-OPS-MOVE-TO-ANOTHER-SERVER` | `active` | [Moving Hero to another server](operations/MOVE-TO-ANOTHER-SERVER.md) |
 | `HERO-OPS-NOTION-SETUP` | `active` | [راهنمای راه‌اندازی Notion برای Hero](operations/NOTION-SETUP.md) |
+| `HERO-OPS-NOTION-VIEWS-AND-DASHBOARDS` | `active` | [Notion Views و Dashboardهای Hero](operations/NOTION-VIEWS-AND-DASHBOARDS.md) |
 | `HERO-OPS-NOTION-SYNC-RUNBOOK` | `active` | [Runbook همگام‌سازی کنترل‌شدهٔ Notion](operations/NOTION-SYNC-RUNBOOK.md) |
 | `HERO-OPS-NOTION-BULK-SYNC-PLAN` | `proposed` | [برنامهٔ همگام‌سازی انبوه Notion](operations/NOTION-BULK-SYNC-PLAN.md) |
 | `HERO-OPS-PRODUCT-DEVELOPMENT-PILOT` | `proposed` | [برنامهٔ پایلوت سیستم توسعهٔ محصول Hero](operations/PRODUCT-DEVELOPMENT-PILOT.md) |
@@ -134,6 +138,7 @@ Product ابتدا با owner و Evidence در Product registry ثبت می‌ش
 | `HERO-SPEC-020` | `active` | [HERO-020 v1.0 — انتقال‌پذیری، Backup و بازیابی](specs/HERO-020-v1.0.md) |
 | `HERO-SPEC-021` | `active` | [HERO-021 v1.0 — پایلوت انتهابه‌انتها](specs/HERO-021-v1.0.md) |
 | `HERO-SPEC-022` | `active` | [HERO-022 v1.0 — Back Office Command Center و Control Plane جامع Hero](specs/HERO-022-v1.0.md) |
+| `HERO-SPEC-023` | `active` | [HERO-023 v1.0 — Design Contract رابط Back Office و Product Studio](specs/HERO-023-v1.0.md) |
 
 ## Evidence
 
@@ -148,13 +153,18 @@ Product ابتدا با owner و Evidence در Product registry ثبت می‌ش
 | `HERO-EVIDENCE-BACKOFFICE-COLLABORATION-COMMAND-CATALOG-BO-061-090` | `active` | [Evidence Collaboration، Command Center و System Catalog — BO-061 تا BO-090](roadmap/BACKOFFICE-COLLABORATION-COMMAND-CATALOG-BO-061-090.md) |
 | `HERO-EVIDENCE-BACKOFFICE-CATALOG-INTELLIGENCE-INBOX-BO-091-120` | `active` | [Evidence Catalog، Intelligence و Inbox — BO-091 تا BO-120](roadmap/BACKOFFICE-CATALOG-INTELLIGENCE-INBOX-BO-091-120.md) |
 | `HERO-EVIDENCE-BACKOFFICE-ENVIRONMENT-DELIVERY-HARDENING-FINAL-BO-121-170` | `active` | [Evidence Environment تا Final Readiness — BO-121 تا BO-170](roadmap/BACKOFFICE-ENVIRONMENT-DELIVERY-HARDENING-FINAL-BO-121-170.md) |
+| `HERO-EVIDENCE-BACKOFFICE-DELIVERY-AUDIT-20260911` | `active` | [ممیزی واقعی تحویل Back Office — ۲۰۲۶-۰۹-۱۱](roadmap/BACKOFFICE-DELIVERY-AUDIT-20260911.md) |
+| `HERO-EVIDENCE-BACKOFFICE-PARTIAL-COMPLETION-20260911` | `active` | [بستهٔ تکمیل محلی الزامات Partial بک‌آفیس — ۲۰۲۶-۰۹-۱۱](roadmap/BACKOFFICE-PARTIAL-COMPLETION-20260911.md) |
+| `HERO-EVIDENCE-BACKOFFICE-UI-UX-20260911` | `active` | [Evidence طراحی، پیاده‌سازی و استقرار Test رابط Back Office](roadmap/BACKOFFICE-UI-UX-EVIDENCE-20260911.md) |
+| `HERO-EVIDENCE-BACKOFFICE-IDENTITY-INFOTIP-TEST-20260911` | `active` | [Evidence رفع ورود انسانی و راهنمای قابلیت‌های Back Office در Test](roadmap/BACKOFFICE-IDENTITY-INFOTIP-TEST-EVIDENCE-20260911.md) |
 | `HERO-ADR-0016` | `active` | [ADR-0016 — Infrastructure، Delivery، Hardening و Final Readiness](decisions/ADR-0016-infrastructure-delivery-hardening-and-final-readiness.md) |
 | `HERO-OPS-BACKOFFICE-RUNBOOK` | `active` | [Runbook بک‌آفیس](operations/BACKOFFICE-RUNBOOK.md) |
 | `HERO-REF-BACKOFFICE-GLOSSARY` | `active` | [واژه‌نامهٔ Back Office](reference/BACKOFFICE-GLOSSARY.md) |
 | `HERO-ROADMAP-BASELINE-20260904` | `active` | [Baseline ممیزی Hero — ۲۰۲۶-۰۹-۰۴](roadmap/BASELINE-20260904.md) |
 | `HERO-ROADMAP-CANDIDATE-EVIDENCE-20260904` | `active` | [شناسنامهٔ Candidate Hero — ۲۰۲۶-۰۹-۰۴](roadmap/CANDIDATE-EVIDENCE-20260904.md) |
 | `HERO-ROADMAP-EXECUTION-20260909-100-STEPS` | `active` | [گزارش اجرای ۱۰۰ گام Hero — ۲۰۲۶-۰۹-۰۹](roadmap/EXECUTION-20260909-100-STEPS.md) |
-| `HERO-ROADMAP-STATUS-20260910` | `active` | [وضعیت جاری Hero — ۲۰۲۶-۰۹-۱۰](roadmap/STATUS-20260910.md) |
+| `HERO-ROADMAP-STATUS-20260910` | `superseded` | [وضعیت Hero — ۲۰۲۶-۰۹-۱۰](roadmap/STATUS-20260910.md) |
+| `HERO-ROADMAP-STATUS-20260911` | `active` | [وضعیت جاری Hero — ۲۰۲۶-۰۹-۱۱](roadmap/STATUS-20260911.md) |
 
 ## Roadmap
 
@@ -166,10 +176,13 @@ Product ابتدا با owner و Evidence در Product registry ثبت می‌ش
 | `HERO-ROADMAP-NEXT-10-STEPS-20260904-BATCH-3` | `active` | [ده گام بعدی Hero — بستهٔ تشخیص و کنترل عملیاتی](roadmap/NEXT-10-STEPS-20260904-BATCH-3.md) |
 | `HERO-ROADMAP-NEXT-100-STEPS-20260904` | `active` | [صد گام بعدی Hero — فهرست اجرایی و وضعیت واقعی](roadmap/NEXT-100-STEPS-20260904.md) |
 | `HERO-ROADMAP-NEXT-20-STEPS-20260904` | `active` | [بیست گام بعدی Hero — وضعیت اجرایی](roadmap/NEXT-20-STEPS-20260904.md) |
+| `HERO-ROADMAP-NEXT-20-STEPS-20260911-WORKSPACE-PERSISTENCE` | `active` | [بستهٔ ۲۰ گام بعدی — Project Workspace و Settings](roadmap/NEXT-20-STEPS-20260911-WORKSPACE-PERSISTENCE.md) |
+| `HERO-ROADMAP-NEXT-100-STEPS-20260911-PROJECT-CONTROL` | `active` | [بستهٔ ۱۰۰ گام بعدی — Project Control Room](roadmap/NEXT-100-STEPS-20260911-PROJECT-CONTROL.md) |
 | `HERO-ROADMAP-OPEN-50-PRIORITY-20260904` | `active` | [پنجاه گام باز و اولویت‌دار Hero](roadmap/OPEN-50-PRIORITY-20260904.md) |
 | `HERO-ROADMAP-ROADMAP-2-0-TEAM-OPERATING-MODEL` | `active` | [رودمپ ۲.۰ Hero — شرکت نرم‌افزاری چندتیمی](roadmap/ROADMAP-2.0-TEAM-OPERATING-MODEL.md) |
 | `HERO-ROADMAP-FUTURE-REQUIRED-PRICING-CATALOG` | `active` | [قابلیت ضروری آینده: Pricing Catalog نسخه‌دار Hero](roadmap/FUTURE-REQUIRED-PRICING-CATALOG.md) |
-| `HERO-ROADMAP-BACKOFFICE-COMMAND-CENTER-V1` | `active` | [برنامهٔ جامع توسعهٔ Back Office Command Center — v1.0](roadmap/BACKOFFICE-COMMAND-CENTER-IMPLEMENTATION-v1.0.md) |
+| `HERO-ROADMAP-BACKOFFICE-COMMAND-CENTER-V1` | `active` | [برنامهٔ جامع توسعهٔ Back Office Command Center — v1.1](roadmap/BACKOFFICE-COMMAND-CENTER-IMPLEMENTATION-v1.0.md) |
+| `HERO-ROADMAP-BACKOFFICE-UI-UX-V1` | `active` | [برنامهٔ توسعهٔ UI/UX جامع Back Office — v1.0](roadmap/BACKOFFICE-UI-UX-IMPLEMENTATION-v1.0.md) |
 
 ## Templateها
 

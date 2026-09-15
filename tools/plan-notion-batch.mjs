@@ -31,6 +31,8 @@ const classificationReview = {
 };
 const policyBulkWriteApproved = policy.bulk_write_approved === true;
 const runtimeBulkWriteApproved = process.env.HERO_NOTION_BULK_WRITE_APPROVED === "true";
+const policyBatchWriteApproved = policy.batch_write_approved === true;
+const runtimeBatchWriteApproved = process.env.HERO_NOTION_BATCH_WRITE_APPROVED === "true";
 
 console.log(JSON.stringify({
   mode: policy.mode,
@@ -39,6 +41,6 @@ console.log(JSON.stringify({
   candidates: { count: candidates.length, allowlistedCount: allowlisted.size, remainingCount: remaining.length, editClassCounts: counts, classificationReview },
   excluded: excluded.map(document => ({ documentId: document.id, classification: document.classification, reason: document.notionEligible ? "classification-not-allowed" : "restricted" })),
   batching: { batchSize: policy.batch_size, estimatedBatches: Math.ceil(candidates.length / policy.batch_size), estimatedRemainingBatches: Math.ceil(remaining.length / policy.batch_size) },
-  writeGate: { policyBulkWriteApproved, runtimeBulkWriteApproved, ready: policyBulkWriteApproved && runtimeBulkWriteApproved && classificationReview.ready },
-  nextAction: !classificationReview.ready ? "owner-classification-review-required-before-bulk" : policyBulkWriteApproved ? "run-test-batch-after-runtime-approval" : "owner-approval-required-for-all-internal-batch"
+  writeGate: { policyBulkWriteApproved, runtimeBulkWriteApproved, policyBatchWriteApproved, runtimeBatchWriteApproved, ready: classificationReview.ready && ((policyBulkWriteApproved && runtimeBulkWriteApproved) || (policyBatchWriteApproved && runtimeBatchWriteApproved)) },
+  nextAction: !classificationReview.ready ? "owner-classification-review-required-before-bulk" : policyBatchWriteApproved ? "run-approved-batch-after-runtime-approval" : policyBulkWriteApproved ? "run-test-batch-after-runtime-approval" : "owner-approval-required-for-all-internal-batch"
 }, null, 2));

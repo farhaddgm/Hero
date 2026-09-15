@@ -1,4 +1,6 @@
 import http from "node:http";
+import crypto from "node:crypto";
+import fs from "node:fs";
 import { timingSafeEqual } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -57,9 +59,24 @@ import { getDashboardHtml } from "./dashboard-view.mjs";
 import { getBackofficeHtml } from "./backoffice-view.mjs";
 import { getProductStudioHtml } from "./product-studio-view.mjs";
 import { getPortfolioHtml } from "./portfolio-view.mjs";
+import { getIdentityHtml } from "./identity-view.mjs";
+import { getProjectControlRoomHtml } from "./project-control-room-view.mjs";
+import { getProjectWorkspaceHtml } from "./project-workspace-view.mjs";
+import { getProjectWalkthroughHtml } from "./project-walkthrough-view.mjs";
+import { createProjectWalkthroughAdvisory } from "./project-walkthrough.mjs";
+import {
+  HERO_SMART_TESTER_ERROR_REPORT_VERSION,
+  HERO_SMART_TESTER_REPORT_TTL_MS,
+  HERO_SMART_TESTER_VERSION,
+  createSmartTesterAdvisory,
+  createSmartTesterErrorReport,
+  createSmartTesterReport,
+  resolveSmartTesterContext
+} from "./smart-tester.mjs";
+import { createPrivateObjectStore } from "../../../packages/adapters/src/private-object-store.mjs";
 import { OwnerAuthError, createOwnerAuth } from "../../../packages/domain/src/owner-auth.mjs";
 import { AdminAuthError, createAdminAuth } from "../../../packages/domain/src/admin-auth.mjs";
-import { createHumanIdentity, HumanIdentityError } from "../../../packages/domain/src/human-identity.mjs";
+import { createHumanIdentity, HumanIdentityError, HUMAN_IDENTITY_SESSION_TTL_SECONDS } from "../../../packages/domain/src/human-identity.mjs";
 import { createProjectAccessMiddleware } from "../../../packages/domain/src/project-access-middleware.mjs";
 import { createProjectAccessRegistry, ProjectAccessError } from "../../../packages/domain/src/project-access.mjs";
 import { createProjectSettingsRegistry, ProjectSettingsError } from "../../../packages/domain/src/project-settings.mjs";
@@ -73,9 +90,10 @@ import { createInfrastructureControl, InfrastructureError } from "../../../packa
 import { createDeliveryControl, DeliveryError } from "../../../packages/domain/src/delivery-control.mjs";
 import { createOperationalHardening, HardeningError } from "../../../packages/domain/src/operational-hardening.mjs";
 import { createFinalReadiness, FinalReadinessError } from "../../../packages/domain/src/final-readiness.mjs";
+import { createBackofficeCompletion, BackofficeCompletionError } from "../../../packages/domain/src/backoffice-completion.mjs";
 import { rebuildPortfolioReadModel, rebuildProjectReadModel } from "../../../packages/domain/src/backoffice-read-models.mjs";
 import { ProductDevelopmentError, createProductDevelopmentCatalog } from "../../../packages/domain/src/product-development.mjs";
-import { createConfiguredAiProviderAdapters, createNotionApiAdapter, createPostgresRuntime, createPricingCatalogRegistry, createRuntimeExternalSpendAuthorizer } from "../../../packages/adapters/src/index.mjs";
+import { HeroSecretStoreError, createConfiguredAiProviderAdapters, createHeroSecretStore, createNotionApiAdapter, createPostgresRuntime, createPricingCatalogRegistry, createRuntimeExternalSpendAuthorizer } from "../../../packages/adapters/src/index.mjs";
 
 const PRIVATE_ROBOTS_POLICY = "noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate";
 const READ_MODEL_AUDIT_RESOURCES = new Set([
@@ -85,17 +103,30 @@ const READ_MODEL_AUDIT_RESOURCES = new Set([
   "/api/dashboard",
   "/api/ai/benchmarks",
   "/api/ai/benchmarks/compare",
+  "/api/ai/credentials",
   "/api/ai/role-policies/history",
   "/api/teams/contract-history",
   "/api/audit",
   "/api/operations/diagnostics",
   "/product-studio",
   "/product-studio-data",
-  "/product-studio-document"
+  "/product-studio-document",
+  "/project-control",
+  "/project-control-data"
+  ,"/workspace",
+  "/walkthrough"
 ]);
 const BACKOFFICE_PATHS = new Set(["/backoffice", "/backoffice-data", "/backoffice-events"]);
 const PRODUCT_STUDIO_PATHS = new Set(["/product-studio", "/product-studio-data", "/product-studio-document"]);
+const PROJECT_CONTROL_PATHS = new Set(["/project-control", "/project-control-data"]);
+const PROJECT_WORKSPACE_PATHS = new Set(["/workspace"]);
 const PORTFOLIO_PATHS = new Set(["/portfolio", "/portfolio-data"]);
+const WALKTHROUGH_PATHS = new Set(["/walkthrough"]);
+const IDENTITY_PATHS = new Set(["/identity"]);
+const BROWSER_PORTAL_PATH = "/api/portal";
+const BROWSER_PORTAL_DATA_PATH = "/api/portal-data";
+const BROWSER_PORTAL_DOCUMENT_PATH = "/api/portal-document";
+const BROWSER_PORTAL_SURFACES = new Set(["identity", "portfolio", "command", "studio", "workspace", "control", "walkthrough", "ai"]);
 const DEFAULT_BACKOFFICE_RESPONSE_LIMIT_BYTES = 512 * 1024;
 const DEFAULT_BACKOFFICE_RATE_LIMIT_WINDOW_MS = 60_000;
 const DEFAULT_BACKOFFICE_RATE_LIMIT_MAX = 60;
@@ -108,14 +139,64 @@ const ADMIN_ALLOWED_MUTATIONS = new Set([
   "/api/ai/skill-bindings",
   "/api/ai/role-policies"
 ]);
+// Human Identity is the browser-facing authority. Global AI catalog entries
+// affect the whole private Hero installation, so they remain Owner-only.
+// A project Admin may bind an already-approved Profile inside its Project Grant.
+const HUMAN_OWNER_GLOBAL_AI_MUTATIONS = new Set([
+  "/api/ai/providers",
+  "/api/ai/models",
+  "/api/ai/profiles",
+  "/api/ai/skills",
+  "/api/ai/skill-bindings",
+  "/api/ai/role-policies"
+]);
 const PUBLIC_IDENTITY_PATHS = new Set([
+  "/api/identity/status",
   "/api/identity/login",
   "/api/identity/login/mfa",
   "/api/identity/recovery/request",
   "/api/identity/recovery/complete"
 ]);
+const PUBLIC_UI_ASSET_PATHS = new Set(["/api/ui-assets/vazirmatn.woff2"]);
+const VAZIRMATN_FONT_PATH = fileURLToPath(new URL("./assets/fonts/Vazirmatn-wght.woff2", import.meta.url));
+const VAZIRMATN_FONT = fs.readFileSync(VAZIRMATN_FONT_PATH);
+const HUMAN_SESSION_COOKIE_NAME = "__Host-hero-human-session";
+const EXPIRED_COOKIE_DATE = "Thu, 01 Jan 1970 00:00:00 GMT";
+const AI_CREDENTIAL_PROVIDERS = Object.freeze(["openai", "anthropic", "google", "cursor", "openai-compatible"]);
+const AI_CREDENTIAL_ENV = Object.freeze({
+  openai: "HERO_OPENAI_API_KEY",
+  anthropic: "HERO_ANTHROPIC_API_KEY",
+  google: "HERO_GOOGLE_API_KEY",
+  cursor: "HERO_CURSOR_API_KEY",
+  "openai-compatible": "HERO_OPENAI_COMPATIBLE_API_KEY"
+});
 
-function json(response, statusCode, body, { maxBytes } = {}) {
+function parseCookie(header, name) {
+  if (typeof header !== "string" || header.length === 0) return null;
+  let result = null;
+  for (const entry of header.split(";")) {
+    const separator = entry.indexOf("=");
+    if (separator < 1 || entry.slice(0, separator).trim() !== name) continue;
+    // A duplicate authentication cookie is ambiguous. Do not choose one.
+    if (result !== null) return null;
+    try {
+      result = decodeURIComponent(entry.slice(separator + 1).trim());
+    } catch {
+      return null;
+    }
+  }
+  return result;
+}
+
+function humanSessionCookie(token) {
+  return `${HUMAN_SESSION_COOKIE_NAME}=${encodeURIComponent(token)}; Max-Age=${HUMAN_IDENTITY_SESSION_TTL_SECONDS}; Path=/; Secure; HttpOnly; SameSite=Strict`;
+}
+
+function clearHumanSessionCookie() {
+  return `${HUMAN_SESSION_COOKIE_NAME}=; Max-Age=0; Expires=${EXPIRED_COOKIE_DATE}; Path=/; Secure; HttpOnly; SameSite=Strict`;
+}
+
+function json(response, statusCode, body, { maxBytes, headers = {} } = {}) {
   const payload = JSON.stringify(body);
   const payloadBytes = Buffer.byteLength(payload);
   if (maxBytes !== undefined && payloadBytes > maxBytes) {
@@ -137,7 +218,8 @@ function json(response, statusCode, body, { maxBytes } = {}) {
     "cache-control": "no-store",
     "x-robots-tag": PRIVATE_ROBOTS_POLICY,
     "x-content-type-options": "nosniff",
-    "referrer-policy": "no-referrer"
+    "referrer-policy": "no-referrer",
+    ...headers
   });
   response.end(payload);
 }
@@ -192,6 +274,29 @@ function plain(response, statusCode, body) {
     "x-content-type-options": "nosniff"
   });
   response.end(body);
+}
+
+function binary(response, statusCode, body, contentType, { cacheControl = "no-store" } = {}) {
+  response.writeHead(statusCode, {
+    "content-type": contentType,
+    "content-length": body.byteLength,
+    "cache-control": cacheControl,
+    "x-robots-tag": PRIVATE_ROBOTS_POLICY,
+    "x-content-type-options": "nosniff",
+    "referrer-policy": "no-referrer"
+  });
+  response.end(body);
+}
+
+function redirect(response, location) {
+  response.writeHead(302, {
+    location,
+    "cache-control": "no-store",
+    "x-robots-tag": PRIVATE_ROBOTS_POLICY,
+    "x-content-type-options": "nosniff",
+    "referrer-policy": "no-referrer"
+  });
+  response.end();
 }
 
 function basicAuthConfig(options = {}) {
@@ -281,17 +386,35 @@ export function createHeroServer(options = {}) {
     throw new Error("Back Office response limit must be between 1024 and 10485760 bytes.");
   }
   const backofficeRateLimiter = createRateLimiter(options.backofficeRateLimit);
+  const secretStore = options.secretStore ?? (options.enableTestSecretStore === true || process.env.HERO_SECRET_STORE_ENABLED === "true"
+    ? createHeroSecretStore({
+      root: options.secretStoreRoot ?? process.env.HERO_SECRET_STORE_DIR ?? path.join(process.env.HERO_DATA_DIR ?? "/var/lib/hero", "secret-store"),
+      masterKey: options.secretStoreMasterKey ?? process.env.HERO_SECRET_STORE_MASTER_KEY,
+      now: options.now ?? (() => new Date().toISOString()),
+      environment: "test"
+    })
+    : null);
   const pricingCatalog = options.pricingCatalogRegistry ?? createPricingCatalogRegistry({ now: options.clock ?? (() => Date.now()) });
   if (options.pricingCatalog) {
     pricingCatalog.publish(options.pricingCatalog);
     pricingCatalog.activate(options.pricingCatalog.catalogVersion ?? options.pricingCatalog.catalog_version);
   }
   const requestedProviderAdapterOptions = options.providerAdapterOptions ?? {};
-  const providerAdapterOptions = Object.fromEntries(["openai", "anthropic", "google", "openai-compatible"].map(providerId => [
+  const providerAdapterOptions = Object.fromEntries(AI_CREDENTIAL_PROVIDERS.map(providerId => [
     providerId,
-    { ...(requestedProviderAdapterOptions[providerId] ?? {}), pricingCatalog: requestedProviderAdapterOptions[providerId]?.pricingCatalog ?? pricingCatalog }
+    {
+      ...(requestedProviderAdapterOptions[providerId] ?? {}),
+      pricingCatalog: requestedProviderAdapterOptions[providerId]?.pricingCatalog ?? pricingCatalog,
+      ...(secretStore ? {
+        credentialResolver: credentialRef => {
+          if (typeof credentialRef === "string" && credentialRef.startsWith("vault:")) return secretStore.get({ credentialRef });
+          const envName = typeof credentialRef === "string" && credentialRef.startsWith("env:") ? credentialRef.slice(4) : AI_CREDENTIAL_ENV[providerId];
+          return process.env[envName];
+        }
+      } : {})
+    }
   ]));
-  const providerAdapters = options.providerAdapters ?? ((options.enableRealProviders === true || process.env.HERO_ENABLE_REAL_PROVIDERS === "true")
+  const providerAdapters = options.providerAdapters ?? ((options.enableRealProviders === true || process.env.HERO_ENABLE_REAL_PROVIDERS === "true" || secretStore?.enabled === true)
     ? createConfiguredAiProviderAdapters(providerAdapterOptions)
     : Object.freeze({}));
   const externalSpendAuthorizer = options.externalSpendAuthorizer ?? createRuntimeExternalSpendAuthorizer();
@@ -309,7 +432,8 @@ export function createHeroServer(options = {}) {
     email: process.env.HERO_OWNER_EMAIL,
     displayName: process.env.HERO_OWNER_DISPLAY_NAME ?? "Hero Owner",
     password: process.env.HERO_OWNER_PASSWORD,
-    mfaSecret: process.env.HERO_OWNER_MFA_SECRET
+    mfaSecret: process.env.HERO_OWNER_MFA_SECRET,
+    mfaSecretRef: process.env.HERO_OWNER_MFA_SECRET_REF ?? "env:HERO_OWNER_MFA_SECRET"
   };
   const identityConfiguredFromEnvironment = [process.env.HERO_IDENTITY_SESSION_SECRET, identityOwner.email, identityOwner.password, identityOwner.mfaSecret].every(value => typeof value === "string" && value.length > 0);
   const projectAccessRegistry = options.projectAccessRegistry ?? (identityConfiguredFromEnvironment
@@ -322,12 +446,16 @@ export function createHeroServer(options = {}) {
     ? createProjectAccessMiddleware({ accessRegistry: projectAccessRegistry, identity: humanIdentity })
     : null);
   const projectSettings = options.projectSettings ?? createProjectSettingsRegistry({ now: options.now });
+  const privateObjectStore = options.privateObjectStore ?? (process.env.HERO_PRIVATE_OBJECT_STORE_ENABLED === "true"
+    ? createPrivateObjectStore({ root: process.env.HERO_OBJECT_STORE_DIR ?? path.join(process.env.HERO_DATA_DIR ?? "/var/lib/hero", "objects") })
+    : null);
   const projectWorkspace = options.projectWorkspace ?? createProjectWorkspace({
     ownerUserId: identityOwner.userId,
     now: options.now,
     settings: projectSettings,
     scanner: options.uploadScanner,
-    parser: options.projectInputParser
+    parser: options.projectInputParser,
+    objectStoreAdapter: privateObjectStore
   });
   const projectCollaboration = options.projectCollaboration ?? createProjectCollaboration({ now: options.now });
   const commandCenter = options.commandCenter ?? createCommandCenter({ now: options.now });
@@ -338,16 +466,90 @@ export function createHeroServer(options = {}) {
   const deliveryControl = options.deliveryControl ?? createDeliveryControl({ now: options.now });
   const operationalHardening = options.operationalHardening ?? createOperationalHardening({ now: options.now });
   const finalReadiness = options.finalReadiness ?? createFinalReadiness({ now: options.now });
+  const backofficeCompletion = options.backofficeCompletion ?? createBackofficeCompletion({ now: options.now });
   let postgresRuntime = options.postgresRuntime ?? null;
   let ownsPostgresRuntime = false;
   let persistedDomainEventIds = new Set();
+  const persistedWorkspaceRecords = new Set();
+  // Reports are intentionally transient and bound to the logged-in human.
+  // Smart Tester is a development aid, not an audit or conversation store.
+  const smartTesterReports = new Map();
+  const smartTesterErrorReports = new Map();
+  const smartTesterErrorDocuments = new Map();
+
+  function workspaceRecordKey(kind, value) {
+    if (kind === "project") return `${kind}:${value.projectId}:${value.version}`;
+    if (kind === "input") return `${kind}:${value.uploadId}`;
+    if (kind === "proposal") return `${kind}:${value.proposalId}:${value.version}`;
+    if (kind === "setting") return `${kind}:${value.projectId}:${value.path}:${value.layer}:${value.runId ?? "-"}:${value.version}`;
+    return `${kind}:${value.importId}`;
+  }
+
+  async function persistWorkspaceProject(project, reason = null) {
+    if (!postgresRuntime?.projectWorkspace || !project) return;
+    const key = workspaceRecordKey("project", project);
+    if (persistedWorkspaceRecords.has(key)) return;
+    await postgresRuntime.projectWorkspace.appendProject({ projectId: project.projectId, version: project.version, name: project.name, description: project.description, lifecycle: project.lifecycle, status: project.status, intake: project.intake, actorId: project.createdBy ?? identityOwner.userId, reason });
+    persistedWorkspaceRecords.add(key);
+  }
+
+  async function persistWorkspaceInput(input) {
+    if (!postgresRuntime?.projectWorkspace || !input) return;
+    const key = workspaceRecordKey("input", input);
+    if (persistedWorkspaceRecords.has(key)) return;
+    const publicMetadata = input.type === "link" ? { public: { label: input.label, url: input.url, fetchState: input.fetchState } } : {};
+    await postgresRuntime.projectWorkspace.recordInput({ inputId: input.uploadId, projectId: input.projectId, type: input.type, filename: input.filename ?? input.label ?? null, objectKey: input.objectKey ?? null, checksum: input.checksum ?? null, byteLength: input.byteLength ?? null, scanState: input.scan?.state ?? "pending-separate-authorization", parseState: input.parse?.state ?? "deferred-adapter-required", reviewRequired: input.parse?.reviewRequired === true, metadata: publicMetadata });
+    persistedWorkspaceRecords.add(key);
+  }
+
+  async function persistWorkspaceProposal(proposal) {
+    if (!postgresRuntime?.projectWorkspace || !proposal) return;
+    const key = workspaceRecordKey("proposal", proposal);
+    if (persistedWorkspaceRecords.has(key)) return;
+    await postgresRuntime.projectWorkspace.appendFoundationProposal({ proposalId: proposal.proposalId, projectId: proposal.projectId, version: proposal.version, state: proposal.state, proposal, actorId: proposal.approvedBy ?? proposal.createdBy ?? identityOwner.userId });
+    persistedWorkspaceRecords.add(key);
+  }
+
+  async function persistWorkspaceSettings(projectId) {
+    if (!postgresRuntime?.projectWorkspace || !projectSettings.listRecords) return;
+    for (const setting of projectSettings.listRecords({ projectId })) {
+      const key = workspaceRecordKey("setting", setting);
+      if (persistedWorkspaceRecords.has(key)) continue;
+      await postgresRuntime.projectWorkspace.appendSetting({ projectId: setting.projectId, path: setting.path, layer: setting.layer, runId: setting.runId ?? "", version: setting.version, value: setting.value, actorId: setting.actor, reason: setting.reason ?? "Hydrated setting", impact: setting.impact ?? "not-assessed", rollbackReference: setting.rollbackReference ?? null, source: setting.source ?? setting.layer });
+      persistedWorkspaceRecords.add(key);
+    }
+  }
+
+  async function persistWorkspaceImport(plan) {
+    if (!postgresRuntime?.projectWorkspace || !plan) return;
+    const key = workspaceRecordKey("import", plan);
+    if (persistedWorkspaceRecords.has(key)) return;
+    await postgresRuntime.projectWorkspace.recordImportPlan({ importId: plan.importId, projectId: plan.projectId, repositoryUrl: plan.repositoryUrl, state: plan.state, inventory: plan.inventory, adoptionPlan: plan.adoptionPlan, actorId: plan.createdBy ?? identityOwner.userId });
+    persistedWorkspaceRecords.add(key);
+  }
 
   function backofficeSnapshot() {
     const snapshot = dashboard.backofficeSnapshot();
     const settings = snapshot.settings ?? {};
     const persistence = settings.persistence ?? {};
+    const credentials = Object.freeze(AI_CREDENTIAL_PROVIDERS.map(providerId => {
+      const credentialRef = `vault:hero/test/${providerId}/default`;
+      let status;
+      try {
+        status = secretStore?.status({ credentialRef }) ?? Object.freeze({ credentialRef, providerId, environment: "test", configured: false, state: "secret-store-unavailable", version: null, updatedAt: null });
+      } catch (error) {
+        status = Object.freeze({ credentialRef, providerId, environment: "test", configured: false, state: "error", version: null, updatedAt: null, code: error?.code ?? "SECRET_STORE_ERROR" });
+      }
+      return Object.freeze({ providerId, environment: "test", credentialRef, state: status.state, configured: status.configured === true, version: status.version ?? null, updatedAt: status.updatedAt ?? null, secretValueExposed: false });
+    }));
     return Object.freeze({
       ...snapshot,
+      ai: Object.freeze({ ...snapshot.ai, credentials }),
+      projects: Object.freeze(projectWorkspace.listProjects().map(project => Object.freeze({
+        projectId: project.projectId,
+        name: project.name,
+        lifecycle: project.lifecycle
+      }))),
       settings: Object.freeze({
         ...settings,
         persistence: Object.freeze({
@@ -361,9 +563,9 @@ export function createHeroServer(options = {}) {
     });
   }
 
-  function productStudioSnapshot() {
+  function productStudioSnapshot({ projectId = null } = {}) {
     const catalog = productDevelopment.snapshot();
-    return Object.freeze({
+    const snapshot = {
       ...catalog,
       notion: Object.freeze({
         configured: notionAdapter.configured === true,
@@ -373,6 +575,41 @@ export function createHeroServer(options = {}) {
           ? "Token پیدا شد؛ Workspace، parent page، scope و مجوز ارسال هنوز باید جداگانه تأیید شوند."
           : "NOTION_API_TOKEN تنظیم نشده است؛ هیچ درخواست خارجی ارسال نمی‌شود."
       })
+    };
+    if (!projectId) return Object.freeze(snapshot);
+    const overview = projectOverview(projectId);
+    const foundationRoadmap = overview.foundationProposal?.suggested?.roadmap ?? [];
+    const inputDocuments = overview.inputs.map((input, index) => Object.freeze({
+      id: input.uploadId,
+      title: input.filename ?? input.uploadId,
+      path: "private-project-input (metadata only)",
+      type: input.type,
+      version: 1,
+      owner: overview.project.createdBy ?? "project-owner",
+      checksum: input.checksum ?? "not-recorded",
+      editClass: "project-input-metadata",
+      contentAvailable: false,
+      order: index + 1
+    }));
+    const roadmap = foundationRoadmap.map((item, index) => Object.freeze({
+      order: index + 1,
+      title: String(item.title ?? item.id ?? `گام ${index + 1}`),
+      status: item.status === "approved" ? "planned" : String(item.status ?? "planned"),
+      statusLabel: item.status === "approved" ? "برنامه‌ریزی‌شده" : "پیشنهاد Foundation",
+      owner: "مالک / ادمین پروژه",
+      nextAction: overview.foundationProposal?.state === "approved" ? "شروع گام پس از تأییدهای لازم" : "بازبینی و تأیید Foundation"
+    }));
+    const graphNodes = roadmap.map(item => Object.freeze({ id: `${projectId}:${item.order}`, title: item.title, type: "project-roadmap-step", status: item.status }));
+    return Object.freeze({
+      scope: Object.freeze({ kind: "project", projectId, name: overview.project.name, isolation: "project-scoped" }),
+      summary: Object.freeze({ productCount: 1, documentCount: inputDocuments.length, activeDocumentCount: inputDocuments.length, roadmapCount: roadmap.length, completeness: 0 }),
+      products: Object.freeze([Object.freeze({ product_id: projectId, name: overview.project.name, status: overview.project.lifecycle, owner: overview.project.createdBy ?? "project-owner", completeness: Object.freeze({ score: 0 }), productDocuments: inputDocuments.map(document => Object.freeze({ id: document.id })), inheritedDocuments: Object.freeze([]) })]),
+      documents: Object.freeze(inputDocuments),
+      roadmap: Object.freeze(roadmap),
+      roadmapGraph: Object.freeze({ nodes: Object.freeze(graphNodes), edges: Object.freeze([]), summary: Object.freeze({ nodeCount: graphNodes.length, edgeCount: 0, blockedCount: roadmap.filter(item => item.status === "blocked").length, doneCount: roadmap.filter(item => item.status === "done").length, orphanCount: 0, dependencyCycleCount: 0 }), diagnostics: Object.freeze({ dependencyCycleCount: 0 }) }),
+      errors: Object.freeze(overview.inputs.filter(input => input.reviewRequired).map(input => Object.freeze({ code: "PROJECT_INPUT_REVIEW_REQUIRED", documentId: input.uploadId, detail: input.filename ?? "project input" }))),
+      notion: snapshot.notion,
+      projectOverview: overview
     });
   }
 
@@ -381,6 +618,7 @@ export function createHeroServer(options = {}) {
     const inputs = projectWorkspace.listInputs({ projectId });
     const foundation = projectWorkspace.foundationProposal({ projectId });
     const settings = projectSettings.effectiveProject({ projectId }).map(item => ({ path: item.path, value: item.value, source: item.provenance, layer: item.layer, version: item.version }));
+    const settingHistory = projectSettings.listRecords({ projectId }).map(item => ({ path: item.path, value: item.value, layer: item.layer, runId: item.runId ?? null, version: item.version, reason: item.reason, impact: item.impact, recordedAt: item.recordedAt }));
     const model = rebuildProjectReadModel({ project: {
       ...project,
       health: "unknown",
@@ -389,7 +627,230 @@ export function createHeroServer(options = {}) {
       nextTasks: foundation?.suggested?.roadmap ?? [],
       latestOutput: null
     } });
-    return Object.freeze({ ...model, intake: project.intake, foundationProposal: foundation, inputCount: inputs.length, settings });
+    const safeInputs = inputs.map(input => ({ uploadId: input.uploadId, type: input.type, filename: input.filename ?? input.label ?? null, label: input.type === "link" ? input.label ?? null : null, url: input.type === "link" ? input.url : null, fetchState: input.fetchState ?? null, byteLength: input.byteLength ?? null, checksum: input.checksum ?? null, scan: input.scan?.state ?? null, parse: input.parse?.state ?? null, reviewRequired: input.parse?.reviewRequired === true, createdAt: input.createdAt ?? null }));
+    return Object.freeze({ ...model, intake: project.intake, foundationProposal: foundation, inputCount: inputs.length, inputs: safeInputs, imports: projectWorkspace.listImportPlans({ projectId }), settings, settingHistory });
+  }
+
+  function smartTesterProjectSummary(context) {
+    if (!context.projectId) return null;
+    try {
+      const overview = projectOverview(context.projectId);
+      const memory = projectCollaboration.retrieveMemory({ actor: { subject: identityOwner.userId, role: "project-owner" }, projectId: context.projectId });
+      return Object.freeze({
+        projectId: overview.project.projectId,
+        lifecycle: overview.project.lifecycle,
+        intakeComplete: Boolean(overview.intake?.goal && overview.intake?.users && overview.intake?.autonomy),
+        foundationState: overview.foundationProposal?.state ?? "not-recorded",
+        inputCount: overview.inputCount,
+        settingPaths: Object.freeze((overview.settings ?? []).map(setting => setting.path).slice(0, 20)),
+        memoryEntryCount: memory.length,
+        available: true
+      });
+    } catch (error) {
+      // A stale URL must still let the Owner open the panel and receive an
+      // explicit report. The run will show backend attention; it must not turn
+      // a read-only diagnostic click into a hard 404 screen.
+      return Object.freeze({ projectId: context.projectId, lifecycle: "unavailable", intakeComplete: false, foundationState: "unavailable", inputCount: 0, settingPaths: Object.freeze([]), memoryEntryCount: 0, available: false, reason: error?.code ?? "PROJECT_CONTEXT_UNAVAILABLE" });
+    }
+  }
+
+  /**
+   * Delivers only the safe, project-scoped metadata needed by the Walk-Through
+   * advisor picker.  Credentials, prompts, user questions and raw model output
+   * are deliberately absent.  A registered Provider is not presented as
+   * connected until its recorded mode and health evidence support that claim.
+   */
+  function walkthroughAdvisorOptions(projectId, { includeUnbound = false } = {}) {
+    const ai = dashboard.aiOrchestrationSnapshot();
+    const latestHealth = new Map();
+    for (const event of dashboard.aiOrchestrationEvents(0)) {
+      if (event.type !== "ai.provider-health-checked" || !event.data?.providerId) continue;
+      latestHealth.set(event.data.providerId, {
+        status: event.data.status,
+        code: event.data.code,
+        checkedAt: event.occurredAt,
+        latencyMs: event.data.latencyMs ?? null
+      });
+    }
+    const usageByProvider = new Map((ai.usageByProvider ?? []).map(item => [item.providerId, item]));
+    const providers = (ai.providers ?? []).map(provider => {
+      const health = latestHealth.get(provider.providerId) ?? null;
+      const connectionState = provider.mode === "disabled"
+        ? "disabled"
+        : provider.mode === "deterministic"
+          ? "local-ready"
+          : health?.status === "healthy"
+            ? "healthy"
+            : health?.status === "blocked"
+              ? "blocked"
+              : "not-verified";
+      return Object.freeze({
+        providerId: provider.providerId,
+        displayName: provider.displayName,
+        mode: provider.mode,
+        capabilities: Object.freeze([...(provider.capabilities ?? [])]),
+        advisorCompatible: provider.providerId !== "cursor" || (provider.capabilities ?? []).includes("interactive-advisor"),
+        connection: Object.freeze({ state: connectionState, latestHealth: health }),
+        usage: Object.freeze(usageByProvider.get(provider.providerId) ?? {
+          providerId: provider.providerId,
+          invocationCount: 0,
+          completedCount: 0,
+          failedCount: 0,
+          blockedCount: 0,
+          inputTokens: 0,
+          outputTokens: 0,
+          totalTokens: 0,
+          costUnits: 0
+        })
+      });
+    });
+    const providerById = new Map(providers.map(provider => [provider.providerId, provider]));
+    const modelByKey = new Map((ai.models ?? []).map(model => [`${model.providerId}:${model.modelId}`, model]));
+    const profileIdsBoundToProject = new Set((ai.bindings ?? []).filter(binding => binding.projectId === projectId && !binding.teamId && !binding.skillId).map(binding => binding.profileId));
+    const profiles = (ai.profiles ?? [])
+      .filter(profile => profile.status === "active" && (includeUnbound || profileIdsBoundToProject.has(profile.profileId)))
+      .map(profile => {
+        const provider = providerById.get(profile.providerId);
+        const model = modelByKey.get(`${profile.providerId}:${profile.modelId}`);
+        const selectable = provider?.advisorCompatible === true && (provider?.mode === "deterministic" || (provider?.mode === "live" && provider.connection.state === "healthy"));
+        return Object.freeze({
+          profileId: profile.profileId,
+          role: profile.role,
+          providerId: profile.providerId,
+          providerName: provider?.displayName ?? profile.providerId,
+          modelId: profile.modelId,
+          modelName: model?.displayName ?? profile.modelId,
+          profileVersion: profile.profileVersion,
+          outputSchema: profile.outputSchema,
+          connectionState: provider?.connection.state ?? "not-registered",
+          selectable,
+          selectionNotice: selectable
+            ? provider.mode === "deterministic"
+              ? "پاسخ deterministic و بدون هزینهٔ Provider خارجی است."
+              : "برای فراخوانی زنده، مجوز هزینهٔ جداگانه و سقف مصرف معتبر نیز باید برقرار باشد."
+            : provider?.advisorCompatible === false
+              ? "Cursor در Hero فعلاً یک Coding Agent جداگانه است و برای گفت‌وگوی مستقیم Walk-Through/Smart Tester انتخاب نمی‌شود."
+              : "این Profile هنوز برای مشاورهٔ Walk-Through آماده نیست؛ وضعیت اتصال، Binding یا گیت هزینه را بررسی کنید."
+        });
+      });
+    return Object.freeze({
+      projectId,
+      localAdvisor: Object.freeze({ id: "local", label: "راهنمای محلی Hero", mode: "local-contextual-guidance", selectable: true, notice: "بدون اتصال خارجی، بدون هزینه و بدون ذخیرهٔ متن گفتگو." }),
+      providers: Object.freeze(providers),
+      models: Object.freeze((ai.models ?? []).map(model => Object.freeze({ providerId: model.providerId, modelId: model.modelId, displayName: model.displayName }))),
+      profiles: Object.freeze(profiles)
+    });
+  }
+
+  function smartTesterAdvisorOptions(projectId = null) {
+    const options = walkthroughAdvisorOptions(projectId, { includeUnbound: true });
+    return Object.freeze({
+      ...options,
+      projectId: projectId ?? null,
+      defaultAdvisorId: "local",
+      note: "انتخاب Profile در این نسخه ثبت می‌شود؛ فراخوانی Provider زنده، هزینه و تغییر بیرونی عمداً انجام نمی‌شود.",
+      models: Object.freeze(options.models.map(model => Object.freeze({
+        ...model,
+        selectable: options.providers.some(provider => provider.providerId === model.providerId && provider.advisorCompatible === true && ["local-ready", "healthy"].includes(provider.connection.state))
+      })))
+    });
+  }
+
+  function projectControlSnapshot(projectId) {
+    const actor = { subject: identityOwner.userId, role: "project-owner" };
+    const project = projectWorkspace.getProject(projectId);
+    const row = (title, state, meta) => Object.freeze({ title, state: String(state ?? "unknown"), meta: String(meta ?? "") });
+    const collaborationTeams = projectCollaboration.listTeams({ actor, projectId });
+    const memory = projectCollaboration.retrieveMemory({ actor, projectId });
+    const operations = commandCenter.operations({ actor, projectId });
+    const entities = systemCatalog.list({ projectId });
+    const ledger = performanceIntelligence.ledger({ actor, projectId });
+    const health = performanceIntelligence.health({ actor, projectId });
+    const inbox = notificationObservability.inbox({ actor, projectId, view: "all" });
+    const observability = notificationObservability.observability({ actor, projectId });
+    const infrastructure = infrastructureControl.view({ actor, projectId });
+    const delivery = deliveryControl.view({ actor, projectId });
+    const hardening = operationalHardening.report({ actor, projectId });
+    const readiness = finalReadiness.view({ actor, projectId });
+    const readinessState = readiness.reviews.at(-1)?.state ?? (readiness.acceptance.at(-1)?.decision ?? "draft");
+    return Object.freeze({
+      project: Object.freeze({ projectId: project.projectId, name: project.name, lifecycle: project.lifecycle }),
+      metrics: Object.freeze({
+        teams: collaborationTeams.filter(team => team.assignment?.status === "active").length,
+        commands: operations.queue.length + operations.completed.length,
+        entities: entities.length,
+        notifications: inbox.filter(item => item.state === "open").length,
+        readiness: readinessState
+      }),
+      collaboration: Object.freeze({
+        teams: Object.freeze([
+          ...collaborationTeams.map(team => row(team.name, team.assignment?.status ?? "unassigned", `teamId: ${team.teamId}`)),
+          row("Project memory", "metadata-only", `${memory.length} active entry; content is never rendered here`)
+        ])
+      }),
+      commands: Object.freeze({
+        items: Object.freeze([
+          ...operations.queue.map(item => row(item.commandId, item.state, `priority: ${item.priority} · attempts: ${item.attempts}`)),
+          ...operations.completed.map(item => row(item.commandId, item.state, `completed: ${item.completedAt ?? "recorded"}`)),
+          ...operations.approvals.map(item => row(item.commandId, item.state, `expires: ${item.expiresAt}`)),
+          row("Queue policy", "bounded", `heavy runs: ${operations.heavyRunLimit} · locks: ${operations.locks.length}`)
+        ])
+      }),
+      catalog: Object.freeze({
+        items: Object.freeze(entities.map(entity => row(entity.entityId, entity.state ?? "registered", `type: ${entity.type}`)))
+      }),
+      performance: Object.freeze({
+        items: Object.freeze([
+          row("Health", health.status, `score: ${health.score ?? "—"} · confidence: ${health.confidence}`),
+          row("Token usage", "observed", `total: ${health.tokenUsage} · budget: ${health.budget?.hardCap ?? "not-set"}`),
+          ...ledger.map(item => row(item.scope, "ledger", `tokens: ${item.totalTokens} · events: ${item.events}`))
+        ])
+      }),
+      observability: Object.freeze({
+        items: Object.freeze([
+          ...inbox.map(item => row(item.notificationId, item.state, `severity: ${item.severity} · category: ${item.category}`)),
+          ...observability.sli.map(item => row(item.projection, item.status, `lag: ${item.lagSeconds}s · freshness: ${item.freshnessSeconds}s`)),
+          row("Audit & trace", "redacted", `audit: ${observability.auditCount} · traces: ${observability.traceCount}`)
+        ])
+      }),
+      infrastructure: Object.freeze({
+        items: Object.freeze([
+          ...infrastructure.environments.map(environment => row(environment, "defined", "desired/observed state is project-scoped")),
+          row("Repositories", "metadata-only", `${infrastructure.repositories.length} registered; no GitHub fetch`),
+          row("Servers", "plan-only", `${infrastructure.servers.length} registered; no connection executed`),
+          row("Nodes", "identity-bound", `${infrastructure.nodes.length} enrolled`),
+          row("Secret references", "never-revealed", `${infrastructure.secrets.length} reference-only record`),
+          row("Egress", infrastructure.egress?.default ?? "not-configured", `${infrastructure.egress?.domains?.length ?? 0} allowed domain record`)
+        ])
+      }),
+      delivery: Object.freeze({
+        items: Object.freeze([
+          ...delivery.releases.map(item => row(item.releaseId, item.state, `tested commit: ${item.testedCommit}`)),
+          ...delivery.artifacts.map(item => row(item.artifactId, "registered", `digest: ${item.digest.slice(0, 20)}…`)),
+          ...delivery.bundles.map(item => row(item.bundleId, item.state, `artifacts: ${item.artifactIds.length}`)),
+          ...delivery.rehearsals.map(item => row(item.kind, item.result, `bundle: ${item.bundleId}`)),
+          ...delivery.acceptance.map(item => row(item.acceptanceId, item.delivery, `bundle: ${item.bundleId}`))
+        ])
+      }),
+      hardening: Object.freeze({
+        items: Object.freeze([
+          row("Retention", hardening.retention ? "configured" : "not-configured", hardening.retention ? `version: ${hardening.retention.version}` : "minimum policy not recorded"),
+          ...hardening.cleanup.map(item => row(item.jobId, item.hold ? "hold" : "dry-run", `candidates: ${item.candidates.length}`)),
+          ...hardening.audits.map(item => row(item.kind, item.passed ? "passed" : "attention", `auditId: ${item.auditId}`)),
+          row("Coverage", hardening.coverage.missing.length ? "attention" : "complete", `missing: ${hardening.coverage.missing.join(", ") || "none"}`)
+        ])
+      }),
+      readiness: Object.freeze({
+        items: Object.freeze([
+          ...readiness.migrations.map(item => row(item.migrationId, "planned", `compatibility until: ${item.compatibilityUntil}`)),
+          ...readiness.readModels.map(item => row(item.modelId, item.equal ? "equal" : "mismatch", "deterministic rebuild comparison")),
+          ...readiness.scenarios.map(item => row(item.kind, item.passed ? "passed" : "failed", `scenario: ${item.scenarioId}`)),
+          ...readiness.reviews.map(item => row(item.reviewId, item.state, `scenario coverage: ${item.scenarioCoverage.filter(entry => entry.passed).length}/${item.scenarioCoverage.length}`)),
+          ...readiness.acceptance.map(item => row(item.reviewId, item.decision, "owner decision record")),
+          ...readiness.pilotProposals.map(item => row(item.proposalId, item.state, item.execution))
+        ])
+      })
+    });
   }
 
   function portfolioSnapshot(principal = null) {
@@ -405,9 +866,185 @@ export function createHeroServer(options = {}) {
       tokenUsage: project.tokenUsage,
       latestCompletedTask: project.latestCompletedTask,
       latestOutput: project.latestOutput,
-      drillDown: { href: `/api/projects/${encodeURIComponent(project.projectId)}/overview`, projectId: project.projectId }
+      drillDown: { href: `/product-studio?projectId=${encodeURIComponent(project.projectId)}`, projectId: project.projectId }
     }));
     return Object.freeze({ ...model, cards, informationArchitecture: ["Portfolio", "Project Studio", "Overview", "Roadmap", "Inputs", "Settings", "Outputs"] });
+  }
+
+  function pruneSmartTesterReports() {
+    const nowMs = Date.now();
+    for (const [reportId, value] of smartTesterReports) {
+      if (!value || value.expiresAt <= nowMs) smartTesterReports.delete(reportId);
+    }
+    for (const [reportId, value] of smartTesterErrorReports) {
+      if (!value || value.expiresAt <= nowMs) smartTesterErrorReports.delete(reportId);
+    }
+  }
+
+  function smartTesterContextMatches(reportContext, context) {
+    return reportContext?.pathname === context.pathname &&
+      reportContext?.featureKey === context.featureKey &&
+      reportContext?.boxId === context.boxId &&
+      reportContext?.projectId === context.projectId;
+  }
+
+  /**
+   * This is deliberately an in-process read/render probe, not a shell or
+   * browser test runner. It exercises the same view data contracts without
+   * allowing a UI control to execute arbitrary commands or external calls.
+   */
+  function smartTesterProbe(context, principal) {
+    try {
+      let renderedHtml;
+      if (context.pathname === "/portfolio") {
+        renderedHtml = getPortfolioHtml({ portfolio: portfolioSnapshot(principal) });
+      } else if (context.pathname === "/product-studio") {
+        if (!context.projectId) return { renderedHtml: "", backendProbe: { ok: false, detail: "Scope پروژه انتخاب نشده است؛ خوانش Studio انجام نشد." } };
+        renderedHtml = getProductStudioHtml({ initialData: productStudioSnapshot({ projectId: context.projectId }) });
+      } else if (context.pathname === "/workspace") {
+        if (!context.projectId) return { renderedHtml: "", backendProbe: { ok: false, detail: "Scope پروژه انتخاب نشده است؛ خوانش Workspace انجام نشد." } };
+        projectOverview(context.projectId);
+        renderedHtml = getProjectWorkspaceHtml({ projectId: context.projectId });
+      } else if (context.pathname === "/project-control") {
+        if (!context.projectId) return { renderedHtml: "", backendProbe: { ok: false, detail: "Scope پروژه انتخاب نشده است؛ خوانش Operations انجام نشد." } };
+        renderedHtml = getProjectControlRoomHtml({ initialData: { controlRoom: projectControlSnapshot(context.projectId) } });
+      } else if (context.pathname === "/command") {
+        if (!context.projectId) return { renderedHtml: "", backendProbe: { ok: false, detail: "Scope پروژه انتخاب نشده است؛ خوانش مرکز فرمان انجام نشد." } };
+        renderedHtml = getProjectControlRoomHtml({ initialData: { service: HERO_SERVICE, controlRoom: projectControlSnapshot(context.projectId) }, active: "backoffice", heading: "مرکز فرمان", environment: "Private · Command" });
+      } else if (context.pathname === "/ai") {
+        renderedHtml = getBackofficeHtml({ initialData: backofficeSnapshot(), active: "ai" });
+      } else if (context.pathname === "/identity") {
+        renderedHtml = getIdentityHtml();
+      } else if (context.pathname === "/walkthrough") {
+        renderedHtml = getProjectWalkthroughHtml({ projectId: context.projectId });
+      } else {
+        renderedHtml = getBackofficeHtml({ initialData: backofficeSnapshot() });
+      }
+      return {
+        renderedHtml,
+        backendProbe: { ok: true, detail: "قرارداد داده و render همین سطح از طریق مسیر داخلی و بدون side effect خوانده شد." }
+      };
+    } catch (error) {
+      return {
+        renderedHtml: "",
+        backendProbe: { ok: false, detail: `خوانش امن این بخش ناموفق بود: ${error?.code ?? error?.name ?? "UNKNOWN_ERROR"}.` }
+      };
+    }
+  }
+
+  function storeSmartTesterReport({ principal, report }) {
+    pruneSmartTesterReports();
+    const reportId = crypto.randomUUID();
+    smartTesterReports.set(reportId, Object.freeze({
+      principalSubject: principal.subject,
+      context: report.context,
+      report,
+      expiresAt: Date.now() + HERO_SMART_TESTER_REPORT_TTL_MS
+    }));
+    const expiry = setTimeout(() => smartTesterReports.delete(reportId), HERO_SMART_TESTER_REPORT_TTL_MS);
+    expiry.unref?.();
+    return reportId;
+  }
+
+  function readSmartTesterReport({ principal, reportId, context }) {
+    if (reportId === undefined || reportId === null || reportId === "") return null;
+    if (typeof reportId !== "string" || !/^[0-9a-f-]{36}$/i.test(reportId)) {
+      throw new ProjectWorkspaceError("SMART_TESTER_REPORT_INVALID", "Smart Tester report reference is invalid.", 400);
+    }
+    pruneSmartTesterReports();
+    const stored = smartTesterReports.get(reportId);
+    if (!stored || stored.principalSubject !== principal.subject || !smartTesterContextMatches(stored.context, context)) {
+      throw new ProjectWorkspaceError("SMART_TESTER_REPORT_UNAVAILABLE", "Smart Tester report is unavailable for this scope.", 404);
+    }
+    return stored.report;
+  }
+
+  function storeSmartTesterErrorReport({ principal, report }) {
+    pruneSmartTesterReports();
+    const reportId = crypto.randomUUID();
+    smartTesterErrorReports.set(reportId, Object.freeze({
+      principalSubject: principal.subject,
+      context: report.context,
+      report,
+      expiresAt: Date.now() + HERO_SMART_TESTER_REPORT_TTL_MS
+    }));
+    const expiry = setTimeout(() => smartTesterErrorReports.delete(reportId), HERO_SMART_TESTER_REPORT_TTL_MS);
+    expiry.unref?.();
+    return reportId;
+  }
+
+  function readSmartTesterErrorReport({ principal, reportId, context }) {
+    if (typeof reportId !== "string" || !/^[0-9a-f-]{36}$/i.test(reportId)) {
+      throw new ProjectWorkspaceError("SMART_TESTER_ERROR_REPORT_INVALID", "Smart Tester error report reference is invalid.", 400);
+    }
+    pruneSmartTesterReports();
+    const stored = smartTesterErrorReports.get(reportId);
+    if (!stored || stored.principalSubject !== principal.subject || !smartTesterContextMatches(stored.context, context)) {
+      throw new ProjectWorkspaceError("SMART_TESTER_ERROR_REPORT_UNAVAILABLE", "Smart Tester error report is unavailable for this scope.", 404);
+    }
+    return stored.report;
+  }
+
+  async function appendSmartTesterErrorDocument({ principal, report }) {
+    const projectId = report?.context?.projectId;
+    if (typeof projectId !== "string" || projectId.length === 0) {
+      throw new ProjectWorkspaceError("SMART_TESTER_PROJECT_REQUIRED", "برای ثبت خطا، ابتدا یک پروژه را انتخاب کنید.", 400);
+    }
+    const errorId = `error-${crypto.randomUUID()}`;
+    const documentId = `smart-tester-errors:${projectId}`;
+    const entry = Object.freeze({
+      errorId,
+      reportVersion: report.version,
+      generatedAt: report.generatedAt,
+      surface: report.context.pathname,
+      featureKey: report.context.featureKey,
+      severity: report.summary.severity,
+      state: report.summary.state,
+      summary: report.summary.statement,
+      findings: report.findings,
+      reproductionSteps: report.reproductionSteps,
+      limitations: report.limitations,
+      sourceReport: report.sourceReport
+    });
+    const current = smartTesterErrorDocuments.get(documentId) ?? Object.freeze({
+      documentId,
+      projectId,
+      title: `دفتر خطاهای Smart Tester · ${projectId}`,
+      entries: Object.freeze([])
+    });
+    const next = Object.freeze({ ...current, entries: Object.freeze([...current.entries, entry]), updatedAt: new Date().toISOString() });
+    if (postgresRuntime?.projectWorkspace?.appendSmartTesterError) {
+      await postgresRuntime.projectWorkspace.appendSmartTesterError({
+        projectId,
+        errorId,
+        reportVersion: report.version,
+        title: current.title,
+        surface: entry.surface,
+        featureKey: entry.featureKey,
+        severity: entry.severity,
+        summary: entry.summary,
+        findings: entry.findings,
+        reproductionSteps: entry.reproductionSteps,
+        limitations: entry.limitations,
+        sourceReport: entry.sourceReport,
+        actorId: principal.subject
+      });
+    }
+    // Publish to the transient read cache only after durable persistence succeeds.
+    // This prevents a failed database write from exposing a phantom error entry.
+    smartTesterErrorDocuments.set(documentId, next);
+    return Object.freeze({ documentId, projectId, title: current.title, entry, entryCount: next.entries.length, persistence: postgresRuntime?.projectWorkspace?.appendSmartTesterError ? "postgresql-and-runtime" : "runtime-until-restart" });
+  }
+
+  async function readSmartTesterErrorDocument({ projectId }) {
+    const documentId = `smart-tester-errors:${projectId}`;
+    const current = smartTesterErrorDocuments.get(documentId);
+    if (current) return current;
+    if (postgresRuntime?.projectWorkspace?.listSmartTesterErrors) {
+      const entries = await postgresRuntime.projectWorkspace.listSmartTesterErrors({ projectId });
+      return Object.freeze({ documentId, projectId, title: `دفتر خطاهای Smart Tester · ${projectId}`, entries: Object.freeze(entries.map(entry => Object.freeze(entry))) });
+    }
+    return Object.freeze({ documentId, projectId, title: `دفتر خطاهای Smart Tester · ${projectId}`, entries: Object.freeze([]) });
   }
 
   function searchPortfolio({ principal = null, query = "" } = {}) {
@@ -426,33 +1063,137 @@ export function createHeroServer(options = {}) {
     return Object.freeze(results.slice(0, 100));
   }
 
-  function authenticateApiPrincipal(authorizationHeader) {
+  function authenticateApiPrincipal(authorizationHeader, cookieHeader) {
+    const authorization = typeof authorizationHeader === "string" ? authorizationHeader.trim() : "";
+    // Browser Basic Auth protects page delivery in Test. It is intentionally
+    // not an application principal, so it must not prevent cookie-based human
+    // authentication when a browser forwards it to an API request.
+    if (authorization && !/^Basic\s+/i.test(authorization)) {
+      try {
+        const owner = ownerAuth.requireOwner(authorization);
+        return Object.freeze({ ...owner, actor: Object.freeze({ kind: "project-owner", id: owner.subject }) });
+      } catch (ownerError) {
+        if (adminAuth.configured) {
+          try {
+            const admin = adminAuth.requireAdmin(authorization);
+            return Object.freeze({ ...admin, actor: Object.freeze({ kind: "admin", id: admin.subject }) });
+          } catch {
+            // The explicit token may still be a Human Identity token.
+          }
+        }
+        if (humanIdentity?.configured) {
+          try {
+            return projectAccessMiddleware.authenticate(authorization);
+          } catch (identityError) {
+            if (identityError instanceof HumanIdentityError) throw identityError;
+          }
+        }
+        throw ownerError;
+      }
+    }
+    if (humanIdentity?.configured) {
+      const token = parseCookie(cookieHeader, HUMAN_SESSION_COOKIE_NAME);
+      if (token) {
+        const principal = projectAccessMiddleware.authenticate(`Bearer ${token}`);
+        return Object.freeze({ ...principal, authTransport: "cookie" });
+      }
+    }
+    return ownerAuth.requireOwner(authorization);
+  }
+
+  // Browser navigation must be bound to the same HttpOnly Human Identity
+  // session as in-page API calls. Do not accept Basic Auth here: Basic is a
+  // transport gate only and accepting it as a portal principal would bypass
+  // MFA and project-scoped authorization.
+  function authenticateBrowserPortalPrincipal(request) {
+    if (!humanIdentity?.configured || !projectAccessMiddleware) return null;
+    const token = parseCookie(request.headers.cookie, HUMAN_SESSION_COOKIE_NAME);
+    if (!token) return null;
     try {
-      const owner = ownerAuth.requireOwner(authorizationHeader);
-      return Object.freeze({ ...owner, actor: Object.freeze({ kind: "project-owner", id: owner.subject }) });
-    } catch (ownerError) {
-      if (adminAuth.configured) {
-        try {
-          const admin = adminAuth.requireAdmin(authorizationHeader);
-          return Object.freeze({ ...admin, actor: Object.freeze({ kind: "admin", id: admin.subject }) });
-        } catch {
-          // A different valid identity scheme may still authenticate this request.
-        }
-      }
-      if (humanIdentity?.configured) {
-        try {
-          return projectAccessMiddleware.authenticate(authorizationHeader);
-        } catch (identityError) {
-          if (identityError instanceof HumanIdentityError) throw identityError;
-        }
-      }
-      throw ownerError;
+      return Object.freeze({ ...projectAccessMiddleware.authenticate(`Bearer ${token}`), authTransport: "cookie" });
+    } catch {
+      return null;
+    }
+  }
+
+  function portalSurface(value) {
+    return BROWSER_PORTAL_SURFACES.has(value) ? value : null;
+  }
+
+  function safePortalReturnPath(value) {
+    if (typeof value !== "string" || value.length === 0 || value.length > 2048) return null;
+    let candidate;
+    try { candidate = new URL(value, "http://hero.invalid"); } catch { return null; }
+    if (candidate.origin !== "http://hero.invalid" || candidate.pathname !== BROWSER_PORTAL_PATH || !portalSurface(candidate.searchParams.get("surface") ?? "portfolio")) return null;
+    return `${candidate.pathname}${candidate.search}`;
+  }
+
+  function portalIdentityLocation(returnTo) {
+    const url = new URL(BROWSER_PORTAL_PATH, "http://hero.invalid");
+    url.searchParams.set("surface", "identity");
+    if (returnTo) url.searchParams.set("returnTo", returnTo);
+    return `${url.pathname}${url.search}`;
+  }
+
+  function requirePortalProjectScope(principal, projectId) {
+    if (!projectId) throw new ProjectWorkspaceError("PROJECT_SCOPE_REQUIRED", "A projectId is required for this browser surface.", 400);
+    if (!projectAccessMiddleware) throw new HumanIdentityError("IDENTITY_NOT_CONFIGURED", "Project identity is not configured.", 503);
+    projectAccessMiddleware.requireProject({ principal, projectId, action: "project.read" });
+  }
+
+  function assertCookieMutationOrigin(request, principal) {
+    if (principal?.authTransport !== "cookie" || ["GET", "HEAD", "OPTIONS"].includes(request.method)) return;
+    const origin = request.headers.origin;
+    const host = request.headers.host;
+    if (typeof origin !== "string" || typeof host !== "string" || !origin || !host) {
+      throw new HumanIdentityError("IDENTITY_CSRF_ORIGIN_REQUIRED", "A same-origin browser request is required for this action.", 403);
+    }
+    let parsed;
+    try {
+      parsed = new URL(origin);
+    } catch {
+      throw new HumanIdentityError("IDENTITY_CSRF_ORIGIN_REQUIRED", "A same-origin browser request is required for this action.", 403);
+    }
+    if (!/^https?:$/.test(parsed.protocol) || parsed.host !== host) {
+      throw new HumanIdentityError("IDENTITY_CSRF_ORIGIN_REQUIRED", "A same-origin browser request is required for this action.", 403);
     }
   }
 
   function assertApiPermission(request, url, principal) {
     if (principal.source === "human-identity") {
       if (url.pathname.startsWith("/api/identity/")) return;
+      if ((HUMAN_OWNER_GLOBAL_AI_MUTATIONS.has(url.pathname) || /^\/api\/ai\/providers\/[a-z][a-z0-9-]{2,63}\/health$/.test(url.pathname)) && request.method === "POST") {
+        if (principal.role !== "project-owner") {
+          throw new ProjectAccessError("OWNER_REQUIRED", "تنظیم اتصال و کاتالوگ سراسری AI فقط با دسترسی مالک مجاز است.", 403);
+        }
+        return;
+      }
+      if ((url.pathname === "/api/ai/credentials" || /^\/api\/ai\/credentials\/[a-z][a-z0-9-]{2,63}\/(?:status|health)$/.test(url.pathname)) && ["GET", "POST"].includes(request.method)) {
+        if (principal.role !== "project-owner") {
+          throw new ProjectAccessError("OWNER_REQUIRED", "مدیریت کلیدهای AI فقط با دسترسی مالک مجاز است.", 403);
+        }
+        return;
+      }
+      // Smart Tester can inspect Hero's own UI/data contracts. It is more
+      // privileged than ordinary project guidance, so only the primary Owner
+      // can use it. It never gains write, shell, provider or deployment power.
+      if (url.pathname.startsWith("/api/smart-tester/")) {
+        if (principal.role !== "project-owner") {
+          throw new ProjectAccessError("OWNER_REQUIRED", "Smart Tester only runs for the Hero owner.", 403);
+        }
+        const projectId = url.searchParams.get("projectId");
+        if (projectId) projectAccessMiddleware.requireProject({ principal, projectId, action: "project.read" });
+        return;
+      }
+      // The Walk-Through advisor is read-only and transient.  It needs the
+      // current project only to enforce the same Project Grant boundary as the
+      // page being guided; it must not be treated as a write merely because a
+      // user sends a question with POST.
+      if (url.pathname === "/api/walkthrough/advice" && request.method === "POST") {
+        const projectId = url.searchParams.get("projectId");
+        if (projectId) projectAccessMiddleware.requireProject({ principal, projectId, action: "project.read" });
+        return;
+      }
       if (url.pathname === "/api/projects" && request.method === "POST") {
         projectAccessRegistry.authorize({ principal, projectId: "hero", action: "project.create" });
         return;
@@ -502,6 +1243,30 @@ export function createHeroServer(options = {}) {
       });
       persistedDomainEventIds.add(event.eventId);
     }
+  }
+
+  async function persistIdentityUser(userId) {
+    if (!postgresRuntime?.projectIdentity || !humanIdentity?.persistenceRecord) return;
+    await postgresRuntime.projectIdentity.saveUser(humanIdentity.persistenceRecord({ userId }));
+  }
+
+  async function persistIdentityAudit({ userId = null, eventType, outcome = "accepted", data = {} }) {
+    if (!postgresRuntime?.projectIdentity?.recordAudit) return;
+    await postgresRuntime.projectIdentity.recordAudit({ auditId: `identity-audit-${crypto.randomUUID()}`, userId, eventType, outcome, data });
+  }
+
+  function identityStatusSnapshot() {
+    const configured = humanIdentity?.configured === true;
+    return Object.freeze({
+      configured,
+      humanLoginAvailable: configured,
+      networkBoundary: backofficeAuth ? "human-session-portal-with-legacy-basic" : "local-development",
+      ownerMfaRequired: true,
+      totp: "rfc6238-base32-with-legacy-verification",
+      persistence: postgresRuntime?.projectIdentity ? "postgresql" : "not-connected",
+      recoveryDelivery: "not-configured",
+      sessionTtlSeconds: HUMAN_IDENTITY_SESSION_TTL_SECONDS
+    });
   }
 
   async function executeDashboardCommand(command, input, operation, actor = { kind: "project-owner", id: "hero-owner" }) {
@@ -558,8 +1323,12 @@ export function createHeroServer(options = {}) {
     try {
       const backofficePath = BACKOFFICE_PATHS.has(url.pathname);
       const productStudioPath = PRODUCT_STUDIO_PATHS.has(url.pathname);
+      const projectControlPath = PROJECT_CONTROL_PATHS.has(url.pathname);
+      const projectWorkspacePath = PROJECT_WORKSPACE_PATHS.has(url.pathname);
       const portfolioPath = PORTFOLIO_PATHS.has(url.pathname);
-      if (backofficePath || productStudioPath || portfolioPath) {
+      const walkthroughPath = WALKTHROUGH_PATHS.has(url.pathname);
+      const identityPath = IDENTITY_PATHS.has(url.pathname);
+      if (backofficePath || productStudioPath || projectControlPath || projectWorkspacePath || portfolioPath || walkthroughPath || identityPath) {
         const rate = backofficeRateLimiter.consume(request.socket?.remoteAddress ?? "unknown");
         if (!rate.allowed) {
           response.writeHead(429, {
@@ -575,7 +1344,7 @@ export function createHeroServer(options = {}) {
           return;
         }
       }
-      if ((backofficePath || productStudioPath || portfolioPath) && backofficeAuth && !matchesBasicAuth(basicCredentials(request), backofficeAuth)) {
+      if ((backofficePath || productStudioPath || projectControlPath || projectWorkspacePath || portfolioPath || walkthroughPath || identityPath) && backofficeAuth && !matchesBasicAuth(basicCredentials(request), backofficeAuth)) {
         await recordReadAccess(url.pathname, "rejected");
         response.writeHead(401, {
           "www-authenticate": 'Basic realm="Hero Back Office", charset="UTF-8"',
@@ -586,7 +1355,7 @@ export function createHeroServer(options = {}) {
         response.end("Back Office authentication required.");
         return;
       }
-      if ((backofficePath || productStudioPath || portfolioPath) && request.method !== "GET") {
+      if ((backofficePath || productStudioPath || projectControlPath || projectWorkspacePath || portfolioPath || walkthroughPath || identityPath) && request.method !== "GET") {
         response.writeHead(405, {
           "allow": "GET",
           "content-type": "text/plain; charset=utf-8",
@@ -603,9 +1372,91 @@ export function createHeroServer(options = {}) {
         return plain(response, 200, "User-agent: *\nDisallow: /\n");
       }
 
+      if (request.method === "GET" && url.pathname === "/api/ui-assets/vazirmatn.woff2") {
+        return binary(response, 200, VAZIRMATN_FONT, "font/woff2", { cacheControl: "public, max-age=31536000, immutable" });
+      }
+
+      if (request.method === "GET" && url.pathname === BROWSER_PORTAL_PATH) {
+        const surface = portalSurface(url.searchParams.get("surface") ?? "portfolio");
+        if (!surface) return plain(response, 404, "Hero browser portal surface not found.");
+        if (surface === "identity") {
+          const postLoginHref = safePortalReturnPath(url.searchParams.get("returnTo")) ?? "/api/portal?surface=portfolio&select=project";
+          return html(response, getIdentityHtml({ postLoginHref, portalEntry: true }));
+        }
+        const principal = authenticateBrowserPortalPrincipal(request);
+        if (!principal) return redirect(response, portalIdentityLocation(`${url.pathname}${url.search}`));
+        const projectId = url.searchParams.get("projectId");
+        if (["command", "studio", "workspace", "control", "walkthrough"].includes(surface) && !projectId) {
+          return redirect(response, "/api/portal?surface=portfolio&select=project&next=" + encodeURIComponent(surface));
+        }
+        if (["command", "studio", "workspace", "control", "walkthrough"].includes(surface)) requirePortalProjectScope(principal, projectId);
+        if (surface === "portfolio") {
+          const destinationCandidate = url.searchParams.get("next") ?? url.searchParams.get("open");
+          const destination = ["command", "studio", "workspace", "control", "walkthrough"].includes(destinationCandidate) ? destinationCandidate : null;
+          return html(response, getPortfolioHtml({ portfolio: portfolioSnapshot(principal), destination, selectionRequired: url.searchParams.get("select") === "project" || Boolean(destination) }));
+        }
+        if (surface === "command") {
+          return html(response, getProjectControlRoomHtml({
+            initialData: { service: HERO_SERVICE, controlRoom: projectControlSnapshot(projectId) },
+            dataEndpoint: `${BROWSER_PORTAL_DATA_PATH}?surface=command`,
+            active: "backoffice",
+            heading: "مرکز فرمان",
+            environment: "Private · Command"
+          }));
+        }
+        if (surface === "studio") return html(response, getProductStudioHtml({ initialData: productStudioSnapshot({ projectId }), dataEndpoint: `${BROWSER_PORTAL_DATA_PATH}?surface=studio`, documentEndpoint: `${BROWSER_PORTAL_DOCUMENT_PATH}?surface=studio` }));
+        if (surface === "workspace") return html(response, getProjectWorkspaceHtml({ projectId }));
+        if (surface === "control") return html(response, getProjectControlRoomHtml({ initialData: { service: HERO_SERVICE, controlRoom: projectControlSnapshot(projectId) }, dataEndpoint: `${BROWSER_PORTAL_DATA_PATH}?surface=control` }));
+        if (surface === "walkthrough") return html(response, getProjectWalkthroughHtml({ projectId }));
+        if (surface === "ai") {
+          if (principal.role !== "project-owner") throw new ProjectAccessError("OWNER_REQUIRED", "The global AI catalog is available only to the Owner.", 403);
+          return html(response, getBackofficeHtml({ initialData: backofficeSnapshot(), dataEndpoint: `${BROWSER_PORTAL_DATA_PATH}?surface=ai`, active: "ai" }));
+        }
+      }
+
+      if (request.method === "GET" && url.pathname === BROWSER_PORTAL_DATA_PATH) {
+        const surface = portalSurface(url.searchParams.get("surface"));
+        const principal = authenticateBrowserPortalPrincipal(request);
+        if (!surface || surface === "identity" || !principal) {
+          return json(response, 401, { code: "HUMAN_SESSION_REQUIRED", message: "A current Human Identity browser session is required." });
+        }
+        const projectId = url.searchParams.get("projectId");
+        if (surface === "ai") {
+          if (principal.role !== "project-owner") throw new ProjectAccessError("OWNER_REQUIRED", "The global AI catalog is available only to the Owner.", 403);
+          return json(response, 200, { service: HERO_SERVICE, backoffice: backofficeSnapshot() }, { maxBytes: backofficeResponseLimitBytes });
+        }
+        if (surface === "portfolio") return json(response, 200, { service: HERO_SERVICE, portfolio: portfolioSnapshot(principal) }, { maxBytes: backofficeResponseLimitBytes });
+        if (!["command", "studio", "workspace", "control", "walkthrough"].includes(surface)) return plain(response, 404, "Hero browser portal data surface not found.");
+        requirePortalProjectScope(principal, projectId);
+        if (surface === "studio") return json(response, 200, productStudioSnapshot({ projectId }), { maxBytes: backofficeResponseLimitBytes });
+        if (surface === "command" || surface === "control") return json(response, 200, { service: HERO_SERVICE, controlRoom: projectControlSnapshot(projectId) }, { maxBytes: backofficeResponseLimitBytes });
+        if (surface === "workspace") return json(response, 200, { service: HERO_SERVICE, overview: projectOverview(projectId) }, { maxBytes: backofficeResponseLimitBytes });
+        return json(response, 200, { service: HERO_SERVICE, projectId, status: "browser-guide-data-not-required" });
+      }
+
+      if (request.method === "GET" && url.pathname === BROWSER_PORTAL_DOCUMENT_PATH) {
+        const principal = authenticateBrowserPortalPrincipal(request);
+        const projectId = url.searchParams.get("projectId");
+        if (!principal) return json(response, 401, { code: "HUMAN_SESSION_REQUIRED", message: "A current Human Identity browser session is required." });
+        if (portalSurface(url.searchParams.get("surface")) !== "studio") return plain(response, 404, "Hero browser portal document surface not found.");
+        requirePortalProjectScope(principal, projectId);
+        const documentId = url.searchParams.get("documentId");
+        if (!documentId) throw new ProductDevelopmentError("DOCUMENT_ID_REQUIRED", "documentId is required.", 400);
+        return json(response, 200, { service: HERO_SERVICE, document: productDevelopment.document(documentId) }, { maxBytes: backofficeResponseLimitBytes });
+      }
+
       if (request.method === "GET" && url.pathname === "/backoffice") {
+        if (url.searchParams.get("surface") === "ai") {
+          // Preserve old bookmarks once they arrive at Hero, without keeping
+          // the legacy route in application navigation.
+          return redirect(response, "/portfolio?surface=ai");
+        }
+        return redirect(response, "/portfolio?select=project");
+      }
+
+      if (request.method === "GET" && url.pathname === "/identity") {
         await recordReadAccess("/backoffice", "accepted", { kind: backofficeAuth ? "backoffice-basic-auth" : "project-owner", id: backofficeAuth ? "backoffice-user" : "development-local" });
-        return html(response, getBackofficeHtml({ initialData: backofficeSnapshot() }));
+        return html(response, getIdentityHtml());
       }
 
       if (request.method === "GET" && url.pathname === "/backoffice-data") {
@@ -635,34 +1486,103 @@ export function createHeroServer(options = {}) {
       }
 
       if (request.method === "GET" && url.pathname === "/product-studio") {
+        const projectId = url.searchParams.get("projectId");
+        if (!projectId) return redirect(response, "/portfolio?select=project&next=studio");
         await recordReadAccess("/product-studio", "accepted", { kind: backofficeAuth ? "backoffice-basic-auth" : "project-owner", id: backofficeAuth ? "backoffice-user" : "development-local" });
-        return html(response, getProductStudioHtml({ initialData: productStudioSnapshot() }));
+        return html(response, getProductStudioHtml({ initialData: productStudioSnapshot({ projectId }) }));
       }
 
       if (request.method === "GET" && url.pathname === "/product-studio-data") {
+        const projectId = url.searchParams.get("projectId");
+        if (!projectId) throw new ProjectWorkspaceError("PROJECT_SCOPE_REQUIRED", "A projectId is required for Product Studio.", 400);
         await recordReadAccess("/product-studio-data", "accepted", { kind: backofficeAuth ? "backoffice-basic-auth" : "project-owner", id: backofficeAuth ? "backoffice-user" : "development-local" });
-        return json(response, 200, productStudioSnapshot(), { maxBytes: backofficeResponseLimitBytes });
+        return json(response, 200, productStudioSnapshot({ projectId }), { maxBytes: backofficeResponseLimitBytes });
       }
 
       if (request.method === "GET" && url.pathname === "/product-studio-document") {
+        const projectId = url.searchParams.get("projectId");
+        if (!projectId) throw new ProjectWorkspaceError("PROJECT_SCOPE_REQUIRED", "A projectId is required for Product Studio documents.", 400);
         await recordReadAccess("/product-studio-document", "accepted", { kind: backofficeAuth ? "backoffice-basic-auth" : "project-owner", id: backofficeAuth ? "backoffice-user" : "development-local" });
         const documentId = url.searchParams.get("documentId");
         if (!documentId) throw new ProductDevelopmentError("DOCUMENT_ID_REQUIRED", "documentId is required.", 400);
         return json(response, 200, { service: HERO_SERVICE, document: productDevelopment.document(documentId) }, { maxBytes: backofficeResponseLimitBytes });
       }
 
+      if (request.method === "GET" && url.pathname === "/project-control") {
+        const projectId = url.searchParams.get("projectId");
+        if (!projectId) return redirect(response, "/portfolio?select=project&next=control");
+        await recordReadAccess("/project-control", "accepted", { kind: backofficeAuth ? "backoffice-basic-auth" : "project-owner", id: backofficeAuth ? "backoffice-user" : "development-local" });
+        return html(response, getProjectControlRoomHtml({ initialData: { service: HERO_SERVICE, controlRoom: projectControlSnapshot(projectId) } }));
+      }
+
+      if (request.method === "GET" && url.pathname === "/project-control-data") {
+        const projectId = url.searchParams.get("projectId");
+        if (!projectId) throw new ProjectWorkspaceError("PROJECT_ID_REQUIRED", "projectId is required.", 400);
+        await recordReadAccess("/project-control-data", "accepted", { kind: backofficeAuth ? "backoffice-basic-auth" : "project-owner", id: backofficeAuth ? "backoffice-user" : "development-local" });
+        return json(response, 200, { service: HERO_SERVICE, controlRoom: projectControlSnapshot(projectId) }, { maxBytes: backofficeResponseLimitBytes });
+      }
+
+      if (request.method === "GET" && url.pathname === "/workspace") {
+        const projectId = url.searchParams.get("projectId");
+        if (!projectId) return redirect(response, "/portfolio?select=project&next=workspace");
+        await recordReadAccess("/workspace", "accepted", { kind: backofficeAuth ? "backoffice-basic-auth" : "project-owner", id: backofficeAuth ? "backoffice-user" : "development-local" });
+        return html(response, getProjectWorkspaceHtml({ projectId }));
+      }
+
+      if (request.method === "GET" && url.pathname === "/walkthrough") {
+        const projectId = url.searchParams.get("projectId");
+        await recordReadAccess("/walkthrough", "accepted", { kind: backofficeAuth ? "backoffice-basic-auth" : "project-owner", id: backofficeAuth ? "backoffice-user" : "development-local" });
+        return html(response, getProjectWalkthroughHtml({ projectId }));
+      }
+
       if (request.method === "GET" && url.pathname === "/portfolio") {
-        return html(response, getPortfolioHtml({ portfolio: portfolioSnapshot() }));
+        if (url.searchParams.get("surface") === "walkthrough") {
+          const projectId = url.searchParams.get("projectId");
+          await recordReadAccess("/walkthrough", "accepted", { kind: backofficeAuth ? "backoffice-basic-auth" : "project-owner", id: backofficeAuth ? "backoffice-user" : "development-local" });
+          return html(response, getProjectWalkthroughHtml({ projectId }));
+        }
+        if (url.searchParams.get("surface") === "ai") {
+          await recordReadAccess("/backoffice", "accepted", { kind: backofficeAuth ? "backoffice-basic-auth" : "project-owner", id: backofficeAuth ? "backoffice-user" : "development-local" });
+          return html(response, getBackofficeHtml({ initialData: backofficeSnapshot(), active: "ai" }));
+        }
+        if (url.searchParams.get("surface") === "command") {
+          const projectId = url.searchParams.get("projectId");
+          if (!projectId) return redirect(response, "/portfolio?select=project&next=command");
+          await recordReadAccess("/backoffice", "accepted", { kind: backofficeAuth ? "backoffice-basic-auth" : "project-owner", id: backofficeAuth ? "backoffice-user" : "development-local" });
+          return html(response, getProjectControlRoomHtml({
+            initialData: { service: HERO_SERVICE, controlRoom: projectControlSnapshot(projectId) },
+            dataEndpoint: "/portfolio-data?surface=command",
+            active: "backoffice",
+            heading: "مرکز فرمان",
+            environment: "Private · Command"
+          }));
+        }
+        const destinationCandidate = url.searchParams.get("next") ?? url.searchParams.get("open");
+        const destination = ["command", "studio", "workspace", "control", "walkthrough"].includes(destinationCandidate) ? destinationCandidate : null;
+        return html(response, getPortfolioHtml({ portfolio: portfolioSnapshot(), destination, selectionRequired: url.searchParams.get("select") === "project" || Boolean(destination) }));
       }
 
       if (request.method === "GET" && url.pathname === "/portfolio-data") {
+        if (url.searchParams.get("surface") === "command") {
+          const projectId = url.searchParams.get("projectId");
+          if (!projectId) throw new ProjectWorkspaceError("PROJECT_SCOPE_REQUIRED", "A projectId is required for Command Center.", 400);
+          await recordReadAccess("/backoffice-data", "accepted", { kind: backofficeAuth ? "backoffice-basic-auth" : "project-owner", id: backofficeAuth ? "backoffice-user" : "development-local" });
+          return json(response, 200, { service: HERO_SERVICE, controlRoom: projectControlSnapshot(projectId) }, { maxBytes: backofficeResponseLimitBytes });
+        }
         return json(response, 200, { service: HERO_SERVICE, portfolio: portfolioSnapshot() }, { maxBytes: backofficeResponseLimitBytes });
       }
 
-      const authenticatedOwner = url.pathname.startsWith("/api/") && !PUBLIC_IDENTITY_PATHS.has(url.pathname)
-        ? authenticateApiPrincipal(request.headers.authorization)
+      const authenticatedOwner = url.pathname.startsWith("/api/") && !PUBLIC_IDENTITY_PATHS.has(url.pathname) && !PUBLIC_UI_ASSET_PATHS.has(url.pathname)
+        ? authenticateApiPrincipal(request.headers.authorization, request.headers.cookie)
         : null;
-      if (authenticatedOwner) assertApiPermission(request, url, authenticatedOwner);
+      if (authenticatedOwner) {
+        assertCookieMutationOrigin(request, authenticatedOwner);
+        assertApiPermission(request, url, authenticatedOwner);
+      }
+
+      if (request.method === "GET" && url.pathname === "/api/identity/status") {
+        return json(response, 200, { service: HERO_SERVICE, identity: identityStatusSnapshot() });
+      }
 
       const readAuditResource = request.method === "GET" ? readModelAuditResource(url.pathname) : null;
       if (readAuditResource) {
@@ -718,25 +1638,33 @@ export function createHeroServer(options = {}) {
       if (request.method === "POST" && url.pathname === "/api/identity/login") {
         if (!humanIdentity?.configured) throw new HumanIdentityError("IDENTITY_NOT_CONFIGURED", "Human identity is not configured.", 503);
         const input = await readJson(request);
-        return json(response, 200, { service: HERO_SERVICE, login: humanIdentity.beginLogin(input) });
+        const login = humanIdentity.beginLogin(input);
+        await persistIdentityAudit({ eventType: "identity.login-challenged", data: { mfaRequired: login.mfaRequired } });
+        return json(response, 200, { service: HERO_SERVICE, login });
       }
 
       if (request.method === "POST" && url.pathname === "/api/identity/login/mfa") {
         if (!humanIdentity?.configured) throw new HumanIdentityError("IDENTITY_NOT_CONFIGURED", "Human identity is not configured.", 503);
         const input = await readJson(request);
-        return json(response, 200, { service: HERO_SERVICE, session: humanIdentity.completeLogin(input) });
+        const session = humanIdentity.completeLogin(input);
+        await persistIdentityAudit({ userId: session.principal.subject, eventType: "identity.session-issued", data: { sessionId: session.principal.sessionId } });
+        return json(response, 200, { service: HERO_SERVICE, session }, { headers: { "set-cookie": humanSessionCookie(session.token) } });
       }
 
       if (request.method === "POST" && url.pathname === "/api/identity/recovery/request") {
         if (!humanIdentity?.configured) throw new HumanIdentityError("IDENTITY_NOT_CONFIGURED", "Human identity is not configured.", 503);
         const input = await readJson(request);
-        return json(response, 202, { service: HERO_SERVICE, recovery: humanIdentity.requestOwnerRecovery(input) });
+        const recovery = humanIdentity.requestOwnerRecovery(input);
+        await persistIdentityAudit({ eventType: "identity.recovery-requested", data: { accepted: recovery.accepted } });
+        return json(response, 202, { service: HERO_SERVICE, recovery });
       }
 
       if (request.method === "POST" && url.pathname === "/api/identity/recovery/complete") {
         if (!humanIdentity?.configured) throw new HumanIdentityError("IDENTITY_NOT_CONFIGURED", "Human identity is not configured.", 503);
         const input = await readJson(request);
-        return json(response, 200, { service: HERO_SERVICE, recovery: humanIdentity.completeOwnerRecovery(input) });
+        const recovery = humanIdentity.completeOwnerRecovery(input);
+        await persistIdentityAudit({ userId: identityOwner.userId, eventType: "identity.recovery-completed", data: { recovered: recovery.recovered } });
+        return json(response, 200, { service: HERO_SERVICE, recovery });
       }
 
       if (request.method === "GET" && url.pathname === "/api/identity/me") {
@@ -744,22 +1672,225 @@ export function createHeroServer(options = {}) {
         return json(response, 200, { service: HERO_SERVICE, principal: authenticatedOwner, user: humanIdentity.getUser(authenticatedOwner.subject) });
       }
 
+      if (url.pathname === "/api/ai/credentials" && request.method === "GET") {
+        const snapshot = backofficeSnapshot();
+        return json(response, 200, { service: HERO_SERVICE, credentials: snapshot.ai.credentials, mode: secretStore ? "embedded-test-encrypted" : "unavailable" });
+      }
+
+      if (url.pathname === "/api/ai/credentials" && request.method === "POST") {
+        if (!humanIdentity?.configured || authenticatedOwner?.source !== "human-identity" || authenticatedOwner.role !== "project-owner") {
+          throw new HumanIdentityError("IDENTITY_AUTH_REQUIRED", "Only the Human Identity Owner may register an AI credential.", 401);
+        }
+        humanIdentity.assertSensitiveActionAllowed({ principal: authenticatedOwner, action: "secret.write" });
+        if (!secretStore) throw new HeroSecretStoreError("SECRET_STORE_NOT_CONFIGURED", "The Test Secret Store is not enabled in this runtime.", 503);
+        const input = await readJson(request, 20 * 1024);
+        const providerId = typeof input.providerId === "string" ? input.providerId.trim() : "";
+        if (!AI_CREDENTIAL_PROVIDERS.includes(providerId)) throw new HeroSecretStoreError("SECRET_PROVIDER_INVALID", "این Provider برای ثبت Secret پشتیبانی نمی‌شود.", 400);
+        const result = secretStore.set({ providerId, secretId: "default", value: input.value });
+        await persistIdentityAudit({ userId: authenticatedOwner.subject, eventType: "ai.credential-stored", data: { providerId, credentialRef: result.credentialRef, environment: result.environment, version: result.version, state: result.state } });
+        return json(response, 201, { service: HERO_SERVICE, credential: Object.freeze({ ...result, secretValueExposed: false }) });
+      }
+
+      const aiCredentialHealthMatch = url.pathname.match(/^\/api\/ai\/credentials\/([a-z][a-z0-9-]{2,63})\/(?:status|health)$/);
+      if (aiCredentialHealthMatch && ["GET", "POST"].includes(request.method)) {
+        const providerId = aiCredentialHealthMatch[1];
+        if (!AI_CREDENTIAL_PROVIDERS.includes(providerId)) throw new HeroSecretStoreError("SECRET_PROVIDER_INVALID", "Provider معتبر نیست.", 400);
+        const credentialRef = `vault:hero/test/${providerId}/default`;
+        if (request.method === "GET") {
+          return json(response, 200, { service: HERO_SERVICE, credential: secretStore?.status({ credentialRef }) ?? Object.freeze({ credentialRef, providerId, environment: "test", configured: false, state: "secret-store-unavailable", version: null, updatedAt: null, secretValueExposed: false }) });
+        }
+        if (!secretStore) throw new HeroSecretStoreError("SECRET_STORE_NOT_CONFIGURED", "The Test Secret Store is not enabled in this runtime.", 503);
+        const adapter = providerAdapters[providerId];
+        if (!adapter?.validateConnection) throw new HeroSecretStoreError("PROVIDER_ADAPTER_NOT_CONFIGURED", "Provider adapter is not enabled in this runtime.", 503);
+        try {
+          const checked = await adapter.validateConnection({ credentialRef });
+          await persistIdentityAudit({ userId: authenticatedOwner.subject, eventType: "ai.credential-health-checked", data: { providerId, credentialRef, status: "healthy", mode: checked.mode } });
+          return json(response, 200, { service: HERO_SERVICE, credential: Object.freeze({ credentialRef, providerId, environment: "test", configured: true, state: "healthy", mode: checked.mode, secretValueExposed: false }) });
+        } catch (error) {
+          const status = secretStore.status({ credentialRef });
+          await persistIdentityAudit({ userId: authenticatedOwner.subject, eventType: "ai.credential-health-checked", outcome: "rejected", data: { providerId, credentialRef, status: status.configured ? "blocked" : "not-configured", code: error?.code ?? "CREDENTIAL_HEALTH_FAILED" } });
+          return json(response, 503, { service: HERO_SERVICE, credential: Object.freeze({ ...status, state: status.configured ? "blocked" : "not-configured", code: error?.code ?? "CREDENTIAL_HEALTH_FAILED", secretValueExposed: false }) });
+        }
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/walkthrough/advice") {
+        if (!humanIdentity?.configured || authenticatedOwner?.source !== "human-identity") {
+          throw new HumanIdentityError("IDENTITY_AUTH_REQUIRED", "Human authentication is required.", 401);
+        }
+        const input = await readJson(request, 4 * 1024);
+        const queryProjectId = url.searchParams.get("projectId");
+        if (input.projectId !== undefined && input.projectId !== queryProjectId) {
+          throw new ProjectWorkspaceError("WALKTHROUGH_ADVICE_SCOPE_MISMATCH", "Project scope for Walk-Through advice is invalid.", 400);
+        }
+        try {
+          const profileId = input.advisorProfileId === undefined || input.advisorProfileId === null || input.advisorProfileId === "local" ? null : input.advisorProfileId;
+          if (profileId !== null && (typeof profileId !== "string" || !/^[A-Za-z][A-Za-z0-9._:-]{2,127}$/.test(profileId))) {
+            throw new ProjectWorkspaceError("WALKTHROUGH_ADVISOR_PROFILE_INVALID", "Walk-Through advisor profile is invalid.", 400);
+          }
+          const options = queryProjectId ? walkthroughAdvisorOptions(queryProjectId) : null;
+          const selectedProfile = profileId ? options?.profiles.find(profile => profile.profileId === profileId) : null;
+          if (profileId && (!selectedProfile || selectedProfile.selectable !== true)) {
+            throw new ProjectWorkspaceError("WALKTHROUGH_ADVISOR_PROFILE_UNAVAILABLE", "The selected Walk-Through advisor profile is not available for this project.", 400);
+          }
+          const advisor = createProjectWalkthroughAdvisory({
+            stepId: input.stepId,
+            projectId: queryProjectId,
+            question: input.question
+          });
+          // Do not persist the question or response: this helper is local,
+          // deterministic guidance and is deliberately not a conversation
+          // record, AI provider invocation, or spend event.
+          return json(response, 200, {
+            service: HERO_SERVICE,
+            advisor: Object.freeze({
+              ...advisor,
+              selectedAdvisor: selectedProfile
+                ? Object.freeze({ kind: "profile", profileId: selectedProfile.profileId, providerId: selectedProfile.providerId, modelId: selectedProfile.modelId, profileVersion: selectedProfile.profileVersion, dispatch: selectedProfile.selectable ? "selection-recorded-awaiting-separate-external-authorization" : "not-ready" })
+                : Object.freeze({ kind: "local", dispatch: "local-response" })
+            })
+          });
+        } catch (error) {
+          if (error instanceof RangeError || error instanceof TypeError) {
+            throw new ProjectWorkspaceError("WALKTHROUGH_ADVICE_INVALID", "Walk-Through advice request is invalid.", 400);
+          }
+          throw error;
+        }
+      }
+
+      if (url.pathname.startsWith("/api/smart-tester/")) {
+        if (!humanIdentity?.configured || authenticatedOwner?.source !== "human-identity" || authenticatedOwner.role !== "project-owner") {
+          throw new HumanIdentityError("IDENTITY_AUTH_REQUIRED", "A Hero owner human session is required for Smart Tester.", 401);
+        }
+        const queryProjectId = url.searchParams.get("projectId");
+        const projectIdPattern = /^[A-Za-z][A-Za-z0-9._:-]{2,127}$/;
+        if (queryProjectId !== null && !projectIdPattern.test(queryProjectId)) {
+          throw new ProjectWorkspaceError("SMART_TESTER_PROJECT_INVALID", "Smart Tester project scope is invalid.", 400);
+        }
+        if (request.method === "GET" && url.pathname === "/api/smart-tester/options") {
+          return json(response, 200, { service: HERO_SERVICE, smartTester: Object.freeze({ version: HERO_SMART_TESTER_VERSION, options: smartTesterAdvisorOptions(queryProjectId) }) });
+        }
+        if (request.method === "GET" && url.pathname === "/api/smart-tester/errors/document") {
+          if (!queryProjectId) throw new ProjectWorkspaceError("SMART_TESTER_PROJECT_REQUIRED", "برای مشاهدهٔ دفتر خطا، یک پروژه را انتخاب کنید.", 400);
+          return json(response, 200, { service: HERO_SERVICE, smartTester: Object.freeze({ document: await readSmartTesterErrorDocument({ projectId: queryProjectId }) }) });
+        }
+        const contextInput = {
+          pathname: url.searchParams.get("surface"),
+          featureKey: url.searchParams.get("featureKey"),
+          projectId: queryProjectId,
+          boxId: url.searchParams.get("boxId"),
+          boxTitle: url.searchParams.get("boxTitle"),
+          boxDescription: url.searchParams.get("boxDescription")
+        };
+        let context;
+        try {
+          context = resolveSmartTesterContext(contextInput);
+        } catch {
+          throw new ProjectWorkspaceError("SMART_TESTER_CONTEXT_INVALID", "Smart Tester context is invalid or not allowed.", 400);
+        }
+        let contextualSmartTesterContext;
+        try {
+          contextualSmartTesterContext = Object.freeze({ ...context, projectSummary: smartTesterProjectSummary(context) });
+        } catch (error) {
+          throw new ProjectWorkspaceError("SMART_TESTER_CONTEXT_UNAVAILABLE", `Smart Tester context could not be read: ${error?.code ?? "UNKNOWN_ERROR"}.`, 404);
+        }
+        if (request.method === "GET" && url.pathname === "/api/smart-tester/context") {
+          return json(response, 200, {
+            service: HERO_SERVICE,
+            smartTester: Object.freeze({
+              version: HERO_SMART_TESTER_VERSION,
+              enabledScope: "browser-local",
+              advisor: Object.freeze({ id: "hero-local-smart-tester", mode: "local-contextual-development-assistant", providerInvoked: false }),
+              context: contextualSmartTesterContext
+            })
+          });
+        }
+        if (request.method === "POST" && url.pathname === "/api/smart-tester/run") {
+          const input = await readJson(request, 2 * 1024);
+          if ((input.projectId ?? null) !== (queryProjectId ?? null) || (input.surface ?? null) !== context.pathname || (input.featureKey ?? null) !== context.featureKey || (input.boxId !== undefined && input.boxId !== context.boxId)) {
+            throw new ProjectWorkspaceError("SMART_TESTER_SCOPE_MISMATCH", "Smart Tester request scope is invalid.", 400);
+          }
+          const probe = smartTesterProbe(contextualSmartTesterContext, authenticatedOwner);
+          const report = createSmartTesterReport({ context: contextualSmartTesterContext, ...probe });
+          const reportId = storeSmartTesterReport({ principal: authenticatedOwner, report });
+          return json(response, 200, { service: HERO_SERVICE, smartTester: Object.freeze({ reportId, expiresInSeconds: Math.floor(HERO_SMART_TESTER_REPORT_TTL_MS / 1000), report }) });
+        }
+        if (request.method === "POST" && url.pathname === "/api/smart-tester/advice") {
+          const input = await readJson(request, 4 * 1024);
+          if ((input.projectId ?? null) !== (queryProjectId ?? null) || (input.surface ?? null) !== context.pathname || (input.featureKey ?? null) !== context.featureKey || (input.boxId !== undefined && input.boxId !== context.boxId)) {
+            throw new ProjectWorkspaceError("SMART_TESTER_SCOPE_MISMATCH", "Smart Tester request scope is invalid.", 400);
+          }
+          try {
+            const report = readSmartTesterReport({ principal: authenticatedOwner, reportId: input.reportId, context: contextualSmartTesterContext });
+            let selectedAdvisor = null;
+            if (input.advisorProfileId !== undefined && input.advisorProfileId !== null && input.advisorProfileId !== "" && input.advisorProfileId !== "local") {
+              const options = smartTesterAdvisorOptions(contextualSmartTesterContext.projectId);
+              const profile = options.profiles.find(item => item.profileId === input.advisorProfileId);
+              if (!profile || profile.selectable !== true) throw new ProjectWorkspaceError("SMART_TESTER_ADVISOR_UNAVAILABLE", "AI انتخاب‌شده برای این پروژه آماده نیست.", 400);
+              selectedAdvisor = profile;
+            }
+            const advisor = createSmartTesterAdvisory({ context: contextualSmartTesterContext, question: input.question, report, selectedAdvisor, actionFailure: input.actionFailure });
+            // Questions and answers are intentionally not persisted. The only
+            // retained item is the bounded, redacted test report above.
+            return json(response, 200, { service: HERO_SERVICE, smartTester: Object.freeze({ advisor }) });
+          } catch (error) {
+            if (error instanceof RangeError || error instanceof TypeError) {
+              throw new ProjectWorkspaceError("SMART_TESTER_ADVICE_INVALID", "Smart Tester advice request is invalid.", 400);
+            }
+            throw error;
+          }
+        }
+        if (request.method === "POST" && url.pathname === "/api/smart-tester/diagnose") {
+          const input = await readJson(request, 4 * 1024);
+          if ((input.projectId ?? null) !== (queryProjectId ?? null) || (input.surface ?? null) !== context.pathname || (input.featureKey ?? null) !== context.featureKey || (input.boxId !== undefined && input.boxId !== context.boxId)) {
+            throw new ProjectWorkspaceError("SMART_TESTER_SCOPE_MISMATCH", "Smart Tester request scope is invalid.", 400);
+          }
+          if (input.reportId) readSmartTesterReport({ principal: authenticatedOwner, reportId: input.reportId, context: contextualSmartTesterContext });
+          const probe = smartTesterProbe(contextualSmartTesterContext, authenticatedOwner);
+          const errorReport = createSmartTesterErrorReport({ context: contextualSmartTesterContext, ...probe, chatInformed: input.chatInformed === true, actionFailure: input.actionFailure });
+          const errorReportId = storeSmartTesterErrorReport({ principal: authenticatedOwner, report: errorReport });
+          return json(response, 200, { service: HERO_SERVICE, smartTester: Object.freeze({ errorReportId, expiresInSeconds: Math.floor(HERO_SMART_TESTER_REPORT_TTL_MS / 1000), errorReport }) });
+        }
+        if (request.method === "POST" && url.pathname === "/api/smart-tester/errors/submit") {
+          const input = await readJson(request, 8 * 1024);
+          if (!queryProjectId || (input.projectId ?? null) !== queryProjectId || (input.surface ?? null) !== context.pathname || (input.featureKey ?? null) !== context.featureKey || (input.boxId !== undefined && input.boxId !== context.boxId)) {
+            throw new ProjectWorkspaceError("SMART_TESTER_SCOPE_MISMATCH", "ثبت گزارش باید به همان پروژه و زمینهٔ خطایابی محدود باشد.", 400);
+          }
+          const errorReport = readSmartTesterErrorReport({ principal: authenticatedOwner, reportId: input.errorReportId, context: contextualSmartTesterContext });
+          if (errorReport.context.projectId !== queryProjectId) throw new ProjectWorkspaceError("SMART_TESTER_PROJECT_MISMATCH", "گزارش خطا متعلق به این پروژه نیست.", 400);
+          const document = await appendSmartTesterErrorDocument({ principal: authenticatedOwner, report: errorReport });
+          return json(response, 201, { service: HERO_SERVICE, smartTester: Object.freeze({ document, errorReportId: input.errorReportId, errorReportVersion: HERO_SMART_TESTER_ERROR_REPORT_VERSION }) });
+        }
+      }
+
       if (request.method === "POST" && url.pathname === "/api/identity/step-up") {
         if (!humanIdentity?.configured || !authenticatedOwner?.source) throw new HumanIdentityError("IDENTITY_AUTH_REQUIRED", "Human authentication is required.", 401);
         const input = await readJson(request);
-        return json(response, 200, { service: HERO_SERVICE, session: humanIdentity.stepUp({ principal: authenticatedOwner, mfaCode: input.mfaCode }) });
+        const session = humanIdentity.stepUp({ principal: authenticatedOwner, mfaCode: input.mfaCode });
+        await persistIdentityAudit({ userId: authenticatedOwner.subject, eventType: "identity.step-up-verified", data: { sessionId: session.principal.sessionId } });
+        return json(response, 200, { service: HERO_SERVICE, session }, { headers: { "set-cookie": humanSessionCookie(session.token) } });
       }
 
       if (request.method === "POST" && url.pathname === "/api/identity/sessions/revoke") {
         if (!humanIdentity?.configured || !authenticatedOwner?.source) throw new HumanIdentityError("IDENTITY_AUTH_REQUIRED", "Human authentication is required.", 401);
         const input = await readJson(request);
-        return json(response, 200, { service: HERO_SERVICE, revocation: humanIdentity.revokeSession({ actor: authenticatedOwner, sessionId: input.sessionId, reason: input.reason }) });
+        const revocation = humanIdentity.revokeSession({ actor: authenticatedOwner, sessionId: input.sessionId, reason: input.reason });
+        if (postgresRuntime?.projectIdentity?.revokeSession) await postgresRuntime.projectIdentity.revokeSession({ sessionId: revocation.sessionId, userId: authenticatedOwner.subject, reason: revocation.reason });
+        await persistIdentityAudit({ userId: authenticatedOwner.subject, eventType: "identity.session-revoked", data: { sessionId: revocation.sessionId, reason: revocation.reason } });
+        return json(response, 200, { service: HERO_SERVICE, revocation }, { headers: { "set-cookie": clearHumanSessionCookie() } });
+      }
+
+      if (request.method === "GET" && url.pathname === "/api/identity/users") {
+        if (!humanIdentity?.configured || !authenticatedOwner) throw new HumanIdentityError("IDENTITY_NOT_CONFIGURED", "Human identity is not configured.", 503);
+        return json(response, 200, { service: HERO_SERVICE, users: humanIdentity.listUsers({ actor: authenticatedOwner }) });
       }
 
       if (request.method === "POST" && url.pathname === "/api/identity/users") {
         if (!humanIdentity?.configured || !authenticatedOwner) throw new HumanIdentityError("IDENTITY_NOT_CONFIGURED", "Human identity is not configured.", 503);
         const input = await readJson(request);
-        return json(response, 201, { service: HERO_SERVICE, user: humanIdentity.createUser({ actor: authenticatedOwner, user: input }) });
+        const user = humanIdentity.createUser({ actor: authenticatedOwner, user: input });
+        await persistIdentityUser(user.userId);
+        await persistIdentityAudit({ userId: user.userId, eventType: "identity.user-created", data: { createdBy: authenticatedOwner.subject, role: "viewer" } });
+        return json(response, 201, { service: HERO_SERVICE, user });
       }
 
       if (request.method === "GET" && url.pathname === "/api/portfolio") {
@@ -773,6 +1904,8 @@ export function createHeroServer(options = {}) {
       if (request.method === "POST" && url.pathname === "/api/projects") {
         const input = await readJson(request);
         const created = projectWorkspace.createProject({ actor: authenticatedOwner, projectId: input.projectId, name: input.name, description: input.description, intake: input.intake });
+        await persistWorkspaceProject(created.project, "Project created");
+        await persistWorkspaceProposal(created.foundationProposal);
         return json(response, 201, { service: HERO_SERVICE, ...created });
       }
 
@@ -780,37 +1913,68 @@ export function createHeroServer(options = {}) {
         if (authenticatedOwner?.role !== "project-owner") throw new ProjectWorkspaceError("OWNER_REQUIRED", "Only the owner may clone a project template.", 403);
         const input = await readJson(request);
         const cloned = projectWorkspace.cloneFromTemplate({ actor: authenticatedOwner, sourceProjectId: input.sourceProjectId, projectId: input.projectId, name: input.name, description: input.description });
+        await persistWorkspaceProject(cloned.project, `Cloned from ${input.sourceProjectId}`);
+        await persistWorkspaceProposal(cloned.foundationProposal);
         return json(response, 201, { service: HERO_SERVICE, ...cloned });
       }
 
       const projectArchiveMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/archive$/);
       if (projectArchiveMatch && request.method === "POST") {
         const input = await readJson(request);
-        return json(response, 200, { service: HERO_SERVICE, project: projectWorkspace.archiveProject({ actor: authenticatedOwner, projectId: projectArchiveMatch[1], expectedVersion: input.expectedVersion, reason: input.reason }) });
+        const project = projectWorkspace.archiveProject({ actor: authenticatedOwner, projectId: projectArchiveMatch[1], expectedVersion: input.expectedVersion, reason: input.reason });
+        await persistWorkspaceProject(project, input.reason);
+        return json(response, 200, { service: HERO_SERVICE, project });
       }
 
       const projectDeletionMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/deletion-request$/);
       if (projectDeletionMatch && request.method === "POST") {
         const input = await readJson(request);
-        return json(response, 202, { service: HERO_SERVICE, deletionRequest: projectWorkspace.requestDeletion({ actor: authenticatedOwner, projectId: projectDeletionMatch[1], expectedVersion: input.expectedVersion, reason: input.reason }) });
+        const deletionRequest = projectWorkspace.requestDeletion({ actor: authenticatedOwner, projectId: projectDeletionMatch[1], expectedVersion: input.expectedVersion, reason: input.reason });
+        await persistWorkspaceProject(projectWorkspace.getProject(projectDeletionMatch[1]), input.reason);
+        return json(response, 202, { service: HERO_SERVICE, deletionRequest });
+      }
+
+      const projectReturnToDraftMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/return-to-draft$/);
+      if (projectReturnToDraftMatch && request.method === "POST") {
+        const input = await readJson(request);
+        const result = projectWorkspace.returnToDraft({ actor: authenticatedOwner, projectId: projectReturnToDraftMatch[1], expectedVersion: input.expectedVersion, reason: input.reason });
+        await persistWorkspaceProject(result.project, result.project.returnToDraftReason);
+        await persistWorkspaceProposal(result.foundationProposal);
+        return json(response, 200, { service: HERO_SERVICE, ...result });
       }
 
       const projectIntakeMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/intake$/);
       if (projectIntakeMatch && request.method === "POST") {
         const input = await readJson(request);
-        return json(response, 200, { service: HERO_SERVICE, result: projectWorkspace.submitIntake({ actor: authenticatedOwner, projectId: projectIntakeMatch[1], expectedVersion: input.expectedVersion, intake: input.intake }) });
+        const result = projectWorkspace.submitIntake({ actor: authenticatedOwner, projectId: projectIntakeMatch[1], expectedVersion: input.expectedVersion, intake: input.intake });
+        await persistWorkspaceProject(result.project, "Intake updated");
+        await persistWorkspaceProposal(result.foundationProposal);
+        return json(response, 200, { service: HERO_SERVICE, result });
       }
 
       const projectUploadMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/inputs\/upload$/);
       if (projectUploadMatch && request.method === "POST") {
         const input = await readJson(request, 5 * 1024 * 1024);
-        return json(response, 201, { service: HERO_SERVICE, input: projectWorkspace.upload({ actor: authenticatedOwner, projectId: projectUploadMatch[1], type: input.type, filename: input.filename, content: input.content, mimeType: input.mimeType, zipExpandedBytes: input.zipExpandedBytes }) });
+        const storedInput = projectWorkspace.upload({ actor: authenticatedOwner, projectId: projectUploadMatch[1], type: input.type, filename: input.filename, content: input.content, mimeType: input.mimeType, zipExpandedBytes: input.zipExpandedBytes });
+        await persistWorkspaceInput(storedInput);
+        return json(response, 201, { service: HERO_SERVICE, input: storedInput });
       }
 
       const projectLinkMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/inputs\/link$/);
       if (projectLinkMatch && request.method === "POST") {
         const input = await readJson(request);
-        return json(response, 201, { service: HERO_SERVICE, input: projectWorkspace.registerLink({ actor: authenticatedOwner, projectId: projectLinkMatch[1], url: input.url, label: input.label }) });
+        const storedInput = projectWorkspace.registerLink({ actor: authenticatedOwner, projectId: projectLinkMatch[1], url: input.url, label: input.label });
+        await persistWorkspaceInput(storedInput);
+        return json(response, 201, { service: HERO_SERVICE, input: storedInput });
+      }
+
+      const projectTextInputRecallMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/inputs\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/recall$/);
+      if (projectTextInputRecallMatch && request.method === "GET") {
+        const input = projectWorkspace.recallTextInput({ actor: authenticatedOwner, projectId: projectTextInputRecallMatch[1], uploadId: projectTextInputRecallMatch[2] });
+        // A recalled text input is bounded to 512 KiB at upload time, but JSON
+        // escaping can expand its representation. Keep the response cap above
+        // that worst-case encoding while still preventing an unbounded read.
+        return json(response, 200, { service: HERO_SERVICE, input }, { maxBytes: 4 * 1024 * 1024 });
       }
 
       const projectFoundationMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/foundation$/);
@@ -818,18 +1982,26 @@ export function createHeroServer(options = {}) {
       const projectFoundationReviseMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/foundation\/revise$/);
       if (projectFoundationReviseMatch && request.method === "POST") {
         const input = await readJson(request);
-        return json(response, 200, { service: HERO_SERVICE, proposal: projectWorkspace.reviseFoundation({ actor: authenticatedOwner, projectId: projectFoundationReviseMatch[1], proposalId: input.proposalId, expectedVersion: input.expectedVersion, changes: input.changes, reason: input.reason }) });
+        const proposal = projectWorkspace.reviseFoundation({ actor: authenticatedOwner, projectId: projectFoundationReviseMatch[1], proposalId: input.proposalId, expectedVersion: input.expectedVersion, changes: input.changes, reason: input.reason });
+        await persistWorkspaceProposal(proposal);
+        return json(response, 200, { service: HERO_SERVICE, proposal });
       }
       const projectFoundationApproveMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/foundation\/approve$/);
       if (projectFoundationApproveMatch && request.method === "POST") {
         const input = await readJson(request);
-        return json(response, 200, { service: HERO_SERVICE, proposal: projectWorkspace.approveFoundation({ actor: authenticatedOwner, projectId: projectFoundationApproveMatch[1], proposalId: input.proposalId, expectedVersion: input.expectedVersion }) });
+        const proposal = projectWorkspace.approveFoundation({ actor: authenticatedOwner, projectId: projectFoundationApproveMatch[1], proposalId: input.proposalId, expectedVersion: input.expectedVersion });
+        await persistWorkspaceProposal(proposal);
+        await persistWorkspaceProject(projectWorkspace.getProject(projectFoundationApproveMatch[1]), "Foundation approved");
+        await persistWorkspaceSettings(projectFoundationApproveMatch[1]);
+        return json(response, 200, { service: HERO_SERVICE, proposal });
       }
 
       const projectImportMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/import\/github$/);
       if (projectImportMatch && request.method === "POST") {
         const input = await readJson(request);
-        return json(response, 202, { service: HERO_SERVICE, importPlan: projectWorkspace.importGithubReadOnly({ actor: authenticatedOwner, projectId: projectImportMatch[1], repositoryUrl: input.repositoryUrl, inventory: input.inventory }) });
+        const importPlan = projectWorkspace.importGithubReadOnly({ actor: authenticatedOwner, projectId: projectImportMatch[1], repositoryUrl: input.repositoryUrl, inventory: input.inventory });
+        await persistWorkspaceImport(importPlan);
+        return json(response, 202, { service: HERO_SERVICE, importPlan });
       }
 
       const projectSettingsMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/settings$/);
@@ -838,21 +2010,59 @@ export function createHeroServer(options = {}) {
       }
       if (projectSettingsMatch && request.method === "POST") {
         const input = await readJson(request);
-        return json(response, 200, { service: HERO_SERVICE, setting: projectSettings.setValue({ actor: authenticatedOwner, projectId: projectSettingsMatch[1], path: input.path, value: input.value, layer: input.layer, runId: input.runId ?? null, expectedVersion: input.expectedVersion ?? null, reason: input.reason, impact: input.impact, rollbackReference: input.rollbackReference }) });
+        const setting = projectSettings.setValue({ actor: authenticatedOwner, projectId: projectSettingsMatch[1], path: input.path, value: input.value, layer: input.layer, runId: input.runId ?? null, expectedVersion: input.expectedVersion ?? null, reason: input.reason, impact: input.impact, rollbackReference: input.rollbackReference });
+        await persistWorkspaceSettings(projectSettingsMatch[1]);
+        return json(response, 200, { service: HERO_SERVICE, setting });
+      }
+      const walkthroughAdvisorOptionsMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/walkthrough-advisor\/options$/);
+      if (walkthroughAdvisorOptionsMatch && request.method === "GET") {
+        return json(response, 200, { service: HERO_SERVICE, advisorOptions: walkthroughAdvisorOptions(walkthroughAdvisorOptionsMatch[1]) });
       }
       const projectPolicyApplyMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/settings\/policy-pack\/apply$/);
       if (projectPolicyApplyMatch && request.method === "POST") {
         const input = await readJson(request);
-        return json(response, 200, { service: HERO_SERVICE, settings: projectSettings.applyPolicyPack({ actor: authenticatedOwner, projectId: projectPolicyApplyMatch[1], reason: input.reason }) });
+        const settings = projectSettings.applyPolicyPack({ actor: authenticatedOwner, projectId: projectPolicyApplyMatch[1], reason: input.reason });
+        await persistWorkspaceSettings(projectPolicyApplyMatch[1]);
+        return json(response, 200, { service: HERO_SERVICE, settings });
       }
       const projectSettingRollbackMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/settings\/rollback$/);
       if (projectSettingRollbackMatch && request.method === "POST") {
         const input = await readJson(request);
-        return json(response, 200, { service: HERO_SERVICE, setting: projectSettings.rollback({ actor: authenticatedOwner, projectId: projectSettingRollbackMatch[1], path: input.path, toVersion: input.toVersion, reason: input.reason }) });
+        const setting = projectSettings.rollback({ actor: authenticatedOwner, projectId: projectSettingRollbackMatch[1], path: input.path, toVersion: input.toVersion, reason: input.reason });
+        await persistWorkspaceSettings(projectSettingRollbackMatch[1]);
+        return json(response, 200, { service: HERO_SERVICE, setting });
       }
 
       const projectWorkspaceOverviewMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/workspace-overview$/);
       if (projectWorkspaceOverviewMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, overview: projectOverview(projectWorkspaceOverviewMatch[1]) });
+
+      const projectCompletionMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/completion$/);
+      if (projectCompletionMatch && request.method === "GET") {
+        const projectId = projectCompletionMatch[1];
+        return json(response, 200, {
+          service: HERO_SERVICE,
+          completion: {
+            shell: backofficeCompletion.shell({ actor: authenticatedOwner, projectId }),
+            capabilities: backofficeCompletion.capabilities({ actor: authenticatedOwner, projectId }),
+            readiness: backofficeCompletion.readiness({ actor: authenticatedOwner, projectId })
+          }
+        }, { maxBytes: backofficeResponseLimitBytes });
+      }
+      if (projectCompletionMatch && request.method === "POST") {
+        const input = await readJson(request);
+        const projectId = projectCompletionMatch[1];
+        let result;
+        switch (input.action) {
+          case "setting": result = backofficeCompletion.setSetting({ actor: authenticatedOwner, projectId, ...input }); break;
+          case "trace": result = backofficeCompletion.recordTrace({ actor: authenticatedOwner, projectId, ...input }); break;
+          case "evidence": result = backofficeCompletion.recordEvidence({ actor: authenticatedOwner, projectId, ...input }); break;
+          case "retention": result = backofficeCompletion.setRetention({ actor: authenticatedOwner, projectId, ...input }); break;
+          case "cleanup-preview": result = backofficeCompletion.cleanupPreview({ actor: authenticatedOwner, projectId, ...input }); break;
+          case "locale": result = backofficeCompletion.setLocale({ actor: authenticatedOwner, projectId, locale: input.locale }); break;
+          default: throw new BackofficeCompletionError("COMPLETION_ACTION_INVALID", "Completion action is invalid.", 400);
+        }
+        return json(response, 200, { service: HERO_SERVICE, result }, { maxBytes: backofficeResponseLimitBytes });
+      }
 
       const projectTeamsMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/teams$/);
       if (projectTeamsMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, teams: projectCollaboration.listTeams({ actor: authenticatedOwner, projectId: projectTeamsMatch[1] }) });
@@ -944,7 +2154,12 @@ export function createHeroServer(options = {}) {
           if (!user?.mfaEnabled) throw new HumanIdentityError("MFA_REQUIRED", "An admin ProjectGrant requires enrolled MFA before it can be granted.", 409);
         }
         const grant = projectAccessRegistry.upsertGrant({ actor: authenticatedOwner, grant: { projectId: projectAccessMatch[1], userId: input.userId, role: input.role } });
-        if (grant.role === "admin" && humanIdentity) humanIdentity.setMfaRequired({ actor: authenticatedOwner, userId: grant.userId, required: true });
+        if (grant.role === "admin" && humanIdentity) {
+          humanIdentity.setMfaRequired({ actor: authenticatedOwner, userId: grant.userId, required: true });
+          await persistIdentityUser(grant.userId);
+        }
+        if (postgresRuntime?.projectIdentity?.appendGrant) await postgresRuntime.projectIdentity.appendGrant({ projectId: grant.projectId, userId: grant.userId, role: grant.role, status: grant.status, grantedBy: authenticatedOwner.subject });
+        await persistIdentityAudit({ userId: grant.userId, eventType: "identity.project-grant-upserted", data: { projectId: grant.projectId, role: grant.role, grantedBy: authenticatedOwner.subject } });
         return json(response, 201, { service: HERO_SERVICE, grant });
       }
 
@@ -952,7 +2167,10 @@ export function createHeroServer(options = {}) {
       if (projectAccessRevokeMatch && request.method === "POST") {
         if (!projectAccessRegistry) throw new HumanIdentityError("IDENTITY_NOT_CONFIGURED", "Project identity is not configured.", 503);
         const input = await readJson(request);
-        return json(response, 200, { service: HERO_SERVICE, grant: projectAccessRegistry.revokeGrant({ actor: authenticatedOwner, projectId: projectAccessRevokeMatch[1], userId: input.userId }) });
+        const grant = projectAccessRegistry.revokeGrant({ actor: authenticatedOwner, projectId: projectAccessRevokeMatch[1], userId: input.userId });
+        if (postgresRuntime?.projectIdentity?.appendGrant) await postgresRuntime.projectIdentity.appendGrant({ projectId: grant.projectId, userId: grant.userId, role: grant.role, status: "revoked", grantedBy: authenticatedOwner.subject });
+        await persistIdentityAudit({ userId: grant.userId, eventType: "identity.project-grant-revoked", data: { projectId: grant.projectId, revokedBy: authenticatedOwner.subject } });
+        return json(response, 200, { service: HERO_SERVICE, grant });
       }
 
       const projectOverviewMatch = url.pathname.match(/^\/api\/projects\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/overview$/);
@@ -1049,6 +2267,14 @@ export function createHeroServer(options = {}) {
       if (request.method === "POST" && url.pathname === "/api/ai/context") {
         const input = await readJson(request);
         const result = await executeDashboardCommand("ai.context-assemble", input, () => dashboard.assembleAiContext(input));
+        return json(response, 200, { service: HERO_SERVICE, result });
+      }
+
+      const providerHealthMatch = url.pathname.match(/^\/api\/ai\/providers\/([a-z][a-z0-9-]{2,63})\/health$/);
+      if (request.method === "POST" && providerHealthMatch) {
+        const input = await readJson(request);
+        const providerId = providerHealthMatch[1];
+        const result = await executeDashboardCommand("ai.provider-health-check", { ...input, providerId, actor: authenticatedOwner.actor }, () => dashboard.checkAiProviderHealth({ ...input, providerId, actor: authenticatedOwner.actor }), authenticatedOwner.actor);
         return json(response, 200, { service: HERO_SERVICE, result });
       }
 
@@ -1560,7 +2786,7 @@ export function createHeroServer(options = {}) {
       if (error instanceof OwnerAuthError && rejectedReadResource) {
         await recordReadAccess(rejectedReadResource, "rejected");
       }
-      const known = error instanceof DashboardCommandError || error instanceof ProductDevelopmentError || error instanceof ProjectAccessError || error instanceof ProjectWorkspaceError || error instanceof ProjectSettingsError || error instanceof CollaborationError || error instanceof CommandCenterError || error instanceof SystemCatalogError || error instanceof PerformanceError || error instanceof NotificationError || error instanceof InfrastructureError || error instanceof DeliveryError || error instanceof HardeningError || error instanceof FinalReadinessError;
+      const known = error instanceof DashboardCommandError || error instanceof ProductDevelopmentError || error instanceof ProjectAccessError || error instanceof ProjectWorkspaceError || error instanceof ProjectSettingsError || error instanceof CollaborationError || error instanceof CommandCenterError || error instanceof SystemCatalogError || error instanceof PerformanceError || error instanceof NotificationError || error instanceof InfrastructureError || error instanceof DeliveryError || error instanceof HardeningError || error instanceof FinalReadinessError || error instanceof BackofficeCompletionError || error instanceof HeroSecretStoreError;
       const auth = error instanceof OwnerAuthError || error instanceof HumanIdentityError;
       return json(response, auth ? error.statusCode : known ? (error.statusCode ?? 409) : 500, {
         service: HERO_SERVICE,
@@ -1579,6 +2805,58 @@ export function createHeroServer(options = {}) {
         ownsPostgresRuntime = true;
       }
       if (postgresRuntime) await postgresRuntime.ping();
+      if (postgresRuntime?.projectIdentity) {
+        const identityStore = postgresRuntime.projectIdentity;
+        if (identityStore.listUsers) {
+          const users = await identityStore.listUsers();
+          for (const user of users) {
+            projectAccessRegistry?.hydrateUser({ user: { userId: user.userId, email: user.email, displayName: user.displayName, role: "viewer", status: user.status, createdAt: user.createdAt } });
+            humanIdentity?.hydrateUser({ user });
+          }
+        }
+        if (identityStore.listCurrentGrants && projectAccessRegistry) {
+          const grants = await identityStore.listCurrentGrants();
+          for (const grant of grants) projectAccessRegistry.hydrateGrant({ grant });
+        }
+        if (identityStore.listSessionRevocations && humanIdentity?.restoreRevocations) {
+          humanIdentity.restoreRevocations(await identityStore.listSessionRevocations());
+        }
+        if (humanIdentity?.persistenceRecord && identityStore.saveUser) {
+          await identityStore.saveUser(humanIdentity.persistenceRecord({ userId: identityOwner.userId }));
+        }
+      }
+      if (postgresRuntime?.projectWorkspace) {
+        const workspaceStore = postgresRuntime.projectWorkspace;
+        if (workspaceStore.listSettings && projectSettings.hydrateRecord) {
+          for (const setting of await workspaceStore.listSettings()) {
+            projectSettings.hydrateRecord({ ...setting, actorId: setting.actor });
+            persistedWorkspaceRecords.add(workspaceRecordKey("setting", setting));
+          }
+        }
+        if (workspaceStore.listProjects && projectWorkspace.hydrateProject) {
+          for (const project of await workspaceStore.listProjects()) {
+            projectWorkspace.hydrateProject({ project });
+            persistedWorkspaceRecords.add(workspaceRecordKey("project", project));
+          }
+        }
+        if (workspaceStore.listInputs && projectWorkspace.hydrateInput) {
+          for (const input of await workspaceStore.listInputs()) {
+            try { projectWorkspace.hydrateInput({ input }); persistedWorkspaceRecords.add(workspaceRecordKey("input", input)); } catch { /* a corrupt input row must not expose bytes or stop unrelated startup */ }
+          }
+        }
+        if (workspaceStore.listFoundationProposals && projectWorkspace.hydrateFoundation) {
+          for (const proposal of await workspaceStore.listFoundationProposals()) {
+            projectWorkspace.hydrateFoundation({ proposal });
+            persistedWorkspaceRecords.add(workspaceRecordKey("proposal", proposal));
+          }
+        }
+        if (workspaceStore.listImportPlans && projectWorkspace.hydrateImport) {
+          for (const plan of await workspaceStore.listImportPlans()) {
+            projectWorkspace.hydrateImport({ plan });
+            persistedWorkspaceRecords.add(workspaceRecordKey("import", plan));
+          }
+        }
+      }
       if (postgresRuntime?.pricingCatalogStore && typeof pricingCatalog.publish === "function") {
         const currentPricingCatalog = await postgresRuntime.pricingCatalogStore.readCurrent();
         if (currentPricingCatalog) {

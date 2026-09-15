@@ -1,20 +1,7 @@
-import crypto from "node:crypto";
-
-import { createNotionSyncService } from "./notion-sync.mjs";
+import { checksum, createNotionSyncService, hasDocumentMarker, legacyChecksum, renderNotionDocumentContent } from "./notion-sync.mjs";
 
 function copy(value) {
   return Object.freeze(structuredClone(value));
-}
-
-function checksum(value, title = "") {
-  let normalized = String(value ?? "").replaceAll("\r\n", "\n").replace(/[ \t]+$/gm, "").replace(/\n{2,}/g, "\n").trim();
-  const heading = title ? `# ${title}` : "";
-  if (heading && normalized.startsWith(heading)) normalized = normalized.slice(heading.length).trim();
-  return crypto.createHash("sha256").update(normalized).digest("hex");
-}
-
-function hasMarker(markdown, documentId) {
-  return String(markdown ?? "").includes(`Document ID: \`${documentId}\``) || String(markdown ?? "").includes(`Document ID: ${documentId}`);
 }
 
 function sleep(ms) {
@@ -68,7 +55,7 @@ export function createNotionBatchSyncService({ adapter, mappingStore, now = () =
       title: document.title,
       classification: document.classification ?? "internal",
       editPolicy: document.editClass,
-      sourceChecksum: checksum(document.content ?? "", document.title),
+      sourceChecksum: checksum(renderNotionDocumentContent(document, document.content ?? ""), document.title),
       allowlisted: allowlisted.has(document.id),
       batch: Math.floor(index / batchSize) + 1,
       status: allowlisted.has(document.id) ? "approved-candidate" : "approval-required"
@@ -96,19 +83,24 @@ export function createNotionBatchSyncService({ adapter, mappingStore, now = () =
     for (const item of selected) {
       const document = documents.find(candidate => candidate.id === item.documentId);
       const sourceChecksum = item.sourceChecksum;
+      const legacySourceChecksum = checksum(document.content ?? "", document.title);
+      const legacyRawSourceChecksum = legacyChecksum(document.content ?? "", document.title);
       const mapped = await mappingStore.get(document.id);
       let pageId = mapped?.pageId ?? null;
       let pageUrl = null;
       if (pageId) {
         const current = await resilientAdapter.getMarkdownPage(pageId);
         const currentChecksum = checksum(current?.markdown, document.title);
-        if (mapped.notionChecksum && currentChecksum !== mapped.notionChecksum) {
-          results.push(copy({ documentId: document.id, outcome: "conflict", pageId, sourceChecksum, notionChecksum: currentChecksum }));
-          continue;
-        }
+        const currentLegacyChecksum = legacyChecksum(current?.markdown, document.title);
         if (currentChecksum === sourceChecksum) {
           await mappingStore.put({ ...mapped, sourceChecksum, notionChecksum: currentChecksum, canonicalCommit: document.sourceCommit ?? "unknown", status: "in-sync", updatedAt: now() });
           results.push(copy({ documentId: document.id, outcome: "already-in-sync", pageId, sourceChecksum, notionChecksum: currentChecksum }));
+          continue;
+        }
+        const mappedContentMatches = mapped.notionChecksum && (currentChecksum === mapped.notionChecksum || currentLegacyChecksum === mapped.notionChecksum);
+        if (mapped.notionChecksum && !mappedContentMatches) {
+          await mappingStore.put({ ...mapped, status: "conflict", updatedAt: now() });
+          results.push(copy({ documentId: document.id, outcome: "conflict", pageId, sourceChecksum, notionChecksum: currentChecksum }));
           continue;
         }
       } else {
@@ -116,15 +108,20 @@ export function createNotionBatchSyncService({ adapter, mappingStore, now = () =
         for (const candidate of Array.isArray(search?.results) ? search.results : []) {
           if (!candidate?.id || candidate.id === parentPageId) continue;
           const current = await resilientAdapter.getMarkdownPage(candidate.id);
-          if (!hasMarker(current?.markdown, document.id)) continue;
           const currentChecksum = checksum(current?.markdown, document.title);
-          if (currentChecksum !== sourceChecksum) {
+          const currentLegacyChecksum = legacyChecksum(current?.markdown, document.title);
+          const identified = hasDocumentMarker(current?.markdown, document.id) || currentChecksum === sourceChecksum || currentChecksum === legacySourceChecksum || currentLegacyChecksum === legacyRawSourceChecksum;
+          if (!identified) continue;
+          if (currentChecksum !== sourceChecksum && currentChecksum !== legacySourceChecksum && currentLegacyChecksum !== legacyRawSourceChecksum) {
+            await mappingStore.put({ documentId: document.id, pageId: candidate.id, canonicalCommit: document.sourceCommit ?? "unknown", sourceChecksum, notionChecksum: currentChecksum, status: "conflict", editPolicy: document.editClass, updatedAt: now() });
             results.push(copy({ documentId: document.id, outcome: "conflict", pageId: candidate.id, sourceChecksum, notionChecksum: currentChecksum }));
             pageId = null;
           } else {
             pageId = candidate.id;
-            await mappingStore.put({ documentId: document.id, pageId, canonicalCommit: document.sourceCommit ?? "unknown", sourceChecksum, notionChecksum: currentChecksum, status: "in-sync", editPolicy: document.editClass, lastSuccessfulSync: now(), updatedAt: now() });
-            results.push(copy({ documentId: document.id, outcome: "already-in-sync", pageId, sourceChecksum, notionChecksum: currentChecksum }));
+            if (currentChecksum === sourceChecksum) {
+              await mappingStore.put({ documentId: document.id, pageId, canonicalCommit: document.sourceCommit ?? "unknown", sourceChecksum, notionChecksum: currentChecksum, status: "in-sync", editPolicy: document.editClass, lastSuccessfulSync: now(), updatedAt: now() });
+              results.push(copy({ documentId: document.id, outcome: "already-in-sync", pageId, sourceChecksum, notionChecksum: currentChecksum }));
+            }
           }
           break;
         }

@@ -1,5 +1,219 @@
 # تغییرات رودمپ شرکت
 
+# ۲۰۲۶-۰۹-۱۵ — AI Connections 1.1.1 و مسیر دسترسی روشن
+
+- اصلاح‌شده: سرصفحهٔ صفحهٔ «اتصال‌های AI» اکنون دکمهٔ مستقیم `رفتن به ثبت امن کلید` دارد که فرم Owner-only `ثبت امن کلید Provider` را در همان صفحه باز می‌کند.
+- اصلاح‌شده: راهنمای عملیاتی و راهنمای Walk-Through به مسیر canonical نشست انسانی `/api/portal?surface=ai#ai` اشاره می‌کنند؛ مسیرهای legacy `/backoffice` و `/portfolio` برای این کار توصیه نمی‌شوند.
+- build تأییدشده: image محلی `hero-control-plane:test-1.1.1` با digest `sha256:4e3262837bbc264d16dfad3e05cf6271c8de61e205cbb28f00a3d2c3fd2ae804` ساخته شد؛ این artifact هنوز به Runtime عمومی Test promotion نشده است.
+- مرز: این تغییر فقط کشف‌پذیری UI و مستندات است؛ هیچ Secret، Provider زنده، هزینه، استقرار بیرونی یا Production تغییر نکرد.
+
+## ۲۰۲۶-۰۹-۱۵ — Test Secret Store و ثبت امن کلیدهای AI 1.1.0
+
+- افزوده‌شده: Secret Store داخلیِ رمزنگاری‌شدهٔ AES-256-GCM برای محیط Test، با volume خصوصی، master key تصادفی ۳۲ بایتی، فایل‌های `0600`/دایرکتوری‌های `0700`، نوشتن atomic و جلوگیری از symlink/path escape.
+- افزوده‌شده: فرم Owner-only در «اتصال‌های AI» برای ثبت یا جایگزینی کلید OpenAI/ChatGPT، Claude، Gemini، Cursor و OpenAI-compatible. مقدار خام پس از ارسال پاک می‌شود و فقط وضعیت، نسخه و مرجع `vault:hero/test/...` قابل مشاهده است.
+- افزوده‌شده: APIهای `GET/POST /api/ai/credentials` و `GET/POST /api/ai/credentials/:provider/status|health` با نشست انسانی، MFA/step-up، CSRF same-origin و پاسخ‌های بدون Secret. Resolver سرویس‌ها اکنون مرجع Vault را در زمان اجرا می‌خواند و health check بدون شبکه/Token انجام می‌شود.
+- اصلاح‌شده: resolverهای Provider هم قرارداد synchronous و هم asynchronous را به‌درستی پشتیبانی می‌کنند؛ خطای health قبلی برای Providerهای OpenAI/Claude/Gemini در مسیر محلی رفع شد.
+- قرارداد محیط: `HERO_SECRET_STORE_ENABLED=true` فقط برای Test و `false` برای Production؛ مسیر و master key در مثال‌ها secret-free هستند. راهنمای کاربر در `docs/operations/HERO-TEST-AI-SECRET-STORE.md` ثبت شد.
+- تأیید source: تست‌های رمزنگاری/نسخه‌گذاری/ضد symlink، API Owner و parity محیط اضافه شدند؛ استقرار یا تغییر کلید واقعی انجام نشده است.
+
+## ۲۰۲۶-۰۹-۱۴ — Walk-Through 1.8.0 و انتخاب مشترک AI
+
+- افزوده‌شده: انتخاب‌گر «AI و نسخه» دوباره به پنجرهٔ مشاورهٔ Walk-Through افزوده شد؛ گزینه‌ها از API پروژه‌محور کاتالوگ اتصال‌های AI خوانده می‌شوند، فقط Profileهای Active و آماده قابل انتخاب‌اند و انتخاب معتبر برای همان پروژه در مرورگر حفظ می‌شود.
+- اصلاح‌شده: درخواست مشاوره، Profile انتخاب‌شده را با همان مرز Project Scope به API می‌فرستد. راهنمای محلی Hero همچنان fallback بدون هزینه است؛ انتخاب Profile زنده به‌تنهایی Provider را dispatch نمی‌کند و همچنان نیازمند Health، سقف هزینه و مجوز External Spend مستقل است.
+- تأییدشده: `pnpm check` با ۳۷۱ تست موفق، بررسی اسناد و build موفق؛ image تازه فقط در Test مستقر شد و `/health` و `/ready` هر دو پاسخ ۲۰۰ دادند. هیچ Secret، Provider زنده، هزینه یا Production تغییر نکرد.
+
+## ۲۰۲۶-۰۹-۱۴ — Walk-Through 1.7.1 و ناوبری کناری
+
+- اصلاح‌شده: همهٔ گزینه‌های ناوبری سراسری از هدر به نوار کناری ثابت منتقل شدند. خود نوار مستقل از محتوای صفحه اسکرول عمودی دارد و در viewport کوچک به بلوک بالای محتوا با ارتفاع محدود تبدیل می‌شود؛ بنابراین تعداد گزینه‌ها هرگز چیدمان هدر یا صفحه را به‌هم نمی‌زند.
+- اصلاح‌شده: مسیر شماره‌دار توسعهٔ محصول اکنون ۱۳ گام دارد و از «انتخاب یا ایجاد پروژه» آغاز می‌شود. ورود انسانی و مدیریت اعضا/Grant قابلیت‌های پشتیبان‌اند، در راهنمای کامل دیده می‌شوند، اما در شمارش و Bubble فرایند اصلی قرار نمی‌گیرند.
+- اصلاح‌شده: پس از هر ورود انسانی Owner، Walk-Through از گام نخست فعال می‌شود. بستن کامل فقط تا خروج یا ورود بعدی همان Owner معتبر است و در tabهای همان مرورگر همگام می‌شود. Refresh، رندر پویا و بازگشت از نشان کمینهٔ H، state فعال را از بین نمی‌برند.
+- ساده‌سازی: Bubble راهنما فقط «گام x از y»، نام، شرح کوتاه و کنترل‌های عملیاتی را نمایش می‌دهد؛ پیام‌های وضعیت داخلی فقط برای دسترس‌پذیری نگهداری می‌شوند و روی پنجره دیده نمی‌شوند. پنجرهٔ مشاوره هنگام بازشدن خالی است؛ بعد از پرسش، تحلیل محلی با Scope، گام، کنترل‌های مرتبط و گیت واقعی همان نقطه پاسخ می‌دهد. متن آماده و پیشنهاد/پیش‌پرکردن فرم حذف شدند؛ انتخاب‌گر Profile در نسخهٔ 1.8.0 با کاتالوگ مشترک بازگشت.
+- ایمنی: هیچ‌یک از تغییرها اتصال Provider، Secret، هزینه، Dispatch، GitHub، سرور یا Production را فعال نمی‌کند.
+
+## ۲۰۲۶-۰۹-۱۴ — Action Feedback 1.3: نتیجهٔ پایدار و قابل‌انتقال
+
+- اصلاح‌شده: پنجرهٔ نتیجهٔ هر اقدام فرایندی، دو کنترل صریح «انتقال به لبهٔ چپ» و «انتقال به لبهٔ راست» دارد. انتخاب لبه فقط در مرورگر همان ادمین نگهداری می‌شود و در محتوای پروژه یا Audit تغییری ایجاد نمی‌کند.
+- اصلاح‌شده: نتیجهٔ پاک‌سازی‌شدهٔ آخرین اقدام در `sessionStorage` همان tab نگهداری می‌شود؛ پس با redirect، رفتن به صفحهٔ بعد یا refresh عادی حذف نمی‌شود. فقط «ادامه» در نتیجهٔ موفق یا «بستن» در نتیجهٔ ناموفق آن را پاک می‌کند.
+- رفتار: این پنجره کاملاً اطلاع‌رسان است؛ fetch، ثبت، تأیید، رد یا هر فرایند دیگر را متوقف یا منتظر کلیک نمی‌گذارد. در خطا، بازکردن Smart Tester پنجرهٔ نتیجه را نیز نمی‌بندد تا مسیر و گزارش خطا هم‌زمان قابل مشاهده بمانند.
+- امنیت: متن ماندگار طول‌محدود و redacted است؛ Secret، رمز، Token و Credential در آن ذخیره نمی‌شود.
+
+## ۲۰۲۶-۰۹-۱۴ — Smart Tester 1.3: زمینهٔ دقیق Box و گفت‌وگوی پایدار
+
+- اصلاح‌شده: با هر نشان `✦`، عنوان واقعی همان Box و یک توضیح کوتاه از نقش آن در جریان Hero به Smart Tester فرستاده می‌شود. پاسخ، گزارش و دفتر خطا نیز به همان `boxId` محدود می‌مانند؛ بنابراین دو Box هم‌سطح دیگر context یا گزارش یکدیگر را نمی‌گیرند.
+- اصلاح‌شده: بالای پنل فقط عنوان Box و توضیح یک‌خطی آن نمایش داده می‌شود. پیام عمومیِ «زمینه/featureKey» و پیام آغازین اضافی حذف شده‌اند؛ محتوای ناحیهٔ اسکرول فقط گفت‌وگو و گزارش‌های صریح کاربر است.
+- اصلاح‌شده: پنل اکنون پنج ردیف صریح دارد و ناحیهٔ پیام‌ها تنها بخش انعطاف‌پذیر و اسکرول‌پذیر آن است. شکستن کلمه، حد عرض و `min-width: 0` برای پیام‌ها، گزارش‌ها و کنترل‌ها اعمال شده تا پاسخ بلند یا متن بدون فاصله از کادر خارج نشود.
+- امنیت: عنوان/توضیح Box طول‌محدود و پاک‌سازی می‌شوند و الگوی Secret یا Credential در آن‌ها پذیرفته نمی‌شود. متن گفت‌وگو همچنان persist نمی‌شود.
+- تأیید source: تست‌های Smart Tester، UI و مسیر نشست انسانی برای context دقیق Box، گزارش، advice و خطایاب افزوده/به‌روزرسانی شدند؛ استقرار Test فقط پس از عبور `pnpm check` انجام می‌شود.
+
+## ۲۰۲۶-۰۹-۱۴ — AI Connections 1.0: اتصال کنترل‌شده و نقشهٔ تخصیص پروژه
+
+- افزوده‌شده: صفحهٔ «اتصال‌های AI» اکنون کارت راه‌اندازی برای OpenAI/ChatGPT، Anthropic/Claude، Google/Gemini و Cursor Cloud Agent دارد. هر کارت وضعیت ثبت، حالت اجرا، آخرین تست آماده‌بودن، تعداد Model/Profile و مصرف ثبت‌شده را روشن نشان می‌دهد.
+- افزوده‌شده: `POST /api/ai/providers/:providerId/health` با نشست انسانی Owner، یک Health check بدون افشای Secret و بدون فراخوانی Model/مصرف Token ثبت می‌کند. اگر Profile وجود داشته باشد، فقط شناسهٔ آن ارسال می‌شود و credential reference داخل سرور resolve می‌شود.
+- افزوده‌شده: «نقشهٔ تخصیص AI در پروژه» Roleهای هر Project، Provider/Model، Profile version، وضعیت اتصال و Bindingهای Team/Skill را جداگانه نشان می‌دهد و دکمهٔ «تغییر نسخه» فرم Binding جایگزین را با `supersedesBindingId` آماده می‌کند.
+- یکپارچه‌سازی: Walk-Through فقط Profileهای Active و project-bound با Provider آماده را در مشاوره نشان می‌دهد؛ Smart Tester فقط Profileهای Active و متصل Hero را نشان می‌دهد. Cursor در این نسخه Coding Agent مخزن‌محور است و عمداً در انتخاب‌گر گفت‌وگوی مستقیم ظاهر نمی‌شود.
+- امنیت و مرز: UI هرگز API key را دریافت، نمایش یا در Event ذخیره نمی‌کند. تست کارت فقط readiness محلیِ credential/policy است؛ Provider زنده، Agent Cursor، هزینه، Dispatch، GitHub، Server، Pilot و Production همچنان گیت و مجوز مستقل دارند.
+- تأیید نهایی در source: `pnpm check` با ۳۷۰ تست موفق، build ۲۵۳ module/۴۶ JSON و بررسی مستندات ۱۳۴ سند/صفر خطا گذشت. تست اختصاصی Cursor ثبت Provider و Health بدون شبکه/Secret را نیز تأیید می‌کند.
+
+## ۲۰۲۶-۰۹-۱۴ — Smart Tester 1.2: نتیجهٔ اقدام و تحلیل خطای زمینه‌مند
+
+- افزوده‌شده: تمام دکمه‌ها و فرم‌های فرایندیِ mutation پس از پاسخ سرویس، یک پنجرهٔ شناور مشترک با وضعیت موفق/ناموفق، متن نتیجه و کنترل ادامه یا بستن نشان می‌دهند؛ دکمه‌های ناوبری و خواندنی عمداً مستثنا هستند.
+- افزوده‌شده: در خطای اقدام، «تحلیل با اسمارت تستر» همان Box، Scope، مسیر API و خطای پاک‌سازی‌شده را به Smart Tester منتقل می‌کند؛ «خطایاب» و «ثبت در دفتر خطا» گزارش دقیق و project-scoped می‌سازند.
+- اصلاح‌شده: مشاهده‌گر نتیجه، فقط mutationهای same-origin را که با submit/action واقعی مسلح شده‌اند دنبال می‌کند؛ درخواست‌های Smart Tester، مشاوره و مسیرهای خواندنی popup کاذب ایجاد نمی‌کنند.
+- تأیید نهایی در Test: build با ۳۶۸ تست موفق، health/readiness هر دو `200`؛ advice خطای اقدام را دریافت و diagnose یافتهٔ `smart-tester.action-failure` تولید کرد؛ نشست آزمایشی Owner با موفقیت revoke شد.
+- مرز: فقط Control Plane محیط Test پس از عبور تست‌ها بازسازی می‌شود؛ Production، Provider زنده، Secret، هزینه و عملیات بیرونی تغییری نمی‌کنند.
+
+## ۲۰۲۶-۰۹-۱۴ — Smart Tester 1.1: context canonical، انتخاب AI و دفتر خطا
+
+- اصلاح‌شده: Smart Tester در Portal canonical اکنون surface واقعی (`/command`، `/ai`، `/workspace` و دیگر سطوح) را به‌جای مسیر عمومی `/api/portal` به backend می‌فرستد؛ پیام نادرست «زمینه در دسترس نیست» برای این صفحات رفع شد.
+- افزوده‌شده: پنجرهٔ Smart Tester فهرست امن Provider، Model و Profile/نسخه‌های فعال را نشان می‌دهد و انتخاب Owner را به مشاورهٔ همان Scope منتقل می‌کند؛ Provider زنده یا هزینه بدون گیت مستقل فراخوانی نمی‌شود.
+- افزوده‌شده: دکمهٔ «خطایاب» Probe تازه و مستقل اجرا می‌کند و گزارش دقیق شامل یافته، شدت، شاهد، انتظار، پیشنهاد، فایل مسئول، گام بازتولید و محدودیت‌ها می‌سازد؛ متن خام گفتگو و Secret هرگز وارد گزارش نیست.
+- افزوده‌شده: پس از تأیید Owner، گزارش در سند append-only project-scoped با شناسهٔ `smart-tester-errors:<projectId>` ثبت می‌شود و در PostgreSQL جدول `smart_tester_error_documents` دارد.
+- تأیید نهایی در Test: image نهایی با ۳۶۷ تست موفق ساخته شد؛ health/readiness هر دو `200`، ورود Owner و MFA و نشست cookie موفق؛ context برای Workspace/مرکز فرمان/اتصال‌های AI، run، advice و diagnose همگی `200`؛ ثبت دفتر خطا `201` و یک رکورد واقعی برای `project-vpn` در PostgreSQL؛ revoke نشست نیز `200`.
+- مرز: فقط Control Plane محیط Test پس از عبور تست‌ها بازسازی می‌شود؛ Production، Provider زنده، Secret، هزینه و عملیات بیرونی تغییری نمی‌کنند.
+
+## ۲۰۲۶-۰۹-۱۴ — Walk-Through 1.6.4: بازیابی مقاوم H در رندر پویا
+
+- اصلاح‌شده: restore هنگام کلیک روی H، state را دوباره با surface واقعی صفحه تطبیق می‌دهد؛ state قدیمی دیگر به هدفی از پروژهٔ قبلی اشاره نمی‌کند.
+- اصلاح‌شده: در فاصلهٔ بارگذاری یا جایگزینی کارت هدف، H حفظ می‌شود و observer/retry پس از آماده‌شدن هدف coach را نصب می‌کند؛ پنجره دیگر به launcher بی‌اثر تبدیل نمی‌شود.
+- مرز: فقط Control Plane محیط Test بازسازی می‌شود؛ Production، Secret، Provider، هزینه، gateway و عملیات بیرونی تغییر نمی‌کنند.
+
+## ۲۰۲۶-۰۹-۱۴ — Walk-Through 1.6.3: بازگشت مطمئن نشان H میان صفحه‌های پروژه
+
+- اصلاح‌شده: پس از انتخاب یک پروژه از Portfolio، state راهنما دیگر روی گام «انتخاب پروژه» باقی نمی‌ماند وقتی مرورگر به Studio، Workspace، Command یا Operations رفته است؛ state با surface واقعی مقصد همگام می‌شود.
+- اصلاح‌شده: کلیک روی کارت پروژه هنگام فعال‌بودن راهنما، گام مناسب مقصد را در همان لحظه ثبت می‌کند. بنابراین coach هدف همان صفحه را پیدا می‌کند و نشان کمینهٔ `H` با کلیک دوباره قابل بازکردن است.
+- افزوده‌شده: نسخهٔ سرویس به `1.6.3` ارتقا یافت؛ وضعیت، Project ID و ترجیح لبه همچنان فقط در localStorage همان مرورگر می‌مانند و هیچ دادهٔ پروژه‌ای تغییر نمی‌کند.
+- مرز: فقط Control Plane محیط Test بازسازی می‌شود؛ Production، Secret، Provider، هزینه، gateway و عملیات بیرونی تغییر نمی‌کنند.
+
+## ۲۰۲۶-۰۹-۱۴ — Identity Entry 1.6.3: رفع قطعی مسیر ورود Test
+
+- اصلاح‌شده: نشانی رسمی ورود Test اکنون `https://test.hero.beeproject.ir/api/portal?surface=identity` است. این Portal مستقیماً فرم Human Identity را نمایش می‌دهد و به کاربر روشن می‌گوید که Username/Password مربوط به پنجرهٔ قدیمی Basic را در فرم Email/Password وارد نکند.
+- اصلاح‌شده: فایل دسترسی خصوصی Test با همین نشانی canonical بازتولید می‌شود، Gate 1 قدیمی را صریحاً legacy می‌نامد و Gate 2 (Email/Password انسانی) و Gate 3 (کد شش‌رقمی Authenticator) را جدا می‌کند. bundle با مالک کاربر میزبان و مجوز `0600` ساخته می‌شود.
+- تأییدشده در Test: health/readiness، نمایش Portal و متن تفکیک Gateها، ورود واقعی انسانی، MFA، cookie شش‌ساعته، دسترسی نشست و revoke نشست آزمایشی از دامنهٔ عمومی Test موفق بودند. Basic Auth و Secretهای موجود rotate نشدند.
+- مرز: Production و gateway بیرونیِ legacy تغییر نکردند. مسیرهای legacy که پنجرهٔ Basic نشان می‌دهند، ورودی رسمی حساب انسانی نیستند و نباید برای ورود به Portal استفاده شوند.
+
+## ۲۰۲۶-۰۹-۱۴ — Walk-Through 1.6.2 و Browser Portal نشست انسانی
+
+- اصلاح‌شده: ناوبری داخلی Back Office، Portfolio، Studio، Workspace، Operations، Guide و «اتصال‌های AI» اکنون از مسیر canonical `/api/portal?surface=…` استفاده می‌کند. این مسیر فقط نشست Human Identity شش‌ساعتهٔ cookie-based را می‌پذیرد و Basic Auth هرگز به Principal یا مجوز پروژه تبدیل نمی‌شود؛ بنابراین ناسازگاری یک رمز قدیمی در لایهٔ Basic، کاربرِ واردشده را دوباره به فرم ورود برنمی‌گرداند.
+- اصلاح‌شده: لینک‌های پویای Workspace پس از بازخوانی داده نیز به Portal هدایت می‌شوند؛ دیگر بازسازی UI نمی‌تواند کاربر را به مسیر legacy و درخواست دوبارهٔ Basic ببرد.
+- اصلاح‌شده: بازگرداندن راهنمای کمینه‌شده با نشان `H` از state درون‌صفحه‌ای هم پشتیبانی می‌کند، state کمینه را پیش از نصب coach پاک می‌کند و در برابر جایگزینی هم‌زمان targetهای پویا با retry دو فریمی و fallback امن مقاوم است.
+- تأییدشده در source: `pnpm check` با ۳۶۳ تست موفق، ۱۳۴ سند/صفر خطا، clean-room برابر ۴۶۹ فایل و build برابر ۲۵۲ ماژول/۴۶ JSON گذشت. استقرار و smoke محیط Test در Evidence جداگانه ثبت می‌شود.
+- مرز: Production، Secret، Provider زنده، هزینه، GitHub/Server، Pilot و عملیات بیرونی تغییر نمی‌کنند.
+
+## ۲۰۲۶-۰۹-۱۴ — Smart Tester 1.0 برای توسعهٔ خود Hero در Test
+
+- افزوده‌شده: یک ابزار مستقل از نقش محصولی `Tester`، با سوئیچ browser-local و پیش‌فرض خاموش. با فعال‌سازی، نشان `✦` به Boxهای قابل‌شناسایی در تمام surfaceهای مشترک Back Office افزوده می‌شود و هر نشان یک پنل شناور، قابل‌بستن و قابل‌انتقال میان دو لبهٔ viewport باز می‌کند؛ پنل در layout صفحه دخالت نمی‌کند.
+- افزوده‌شده: گفت‌وگوی تحلیلگر محلی Hero با context allowlistشدهٔ route، Project Scope، metadata امن پروژه/حافظه و source map curated همان surface. متن سؤال/پاسخ persist نمی‌شود و Provider خارجی، Token یا هزینه‌ای ندارد.
+- افزوده‌شده: «تست این بخش» به‌صورت in-process و بدون side effect، render/UI، نشانهٔ UX، read model/backend و مرز امنیتی را گزارش می‌کند. E2E مرورگر، viewportهای واقعی، Provider، shell، GitHub، سرور و deploy عمداً `not-run` ثبت می‌شوند و از یک کلیک UI اجرا نمی‌گردند.
+- امنیت: endpointهای Smart Tester فقط با نشست انسانی Owner، Origin same-origin و Project Grant خواندنی برای Scope پروژه کار می‌کنند. گزارش transient با شناسهٔ تصادفی، فقط برای همان Owner/Context و حداکثر ۳۰ دقیقه در حافظه نگهداری می‌شود؛ Admin و Viewer دسترسی ندارند.
+- تأییدشده: `npm run check` با ۳۶۲ تست موفق، ۱۳۴ سند/صفر خطا، clean-room برابر ۴۷۰ فایل و build برابر ۲۵۲ ماژول/۴۶ JSON گذشت. Control Plane محیط Test بازسازی شد؛ health، ورود انسانی/MFA، cookie، context، run، گزارش، گفت‌وگو و revoke نشست Smart Tester با موفقیت smoke شدند.
+- مرز: فقط محیط Test تغییر کرد. Production، Secret، Provider زنده، هزینه، GitHub، سرور، Pilot و عملیات بیرونی تغییری نکردند.
+
+## ۲۰۲۶-۰۹-۱۴ — Walk-Through 1.6.1: اتصال مجدد هدف پویا و مسیر canonical اتصال‌های AI
+
+- اصلاح‌شده: coach فعال، بعد از بارگذاری نشست انسانی، تغییر `hidden`/`class` یا بازسازی کارت‌های پویا، فقط وقتی هدف همان گام قابل‌دیدن شد به آن دوباره متصل می‌شود. اتصال قبلیِ جداشده پاک می‌شود و Bubble ثابت در چیدمان صفحه دخالت نمی‌کند.
+- اصلاح‌شده: پس از انتخاب پروژهٔ موجود، گام اختیاری ساخت Draft رد می‌شود؛ اگر Owner پروژهٔ تازه بسازد، state فعال به Intake همان Project منتقل می‌شود.
+- اصلاح‌شده: «اتصال‌های AI» از مسیر canonical `/portfolio?surface=ai#ai` باز می‌شود و `/backoffice?surface=ai` در Control Plane به آن redirect می‌شود. هیچ ناوبری داخلی به مسیر legacy صادر نمی‌شود.
+- مرز: این اصلاح فقط UI/route در Test است؛ Production، Secret، Provider زنده، هزینه، GitHub/Server، Pilot و اجرای بیرونی تغییر نمی‌کنند.
+
+## ۲۰۲۶-۰۹-۱۴ — Walk-Through 1.6: گیت واقعی خروجی و ثبت کاتالوگ AI با نشست انسانی
+
+- اصلاح‌شده: Owner پس از ورود انسانی می‌تواند بدون واردکردن Token قابل‌کپی، metadata نسخه‌دار Provider/Model/Profile/Skill/Policy را ثبت کند؛ Admin فقط Binding یک Profile موجود را در Scope Project Grant خود ثبت می‌کند. مسیر invocation یا Provider زنده از این مجوز عبور نمی‌کند.
+- اصلاح‌شده: راهنما در گام‌های تحقیق تیمی، اجرای زنده، Test/Delivery و Production دیگر «گام بعد» یا «پایان» را به شکل ساختگی فعال نمی‌کند. تا قابلیت اجرایی و Evidence واقعی فراهم نشود، state فعال می‌ماند و blocker با متن روشن نمایش داده می‌شود.
+- تأییدشده در Test: ورود انسانی، MFA، session شش‌ساعته، دریافت گزینه‌های Advisor و پاسخ محلیِ contextual برای `project-vpn` از دامنهٔ عمومی Test در یک session موقت آزموده و revoke شد.
+
+## ۲۰۲۶-۰۹-۱۴ — Walk-Through 1.5: گفت‌وگوی قابل‌مشاهده، انتخاب Profile و کاتالوگ اتصال AI
+
+- اصلاح‌شده: sidecar Test اکنون `/api/*` را به Control Plane proxy می‌کند؛ بنابراین درخواست same-origin مشاورهٔ Walk-Through مانند صفحه‌های Workspace و Identity به پاسخ داخلی می‌رسد و 404 در لایهٔ پراکسی رخ نمی‌دهد.
+- افزوده‌شده: Bubble مشاوره، رشتهٔ گفت‌وگو را نمایش می‌دهد و برای هر Project فقط Profileهای active و Bound شده به همان Project را کنار «راهنمای محلی Hero» فهرست می‌کند. متن گفتگو transient است و هیچ Secret، Prompt یا پاسخ خام در Audit ذخیره نمی‌شود.
+- افزوده‌شده: نمای «اتصال‌های AI» در Back Office، Provider/Model/Profile/Binding، Health ثبت‌شده و مصرف Token/Cost Unit را به تفکیک Provider نشان می‌دهد؛ `not-verified` صریحاً وضعیت سالم تلقی نمی‌شود.
+- مرز: در Test هیچ API Key یا Provider زنده تنظیم نشده و `HERO_ENABLE_REAL_PROVIDERS=false` و External Spend inactive است؛ بنابراین Profile زنده انتخاب‌شده بدون Health، Binding، بودجه و مجوز جداگانه dispatch نمی‌شود.
+
+## ۲۰۲۶-۰۹-۱۴ — Walk-Through 1.4: مشاورهٔ گام‌محور و Bubble بدون تغییر layout
+
+- افزوده‌شده: پنل مستقل «مشاورهٔ AI» از داخل هر گام Walk-Through، با زمینهٔ دقیق گام/فیلدهای راهنما، جابه‌جایی مستقل میان لبهٔ چپ و راست، پاسخ transient و دکمهٔ «پیشنهاد» برای پیش‌پرکردن محدود فیلدهای امن.
+- مرز صداقت: مشاورهٔ این نسخه محلی و deterministic است؛ هیچ Provider خارجی، Model زنده، Token، هزینه، فرمان یا دادهٔ مکالمه‌ای persist نمی‌شود. «پیشنهاد» هرگز Save/Submit/Approve/Deploy انجام نمی‌دهد و فقط Owner/Admin می‌تواند بعد از بازبینی با دکمهٔ خود فرم ثبت کند.
+- اصلاح‌شده: coach دیگر `margin`، اندازه یا جایگاه کارت و فیلد هدف را دستکاری نمی‌کند؛ حذف کامل رزرو margin و observer/handler مربوط به تغییر layout، علت جابه‌جایی یا پرپرزدن کارت‌ها را از ریشه برمی‌دارد. Bubbleها overlay ثابت و isolated هستند و تنها outline غیرهندسی روی بخش هدف می‌گذارند.
+- افزوده‌شده: کمینه‌سازی coach به نشان `H` در لبهٔ انتخاب‌شده و بازگردانی همان گام با کلیک؛ این وضعیت، راهنمای فعال را متوقف یا دادهٔ پروژه را تغییر نمی‌دهد.
+- تأییدشده در source: `npm run check` با ۳۵۵ تست موفق، ۱۳۳ سند/صفر خطا، clean-room ۴۶۷ فایل و build ۲۵۰ module/۴۶ JSON گذشت. Test deployment و smoke در Evidence جداگانه ثبت می‌شود.
+- مرز: Production، Provider زنده، هزینه، Secret، GitHub/Server، Pilot و هر عملیات برگشت‌ناپذیر تغییر نکرده‌اند.
+
+## ۲۰۲۶-۰۹-۱۳ — نشست انسانی پایدار شش‌ساعته در Test
+
+- اصلاح‌شده: پس از MFA، نشست انسانی در cookie میزبان‌محور `Secure`، `HttpOnly` و `SameSite=Strict` با عمر ۶ ساعت ثبت می‌شود؛ Refresh و تب دیگر همان مرورگر بدون ورود دوباره کار می‌کنند.
+- اصلاح‌شده: رابط Identity، Portfolio، Workspace و Walk-Through دیگر token انسانی را در `sessionStorage` نگه نمی‌دارند؛ logout/revoke هم state سرور و cookie را هم‌زمان باطل می‌کند.
+- افزوده‌شده: کنترل Origin برای mutationهای cookie-backed و تست صریح صدور cookie، درخواست تکراری، Basic network boundary و CSRF.
+- تأییدشده: `npm run check` با ۳۵۴ تست موفق، ۱۳۳ سند/صفر خطا، build ۲۵۰ module/۴۶ JSON؛ Test healthy و smoke واقعی cookie/login/revoke موفق بود.
+- مرز: فقط Control Plane Test با digest `sha256:c65354b7f29ced0d9720ecba7b19e62cadb6179cda83b9ed69889e20b470909f` تغییر کرد. Production، Secret، Provider، هزینه و Pilot تغییر نکردند.
+
+## ۲۰۲۶-۰۹-۱۱ — انتخاب اجباری پروژه و VPN Draft در Test
+
+- اصلاح‌شده: پس از ورود انسانی، Portfolio انتخاب‌گر پروژه است و تنها نمای چندپروژه‌ای Hero محسوب می‌شود. مرکز فرمان، Product Studio، Workspace و Operations بدون `projectId` به انتخاب‌گر مقصددار بازمی‌گردند و دادهٔ global یا مخلوط از چند پروژه نمایش نمی‌دهند.
+- اصلاح‌شده: مرکز فرمان از `/portfolio?surface=command&projectId=…` دادهٔ یک Project را می‌خواند؛ Product Studio نیز roadmap، Foundation و metadata امن همان Project را نشان می‌دهد. آزمون integration با VPN و CRM عدم نشت متقابل را کنترل می‌کند.
+- افزوده‌شده: Owner می‌تواند با `expectedVersion` و دلیل ثبت‌شده، Project فعال یا درحال‌بررسی را append-only به Draft بازگرداند؛ Foundation پیشنهادی تازه ایجاد و تاریخچهٔ قبلی حفظ می‌شود.
+- Test: پروژهٔ موجود `project-vpn` با همین مسیر رسمی به `draft` بازگشت و selector، Command، Studio، Workspace، Operations و Identity از دامنهٔ عمومی Test موفق probe شدند.
+- مرز: مسیر دستی legacy خارجی `/backoffice` همچنان پیش از Control Plane توسط gateway خارج از repository با 401 متوقف می‌شود؛ هیچ navigation داخلی از آن استفاده نمی‌کند. Production، Secret، Provider، هزینه و Pilot تغییری نکردند.
+
+## ۲۰۲۶-۰۹-۱۱ — رفع مسیرهای معیوب Test و یکپارچه‌سازی Vazirmatn
+
+- اصلاح‌شده: ناوبری مرکز فرمان از `/backoffice` به alias canonicalِ `/portfolio?surface=command` منتقل شد، زیرا gateway خارجی Test فقط برای مسیر legacy پاسخ Basic Auth ناسازگار می‌داد؛ رمز حساب انسانی و Secretها تغییری نکردند.
+- اصلاح‌شده: Workspace و Operations بدون Scope پروژه اکنون به انتخاب‌گر Portfolio redirect می‌شوند و دیگر `400 PROJECT_ID_REQUIRED` نشان نمی‌دهند.
+- افزوده‌شده: Vazirmatn رسمی با مجوز OFL-1.1 به‌صورت self-hosted برای فارسی و انگلیسی در همهٔ surfaceهای Back Office سرو می‌شود؛ code و شناسه‌های فنی monospace باقی می‌مانند.
+- تأییدشده: build جدید Test با clean-room برابر ۴۶۳ فایل، build برابر ۲۴۸ ماژول/۴۶ JSON و ۳۵۰ تست موفق ساخته و فقط در Test مستقر شد؛ کنترل نهایی source با clean-room ۴۶۴ فایل و probe عمومی مسیر canonical، redirectها و font نیز موفق بود.
+- مرز: Production، credentialها، gateway خارجی، Provider، هزینه و Pilot تغییری نکردند.
+
+## ۲۰۲۶-۰۹-۱۱ — شفاف‌سازی عملی ورود Test پس از بازخورد مالک
+
+- اصلاح‌شده: صفحهٔ منتشرشدهٔ `/identity` اکنون سه Gate مستقل را به‌ترتیب Basic Auth مرورگر، Email/Password حساب انسانی و کد درحال‌تغییر Authenticator توضیح می‌دهد؛ Secret MFA به‌صراحت کد ورود محسوب نمی‌شود.
+- تأییدشده: Control Plane فقط در Test با نسخهٔ تازه بازراه‌اندازی شد؛ مسیر عمومی هر سه Gate، session Owner و revoke نشست تشخیصی بدون افشای رازها موفق بود.
+- مرز: Production، Caddy، Provider، هزینه، Pilot و تغییر Secret جدیدی انجام نشد.
+
+## ۲۰۲۶-۰۹-۱۱ — رفع ورود انسانی Test و راهنمای قابلیت‌ها
+
+- اصلاح‌شده: Human Identity که در Test provision نشده بود، اکنون با Email/Password/MFA RFC 6238 Base32، endpoint امن status و bootstrap پایدار Test فعال است؛ Basic Auth شبکه‌ای موجود rotate نشد.
+- افزوده‌شده: Provision و Smoke سخت‌گیرانهٔ Test با guard محیط، منع Symlink، نوشتن اتمیک، جلوگیری از backup کامل Secret، allowlist origin و revoke Session آزمایشی.
+- افزوده‌شده: راهنمای قابل‌دسترسی `i` برای surfaceهای اصلی Back Office، Portfolio، Product Studio، Workspace، Operations، Safe Lab و Identity، با keyboard/RTL/viewport safety و تست عدم nested interactive control.
+- تأییدشده: `pnpm check` با ۳۴۷ تست موفق، Control Plane/PostgreSQL/Proxy محیط Test healthy، login/MFA پیش و پس از restart موفق و auditهای PostgreSQL ثبت شد.
+- مرز: فقط Test تغییر کرد؛ Production، Caddy، Provider زنده، هزینه، Pilot و recovery delivery تغییر نکردند.
+
+## ۲۰۲۶-۰۹-۱۱ — Promotion ایمن Artifact به Hero Test
+
+- افزوده‌شده: اسکریپت promotion برای فقط `hero-test/control-plane` با digest immutable، backup محیط Test، preflight، بدون build/dependency و smoke test خودکار.
+- افزوده‌شده: اسکریپت read-only برای تطبیق image و `/health`، `/ready`، Workspace و Project Control پس از promotion.
+- مرز: Production، Secret، Provider و Pilot در این ابزارها نام‌برده یا تغییر داده نمی‌شوند.
+
+## ۲۰۲۶-۰۹-۱۱ — Private Object Store و Workspace Console
+
+- افزوده‌شده: Workspace Console با مسیر `/workspace?projectId=…` برای Intake، Foundation، ورودی‌های خصوصی، تنظیمات نسخه‌دار، Policy Pack و rollback؛ همهٔ mutationها همچنان از API هویت انسانی و ProjectGrant می‌گذرند.
+- افزوده‌شده: private object-store متعلق به Hero با کلید مجاز، رد مسیرگریزی، دسترسی‌ندادن به listing و نوشتن اتمی در volume خصوصی Hero.
+- ممیزی: `BO-DAT-001` از `missing` به `partial` ارتقا یافت؛ scanner و parser عملیاتی هنوز گیت باز هستند و این مورد `implemented` اعلام نشده است.
+
+## ۲۰۲۶-۰۹-۱۱ — Project Control Room برای BO-051..150
+
+- مسیرهای read-only و project-scoped `project-control` و `project-control-data` افزوده شدند.
+- Product Studio اکنون برای هر پروژه به نمای واحد Collaboration، Command، Catalog، Intelligence، Inbox، Infrastructure، Delivery، Hardening و Final Readiness deep-link می‌دهد.
+- این تغییر فقط metadata امن را نمایش می‌دهد و هیچ Provider، Secret، هزینه، Production، Pilot یا عملیات بیرونی را فعال نمی‌کند.
+
+## 2026-09-11 — شروع توسعهٔ عمودی Identity و ProjectGrant
+
+- افزوده‌شده: hydration امن User، Grant و Revocation از PostgreSQL؛
+- افزوده‌شده: persistence و audit boundary برای lifecycle هویت بدون ذخیرهٔ Secret خام؛
+- افزوده‌شده: صفحهٔ عملیاتی `/identity` با login/MFA، ایجاد Viewer، Grant، مشاهده/ابطال Grant و logout؛
+- افزوده‌شده: تست‌های hydration، redaction، route protection و Store؛
+- تأییدشده: `pnpm check:docs` با ۱۲۴ سند/۲ محصول/صفر خطا و `pnpm check` با Build برابر ۲۲۵ ماژول/۳۳ JSON و ۳۱۱ تست موفق؛
+- مرز: MFA enrollment/rotation اعضا، recovery delivery، آزمون runtime سه‌نقشی و Production همچنان جداگانه gated هستند.
+
+## 2026-09-11 — اصلاح معنای «تکمیل ۱۷۰ گام» و ایجاد ممیزی جاری
+
+- روشن‌شده: Evidenceهای Batch وجود artifact و نتیجهٔ تست داخلی را نشان می‌دهند و به‌تنهایی معادل قابلیت کامل و قابل‌استفاده نیستند؛
+- ثبت‌شده: رجیستری ماشینی همهٔ `BO-001..BO-170` با پوشش بدون شکاف و وضعیت‌های `verified / partial / gated / owner_pending / deferred`؛
+- نتیجهٔ ممیزی: ۲۰ verified، ۱۲۲ partial، ۲۶ gated، یک owner-pending و یک deferred؛ در نتیجه ۱۵۰ گام تا verifiedشدن کامل باز است؛
+- تکمیل‌شده: ممیزی جاری تک‌تک ۸۱ Requirement با نتیجهٔ ۵ implemented، ۷۵ partial و ۱ missing؛ baseline قبلی ۵/۴۳/۳۳ برای تاریخچه حفظ شد؛
+- روشن‌شده: تنها الزام کاملاً missing، private object storage واقعی است؛ ۷۵ مورد partial همچنان تحویل کامل یا verified محسوب نمی‌شوند؛
+- اصلاح‌شده: وضعیت آغاز قدیمی برنامه و Snapshot وضعیت ۲۰۲۶-۰۹-۱۰؛
+- افزوده‌شده: checker و تست fail-closed برای جلوگیری از حذف، تکرار یا بزرگ‌نمایی شمارش گام‌ها و نیازمندی‌ها؛
+- تأییدشده: `pnpm check:docs` با ۱۲۴ سند/۲ محصول/صفر خطا و `pnpm check` با Build برابر ۲۲۳ ماژول/۳۳ JSON و ۳۰۶ تست موفق؛
+- مرز: بدون Secret، Production، Provider، هزینه، پیام بیرونی، عملیات مخرب یا اجرای Pilot.
+
 ## 2026-09-10 — پیاده‌سازی synthetic Pricing Catalog نسخه‌دار
 
 - افزوده‌شده: قرارداد Catalog برای Provider/Model، نرخ token و request-unit، ارز، منبع رسمی، اعتبار و نسخه؛
@@ -390,3 +604,12 @@
 - افزوده‌شده: guard `HERO_REQUIRE_POSTGRES=true` تا Test بدون PostgreSQL آماده اعلام نشود؛
 - افزوده‌شده: تست تکرارپذیر ممیزی ۵۸ مسیر GET؛
 - artifact ساخته‌شده: `hero-control-plane:candidate-b379109` با digest `sha256:f3105572fed55c3df981bd9016b833d6a0ff1c900228e2bab8e05ba532574520`؛ فقط Test، بدون Production.
+
+# ۲۰۲۶-۰۹-۱۱ — بستهٔ ۲۰ گام Project Workspace و Settings
+
+- افزوده‌شده: خواندن و hydration نسخه‌های append-only پروژه، input metadata، Foundation Proposal، تنظیمات و read-only import plan از PostgreSQL؛
+- افزوده‌شده: اتصال mutationهای Project Workspace و Settings به persistence با actor، reason، impact و rollback reference؛
+- افزوده‌شده: نمای project-scoped در Product Studio برای intake، Foundation، input metadata، settings و import plan بدون نمایش محتوای فایل یا Secret؛
+- افزوده‌شده: تست‌های hydration، store read، HTTP snapshot و حذف محتوای حساس از read model؛
+- شواهد: build لینوکس با ۲۲۵ ماژول و ۳۱۶ تست موفق؛ `check:docs` و `pnpm check` باید روی commit تحویلی دوباره اجرا شوند؛
+- مرز: private object storage، malware scanner/parser واقعی، browser acceptance، Provider، Secret، هزینه، Production و Pilot در این بسته فعال نشده‌اند.

@@ -82,6 +82,7 @@ export {
   AiProviderAdapterError,
   createAnthropicMessagesAdapter,
   createConfiguredAiProviderAdapters,
+  createCursorCloudAgentAdapter,
   createGoogleGeminiAdapter,
   createOpenAiCompatibleAdapter,
   createOpenAiResponsesAdapter
@@ -107,3 +108,8 @@ export {
   NotionAdapterError,
   createNotionApiAdapter
 } from "./notion-api.mjs";
+
+export {
+  HeroSecretStoreError,
+  createHeroSecretStore
+} from "./hero-secret-store.mjs";

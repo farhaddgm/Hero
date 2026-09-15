@@ -6,7 +6,9 @@ import { ProjectAccessError } from "./project-access.mjs";
 const IDENTIFIER = /^[A-Za-z][A-Za-z0-9._:-]{2,127}$/;
 const SESSION_PREFIX = "hero-human-session";
 const LOGIN_CHALLENGE_TTL_SECONDS = 300;
-const SESSION_TTL_SECONDS = 3_600;
+// Human sessions are intentionally long enough for a focused Back Office work
+// session, but remain bounded and independently revocable.
+export const HUMAN_IDENTITY_SESSION_TTL_SECONDS = 6 * 60 * 60;
 const STEP_UP_TTL_SECONDS = 300;
 const RECOVERY_COOLDOWN_SECONDS = 86_400;
 
@@ -52,18 +54,57 @@ function hashPassword(password, salt) {
   return crypto.scryptSync(password, salt, 32).toString("base64url");
 }
 
+function decodeBase32(value) {
+  const encoded = String(value).trim().replace(/[\s-]/g, "").replace(/=+$/g, "").toUpperCase();
+  if (encoded.length < 16 || !/^[A-Z2-7]+$/.test(encoded)) {
+    throw new HumanIdentityError("MFA_SECRET_INVALID", "The Base32 MFA secret is invalid.", 400);
+  }
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  const output = [];
+  let accumulator = 0;
+  let bits = 0;
+  for (const character of encoded) {
+    accumulator = (accumulator << 5) | alphabet.indexOf(character);
+    bits += 5;
+    while (bits >= 8) {
+      bits -= 8;
+      output.push((accumulator >>> bits) & 0xff);
+    }
+    accumulator &= bits === 0 ? 0 : (1 << bits) - 1;
+  }
+  return Buffer.from(output);
+}
+
+function totpKeyCandidates(secret) {
+  const value = String(secret ?? "").trim();
+  if (/^base32:/i.test(value)) return [decodeBase32(value.slice(value.indexOf(":") + 1))];
+  if (/^(?:legacy|legacy-utf8|utf8):/i.test(value)) {
+    const legacy = value.slice(value.indexOf(":") + 1);
+    if (legacy.length < 12) throw new HumanIdentityError("MFA_SECRET_INVALID", "The legacy MFA secret is invalid.", 400);
+    return [Buffer.from(legacy, "utf8")];
+  }
+  if (value.length < 12) throw new HumanIdentityError("MFA_SECRET_INVALID", "The MFA secret is invalid.", 400);
+  const candidates = [Buffer.from(value, "utf8")];
+  const compact = value.replace(/[\s-]/g, "").replace(/=+$/g, "");
+  if (compact.length >= 16 && /^[A-Z2-7]+$/i.test(compact)) candidates.push(decodeBase32(compact));
+  return candidates;
+}
+
+function createTotpCodeForKey(key, epochSeconds) {
+  const buffer = Buffer.alloc(8);
+  buffer.writeBigUInt64BE(BigInt(currentCounter(epochSeconds)));
+  const digest = crypto.createHmac("sha1", key).update(buffer).digest();
+  const offset = digest[digest.length - 1] & 0x0f;
+  const value = ((digest[offset] & 0x7f) << 24) | (digest[offset + 1] << 16) | (digest[offset + 2] << 8) | digest[offset + 3];
+  return String(value % 1_000_000).padStart(6, "0");
+}
+
 function currentCounter(epochSeconds) {
   return Math.floor(epochSeconds / 30);
 }
 
 export function createTotpCode(secret, epochSeconds) {
-  const secretBytes = Buffer.from(String(secret), "utf8");
-  const buffer = Buffer.alloc(8);
-  buffer.writeBigUInt64BE(BigInt(currentCounter(epochSeconds)));
-  const digest = crypto.createHmac("sha1", secretBytes).update(buffer).digest();
-  const offset = digest[digest.length - 1] & 0x0f;
-  const value = ((digest[offset] & 0x7f) << 24) | (digest[offset + 1] << 16) | (digest[offset + 2] << 8) | digest[offset + 3];
-  return String(value % 1_000_000).padStart(6, "0");
+  return createTotpCodeForKey(totpKeyCandidates(secret)[0], epochSeconds);
 }
 
 export class HumanIdentityError extends Error {
@@ -122,28 +163,30 @@ export function createHumanIdentity({
     if (window.count > 10) throw new HumanIdentityError("LOGIN_RATE_LIMITED", "Too many login attempts. Try again later.", 429);
   }
 
-  function addAccount({ actor, userId, email, displayName, password, mfaSecret, mfaRequired, recoveryCodes = [] }, { bootstrapOwner = false } = {}) {
+  function addAccount({ actor, userId, email, displayName, password, passwordHash, passwordSalt, mfaSecret, mfaSecretRef = null, mfaRequired, recoveryCodes = [], status = "active", createdAt = now(), recoveredAt = null, recoveryCooldownUntil = 0 }, { bootstrapOwner = false, hydrate = false } = {}) {
     const normalizedUserId = assertIdentifier("userId", userId);
     const normalizedEmail = normalizeEmail(email);
     if (accounts.has(normalizedUserId) || accountByEmail.has(normalizedEmail)) throw new HumanIdentityError("USER_EXISTS", "A user with this identifier or email already exists.", 409);
     const required = mfaRequired ?? normalizedUserId === ownerUserId;
-    if (required && (typeof mfaSecret !== "string" || mfaSecret.length < 12)) throw new HumanIdentityError("MFA_REQUIRED", "Owner and admin accounts require an MFA secret reference.", 400);
-    const salt = crypto.randomBytes(16).toString("base64url");
+    if (required && !hydrate && (typeof mfaSecret !== "string" || mfaSecret.length < 12)) throw new HumanIdentityError("MFA_REQUIRED", "Owner and admin accounts require an MFA secret reference.", 400);
+    if (typeof mfaSecret === "string") totpKeyCandidates(mfaSecret);
+    const salt = passwordSalt ?? crypto.randomBytes(16).toString("base64url");
     const account = {
       userId: normalizedUserId,
       email: normalizedEmail,
       displayName: String(displayName ?? normalizedUserId).trim().slice(0, 160),
       passwordSalt: salt,
-      passwordHash: hashPassword(assertPassword(password), salt),
+      passwordHash: passwordHash ?? hashPassword(assertPassword(password), salt),
       mfaSecret: mfaSecret ?? null,
+      mfaSecretRef: typeof mfaSecretRef === "string" ? mfaSecretRef.slice(0, 240) : null,
       mfaRequired: Boolean(required),
       recoveryCodeHashes: recoveryCodes.map(code => crypto.createHash("sha256").update(String(code)).digest("hex")),
-      status: "active",
-      createdAt: now(),
-      recoveredAt: null,
-      recoveryCooldownUntil: 0
+      status: status === "disabled" ? "disabled" : "active",
+      createdAt,
+      recoveredAt,
+      recoveryCooldownUntil
     };
-    if (!bootstrapOwner) accessRegistry.createUser({ actor, user: { userId: normalizedUserId, email: normalizedEmail, displayName: account.displayName, role: "viewer" } });
+    if (!bootstrapOwner && !hydrate) accessRegistry.createUser({ actor, user: { userId: normalizedUserId, email: normalizedEmail, displayName: account.displayName, role: "viewer" } });
     accounts.set(normalizedUserId, account);
     accountByEmail.set(normalizedEmail, normalizedUserId);
     return publicAccount(account);
@@ -161,7 +204,7 @@ export function createHumanIdentity({
   function issueSession(account, { mfaAt = epoch(), recoveredAt = account.recoveredAt } = {}) {
     assertConfigured();
     const sessionId = `human-${crypto.randomUUID()}`;
-    const exp = epoch() + SESSION_TTL_SECONDS;
+    const exp = epoch() + HUMAN_IDENTITY_SESSION_TTL_SECONDS;
     const payload = encode({ iss: "hero-human-identity", sub: account.userId, sid: sessionId, role: account.userId === ownerUserId ? "project-owner" : "member", exp, mfaAt, recoveredAt: recoveredAt ?? null, schemaVersion: "1.0" });
     issuedSessions.set(sessionId, { subject: account.userId, expiresAt: exp });
     return `${SESSION_PREFIX}.${payload}.${sign(secret, payload)}`;
@@ -171,7 +214,9 @@ export function createHumanIdentity({
     if (!account.mfaSecret) return !account.mfaRequired;
     if (typeof code !== "string" || !/^\d{6}$/.test(code)) return false;
     const current = epoch();
-    return [-30, 0, 30].some(offset => same(createTotpCode(account.mfaSecret, current + offset), code));
+    return totpKeyCandidates(account.mfaSecret).some(key =>
+      [-30, 0, 30].some(offset => same(createTotpCodeForKey(key, current + offset), code))
+    );
   }
 
   return Object.freeze({
@@ -179,6 +224,19 @@ export function createHumanIdentity({
     createUser({ actor, user }) {
       if (actor?.role !== "project-owner") throw new ProjectAccessError("OWNER_REQUIRED", "Only the owner may invite a user.", 403);
       return addAccount({ actor, ...user });
+    },
+    hydrateUser({ user }) {
+      if (!user || user.userId === ownerUserId || accounts.has(user.userId)) return this.getUser(user?.userId);
+      return addAccount({ ...user, passwordHash: user.passwordHash, passwordSalt: user.passwordSalt, mfaSecret: null, mfaSecretRef: user.mfaSecretRef, mfaRequired: user.mfaRequired, status: user.status }, { hydrate: true });
+    },
+    persistenceRecord({ userId }) {
+      const account = accounts.get(assertIdentifier("userId", userId));
+      if (!account) throw new HumanIdentityError("USER_NOT_FOUND", "User does not exist.", 404);
+      return copy({ userId: account.userId, email: account.email, displayName: account.displayName, passwordHash: account.passwordHash, passwordSalt: account.passwordSalt, mfaSecretRef: account.mfaSecretRef, mfaRequired: account.mfaRequired, status: account.status, createdAt: account.createdAt });
+    },
+    listUsers({ actor }) {
+      if (actor?.role !== "project-owner") throw new ProjectAccessError("OWNER_REQUIRED", "Only the owner may list users.", 403);
+      return Object.freeze([...accounts.values()].map(publicAccount));
     },
     setMfaRequired({ actor, userId, required = true, mfaSecret }) {
       if (actor?.role !== "project-owner") throw new ProjectAccessError("OWNER_REQUIRED", "Only the owner may change MFA policy.", 403);
@@ -238,6 +296,11 @@ export function createHumanIdentity({
       revokedSessions.set(normalizedSessionId, record);
       return record;
     },
+    restoreRevocations(records = []) {
+      for (const record of records) {
+        if (record?.sessionId && record?.userId) revokedSessions.set(record.sessionId, copy({ sessionId: record.sessionId, subject: record.userId, reason: String(record.reason ?? "restored").slice(0, 240), revokedAt: record.revokedAt ?? now() }));
+      }
+    },
     requestOwnerRecovery({ email }) {
       const account = activeAccountByEmail(email);
       if (account?.userId === ownerUserId) {
@@ -272,7 +335,7 @@ export function createHumanIdentity({
       return copy({ token, principal: this.authenticate(`Bearer ${token}`) });
     },
     assertSensitiveActionAllowed({ principal, action }) {
-      if (!["secret.reveal", "project.production.request"].includes(action)) return true;
+      if (!["secret.reveal", "secret.write", "project.production.request"].includes(action)) return true;
       const account = accounts.get(principal?.subject);
       if (!account) throw new HumanIdentityError("IDENTITY_AUTH_INVALID", "Human authentication is invalid.", 401);
       if (!Number.isInteger(principal.mfaAt) || epoch() - principal.mfaAt > STEP_UP_TTL_SECONDS) throw new HumanIdentityError("STEP_UP_REQUIRED", "Recent MFA verification is required.", 403);

@@ -61,6 +61,7 @@ const PROJECT_WORKSPACE_TABLES = Object.freeze([
   "project_setting_versions",
   "project_import_plans"
 ]);
+const SMART_TESTER_TABLES = Object.freeze(["smart_tester_error_documents"]);
 const COLLABORATION_COMMAND_CATALOG_TABLES = Object.freeze(["collaboration_records", "command_decision_records", "approval_records", "system_catalog_entities", "system_catalog_dependencies"]);
 const INTELLIGENCE_NOTIFICATION_TABLES = Object.freeze(["usage_events", "evaluation_records", "health_records", "notification_records", "observability_audit_records", "catalog_drift_proposals"]);
 const DELIVERY_HARDENING_READINESS_TABLES = Object.freeze(["infrastructure_control_records", "delivery_control_records", "hardening_control_records", "final_readiness_records"]);
@@ -77,6 +78,7 @@ export const POSTGRES_TABLES = Object.freeze([
   ...BACKOFFICE_FOUNDATION_TABLES,
   ...PROJECT_IDENTITY_TABLES,
   ...PROJECT_WORKSPACE_TABLES,
+  ...SMART_TESTER_TABLES,
   ...COLLABORATION_COMMAND_CATALOG_TABLES,
   ...INTELLIGENCE_NOTIFICATION_TABLES,
   ...DELIVERY_HARDENING_READINESS_TABLES
@@ -166,6 +168,12 @@ export const POSTGRES_MIGRATIONS = Object.freeze([
     name: "backoffice-delivery-hardening-readiness",
     file: "014_backoffice_delivery_hardening_readiness.sql",
     tables: DELIVERY_HARDENING_READINESS_TABLES
+  }),
+  Object.freeze({
+    id: "015",
+    name: "smart-tester-error-documents",
+    file: "015_smart_tester_error_documents.sql",
+    tables: Object.freeze(["smart_tester_error_documents"])
   })
 ]);
 

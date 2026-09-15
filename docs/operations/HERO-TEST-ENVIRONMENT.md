@@ -33,12 +33,19 @@
 Secret Store یعنی محل امنی که مقدارهای حساس را فقط هنگام اجرای سرویس در اختیار آن می‌گذارد. برای Test این مقدارها لازم‌اند:
 
 - `HERO_OWNER_AUTH_SECRET` برای نشست‌های API؛
+- `HERO_IDENTITY_SESSION_SECRET` برای امضای نشست انسانی؛
+- `HERO_OWNER_EMAIL` و `HERO_OWNER_PASSWORD` برای حساب انسانی مالک؛
+- `HERO_OWNER_MFA_SECRET` با قالب پیشنهادی `base32:<RFC6238-secret>` و `HERO_OWNER_MFA_SECRET_REF` برای MFA مالک؛
 - `HERO_BACKOFFICE_USER` و `HERO_BACKOFFICE_PASSWORD` برای Back Office؛
 - `HERO_BACKOFFICE_PASSWORD_HASH` برای Caddy؛ این مقدار باید با خود Caddy ساخته شود و جایگزین password خام در Caddyfile شود؛
 - `HERO_POSTGRES_PASSWORD` و `HERO_POSTGRES_URL` برای PostgreSQL؛
 - API key Provider فقط اگر در آینده با مجوز مستقل فعال شود.
 
 فایل [hero-test.env.example](../../deploy/test/hero-test.env.example) فقط نام تنظیمات را دارد. مقدار واقعی نباید در Git، Google Sheet، log، ticket یا چت قرار بگیرد. اگر Secret Manager سازمانی نداریم، حداقل باید یک runtime env file خارج از repository با دسترسی فقط برای اپراتور/کاربر سرویس ساخته شود؛ مسیر و مقدار آن در repository ثبت نمی‌شود.
+
+رمز Basic Auth فقط مرز شبکهٔ legacy است و جایگزین حساب انسانی نیست. نشانی رسمی ورود Owner در Test، `/api/portal?surface=identity` است؛ در آن Email، رمز حساب انسانی و TOTP شش‌رقمی لازم است و نباید Username/Password مربوط به Basic در فرم انسانی وارد شود. پیشوند `base32:` روش canonical و سازگار با RFC 6238 است؛ verifier فقط برای جلوگیری از قطع دسترسی Secretهای قدیمی، قالب `legacy-utf8:` و مقادیر legacy بدون پیشوند را نیز می‌پذیرد.
+
+پس از تکمیل MFA، Test یک cookie انسانی `Secure` و `HttpOnly` با اعتبار ۶ ساعت ایجاد می‌کند. این cookie در Refresh و تب دیگر همان مرورگر باقی می‌ماند و JavaScript به مقدارش دسترسی ندارد. خروج از حساب، cookie را پاک و نشست را revoke می‌کند. برای کارکرد cookie باید از دامنهٔ HTTPS رسمی Test استفاده شود؛ Basic Auth شبکه‌ای، نشست انسانی یا مجوز پروژه محسوب نمی‌شود.
 
 ## PostgreSQL جداگانه یعنی چه؟
 
@@ -61,6 +68,14 @@ test.hero.beeproject.ir  A  <IP عمومی همین سرور>
 ۲. یک محیط Secret امن برای Test آماده کند و مقدارهای واقعی را فقط آنجا قرار دهد.
 
 ۳. Caddy همان سرور را با نمونهٔ [Caddyfile.test.example](../../deploy/backoffice/Caddyfile.test.example) تنظیم کند. مقدار `HERO_BACKOFFICE_PASSWORD_HASH` باید در محیط امن خود Caddy قرار گیرد و با ابزار Caddy ساخته شود؛ password خام یا hash در Git نوشته نشود. گواهی TLS باید فقط برای همین نام صادر شود و پورت `43101` و PostgreSQL عمومی نشوند.
+
+پس از انتشار هر صفحهٔ جدید Back Office، Caddy فعال نیز باید از همین allow-list به‌روز پیروی کند. در نسخهٔ فعلی مسیرهای `/identity`، `/workspace`، `/project-control` و `/project-control-data` باید مانند `/product-studio` پشت Basic Auth به `127.0.0.1:43101` proxy شوند؛ سپس پیش از reload، validate الزامی است.
+
+### Caddy sidecar داخلی Test
+
+Compose یک sidecar جدا با نام `hero-test-backoffice-proxy-1` دارد که فقط روی شبکهٔ خصوصی Hero اجرا می‌شود. الگوی آن در [Caddyfile.test-sidecar.example](../../deploy/backoffice/Caddyfile.test-sidecar.example) است؛ فایل rendered فقط در `/etc/hero/caddy-test/Caddyfile` قرار می‌گیرد و نباید به Git افزوده شود. این sidecar باید همان allow-list صفحه‌های Back Office و `Cache-Control: no-store` را داشته باشد.
+
+اگر فایل bind-mounted Caddy با ابزاری مانند `sed -i` جایگزین شد، ممکن است container در حال اجرا inode قدیمی را نگه دارد. در این حالت، بدون recreate کردن سرویس، فایل جدید را ابتدا در یک مسیر موقت داخل همان container کپی کنید، با `caddy validate --adapter caddyfile` بررسی کنید و فقط در صورت موفقیت با `caddy reload --adapter caddyfile` load کنید. برای Test، Caddy بیرونی و sidecar داخلی هر دو باید این بررسی را جداگانه بگذرانند.
 
 ۴. دسترسی اپراتوری Docker/Compose را در همان سرور فراهم کند؛ بدون ارسال credential در چت.
 
@@ -126,3 +141,21 @@ pnpm check:environment-parity
 این فرمان runtime یا Secret را نمی‌خواند و جایگزین Evidence استقرار نیست. پس از ساخت candidate، باید digest همان Artifact در Test ثبت و فقط همان digest با مجوز مستقل به Production promote شود.
 
 برای جلوگیری از rebuild ناخواسته، `HERO_IMAGE` در فایل runtime باید به digest کامل image candidate اشاره کند، مانند `ghcr.io/<owner>/<repo>@sha256:<digest>`. در Production از `docker compose pull` و سپس `docker compose up -d --no-build` استفاده شود؛ اجرای `up --build` در Production ممنوع است.
+
+## Promotion کنترل‌شدهٔ Test
+
+برای تغییر Test از artifact قدیمی به artifact immutable جدید، فقط ابزار زیر مجاز است. ابزار از environment Test backup می‌گیرد، فقط `hero-test/control-plane` را recreate می‌کند، dependencyها را تغییر نمی‌دهد، build نمی‌کند و health/readiness/routeهای جدید را بررسی می‌کند:
+
+```bash
+sudo bash /opt/hero/tools/promote-test-immutable.sh \
+  ghcr.io/farhaddgm/hero@sha256:<immutable-digest>
+```
+
+برای بررسی read-only بعد از promotion:
+
+```bash
+sudo bash /opt/hero/tools/verify-test-release.sh \
+  ghcr.io/farhaddgm/hero@sha256:<immutable-digest>
+```
+
+این ابزار هرگز environment یا container با نام Production را نمی‌خواند یا تغییر نمی‌دهد. فایل backup Test را برای rollback نگه می‌دارد.

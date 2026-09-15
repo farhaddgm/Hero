@@ -1,0 +1,175 @@
+{
+  "schema_version": "1.0.0",
+  "source_of_truth": "Git view plan + Hero data sources; Notion stores the projection",
+  "managed_name_prefix": "Hero —",
+  "database_views": [
+    {
+      "id": "products-gallery",
+      "database": "products",
+      "name": "Hero — Portfolio Gallery",
+      "type": "gallery",
+      "configuration": {"type": "gallery", "properties": [{"property_id": "Status", "visible": true}, {"property_id": "Lifecycle Stage", "visible": true}, {"property_id": "Completeness Status", "visible": true}, {"property_id": "Completeness Score", "visible": true}], "cover": {"type": "page_content"}, "cover_size": "medium", "card_layout": "list"},
+      "sorts": [{"property": "Name", "direction": "ascending"}]
+    },
+    {
+      "id": "products-completeness-chart",
+      "database": "products",
+      "name": "Hero — Product Completeness",
+      "type": "chart",
+      "configuration": {"type": "chart", "chart_type": "bar", "x_axis": {"type": "title", "property_id": "Name", "group_by": "exact", "sort": {"type": "ascending"}}, "y_axis": {"aggregator": "sum", "property_id": "Completeness Score"}, "color_theme": "blue", "color_by_value": true, "show_data_labels": true, "height": "medium", "axis_labels": "both", "grid_lines": "horizontal", "caption": "امتیاز کامل‌بودن هر محصول از منبع canonical Hero"}
+    },
+    {
+      "id": "initiatives-board",
+      "database": "initiatives",
+      "name": "Hero — Initiatives Board",
+      "type": "board",
+      "configuration": {"type": "board", "group_by": {"type": "select", "property_id": "Status", "sort": {"type": "manual"}, "hide_empty_groups": false}, "properties": [{"property_id": "Objective", "visible": true}, {"property_id": "Owner", "visible": true}, {"property_id": "Evidence", "visible": true}], "card_layout": "compact"},
+      "quick_filters": {"Status": {"select": {"equals": "active"}}}
+    },
+    {
+      "id": "roadmap-board",
+      "database": "roadmap-items",
+      "name": "Hero — Roadmap Board",
+      "type": "board",
+      "configuration": {"type": "board", "group_by": {"type": "select", "property_id": "Status", "sort": {"type": "manual"}, "hide_empty_groups": false}, "properties": [{"property_id": "Order", "visible": true}, {"property_id": "Next Action", "visible": true}, {"property_id": "Owner", "visible": true}], "card_layout": "list"},
+      "sorts": [{"property": "Order", "direction": "ascending"}]
+    },
+    {
+      "id": "roadmap-calendar",
+      "database": "roadmap-items",
+      "name": "Hero — Roadmap Calendar",
+      "type": "calendar",
+      "configuration": {"type": "calendar", "date_property_id": "Start", "properties": [{"property_id": "Order", "visible": true}, {"property_id": "Status", "visible": true}, {"property_id": "Next Action", "visible": true}], "view_range": "month", "show_weekends": true},
+      "note": "تا زمانی که Start در roadmap canonical پر نشود، این View عمداً خالی می‌ماند."
+    },
+    {
+      "id": "roadmap-timeline",
+      "database": "roadmap-items",
+      "name": "Hero — Roadmap Timeline",
+      "type": "timeline",
+      "configuration": {"type": "timeline", "date_property_id": "Start", "end_date_property_id": "End", "show_table": true, "preference": {"zoom_level": "month"}, "color_by": true}
+    },
+    {
+      "id": "roadmap-status-chart",
+      "database": "roadmap-items",
+      "name": "Hero — Roadmap Status Chart",
+      "type": "chart",
+      "configuration": {"type": "chart", "chart_type": "donut", "x_axis": {"type": "select", "property_id": "Status", "sort": {"type": "manual"}}, "y_axis": {"aggregator": "count"}, "donut_labels": "name_and_value", "color_theme": "colorful", "height": "medium", "show_data_labels": true, "caption": "توزیع وضعیت آیتم‌های رودمپ"}
+    },
+    {
+      "id": "work-items-board",
+      "database": "work-items",
+      "name": "Hero — Work Items Board",
+      "type": "board",
+      "configuration": {"type": "board", "group_by": {"type": "select", "property_id": "Status", "sort": {"type": "manual"}, "hide_empty_groups": false}, "properties": [{"property_id": "Priority", "visible": true}, {"property_id": "Roadmap Item", "visible": true}, {"property_id": "Next Action", "visible": true}], "card_layout": "list"},
+      "sorts": [{"property": "Priority", "direction": "ascending"}]
+    },
+    {
+      "id": "work-items-calendar",
+      "database": "work-items",
+      "name": "Hero — Work Items Calendar",
+      "type": "calendar",
+      "configuration": {"type": "calendar", "date_property_id": "Start", "properties": [{"property_id": "Priority", "visible": true}, {"property_id": "Status", "visible": true}, {"property_id": "Owner", "visible": true}], "view_range": "month", "show_weekends": true}
+    },
+    {
+      "id": "work-items-timeline",
+      "database": "work-items",
+      "name": "Hero — Work Items Timeline",
+      "type": "timeline",
+      "configuration": {"type": "timeline", "date_property_id": "Start", "end_date_property_id": "End", "show_table": true, "preference": {"zoom_level": "month"}, "color_by": true}
+    },
+    {
+      "id": "tasks-board",
+      "database": "tasks",
+      "name": "Hero — Task Board",
+      "type": "board",
+      "configuration": {"type": "board", "group_by": {"type": "select", "property_id": "Status", "sort": {"type": "manual"}, "hide_empty_groups": false}, "properties": [{"property_id": "Priority", "visible": true}, {"property_id": "Roadmap Item", "visible": true}, {"property_id": "Next Action", "visible": true}, {"property_id": "Owner", "visible": true}], "card_layout": "list"},
+      "sorts": [{"property": "Priority", "direction": "ascending"}],
+      "quick_filters": {"Status": {"select": {"equals": "active"}}}
+    },
+    {
+      "id": "tasks-calendar",
+      "database": "tasks",
+      "name": "Hero — Task Calendar",
+      "type": "calendar",
+      "configuration": {"type": "calendar", "date_property_id": "Due Date", "properties": [{"property_id": "Priority", "visible": true}, {"property_id": "Status", "visible": true}, {"property_id": "Owner", "visible": true}], "view_range": "month", "show_weekends": true},
+      "note": "Due Date یک فیلد برنامه‌ریزی است و تا تعیین تاریخ واقعی توسط مالک خالی می‌ماند."
+    },
+    {
+      "id": "tasks-timeline",
+      "database": "tasks",
+      "name": "Hero — Task Timeline",
+      "type": "timeline",
+      "configuration": {"type": "timeline", "date_property_id": "Start", "end_date_property_id": "End", "show_table": true, "preference": {"zoom_level": "week"}, "color_by": true}
+    },
+    {
+      "id": "tasks-status-chart",
+      "database": "tasks",
+      "name": "Hero — Task Status Chart",
+      "type": "chart",
+      "configuration": {"type": "chart", "chart_type": "donut", "x_axis": {"type": "select", "property_id": "Status", "sort": {"type": "manual"}}, "y_axis": {"aggregator": "count"}, "donut_labels": "name_and_value", "color_theme": "colorful", "height": "medium", "show_data_labels": true, "caption": "توزیع وضعیت Taskها"}
+    },
+    {
+      "id": "documents-type-chart",
+      "database": "documents",
+      "name": "Hero — Documents by Type",
+      "type": "chart",
+      "configuration": {"type": "chart", "chart_type": "bar", "x_axis": {"type": "select", "property_id": "Type", "sort": {"type": "manual"}}, "y_axis": {"aggregator": "count"}, "color_theme": "teal", "height": "medium", "show_data_labels": true, "caption": "تعداد اسناد canonical به تفکیک نوع"}
+    },
+    {
+      "id": "sync-conflicts-number",
+      "database": "sync-health",
+      "name": "Hero — Sync Conflicts",
+      "type": "chart",
+      "configuration": {"type": "chart", "chart_type": "number", "value": {"aggregator": "sum", "property_id": "Conflicts"}, "color_theme": "red", "height": "medium", "hide_title": false, "caption": "باید همیشه صفر باشد"}
+    },
+    {
+      "id": "sync-in-sync-number",
+      "database": "sync-health",
+      "name": "Hero — Documents In Sync",
+      "type": "chart",
+      "configuration": {"type": "chart", "chart_type": "number", "value": {"aggregator": "sum", "property_id": "In Sync"}, "color_theme": "green", "height": "medium", "hide_title": false}
+    }
+  ],
+  "dashboards": [
+    {
+      "id": "executive",
+      "parent_section": "control-center",
+      "anchor_database": "products",
+      "name": "Hero — Executive Dashboard",
+      "widgets": [
+        {"id": "portfolio", "database": "products", "name": "Portfolio", "type": "gallery", "configuration": {"type": "gallery", "properties": [{"property_id": "Status", "visible": true}, {"property_id": "Completeness Status", "visible": true}, {"property_id": "Completeness Score", "visible": true}], "card_layout": "list"}, "row": 0},
+        {"id": "roadmap-board", "database": "roadmap-items", "name": "Roadmap by status", "type": "board", "configuration": {"type": "board", "group_by": {"type": "select", "property_id": "Status", "sort": {"type": "manual"}, "hide_empty_groups": false}, "card_layout": "compact"}, "row": 1},
+        {"id": "roadmap-chart", "database": "roadmap-items", "name": "Roadmap status", "type": "chart", "configuration": {"type": "chart", "chart_type": "donut", "x_axis": {"type": "select", "property_id": "Status", "sort": {"type": "manual"}}, "y_axis": {"aggregator": "count"}, "donut_labels": "name_and_value", "color_theme": "colorful", "height": "medium"}, "row": 1},
+        {"id": "tasks-board", "database": "tasks", "name": "Active task board", "type": "board", "filter": {"property": "Status", "select": {"equals": "active"}}, "configuration": {"type": "board", "group_by": {"type": "select", "property_id": "Status", "sort": {"type": "manual"}, "hide_empty_groups": false}, "card_layout": "compact"}, "row": 2},
+        {"id": "completeness", "database": "products", "name": "Product completeness", "type": "chart", "configuration": {"type": "chart", "chart_type": "bar", "x_axis": {"type": "title", "property_id": "Name", "group_by": "exact", "sort": {"type": "ascending"}}, "y_axis": {"aggregator": "sum", "property_id": "Completeness Score"}, "color_theme": "blue", "show_data_labels": true, "height": "medium"}, "row": 2},
+        {"id": "sync-conflicts", "database": "sync-health", "name": "Sync conflicts", "type": "chart", "configuration": {"type": "chart", "chart_type": "number", "value": {"aggregator": "sum", "property_id": "Conflicts"}, "color_theme": "red", "height": "medium", "caption": "باید صفر باشد"}, "row": 3},
+        {"id": "docs-in-sync", "database": "sync-health", "name": "Documents in sync", "type": "chart", "configuration": {"type": "chart", "chart_type": "number", "value": {"aggregator": "sum", "property_id": "In Sync"}, "color_theme": "green", "height": "medium"}, "row": 3}
+      ]
+    },
+    {
+      "id": "roadmap",
+      "parent_section": "hero-product",
+      "anchor_database": "roadmap-items",
+      "name": "Hero — Roadmap Dashboard",
+      "widgets": [
+        {"id": "board", "database": "roadmap-items", "name": "Roadmap board", "type": "board", "configuration": {"type": "board", "group_by": {"type": "select", "property_id": "Status", "sort": {"type": "manual"}, "hide_empty_groups": false}, "card_layout": "list"}, "row": 0},
+        {"id": "calendar", "database": "roadmap-items", "name": "Roadmap calendar", "type": "calendar", "configuration": {"type": "calendar", "date_property_id": "Start", "view_range": "month", "show_weekends": true}, "row": 1},
+        {"id": "timeline", "database": "roadmap-items", "name": "Roadmap timeline", "type": "timeline", "configuration": {"type": "timeline", "date_property_id": "Start", "end_date_property_id": "End", "show_table": true, "preference": {"zoom_level": "month"}}, "row": 2},
+        {"id": "status-chart", "database": "roadmap-items", "name": "Roadmap status chart", "type": "chart", "configuration": {"type": "chart", "chart_type": "donut", "x_axis": {"type": "select", "property_id": "Status", "sort": {"type": "manual"}}, "y_axis": {"aggregator": "count"}, "donut_labels": "name_and_value", "color_theme": "colorful", "height": "medium"}, "row": 3}
+      ]
+    },
+    {
+      "id": "delivery",
+      "parent_section": "execution-management",
+      "anchor_database": "tasks",
+      "name": "Hero — Delivery Dashboard",
+      "widgets": [
+        {"id": "board", "database": "tasks", "name": "Task board", "type": "board", "configuration": {"type": "board", "group_by": {"type": "select", "property_id": "Status", "sort": {"type": "manual"}, "hide_empty_groups": false}, "card_layout": "list"}, "row": 0},
+        {"id": "calendar", "database": "tasks", "name": "Task calendar", "type": "calendar", "configuration": {"type": "calendar", "date_property_id": "Due Date", "view_range": "month", "show_weekends": true}, "row": 1},
+        {"id": "timeline", "database": "tasks", "name": "Task timeline", "type": "timeline", "configuration": {"type": "timeline", "date_property_id": "Start", "end_date_property_id": "End", "show_table": true, "preference": {"zoom_level": "week"}}, "row": 2},
+        {"id": "status-chart", "database": "tasks", "name": "Task status chart", "type": "chart", "configuration": {"type": "chart", "chart_type": "donut", "x_axis": {"type": "select", "property_id": "Status", "sort": {"type": "manual"}}, "y_axis": {"aggregator": "count"}, "donut_labels": "name_and_value", "color_theme": "colorful", "height": "medium"}, "row": 3}
+      ]
+    }
+  ]
+}

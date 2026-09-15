@@ -66,6 +66,9 @@ function inspectEnvironment(errors) {
   const { files } = walk();
   const examples = files.filter(file => relativeName(file).endsWith(".env.example"));
   const sensitiveKey = /(?:PASSWORD|SECRET|TOKEN|API_KEY|PRIVATE_KEY|CREDENTIAL)/i;
+  // These two names contain SECRET for clarity but are non-sensitive switches
+  // and paths. The master key itself remains sensitive and must stay empty.
+  const safeSecretStoreExampleKeys = new Set(["HERO_SECRET_STORE_ENABLED", "HERO_SECRET_STORE_DIR"]);
 
   for (const envFile of examples) {
     const name = relativeName(envFile);
@@ -76,7 +79,7 @@ function inspectEnvironment(errors) {
       const key = (separator === -1 ? trimmed : trimmed.slice(0, separator)).trim();
       const value = separator === -1 ? "" : trimmed.slice(separator + 1).trim();
       if (!key.startsWith("HERO_")) addError(errors, "UNSCOPED_ENV_KEY", name + ":" + (index + 1) + ":" + key);
-      if (sensitiveKey.test(key) && value !== "") {
+      if (sensitiveKey.test(key) && !safeSecretStoreExampleKeys.has(key) && value !== "") {
         addError(errors, "SECRET_VALUE_IN_ENV_EXAMPLE", name + ":" + (index + 1) + ":" + key);
       }
     }

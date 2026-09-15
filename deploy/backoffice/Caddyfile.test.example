@@ -5,6 +5,7 @@ test.hero.beeproject.ir {
     encode gzip
 
     header {
+        Cache-Control "no-store"
         X-Robots-Tag "noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate"
         X-Content-Type-Options "nosniff"
         Referrer-Policy "no-referrer"
@@ -12,7 +13,9 @@ test.hero.beeproject.ir {
         -Server
     }
 
-    @backoffice path /backoffice /backoffice-data /backoffice-events /robots.txt
+    # Every browser page is explicitly allow-listed. API routes stay behind the
+    # application's human-session authorization, not Caddy Basic Auth alone.
+    @backoffice path /backoffice /backoffice-data /backoffice-events /identity /product-studio /product-studio-data /product-studio-document /portfolio /portfolio-data /project-control /project-control-data /workspace /walkthrough /robots.txt
     handle @backoffice {
         basic_auth {
             {$HERO_BACKOFFICE_USER} {$HERO_BACKOFFICE_PASSWORD_HASH}
@@ -27,5 +30,5 @@ test.hero.beeproject.ir {
         reverse_proxy 127.0.0.1:43101
     }
 
-    respond 404 "not found" 404
+    respond "not found" 404
 }

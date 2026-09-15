@@ -61,7 +61,8 @@ export function createProjectAccessRegistry({ ownerUserId = "hero-owner", ownerU
     assertRole(role);
     if (role === "project-owner" && (!allowOwner || userId !== ownerUserId)) throw new ProjectAccessError("OWNER_IMMUTABLE", "Only the configured owner may have the owner role.", 403);
     if (userById.has(userId) || userIdByEmail.has(email)) throw new ProjectAccessError("USER_EXISTS", "A user with this identifier or email already exists.", 409);
-    const user = copy({ userId, email, displayName: String(input?.displayName ?? userId).trim().slice(0, 160), role, status: "active", createdAt: input?.createdAt ?? now() });
+    const status = input?.status === "disabled" ? "disabled" : "active";
+    const user = copy({ userId, email, displayName: String(input?.displayName ?? userId).trim().slice(0, 160), role, status, createdAt: input?.createdAt ?? now() });
     userById.set(userId, user);
     userIdByEmail.set(email, userId);
     return user;
@@ -92,6 +93,7 @@ export function createProjectAccessRegistry({ ownerUserId = "hero-owner", ownerU
   function principalRole(principal, projectId) {
     if (!principal || typeof principal.subject !== "string") return null;
     if (principal.role === "project-owner" && principal.subject === ownerUserId) return "project-owner";
+    if (userById.get(principal.subject)?.status !== "active") return null;
     const grant = grantsByKey.get(grantKey(projectId, principal.subject));
     return grant?.status === "active" ? grant.role : null;
   }
@@ -111,6 +113,10 @@ export function createProjectAccessRegistry({ ownerUserId = "hero-owner", ownerU
       assertOwner(actor);
       return addUser(user);
     },
+    hydrateUser({ user }) {
+      if (!user || user.userId === ownerUserId || userById.has(user.userId)) return userById.get(user?.userId) ? copy(userById.get(user.userId)) : null;
+      return addUser(user);
+    },
     findUserByEmail(email) {
       const userId = userIdByEmail.get(normalizeEmail(email));
       return userId ? copy(userById.get(userId)) : null;
@@ -124,6 +130,14 @@ export function createProjectAccessRegistry({ ownerUserId = "hero-owner", ownerU
     },
     upsertGrant({ actor, grant }) {
       return writeGrant(grant, { actor });
+    },
+    hydrateGrant({ grant }) {
+      const projectId = assertIdentifier("projectId", grant?.projectId);
+      const userId = assertIdentifier("userId", grant?.userId);
+      const role = assertRole(grant?.role);
+      if (role === "project-owner" || !userById.has(userId)) throw new ProjectAccessError("GRANT_INVALID", "A hydrated grant is invalid.", 400);
+      grantsByKey.set(grantKey(projectId, userId), copy({ projectId, userId, role, status: grant.status === "revoked" ? "revoked" : "active", version: Number(grant.version) || 1, grantedAt: grant.grantedAt ?? now(), grantedBy: grant.grantedBy ?? ownerUserId, revokedAt: grant.revokedAt ?? null, revokedBy: grant.revokedBy ?? null }));
+      return copy(grantsByKey.get(grantKey(projectId, userId)));
     },
     revokeGrant({ actor, projectId, userId }) {
       assertOwner(actor);

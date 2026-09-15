@@ -1,0 +1,39 @@
+{
+  "schema": "hero.authorization-snapshot/v1",
+  "authorizationId": "NOTION-PRODUCT-SYSTEM-CONFLICT-FOLLOWUP-20260911-001",
+  "status": "active",
+  "grantedBy": "project-owner",
+  "grantedAt": "2026-09-11",
+  "grantSource": "owner-instruction-to-complete-all-remaining-notion-tasks",
+  "validUntil": "owner-revocation",
+  "globalStop": false,
+  "operations": ["read", "notion-write", "conflict-resolution"],
+  "excludedOperations": [
+    "notion-page-create",
+    "notion-page-delete",
+    "notion-page-archive",
+    "production-deploy",
+    "destructive-data-operation",
+    "external-spend",
+    "secret-change",
+    "external-message",
+    "irreversible-operation",
+    "github-write"
+  ],
+  "documents": [
+    { "documentId": "HERO-EVIDENCE-BACKOFFICE-FOUNDATION-BO-011-020", "documentVersion": "1.0.1" },
+    { "documentId": "HERO-EVIDENCE-BACKOFFICE-IDENTITY-BO-021-030", "documentVersion": "1.0.2" },
+    { "documentId": "HERO-OPS-NOTION-SETUP", "documentVersion": "1.0.0" }
+  ],
+  "steps": [{ "stepId": "NOTION-PRODUCT-SYSTEM-CONFLICT-FOLLOWUP", "documentVersion": "1.0.0" }],
+  "scope": {
+    "mode": "git-canonical-overwrite-exact-existing-mapped-pages",
+    "catalogDigest": "02e32a601cc6969400fa8ff5b90217f36ecdbc87c3f205cc45b19e4906ebdd24",
+    "documentIds": [
+      "HERO-EVIDENCE-BACKOFFICE-FOUNDATION-BO-011-020",
+      "HERO-EVIDENCE-BACKOFFICE-IDENTITY-BO-021-030",
+      "HERO-OPS-NOTION-SETUP"
+    ]
+  },
+  "note": "Bounded owner authorization for existing mapped pages only. The operation is limited to canonical Git overwrite and post-write GET/checksum verification."
+}

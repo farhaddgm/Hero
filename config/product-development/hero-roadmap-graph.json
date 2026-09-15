@@ -21,10 +21,10 @@
     {
       "id": "HERO-INIT-CONTROLLED-NOTION",
       "type": "initiative",
-      "status": "planned",
+      "status": "in_progress",
       "title": "نمای Notion کنترل‌شده و قابل‌ویرایش به‌صورت Proposal",
       "product_id": "HERO-PRODUCT-HERO-001",
-      "evidence": ["HERO-OPS-NOTION-SETUP"]
+      "evidence": ["HERO-OPS-NOTION-SETUP", "HERO-OPS-NOTION-SYNC-RUNBOOK"]
     },
     {
       "id": "HERO-CAP-PRODUCT-STUDIO",
@@ -37,34 +37,34 @@
     {
       "id": "HERO-CAP-NOTION-MIRROR",
       "type": "capability",
-      "status": "planned",
+      "status": "done",
       "title": "Mirror یک سند allow-listed از Git به Notion",
       "product_id": "HERO-PRODUCT-HERO-001",
-      "evidence": ["HERO-PRODUCT-HERO-BRIEF"]
+      "evidence": ["HERO-OPS-NOTION-SETUP", "HERO-OPS-NOTION-SYNC-RUNBOOK"]
     },
     {
       "id": "HERO-MILESTONE-FIRST-NOTION-SYNC",
       "type": "milestone",
-      "status": "planned",
+      "status": "done",
       "title": "اولین ارسال idempotent به Notion",
       "product_id": "HERO-PRODUCT-HERO-001",
-      "evidence": ["HERO-PRODUCT-HERO-BRIEF"]
+      "evidence": ["HERO-OPS-NOTION-SYNC-RUNBOOK"]
     },
     {
       "id": "HERO-MILESTONE-NOTION-SCHEMA",
       "type": "milestone",
-      "status": "planned",
+      "status": "done",
       "title": "ساخت Blueprint و allowlist رسمی Workspace",
       "product_id": "HERO-PRODUCT-HERO-001",
-      "evidence": []
+      "evidence": ["HERO-OPS-NOTION-SETUP"]
     },
     {
       "id": "HERO-MILESTONE-PILOT-READINESS",
       "type": "milestone",
-      "status": "planned",
+      "status": "done",
       "title": "آمادگی پایلوت چندسندی در محیط Test",
       "product_id": "HERO-PRODUCT-HERO-001",
-      "evidence": []
+      "evidence": ["HERO-OPS-NOTION-SETUP", "HERO-OPS-NOTION-SYNC-RUNBOOK"]
     }
   ],
   "edges": [

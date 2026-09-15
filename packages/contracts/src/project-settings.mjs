@@ -9,7 +9,8 @@ export function getProjectSettingsContractSummary() {
     precedence: [...SETTINGS_LAYERS].reverse(),
     nonWeakenable: ["security.projectIsolation", "security.auditRetention", "security.secretReferencesOnly"],
     conflictMode: "fail-closed",
-    history: "versioned, actor/reason/impact/diff and rollback reference"
+    history: "versioned, actor/reason/impact/diff and rollback reference",
+    persistence: "append-only PostgreSQL records with exact version hydration after restart"
   });
 }
 
