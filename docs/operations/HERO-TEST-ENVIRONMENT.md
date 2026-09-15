@@ -144,11 +144,20 @@ pnpm check:environment-parity
 
 ## Promotion کنترل‌شدهٔ Test
 
-برای تغییر Test از artifact قدیمی به artifact immutable جدید، فقط ابزار زیر مجاز است. ابزار از environment Test backup می‌گیرد، فقط `hero-test/control-plane` را recreate می‌کند، dependencyها را تغییر نمی‌دهد، build نمی‌کند و health/readiness/routeهای جدید را بررسی می‌کند:
+برای تغییر Test از artifact قدیمی به artifact immutable جدید، فقط ابزار زیر مجاز است. ابزار قبل از تغییر، یک rollback point متادیتاییِ بدون Secret می‌سازد، فقط `hero-test/control-plane` را recreate می‌کند، dependencyها را تغییر نمی‌دهد، build نمی‌کند و health/readiness/هویت build/routeهای جدید را بررسی می‌کند. در شکست بعد از تغییر، rollback خودکار تلاش می‌شود. جزئیات علت رخدادهای قبلی و بازیابی در [Runbook پایایی انتشار Test](HERO-TEST-RELEASE-RELIABILITY.md) است:
 
 ```bash
 sudo bash /opt/hero/tools/promote-test-immutable.sh \
   ghcr.io/farhaddgm/hero@sha256:<immutable-digest>
+```
+
+مسیر ترجیحی، استفاده از manifest خروجی GitHub Actions است تا نسخه، commit و digest با هم تطبیق داده شوند:
+
+```bash
+sudo HERO_TEST_ENV_FILE=/etc/hero/hero-test.env \
+  HERO_TEST_RELEASE_STATE_FILE=/etc/hero/hero-test.release-state \
+  bash /opt/hero/tools/promote-test-immutable.sh \
+  --manifest /opt/hero/hero-release-manifest.json
 ```
 
 برای بررسی read-only بعد از promotion:
@@ -158,4 +167,14 @@ sudo bash /opt/hero/tools/verify-test-release.sh \
   ghcr.io/farhaddgm/hero@sha256:<immutable-digest>
 ```
 
-این ابزار هرگز environment یا container با نام Production را نمی‌خواند یا تغییر نمی‌دهد. فایل backup Test را برای rollback نگه می‌دارد.
+برای rollback آخرین promotion موفق:
+
+```bash
+sudo HERO_TEST_ENV_FILE=/etc/hero/hero-test.env \
+  HERO_TEST_RELEASE_STATE_FILE=/etc/hero/hero-test.release-state \
+  bash /opt/hero/tools/rollback-test-immutable.sh
+```
+
+فایل state و rollback point فقط شامل image digest، نسخه، commit، URL release و زمان است؛ فایل کامل env یا هیچ Secretی کپی نمی‌شود. پس از promotion، endpoint عمومیِ بدون Secret `/build-info` باید همان digest را گزارش کند.
+
+این ابزار هرگز environment یا container با نام Production را نمی‌خواند یا تغییر نمی‌دهد؛ فقط rollback point متادیتایی و بدون Secret را نگه می‌دارد.

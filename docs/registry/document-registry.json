@@ -623,6 +623,20 @@
       "review_cadence": "quarterly"
     },
     {
+      "id": "HERO-OPS-HERO-TEST-RELEASE-RELIABILITY",
+      "path": "docs/operations/HERO-TEST-RELEASE-RELIABILITY.md",
+      "title": "پایایی انتشار Hero در محیط Test",
+      "type": "operation",
+      "scope": "hero",
+      "status": "active",
+      "version": "1.0.0",
+      "owner": "hero-operations",
+      "canonical": true,
+      "supersedes": [],
+      "superseded_by": null,
+      "review_cadence": "per-change"
+    },
+    {
       "id": "HERO-OPS-MOVE-TO-ANOTHER-SERVER",
       "path": "docs/operations/MOVE-TO-ANOTHER-SERVER.md",
       "title": "Moving Hero to another server",

@@ -94,6 +94,7 @@ Product ابتدا با owner و Evidence در Product registry ثبت می‌ش
 | `HERO-OPS-EXTERNAL-SPEND-AUTHORIZATION` | `active` | [راهنمای Provider واقعی و مجوز هزینه](operations/EXTERNAL-SPEND-AUTHORIZATION.md) |
 | `HERO-OPS-GITHUB-RELEASE-AUTOMATION` | `active` | [خودکارسازی نسخه و تحویل Hero در GitHub](operations/GITHUB-RELEASE-AUTOMATION.md) |
 | `HERO-OPS-HERO-TEST-ENVIRONMENT` | `active` | [محیط Test برای خود Hero](operations/HERO-TEST-ENVIRONMENT.md) |
+| `HERO-OPS-HERO-TEST-RELEASE-RELIABILITY` | `active` | [پایایی انتشار Hero در محیط Test](operations/HERO-TEST-RELEASE-RELIABILITY.md) |
 | `HERO-OPS-HERO-TEST-AI-SECRET-STORE` | `active` | [راهنمای ثبت امن کلیدهای AI در Hero Test](operations/HERO-TEST-AI-SECRET-STORE.md) |
 | `HERO-OPS-PROJECT-WALKTHROUGH` | `active` | [راهنمای جامع گام‌به‌گام ساخت محصول با Hero](operations/HERO-PROJECT-WALKTHROUGH.md) |
 | `HERO-OPS-SMART-TESTER` | `active` | [اسمارت تستر Back Office Hero](operations/HERO-SMART-TESTER.md) |

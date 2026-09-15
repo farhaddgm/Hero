@@ -358,6 +358,16 @@ export {
 } from "./release.mjs";
 
 export {
+  RELEASE_MANIFEST_SCHEMA,
+  RELEASE_MANIFEST_CONTRACT_VERSION,
+  RELEASE_ARTIFACT_PATTERN,
+  RELEASE_URL_PATTERN,
+  createReleaseManifest,
+  getReleaseManifestContractSummary,
+  validateReleaseManifest
+} from "./release-manifest.mjs";
+
+export {
   OWNER_AUTH_CONTRACT_VERSION,
   OWNER_AUTH_DECISIONS,
   OWNER_AUTH_ROLES,

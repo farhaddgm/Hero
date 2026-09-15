@@ -379,6 +379,9 @@ function readModelAuditResource(pathname) {
 export function createHeroServer(options = {}) {
   const host = options.host ?? process.env.HERO_HTTP_HOST ?? "127.0.0.1";
   const port = parsePort(options.port ?? process.env.HERO_HTTP_PORT ?? "3100");
+  const releaseVersion = options.releaseVersion ?? process.env.HERO_RELEASE_VERSION ?? null;
+  const sourceCommit = options.sourceCommit ?? process.env.HERO_SOURCE_COMMIT ?? null;
+  const imageDigest = options.imageDigest ?? process.env.HERO_IMAGE_DIGEST ?? null;
   const backofficeAuth = basicAuthConfig(options);
   const requirePostgres = options.requirePostgres ?? process.env.HERO_REQUIRE_POSTGRES === "true";
   const backofficeResponseLimitBytes = options.backofficeResponseLimitBytes ?? DEFAULT_BACKOFFICE_RESPONSE_LIMIT_BYTES;
@@ -421,7 +424,7 @@ export function createHeroServer(options = {}) {
   const dashboard = options.dashboard ?? createControlDashboard({ now: options.now, providerAdapters, externalSpendAuthorizer });
   const productDevelopment = options.productDevelopment ?? createProductDevelopmentCatalog({
     root: options.repositoryRoot ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../.."),
-    sourceCommit: options.sourceCommit,
+    sourceCommit,
     now: options.now ?? (() => new Date().toISOString())
   });
   const notionAdapter = options.notionAdapter ?? createNotionApiAdapter();
@@ -1252,7 +1255,12 @@ export function createHeroServer(options = {}) {
 
   async function persistIdentityAudit({ userId = null, eventType, outcome = "accepted", data = {} }) {
     if (!postgresRuntime?.projectIdentity?.recordAudit) return;
-    await postgresRuntime.projectIdentity.recordAudit({ auditId: `identity-audit-${crypto.randomUUID()}`, userId, eventType, outcome, data });
+    try {
+      await postgresRuntime.projectIdentity.recordAudit({ auditId: `identity-audit-${crypto.randomUUID()}`, userId, eventType, outcome, data });
+    } catch (error) {
+      console.error(JSON.stringify({ level: "error", event: "hero.identity-audit-failed", eventType, outcome, hasUserId: Boolean(userId), code: error?.code ?? "IDENTITY_AUDIT_PERSISTENCE_FAILED" }));
+      throw new HeroSecretStoreError("IDENTITY_AUDIT_PERSISTENCE_FAILED", "ثبت ممیزی هویت در PostgreSQL انجام نشد.", 503);
+    }
   }
 
   function identityStatusSnapshot() {
@@ -2619,6 +2627,16 @@ export function createHeroServer(options = {}) {
       });
     }
 
+    if (request.method === "GET" && url.pathname === "/build-info") {
+      return json(response, 200, {
+        service: HERO_SERVICE,
+        releaseVersion,
+        sourceCommit,
+        imageDigest,
+        serviceVersion: HERO_VERSION
+      });
+    }
+
     if (request.method === "GET" && url.pathname === "/ready") {
       if (requirePostgres && !postgresRuntime) {
         return json(response, 503, {
@@ -2788,7 +2806,9 @@ export function createHeroServer(options = {}) {
       }
       const known = error instanceof DashboardCommandError || error instanceof ProductDevelopmentError || error instanceof ProjectAccessError || error instanceof ProjectWorkspaceError || error instanceof ProjectSettingsError || error instanceof CollaborationError || error instanceof CommandCenterError || error instanceof SystemCatalogError || error instanceof PerformanceError || error instanceof NotificationError || error instanceof InfrastructureError || error instanceof DeliveryError || error instanceof HardeningError || error instanceof FinalReadinessError || error instanceof BackofficeCompletionError || error instanceof HeroSecretStoreError;
       const auth = error instanceof OwnerAuthError || error instanceof HumanIdentityError;
-      return json(response, auth ? error.statusCode : known ? (error.statusCode ?? 409) : 500, {
+      const statusCode = auth ? error.statusCode : known ? (error.statusCode ?? error.status ?? 409) : 500;
+      if (statusCode >= 500) console.error(JSON.stringify({ level: "error", event: "hero.request-failed", method: request.method, path: url.pathname, status: statusCode, code: auth || known ? error.code : "INTERNAL_ERROR" }));
+      return json(response, statusCode, {
         service: HERO_SERVICE,
         status: auth ? "authentication_required" : known ? "command_rejected" : "internal_error",
         code: auth || known ? error.code : "INTERNAL_ERROR",

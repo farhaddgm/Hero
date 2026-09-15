@@ -16,8 +16,10 @@ test("PostgreSQL project identity store persists append-only grants and rejects 
   const store = createPostgresProjectIdentityStore({ client });
   const grant = await store.appendGrant({ projectId: "project-vpn", userId: "project-admin", role: "admin", grantedBy: "hero-owner" });
   assert.deepEqual(grant, { projectId: "project-vpn", userId: "project-admin", role: "admin", status: "active", version: 1, grantedBy: "hero-owner", recordedAt: "2026-09-10T12:00:00.000Z" });
+  await store.recordAudit({ auditId: "audit-credential-001", userId: "hero-owner", eventType: "ai.credential-stored", outcome: "accepted", data: { providerId: "openai", version: 1 } });
   await assert.rejects(() => store.recordAudit({ auditId: "audit-001", eventType: "identity.session-issued", outcome: "accepted", data: { password: "never" } }), ProjectIdentityStoreError);
   assert.equal(queries.some(item => item.query.startsWith("INSERT INTO project_grant_versions")), true);
+  assert.equal(queries.some(item => item.query.startsWith("INSERT INTO human_identity_audit")), true);
 });
 
 test("PostgreSQL project identity store restores users, grants and session revocations without raw secrets", async () => {

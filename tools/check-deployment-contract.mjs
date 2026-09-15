@@ -32,6 +32,9 @@ function rejectMatch(source, pattern, message) {
 
 requireMatch(compose, /control-plane:/, "Compose must define the control-plane service.");
 requireMatch(compose, /image:\s*\$\{HERO_IMAGE:-hero-control-plane:local\}/, "The control-plane image must be selectable by immutable HERO_IMAGE at deployment time.");
+requireMatch(compose, /HERO_RELEASE_VERSION:\s*\$\{HERO_RELEASE_VERSION:-\}/, "Release metadata must be injectable without secrets.");
+requireMatch(compose, /HERO_SOURCE_COMMIT:\s*\$\{HERO_SOURCE_COMMIT:-\}/, "Source commit metadata must be injectable without secrets.");
+requireMatch(compose, /HERO_IMAGE_DIGEST:\s*\$\{HERO_IMAGE_DIGEST:-\}/, "Image digest metadata must be injectable without secrets.");
 requireMatch(compose, /hero-postgres:\s*\n\s*profiles:\s*\[\"postgres\"\]/, "PostgreSQL must remain behind the postgres profile.");
 requireMatch(compose, /- \"\$\{HERO_BIND_ADDRESS:-127\.0\.0\.1\}:\$\{HERO_EXPOSE_PORT:-43100\}:3100\"/, "The application port must default to loopback and remain configurable for Test.");
 requireMatch(compose, /hero-data:/, "The application must use the project-scoped hero-data volume.");

@@ -133,6 +133,10 @@ test("PostgreSQL schema contract covers append-only audit and release boundaries
   assert.match(deliveryHardeningSql, /final_readiness_records_append_only_guard/);
   const smartTesterSql = readPostgresMigration("015");
   assert.match(smartTesterSql, /CREATE TABLE IF NOT EXISTS smart_tester_error_documents/);
+  const aiCredentialAuditSql = readPostgresMigration("016");
+  assert.match(aiCredentialAuditSql, /human_identity_audit_event_type_check/);
+  assert.match(aiCredentialAuditSql, /ai\.credential-stored/);
+  assert.match(aiCredentialAuditSql, /ai\.credential-health-checked/);
   assert.match(smartTesterSql, /smart_tester_error_documents_append_only_guard/);
 });
 

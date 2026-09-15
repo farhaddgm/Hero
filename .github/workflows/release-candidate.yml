@@ -1,9 +1,6 @@
 name: Hero Release Candidate
 
 on:
-  push:
-    branches:
-      - codex/hero-001-project-charter
   workflow_dispatch:
     inputs:
       release_version:
@@ -32,8 +29,8 @@ jobs:
       name: test
     timeout-minutes: 20
     env:
-      RELEASE_VERSION: ${{ inputs.release_version || format('0.1.0-rc.{0}', github.run_number) }}
-      RELEASE_NOTES: ${{ inputs.release_notes || format('Automatic test candidate for commit {0}.', github.sha) }}
+      RELEASE_VERSION: ${{ inputs.release_version }}
+      RELEASE_NOTES: ${{ inputs.release_notes || format('Test candidate for commit {0}.', github.sha) }}
     steps:
       - name: Checkout selected revision
         uses: actions/checkout@v4
@@ -59,6 +56,11 @@ jobs:
               process.exit(1);
             }
           '
+
+      - name: Run release preflight
+        env:
+          RELEASE_VERSION: ${{ inputs.release_version }}
+        run: node tools/release-preflight.mjs --version "$RELEASE_VERSION" --commit "$GITHUB_SHA" --environment test --skip-remote
 
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
@@ -88,6 +90,18 @@ jobs:
           printf 'artifact=%s\n' "$ARTIFACT" >> "$GITHUB_OUTPUT"
         env:
           IMAGE_NAME: ghcr.io/${{ github.repository }}
+
+      - name: Create immutable release manifest
+        env:
+          RELEASE_VERSION: ${{ inputs.release_version }}
+          ARTIFACT: ${{ steps.image.outputs.artifact }}
+        run: |
+          node tools/create-release-manifest.mjs \
+            --version "$RELEASE_VERSION" \
+            --commit "$GITHUB_SHA" \
+            --artifact "$ARTIFACT" \
+            --workflow-run-id "$GITHUB_RUN_ID" \
+            --output hero-release-manifest.json
 
       - name: Create exact version tag
         run: |
@@ -138,9 +152,14 @@ jobs:
             echo "- Production deploy: not performed"
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Summarize immutable release manifest
+        run: cat hero-release-manifest.json >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload immutable evidence
         uses: actions/upload-artifact@v4
         with:
-          name: hero-release-evidence-${{ inputs.release_version || format('0.1.0-rc.{0}', github.run_number) }}-${{ github.sha }}
-          path: hero-release-evidence.txt
+          name: hero-release-evidence-${{ inputs.release_version }}-${{ github.sha }}
+          path: |
+            hero-release-evidence.txt
+            hero-release-manifest.json
           if-no-files-found: error

@@ -21,6 +21,29 @@ test("health and readiness endpoints expose the clean-room service", async t => 
   assert.equal((await ready.json()).boundary, "clean-room");
 });
 
+test("build-info exposes the exact release identity without changing health contract", async t => {
+  const imageDigest = "ghcr.io/farhaddgm/hero@sha256:" + "b".repeat(64);
+  const app = createHeroServer({
+    host: "127.0.0.1",
+    port: 0,
+    releaseVersion: "1.2.3",
+    sourceCommit: "0123456",
+    imageDigest
+  });
+  const address = await app.start();
+  t.after(() => app.stop());
+
+  const response = await fetch("http://127.0.0.1:" + address.port + "/build-info");
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    service: "hero-control-plane",
+    releaseVersion: "1.2.3",
+    sourceCommit: "0123456",
+    imageDigest,
+    serviceVersion: "0.1.0"
+  });
+});
+
 test("unknown paths return a scoped JSON 404", async t => {
   const app = createHeroServer({ host: "127.0.0.1", port: 0 });
   const address = await app.start();

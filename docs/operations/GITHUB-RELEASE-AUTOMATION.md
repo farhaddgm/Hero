@@ -2,21 +2,21 @@
 
 ## وضعیت
 
-Workflow `Hero Release Candidate` در `.github/workflows/release-candidate.yml` قرار دارد. این workflow بعد از push به شاخهٔ عملیاتی فعلی `codex/hero-001-project-charter` به‌صورت خودکار روی Environment به نام `test` اجرا می‌شود. اجرای دستی با `workflow_dispatch` نیز برای بازتولید یا انتخاب نسخهٔ مشخص باقی مانده است.
+Workflow `Hero Release Candidate` در `.github/workflows/release-candidate.yml` قرار دارد. این workflow عمداً فقط با `workflow_dispatch` اجرا می‌شود تا هر انتشار Test یک تصمیم آگاهانه، نسخهٔ مشخص و evidence مستقل داشته باشد. اجرای خودکار push حذف شده است؛ این کار از انتشار ناخواسته و candidateهای تکراری جلوگیری می‌کند.
 
 ## خروجی workflow
 
 پس از تأیید Environment `test`، workflow این زنجیره را اجرا می‌کند:
 
 ```text
-checkout revision
-  -> validate SemVer
+  checkout revision
+  -> validate SemVer و release preflight
   -> pnpm install --frozen-lockfile
   -> pnpm check
   -> Docker image با SHA مشخص
   -> tag دقیق v<version>
   -> GitHub pre-release
-  -> artifact شواهد
+  -> release manifest غیرقابل‌ابهام + artifact شواهد
 ```
 
 Tag و pre-release دقیقاً به commit انتخاب‌شده متصل‌اند. خروجی workflow شامل نسخه، commit SHA، شناسهٔ image، URL release و artifact شواهد است. هیچ production deploy، مصرف Provider، تغییر Secret یا پیام بیرونی انجام نمی‌شود.
@@ -29,13 +29,15 @@ Tag و pre-release دقیقاً به commit انتخاب‌شده متصل‌ا�
 ۴. برای این workflow Secret جدید لازم نیست؛ از `GITHUB_TOKEN` داخلی همان اجرا استفاده می‌کند.
 ۵. Environment `production` را جدا نگه دارید و به این workflow وصل نکنید.
 
+این workflow روی runner رسمی GitHub (`ubuntu-latest`) اجرا می‌شود؛ برای مسیر استاندارد انتشار Test، نصب یا مدیریت Self-hosted Runner لازم نیست. Runner اختصاصی فقط یک گزینهٔ آینده برای شبکهٔ خصوصی است و نباید پیش‌نیاز انتشار فعلی تلقی شود.
+
 ## اجرای دستی
 
-با هر push، نسخهٔ candidate به‌صورت deterministic از نسخهٔ پایه و شمارهٔ اجرای workflow ساخته می‌شود؛ مانند `0.1.0-rc.12`. بعد از موفقیت، artifact شواهد و لینک pre-release برای بررسی مالک آماده است. برای نسخهٔ مشخص، در GitHub به Actions → Hero Release Candidate → Run workflow بروید و نسخه‌ای مانند `0.1.0-rc.1` را انتخاب کنید. نسخهٔ نهایی مانند `0.1.0` باید پس از عبور test و تأیید مالک، در یک release جدید تولید شود.
+برای انتشار، در GitHub به Actions → Hero Release Candidate → Run workflow بروید و نسخه‌ای مانند `0.1.0-rc.1` را صریحاً انتخاب کنید. workflow فقط در صورت تمیزی worktree، آزادبودن tag، معتبر بودن commit و موفقیت `pnpm check` ادامه می‌دهد. پس از موفقیت، `hero-release-manifest.json` را همراه evidence دریافت کنید؛ promotion Test باید با digest همان manifest انجام شود، نه tag یا SHA خام. نسخهٔ نهایی مانند `0.1.0` نیز همین مسیر را با تأییدهای لازم طی می‌کند.
 
 ## Push مستقیم توسط Codex
 
-این workflow tag و release candidate را خودکار می‌کند، اما commit‌کردن تغییرات workspace و push کد همچنان باید از یک محیط دارای credential امن انجام شود. پس از آن، Codex فقط commit و push می‌کند و بقیهٔ نسخه‌گذاری خودکار انجام می‌شود. Token یا کلید نباید در چت، Git یا فایل `.env` قرار گیرد. برای push مستقیم Codex یکی از این دو مسیر لازم است:
+این workflow tag و release candidate را پس از اجرای دستی خودکار می‌کند، اما commit‌کردن تغییرات workspace و push کد همچنان باید از یک محیط دارای credential امن انجام شود. Token یا کلید نباید در چت، Git یا فایل `.env` قرار گیرد. برای push مستقیم Codex یکی از این دو مسیر لازم است:
 
 - credential helper امن روی همان محیط اجرای Codex؛ یا
 - SSH key محدود به repository Hero و remote از نوع SSH.

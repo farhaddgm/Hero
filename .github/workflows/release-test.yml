@@ -7,6 +7,14 @@ on:
         description: "Candidate SemVer to verify in the test environment"
         required: true
         type: string
+      artifact_digest:
+        description: "Immutable GHCR artifact digest from the release manifest"
+        required: true
+        type: string
+      commit_sha:
+        description: "Commit SHA from the release manifest"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -23,6 +31,9 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
         with:
           version: 11.19.0
@@ -39,21 +50,32 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
-      - name: Pull the immutable candidate artifact
+      - name: Validate and pull the immutable candidate artifact
         env:
-          IMAGE_NAME: ghcr.io/${{ github.repository }}
-          COMMIT_SHA: ${{ github.sha }}
+          ARTIFACT: ${{ inputs.artifact_digest }}
+          COMMIT_SHA: ${{ inputs.commit_sha }}
+          RELEASE_VERSION: ${{ inputs.release_version }}
         run: |
-          IMAGE_REF="$(printf '%s' "$IMAGE_NAME" | tr '[:upper:]' '[:lower:]'):$COMMIT_SHA"
-          docker pull "$IMAGE_REF"
+          node --input-type=module -e '
+            const artifact = process.env.ARTIFACT ?? "";
+            if (!/^ghcr\\.io\\/farhaddgm\\/hero@sha256:[a-f0-9]{64}$/.test(artifact)) process.exit(1);
+            const commit = process.env.COMMIT_SHA ?? "";
+            if (!/^[0-9a-f]{7,64}$/i.test(commit)) process.exit(1);
+            const version = process.env.RELEASE_VERSION ?? "";
+            if (!/^(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$/.test(version)) process.exit(1);
+          '
+          docker pull "$ARTIFACT"
+          IMAGE_VERSION="$(docker image inspect --format='{{index .Config.Labels "org.opencontainers.image.version"}}' "$ARTIFACT")"
+          IMAGE_REVISION="$(docker image inspect --format='{{index .Config.Labels "org.opencontainers.image.revision"}}' "$ARTIFACT")"
+          [[ "$IMAGE_VERSION" == "$RELEASE_VERSION" ]] || { echo "Artifact version label does not match release_version." >&2; exit 1; }
+          [[ "$IMAGE_REVISION" == "$COMMIT_SHA" ]] || { echo "Artifact revision label does not match commit_sha." >&2; exit 1; }
       - name: Record test candidate identity
         env:
           RELEASE_VERSION: ${{ inputs.release_version }}
-          COMMIT_SHA: ${{ github.sha }}
+          COMMIT_SHA: ${{ inputs.commit_sha }}
+          ARTIFACT: ${{ inputs.artifact_digest }}
         run: |
-          IMAGE_REF="$(printf 'ghcr.io/%s:%s' "$GITHUB_REPOSITORY" "$COMMIT_SHA" | tr '[:upper:]' '[:lower:]')"
-          ARTIFACT="$(docker image inspect --format='{{index .RepoDigests 0}}' "$IMAGE_REF")"
-          IMAGE_ID="$(docker image inspect --format='{{.Id}}' "$IMAGE_REF")"
+          IMAGE_ID="$(docker image inspect --format='{{.Id}}' "$ARTIFACT")"
           printf 'release_version=%s\ncommit_sha=%s\nartifact=%s\nartifact_id=%s\n' \
             "$RELEASE_VERSION" "$COMMIT_SHA" "$ARTIFACT" "$IMAGE_ID" > hero-test-evidence.txt
       - uses: actions/upload-artifact@v4

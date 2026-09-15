@@ -174,6 +174,12 @@ export const POSTGRES_MIGRATIONS = Object.freeze([
     name: "smart-tester-error-documents",
     file: "015_smart_tester_error_documents.sql",
     tables: Object.freeze(["smart_tester_error_documents"])
+  }),
+  Object.freeze({
+    id: "016",
+    name: "ai-credential-audit-events",
+    file: "016_ai_credential_audit_events.sql",
+    tables: Object.freeze(["human_identity_audit"])
   })
 ]);
 

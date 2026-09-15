@@ -101,3 +101,54 @@ test("AI Connections lets only the Human Identity Owner store an encrypted Test 
   const events = await fetch(`${base}/api/ai/events?after=0`, { headers: { cookie } });
   assert.doesNotMatch(JSON.stringify(await events.json()), new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "u"));
 });
+
+test("AI credential writes return a readable JSON error when identity-audit persistence is unavailable", async t => {
+  const now = () => "2026-09-10T12:00:00.000Z";
+  const epoch = Math.floor(Date.parse(now()) / 1_000);
+  const access = createProjectAccessRegistry({ ownerUserId: "hero-owner", ownerUser: { email: "owner@example.test", displayName: "Owner" }, now });
+  const identity = createHumanIdentity({
+    accessRegistry: access,
+    sessionSecret: "identity-session-test-secret-12345678901234567890",
+    now,
+    owner: { userId: "hero-owner", email: "owner@example.test", displayName: "Owner", password: "Owner password 123", mfaSecret: "owner-mfa-secret-for-identity-tests" }
+  });
+  const secretRoot = fs.mkdtempSync(path.join(os.tmpdir(), "hero-ai-credential-audit-failure-"));
+  const secretStore = createHeroSecretStore({ root: secretRoot, masterKey: crypto.randomBytes(32), now });
+  const app = createHeroServer({
+    host: "127.0.0.1",
+    port: 0,
+    now,
+    projectAccessRegistry: access,
+    humanIdentity: identity,
+    secretStore,
+    postgresRuntime: {
+      async ping() { return { status: "ok" }; },
+      projectIdentity: {
+        async recordAudit({ eventType }) {
+          if (eventType.startsWith("ai.")) {
+            const error = new Error("simulated identity audit constraint failure");
+            error.code = "23514";
+            throw error;
+          }
+        }
+      }
+    }
+  });
+  const address = await app.start();
+  t.after(async () => { await app.stop(); fs.rmSync(secretRoot, { recursive: true, force: true }); });
+  const base = `http://127.0.0.1:${address.port}`;
+  const challenge = await fetch(`${base}/api/identity/login`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "owner@example.test", password: "Owner password 123" }) });
+  const challengeId = (await challenge.json()).login.challengeId;
+  const complete = await fetch(`${base}/api/identity/login/mfa`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ challengeId, mfaCode: createTotpCode("owner-mfa-secret-for-identity-tests", epoch) }) });
+  const cookie = complete.headers.get("set-cookie").split(";", 1)[0];
+  const saved = await fetch(`${base}/api/ai/credentials`, {
+    method: "POST",
+    headers: { cookie, origin: base, "content-type": "application/json" },
+    body: JSON.stringify({ providerId: "openai", value: "synthetic-test-key-123456" })
+  });
+  assert.equal(saved.status, 503);
+  const payload = await saved.json();
+  assert.equal(payload.code, "IDENTITY_AUDIT_PERSISTENCE_FAILED");
+  assert.equal(payload.message, "ثبت ممیزی هویت در PostgreSQL انجام نشد.");
+  assert.doesNotMatch(JSON.stringify(payload), /synthetic-test-key-123456/);
+});

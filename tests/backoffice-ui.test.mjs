@@ -65,6 +65,8 @@ test("AI Connections exposes safe provider setup, readiness checks and a project
   assert.match(html, /href="#ai-credential-entry">رفتن به ثبت امن کلید<\/a>/);
   assert.match(html, /id="ai-credential-entry"/);
   assert.match(html, /\/api\/ai\/providers\//);
+  assert.match(html, /پاسخ عملیات قابل خواندن نیست \(HTTP/);
+  assert.match(html, /نشست انسانی یا دسترسی Proxy محیط Test را بررسی کنید/);
   assert.match(html, /ai-assignment-project/);
   assert.match(html, /Walk-Through Guide/);
   assert.match(html, /Smart Tester/);

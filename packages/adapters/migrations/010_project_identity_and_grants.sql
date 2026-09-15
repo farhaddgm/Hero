@@ -42,7 +42,8 @@ CREATE TABLE IF NOT EXISTS human_identity_audit (
   event_type text NOT NULL CHECK (event_type IN (
     'identity.user-created', 'identity.project-grant-upserted', 'identity.project-grant-revoked',
     'identity.login-challenged', 'identity.session-issued', 'identity.session-revoked',
-    'identity.recovery-requested', 'identity.recovery-completed', 'identity.step-up-verified'
+    'identity.recovery-requested', 'identity.recovery-completed', 'identity.step-up-verified',
+    'ai.credential-stored', 'ai.credential-health-checked'
   )),
   outcome text NOT NULL CHECK (outcome IN ('accepted', 'rejected')),
   data jsonb NOT NULL DEFAULT '{}'::jsonb,
