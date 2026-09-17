@@ -957,7 +957,15 @@ export function createHeroServer(options = {}) {
     const modelByKey = new Map((ai.models ?? []).map(model => [`${model.providerId}:${model.modelId}`, model]));
     const profileIdsBoundToProject = new Set((ai.bindings ?? []).filter(binding => binding.projectId === projectId && !binding.teamId && !binding.skillId).map(binding => binding.profileId));
     const profiles = (ai.profiles ?? [])
-      .filter(profile => profile.status === "active" && (includeUnbound || profileIdsBoundToProject.has(profile.profileId)))
+      // Walk-Through and Smart Tester are advisor surfaces, not a general
+      // role picker.  Other role Profiles may legitimately share the same
+      // Provider/Model, but they have different schemas and permissions and
+      // must never appear as disabled advisor choices.
+      .filter(profile => profile.status === "active"
+        && profile.role === LIVE_ADVISOR_ROLE
+        && profile.outputSchema === LIVE_ADVISOR_OUTPUT_SCHEMA
+        && profile.toolPolicy === "read-only"
+        && (includeUnbound || profileIdsBoundToProject.has(profile.profileId)))
       .map(profile => {
         const provider = providerById.get(profile.providerId);
         const model = modelByKey.get(`${profile.providerId}:${profile.modelId}`);
@@ -1000,12 +1008,22 @@ export function createHeroServer(options = {}) {
               : "این Profile هنوز برای مشاورهٔ Walk-Through آماده نیست؛ وضعیت اتصال، Binding یا گیت هزینه را بررسی کنید."
         });
       });
+    // Multiple advisor Profiles may still point at one Provider/Model (for
+    // example after a versioned replacement). Keep the catalog intact, but
+    // expose one deterministic choice per Provider/Model in advisor UIs.
+    const seenAdvisorModels = new Set();
+    const uniqueProfiles = profiles.filter(profile => {
+      const key = `${profile.providerId}:${profile.modelId}`;
+      if (seenAdvisorModels.has(key)) return false;
+      seenAdvisorModels.add(key);
+      return true;
+    });
     return Object.freeze({
       projectId,
       localAdvisor: Object.freeze({ id: "local", label: "راهنمای محلی Hero", mode: "local-contextual-guidance", selectable: true, notice: "بدون اتصال خارجی، بدون هزینه و بدون ذخیرهٔ متن گفتگو." }),
       providers: Object.freeze(providers),
       models: Object.freeze((ai.models ?? []).map(model => Object.freeze({ providerId: model.providerId, modelId: model.modelId, displayName: model.displayName }))),
-      profiles: Object.freeze(profiles)
+      profiles: Object.freeze(uniqueProfiles)
     });
   }
 

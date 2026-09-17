@@ -449,6 +449,9 @@ test("Project-bound live advisor profiles invoke through the bounded authorizati
   dashboard.registerAiModel({ providerId: "openai", modelId: "gpt-5.6-luna", displayName: "GPT-5.6 Luna", metadata: {}, idempotencyKey: "live-advisor-model", actor });
   dashboard.registerAiProfile({ profileId: "live-advisor-profile", role: "analyst", providerId: "openai", modelId: "gpt-5.6-luna", credentialRef: "vault:hero/test/openai/default", promptVersion: "live-advisor-v1", contextPolicy: "redacted-project-context", toolPolicy: "read-only", outputSchema: "analysis-v1", status: "active", timeoutMs: 1000, maxRetries: 0, maxOutputTokens: 128, maxCostUnits: 100000, costLatencyPriority: "cost", idempotencyKey: "live-advisor-profile-key", actor });
   dashboard.bindAiRole({ bindingId: "live-advisor-binding", projectId: "project-vpn", teamId: null, skillId: null, role: "analyst", profileId: "live-advisor-profile", supersedesBindingId: null, idempotencyKey: "live-advisor-binding-key", actor });
+  dashboard.registerAiProfile({ profileId: "live-evaluator-profile", role: "evaluator", providerId: "openai", modelId: "gpt-5.6-luna", credentialRef: "vault:hero/test/openai/default", promptVersion: "live-evaluator-v1", contextPolicy: "redacted-project-context", toolPolicy: "read-only", outputSchema: "evaluation-v1", status: "active", timeoutMs: 1000, maxRetries: 0, maxOutputTokens: 128, maxCostUnits: 100000, costLatencyPriority: "cost", idempotencyKey: "live-evaluator-profile-key", actor });
+  dashboard.bindAiRole({ bindingId: "live-evaluator-binding", projectId: "project-vpn", teamId: null, skillId: null, role: "evaluator", profileId: "live-evaluator-profile", supersedesBindingId: null, idempotencyKey: "live-evaluator-binding-key", actor });
+  dashboard.registerAiProfile({ profileId: "live-advisor-profile-copy", role: "analyst", providerId: "openai", modelId: "gpt-5.6-luna", credentialRef: "vault:hero/test/openai/default", promptVersion: "live-advisor-v1", contextPolicy: "redacted-project-context", toolPolicy: "read-only", outputSchema: "analysis-v1", status: "active", timeoutMs: 1000, maxRetries: 0, maxOutputTokens: 128, maxCostUnits: 100000, costLatencyPriority: "cost", idempotencyKey: "live-advisor-profile-copy-key", actor });
   // Do not seed Project Memory: the first authorized live request must safely
   // bootstrap its fixed redacted context anchor, then invoke once.
   await dashboard.checkAiProviderHealth({ providerId: "openai", profileId: "live-advisor-profile", actor });
@@ -462,7 +465,16 @@ test("Project-bound live advisor profiles invoke through the bounded authorizati
   const headers = { authorization: `Bearer ${owner.token}`, "content-type": "application/json" };
   const walkthroughOptions = await fetch(`${base}/api/projects/project-vpn/walkthrough-advisor/options`, { headers });
   assert.equal(walkthroughOptions.status, 200);
-  assert.equal((await walkthroughOptions.json()).advisorOptions.profiles.find(profile => profile.profileId === "live-advisor-profile")?.selectable, true, "a healthy live profile is selectable only when its scoped authorization is active");
+  const walkthroughOptionPayload = (await walkthroughOptions.json()).advisorOptions;
+  assert.equal(walkthroughOptionPayload.profiles.length, 1, "advisor options must exclude other role Profiles and duplicate Provider/Model entries");
+  assert.deepEqual(walkthroughOptionPayload.profiles.map(profile => profile.role), ["analyst"]);
+  assert.equal(walkthroughOptionPayload.profiles[0].profileId, "live-advisor-profile");
+  assert.equal(walkthroughOptionPayload.profiles[0].selectable, true, "a healthy live profile is selectable only when its scoped authorization is active");
+  const globalSmartOptions = await fetch(`${base}/api/smart-tester/options`, { headers });
+  assert.equal(globalSmartOptions.status, 200);
+  const globalSmartOptionPayload = (await globalSmartOptions.json()).smartTester.options;
+  assert.equal(globalSmartOptionPayload.profiles.length, 1, "global advisor options must collapse duplicate Provider/Model Profiles");
+  assert.deepEqual(globalSmartOptionPayload.profiles.map(profile => profile.role), ["analyst"]);
   const walkthrough = await fetch(`${base}/api/walkthrough/advice?projectId=project-vpn`, { method: "POST", headers, body: JSON.stringify({ stepId: "intake", projectId: "project-vpn", advisorProfileId: "live-advisor-profile", question: "گام بعدی چیست؟" }) });
   assert.equal(walkthrough.status, 200);
   const walkthroughAdvisor = (await walkthrough.json()).advisor;
