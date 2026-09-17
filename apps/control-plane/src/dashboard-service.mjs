@@ -161,10 +161,11 @@ function projectContractCatalog() {
 }
 
 export class DashboardCommandError extends Error {
-  constructor(code, message) {
+  constructor(code, message, statusCode = undefined) {
     super(message);
     this.name = "DashboardCommandError";
     this.code = code;
+    if (statusCode !== undefined) this.statusCode = statusCode;
   }
 }
 

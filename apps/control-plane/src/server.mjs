@@ -95,6 +95,7 @@ import { AiOrchestrationError } from "../../../packages/domain/src/ai-orchestrat
 import { rebuildPortfolioReadModel, rebuildProjectReadModel } from "../../../packages/domain/src/backoffice-read-models.mjs";
 import { ProductDevelopmentError, createProductDevelopmentCatalog } from "../../../packages/domain/src/product-development.mjs";
 import { HeroSecretStoreError, createConfiguredAiProviderAdapters, createHeroSecretStore, createNotionApiAdapter, createPostgresRuntime, createPricingCatalogRegistry, createRuntimeExternalSpendAuthorizer, readRuntimeExternalSpendPolicy } from "../../../packages/adapters/src/index.mjs";
+import { advisorProfileOptions, createAiAssignmentProposal } from "./ai-assignment-planner.mjs";
 
 const PRIVATE_ROBOTS_POLICY = "noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate";
 const READ_MODEL_AUDIT_RESOURCES = new Set([
@@ -530,6 +531,10 @@ export function createHeroServer(options = {}) {
   const smartTesterReports = new Map();
   const smartTesterErrorReports = new Map();
   const smartTesterErrorDocuments = new Map();
+  // Assignment proposals are short-lived, owner-scoped capabilities. They
+  // contain only public catalog metadata and expected binding versions.
+  const aiAssignmentProposals = new Map();
+  const AI_ASSIGNMENT_PROPOSAL_TTL_MS = 30 * 60 * 1000;
 
   function workspaceRecordKey(kind, value) {
     if (kind === "project") return `${kind}:${value.projectId}:${value.version}`;
@@ -615,6 +620,134 @@ export function createHeroServer(options = {}) {
         })
       })
     });
+  }
+
+  function assignmentProposalSnapshot(projectId, advisorProfileId = null) {
+    const snapshot = backofficeSnapshot();
+    const ai = snapshot.ai ?? {};
+    const proposal = createAiAssignmentProposal({
+      projectId,
+      roles: ai.roles ?? ai.contract?.roles,
+      providers: ai.providers,
+      models: ai.models,
+      profiles: ai.profiles,
+      bindings: ai.bindings,
+      defaultRolePolicies: ai.defaultRolePolicies
+    });
+    const advisors = advisorProfileOptions({ profiles: ai.profiles, providers: ai.providers, models: ai.models });
+    const selectedAdvisor = advisorProfileId && advisors.find(item => item.profileId === advisorProfileId);
+    const advisor = advisorProfileId && !selectedAdvisor
+      ? Object.freeze({ source: "local", requestedProfileId: advisorProfileId, status: "not-eligible", reason: "Profile انتخابی برای بازبینی این پیشنهاد آماده و سازگار نیست." })
+      : Object.freeze({ source: selectedAdvisor ? "connected-profile" : "local", profile: selectedAdvisor ?? null, status: "metadata-only", reason: selectedAdvisor ? "بازبینی Provider انتخابی فقط با اقدام جداگانه و مجوز زنده انجام می‌شود؛ ساخت پیشنهاد فعلی محلی و بدون هزینه است." : "پیشنهاد بر اساس Policy و کاتالوگ موجود Hero ساخته شد؛ بدون فراخوانی خارجی و بدون هزینه." });
+    const proposalId = `ai-assignment-proposal-${crypto.randomUUID()}`;
+    const assignments = proposal.assignments.map(item => item.status === "ready"
+      ? Object.freeze({ ...item, bindingId: `hero-${projectId}-${item.role}-binding-${crypto.randomUUID()}`, idempotencyKey: `ai-assignment-${proposalId}-${item.role}` })
+      : item);
+    const stored = Object.freeze({
+      proposalId,
+      ownerId: identityOwner.userId,
+      projectId,
+      expiresAt: Date.now() + AI_ASSIGNMENT_PROPOSAL_TTL_MS,
+      proposal: Object.freeze({ ...proposal, proposalId, advisor, assignments: Object.freeze(assignments) }),
+      applied: new Set()
+    });
+    aiAssignmentProposals.set(proposalId, stored);
+    setTimeout(() => aiAssignmentProposals.delete(proposalId), AI_ASSIGNMENT_PROPOSAL_TTL_MS).unref?.();
+    return stored.proposal;
+  }
+
+  function readAssignmentProposal(proposalId, ownerId) {
+    const stored = aiAssignmentProposals.get(proposalId);
+    if (!stored || stored.expiresAt <= Date.now() || stored.ownerId !== ownerId) {
+      aiAssignmentProposals.delete(proposalId);
+      throw new DashboardCommandError("AI_ASSIGNMENT_PROPOSAL_NOT_FOUND", "پیشنهاد تخصیص پیدا نشد یا منقضی شده است؛ دوباره پیشنهاد بسازید.", 404);
+    }
+    return stored;
+  }
+
+  async function applyAssignmentProposal({ proposalId, projectId, actor }) {
+    const stored = readAssignmentProposal(proposalId, identityOwner.userId);
+    if (stored.projectId !== projectId) throw new DashboardCommandError("AI_ASSIGNMENT_PROJECT_MISMATCH", "پیشنهاد برای این پروژه ساخته نشده است.", 409);
+    const current = dashboard.aiOrchestrationSnapshot();
+    const direct = role => (current.bindings ?? []).find(binding => binding.projectId === projectId && binding.role === role && !binding.teamId && !binding.skillId) ?? null;
+    const pending = stored.proposal.assignments.filter(item => item.status === "ready" && !stored.applied.has(item.role));
+    const conflicts = pending.filter(item => {
+      const actual = direct(item.role);
+      return (item.existingBindingId ?? null) !== (actual?.bindingId ?? null);
+    });
+    if (conflicts.length) {
+      throw new DashboardCommandError("AI_ASSIGNMENT_PROPOSAL_STALE", `دادهٔ تخصیص ${conflicts.map(item => item.roleLabel).join("، ")} بعد از ساخت پیشنهاد تغییر کرده است؛ پیشنهاد جدید بسازید.`, 409);
+    }
+    const results = [];
+    for (const item of pending) {
+      try {
+        const result = await executeDashboardCommand("ai.assignment-plan-apply", {
+          projectId,
+          role: item.role,
+          profileId: item.recommendedProfile.profileId,
+          bindingId: item.bindingId,
+          idempotencyKey: item.idempotencyKey,
+          actor
+        }, () => dashboard.bindAiRole({
+          actor,
+          bindingId: item.bindingId,
+          projectId,
+          role: item.role,
+          profileId: item.recommendedProfile.profileId,
+          supersedesBindingId: item.existingBindingId ?? null,
+          idempotencyKey: item.idempotencyKey
+        }), actor);
+        stored.applied.add(item.role);
+        results.push({ role: item.role, roleLabel: item.roleLabel, status: "applied", bindingId: result.binding?.bindingId ?? item.bindingId });
+      } catch (error) {
+        // The domain write happens before optional persistence/audit work in
+        // executeDashboardCommand. If that follow-up fails, recognize the
+        // already-applied immutable binding so a retry cannot duplicate it.
+        const afterFailure = dashboard.aiOrchestrationSnapshot().bindings?.find(binding => binding.bindingId === item.bindingId);
+        if (afterFailure?.projectId === projectId && afterFailure.role === item.role && afterFailure.profileId === item.recommendedProfile.profileId) {
+          stored.applied.add(item.role);
+          results.push({ role: item.role, roleLabel: item.roleLabel, status: "applied-with-audit-warning", bindingId: item.bindingId, code: error?.code ?? "AUDIT_PERSISTENCE_FAILED" });
+        } else {
+          results.push({ role: item.role, roleLabel: item.roleLabel, status: "failed", code: error?.code ?? "AI_ASSIGNMENT_FAILED" });
+        }
+        break;
+      }
+    }
+    const remaining = stored.proposal.assignments.filter(item => item.status === "ready" && !stored.applied.has(item.role)).length;
+    const appliedCount = results.filter(item => item.status === "applied" || item.status === "applied-with-audit-warning").length;
+    const auditWarnings = results.filter(item => item.status === "applied-with-audit-warning").length;
+    return Object.freeze({
+      proposalId,
+      projectId,
+      status: remaining === 0 ? (auditWarnings ? "completed-with-audit-warning" : "completed") : "partial",
+      counts: Object.freeze({ applied: appliedCount, failed: results.filter(item => item.status === "failed").length, auditWarnings, remaining }),
+      results: Object.freeze(results),
+      blockedRoles: Object.freeze(stored.proposal.assignments.filter(item => item.status === "needs-admin-setup").map(item => ({ role: item.role, roleLabel: item.roleLabel, reason: item.reason }))),
+      safety: Object.freeze({ providerCalls: 0, catalogEntriesCreated: 0, existingBindingsPreserved: true })
+    });
+  }
+
+  async function reviewAssignmentProposal({ proposalId, projectId }) {
+    const stored = readAssignmentProposal(proposalId, identityOwner.userId);
+    if (stored.projectId !== projectId) throw new DashboardCommandError("AI_ASSIGNMENT_PROJECT_MISMATCH", "پیشنهاد برای این پروژه ساخته نشده است.", 409);
+    const selectedProfile = stored.proposal.advisor?.profile;
+    if (!selectedProfile) {
+      return Object.freeze({ proposalId, projectId, status: "local-only", providerInvoked: false, message: "پیشنهاد محلی بر اساس Policy و کاتالوگ موجود ساخته شده است؛ AI متصل برای بازبینی انتخاب نشده است." });
+    }
+    if (selectedProfile.connectionState === "local-ready") {
+      return Object.freeze({ proposalId, projectId, status: "local-provider", providerInvoked: false, provider: selectedProfile.providerId, model: selectedProfile.modelId, profileId: selectedProfile.profileId, message: "Provider انتخابی محلی است؛ پیشنهاد بدون هزینه تولید شده و فراخوانی خارجی انجام نشد." });
+    }
+    const localSummary = stored.proposal.assignments.map(item => ({ role: item.role, status: item.status, recommendedProfileId: item.recommendedProfile?.profileId ?? null, reason: item.reason }));
+    const live = await invokeSelectedLiveAdvisor({
+      purpose: "ai-assignment-planner",
+      projectId,
+      selectedProfile,
+      question: "این طرح تخصیص را فقط از نظر سازگاری نقش، Policy و ریسک بررسی کن؛ تصمیم نهایی با ادمین است.",
+      context: { featureKey: "ai.assignment-proposal" },
+      localResponse: JSON.stringify(localSummary)
+    });
+    if (!live) return Object.freeze({ proposalId, projectId, status: "not-invoked", providerInvoked: false, provider: selectedProfile.providerId, model: selectedProfile.modelId, profileId: selectedProfile.profileId, message: "فراخوانی این Provider در این حالت مجاز نیست؛ پیشنهاد محلی همچنان معتبر و قابل بررسی است." });
+    return Object.freeze({ proposalId, projectId, status: "reviewed", providerInvoked: true, provider: selectedProfile.providerId, model: selectedProfile.modelId, profileId: selectedProfile.profileId, result: live.result, evidence: live.evidence });
   }
 
   function productStudioSnapshot({ projectId = null } = {}) {
@@ -2510,6 +2643,49 @@ export function createHeroServer(options = {}) {
 
       if (request.method === "GET" && url.pathname === "/api/ai/skills") {
         return json(response, 200, { service: HERO_SERVICE, skills: dashboard.skillSnapshot() });
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/ai/assignment-proposals") {
+        const input = await readJson(request);
+        const scopedProjectId = url.searchParams.get("projectId");
+        if (input.projectId !== undefined && input.projectId !== scopedProjectId) {
+          throw new DashboardCommandError("AI_ASSIGNMENT_PROJECT_SCOPE_MISMATCH", "محدودهٔ پروژه در درخواست یکسان نیست.", 400);
+        }
+        const projectId = scopedProjectId ?? input.projectId;
+        if (typeof projectId !== "string" || !/^[A-Za-z][A-Za-z0-9._:-]{2,127}$/.test(projectId)) {
+          throw new DashboardCommandError("PROJECT_SCOPE_REQUIRED", "پروژهٔ معتبر برای پیشنهاد تخصیص لازم است.", 400);
+        }
+        const proposal = assignmentProposalSnapshot(projectId, input.advisorProfileId ?? null);
+        return json(response, 200, { service: HERO_SERVICE, proposal }, { maxBytes: backofficeResponseLimitBytes });
+      }
+
+      const assignmentProposalApplyMatch = url.pathname.match(/^\/api\/ai\/assignment-proposals\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/apply$/);
+      const assignmentProposalReviewMatch = url.pathname.match(/^\/api\/ai\/assignment-proposals\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/review$/);
+      if (request.method === "POST" && assignmentProposalReviewMatch) {
+        const input = await readJson(request);
+        const scopedProjectId = url.searchParams.get("projectId");
+        if (input.projectId !== undefined && input.projectId !== scopedProjectId) {
+          throw new DashboardCommandError("AI_ASSIGNMENT_PROJECT_SCOPE_MISMATCH", "محدودهٔ پروژه در درخواست یکسان نیست.", 400);
+        }
+        const projectId = scopedProjectId ?? input.projectId;
+        if (typeof projectId !== "string" || !/^[A-Za-z][A-Za-z0-9._:-]{2,127}$/.test(projectId)) {
+          throw new DashboardCommandError("PROJECT_SCOPE_REQUIRED", "پروژهٔ معتبر برای بازبینی لازم است.", 400);
+        }
+        const result = await reviewAssignmentProposal({ proposalId: assignmentProposalReviewMatch[1], projectId });
+        return json(response, 200, { service: HERO_SERVICE, result }, { maxBytes: backofficeResponseLimitBytes });
+      }
+      if (request.method === "POST" && assignmentProposalApplyMatch) {
+        const input = await readJson(request);
+        const scopedProjectId = url.searchParams.get("projectId");
+        if (input.projectId !== undefined && input.projectId !== scopedProjectId) {
+          throw new DashboardCommandError("AI_ASSIGNMENT_PROJECT_SCOPE_MISMATCH", "محدودهٔ پروژه در درخواست یکسان نیست.", 400);
+        }
+        const projectId = scopedProjectId ?? input.projectId;
+        if (typeof projectId !== "string" || !/^[A-Za-z][A-Za-z0-9._:-]{2,127}$/.test(projectId)) {
+          throw new DashboardCommandError("PROJECT_SCOPE_REQUIRED", "پروژهٔ معتبر برای ثبت تخصیص لازم است.", 400);
+        }
+        const result = await applyAssignmentProposal({ proposalId: assignmentProposalApplyMatch[1], projectId, actor: authenticatedOwner.actor });
+        return json(response, 200, { service: HERO_SERVICE, result }, { maxBytes: backofficeResponseLimitBytes });
       }
 
       if (request.method === "GET" && url.pathname === "/api/ai/organization-advisor") {
