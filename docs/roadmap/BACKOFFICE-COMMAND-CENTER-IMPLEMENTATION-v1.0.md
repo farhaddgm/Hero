@@ -1,12 +1,12 @@
-# برنامهٔ جامع توسعهٔ Back Office Command Center — v1.1
+# برنامهٔ جامع توسعهٔ Back Office Command Center — v1.2
 
 > Document ID: `HERO-ROADMAP-BACKOFFICE-COMMAND-CENTER-V1`
 > Canonical path: `docs/roadmap/BACKOFFICE-COMMAND-CENTER-IMPLEMENTATION-v1.0.md`
-> Title: برنامهٔ جامع توسعهٔ Back Office Command Center — v1.1
+> Title: برنامهٔ جامع توسعهٔ Back Office Command Center — v1.2
 > Type: roadmap
 > Scope: hero
 > Status: active
-> Version: 1.1.0
+> Version: 1.2.0
 > Owner: hero-product
 > Review cadence: per-change
 > Supersedes: none
@@ -17,6 +17,10 @@
 این سند ترتیب توسعهٔ Back Office جامع Hero را از وضع موجود تا آمادگی تحویل مشخص می‌کند. مرجع هنجاری همهٔ نیازمندی‌ها `HERO-SPEC-022` نسخهٔ `1.0.0` است. این برنامه نباید معنای آن سند را تغییر دهد؛ در تعارض، Specification مقدم و اجرای گام متوقف می‌شود.
 
 این سند **برنامه است، نه مجوز اجرا**. پیش از Dispatch هر Batch باید Step IDهای دقیق، نسخهٔ `HERO-SPEC-022`، نسخهٔ همین برنامه، محیط، سقف Token/هزینه و Authorization Snapshot معتبر بررسی شوند. Global Stop باید خاموش باشد. Production، Secret، عملیات مخرب، هزینهٔ بیرونی، پیام بیرونی و Notion write هرکدام مجوز جدا دارند.
+
+### جهت‌دهی نسخهٔ ۱.۲: کارخانهٔ محصول کنترل‌شده
+
+گام‌های `BO-001..170` بدون حذف یا تغییر معنایی حفظ شده‌اند. sequencing جاری و تفصیل مسیر «مسئلهٔ Owner → Proposal → اجرای محصول ایزوله → Product Test → انتقال» در `HERO-ROADMAP-CONTROLLED-PRODUCT-FACTORY-20260917@1.0.0` آمده است. آن سند اجرای بیرونی را مجاز نمی‌کند و فقط Workstreamهای جدید را به همین BO stepها نگاشت می‌کند. Product Runtime روی همان host Hero، اگر روزی فعال شود، باید repository، Compose project، network، volume، database، port، Secret reference و rollback مستقل داشته باشد؛ هیچ Step از این سند اجازهٔ reuse منابع Hero یا app دیگر را نمی‌دهد.
 
 ## ۲. راهبرد اجرا
 
@@ -34,7 +38,8 @@ Baseline & contracts
             → Catalog/Knowledge
               → Health/Cost/Evaluation/Inbox
                 → Server/Environment/Secret
-                  → Production/Release/Delivery
+                  → Product execution isolation (cross-cutting; Test-only)
+                    → Production/Release/Delivery
                     → Hardening/Migration/Final acceptance
 ```
 
@@ -44,7 +49,7 @@ Baseline & contracts
 - گام‌های دارای برچسب `[P]` پس از پیش‌نیاز مشترک می‌توانند موازی اجرا شوند؛
 - Schema و authorization contract همیشه پیش از UI mutation ساخته می‌شوند؛
 - هیچ اتصال واقعی Production یا Notion در جریان تست محلی انجام نمی‌شود؛
-- پایلوت محصول فقط پس از `BO-140` و یک مجوز جداگانه قابل طرح است.
+- پایلوت محصول فقط پس از `BO-169`، Exit Gateهای delivery/portability و یک مجوز جداگانه قابل طرح است.
 
 ## ۳. نقش تیم‌ها در برنامه
 

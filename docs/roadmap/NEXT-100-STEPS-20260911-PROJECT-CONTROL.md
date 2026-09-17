@@ -2,7 +2,7 @@
 
 > Document ID: `HERO-ROADMAP-NEXT-100-STEPS-20260911-PROJECT-CONTROL`
 > Version: `1.0.0`
-> Status: `active`
+> Status: `superseded`
 > Scope: `hero`
 > Owner: `hero-architecture`
 > Review cadence: `per-change`
@@ -12,6 +12,8 @@
 این بسته ادامهٔ مستقیم BO-031..050 است و BO-051..150 را به یک برش کاربردیِ قابل‌مشاهده تبدیل می‌کند. Domain، Contract و APIهای این بازه پیش‌تر در source وجود داشته‌اند؛ خروجی این بسته یک نمای پروژه‌ای واحد است که دادهٔ واقعی همان ماژول‌ها را بدون نمایش Secret، متن Conversation/Memory، payload فرمان، credential یا اجرای بیرونی نشان می‌دهد.
 
 Production deploy، Provider واقعی، Secret mutation/reveal، هزینه، پیام بیرونی، GitHub fetch/write، Notion write، حذف داده، recovery روی مقصد خارجی و اجرای Pilot خارج Scope هستند. هر کدام گیت و مجوز مستقل خود را حفظ می‌کند.
+
+> وضعیت تاریخی: این سند evidence برش Project Control Room است؛ sequencing جاری در `HERO-ROADMAP-CONTROLLED-PRODUCT-FACTORY-20260917@1.0.0` و مرجع الزام در `HERO-ROADMAP-BACKOFFICE-COMMAND-CENTER-V1@1.2.0` قرار دارد.
 
 ## صد گام اجرایی
 

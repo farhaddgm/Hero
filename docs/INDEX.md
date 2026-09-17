@@ -1,7 +1,7 @@
 # فهرست مرکزی مستندات Hero
 
 - Document ID: `HERO-DOC-INDEX`
-- Version: `1.4.0`
+- Version: `1.5.0`
 - Status: `active`
 - Owner: `hero-documentation`
 - Scope: `hero`
@@ -25,7 +25,7 @@ Git repository منبع حقیقت است. Notion و Confluence فقط mirror خ
 
 ### مسیر Product
 
-Product ابتدا با owner و Evidence در Product registry ثبت می‌شود. سند Product فقط acceptance criteria، configuration غیرمحرمانه، Evidence و تصمیم اختصاصی را نگه می‌دارد و برای قواعد مشترک به Document ID و version کتابخانه ارجاع می‌دهد. CRM موجود در مدل محیط صرفاً مثال معماری است.
+Product ابتدا با owner و Evidence در Product registry ثبت می‌شود. سند Product فقط acceptance criteria، configuration غیرمحرمانه، Evidence و تصمیم اختصاصی را نگه می‌دارد و برای قواعد مشترک به Document ID و version کتابخانه ارجاع می‌دهد. اجرای یک Product روی همان host Hero فقط پس از Exit Gate ایزولاسیون انجام می‌شود: Product repository، container، network، database، volume، port، Secret reference و rollback مستقل دارد. معیار آن در [Runbook ایزولاسیون و انتقال runtime محصول](operations/PRODUCT-RUNTIME-ISOLATION-AND-TRANSFER.md) ثبت شده است. CRM موجود در مدل محیط صرفاً مثال معماری است.
 
 ## Product Pilot فعلی
 
@@ -95,6 +95,7 @@ Product ابتدا با owner و Evidence در Product registry ثبت می‌ش
 | `HERO-OPS-GITHUB-RELEASE-AUTOMATION` | `active` | [خودکارسازی نسخه و تحویل Hero در GitHub](operations/GITHUB-RELEASE-AUTOMATION.md) |
 | `HERO-OPS-HERO-TEST-ENVIRONMENT` | `active` | [محیط Test برای خود Hero](operations/HERO-TEST-ENVIRONMENT.md) |
 | `HERO-OPS-HERO-TEST-RELEASE-RELIABILITY` | `active` | [پایایی انتشار Hero در محیط Test](operations/HERO-TEST-RELEASE-RELIABILITY.md) |
+| `HERO-OPS-PRODUCT-RUNTIME-ISOLATION-AND-TRANSFER` | `proposed` | [Runbook ایزولاسیون و انتقال runtime محصول](operations/PRODUCT-RUNTIME-ISOLATION-AND-TRANSFER.md) |
 | `HERO-OPS-HERO-TEST-AI-SECRET-STORE` | `active` | [راهنمای ثبت امن کلیدهای AI در Hero Test](operations/HERO-TEST-AI-SECRET-STORE.md) |
 | `HERO-OPS-PROJECT-WALKTHROUGH` | `active` | [راهنمای جامع گام‌به‌گام ساخت محصول با Hero](operations/HERO-PROJECT-WALKTHROUGH.md) |
 | `HERO-OPS-SMART-TESTER` | `active` | [اسمارت تستر Back Office Hero](operations/HERO-SMART-TESTER.md) |
@@ -165,7 +166,8 @@ Product ابتدا با owner و Evidence در Product registry ثبت می‌ش
 | `HERO-ROADMAP-CANDIDATE-EVIDENCE-20260904` | `active` | [شناسنامهٔ Candidate Hero — ۲۰۲۶-۰۹-۰۴](roadmap/CANDIDATE-EVIDENCE-20260904.md) |
 | `HERO-ROADMAP-EXECUTION-20260909-100-STEPS` | `active` | [گزارش اجرای ۱۰۰ گام Hero — ۲۰۲۶-۰۹-۰۹](roadmap/EXECUTION-20260909-100-STEPS.md) |
 | `HERO-ROADMAP-STATUS-20260910` | `superseded` | [وضعیت Hero — ۲۰۲۶-۰۹-۱۰](roadmap/STATUS-20260910.md) |
-| `HERO-ROADMAP-STATUS-20260911` | `active` | [وضعیت جاری Hero — ۲۰۲۶-۰۹-۱۱](roadmap/STATUS-20260911.md) |
+| `HERO-ROADMAP-STATUS-20260911` | `superseded` | [وضعیت جاری Hero — ۲۰۲۶-۰۹-۱۱](roadmap/STATUS-20260911.md) |
+| `HERO-ROADMAP-STATUS-20260917` | `active` | [وضعیت جاری Hero — ۲۰۲۶-۰۹-۱۷](roadmap/STATUS-20260917.md) |
 
 ## Roadmap
 
@@ -175,14 +177,15 @@ Product ابتدا با owner و Evidence در Product registry ثبت می‌ش
 | `HERO-ROADMAP-NEXT-10-STEPS-20260831-BATCH-2` | `active` | [بستهٔ ۱۰ گام بعدی Hero — Batch 2](roadmap/NEXT-10-STEPS-20260831-BATCH-2.md) |
 | `HERO-ROADMAP-NEXT-10-STEPS-20260831` | `active` | [بستهٔ ۱۰ گام بعدی Hero](roadmap/NEXT-10-STEPS-20260831.md) |
 | `HERO-ROADMAP-NEXT-10-STEPS-20260904-BATCH-3` | `active` | [ده گام بعدی Hero — بستهٔ تشخیص و کنترل عملیاتی](roadmap/NEXT-10-STEPS-20260904-BATCH-3.md) |
-| `HERO-ROADMAP-NEXT-100-STEPS-20260904` | `active` | [صد گام بعدی Hero — فهرست اجرایی و وضعیت واقعی](roadmap/NEXT-100-STEPS-20260904.md) |
-| `HERO-ROADMAP-NEXT-20-STEPS-20260904` | `active` | [بیست گام بعدی Hero — وضعیت اجرایی](roadmap/NEXT-20-STEPS-20260904.md) |
-| `HERO-ROADMAP-NEXT-20-STEPS-20260911-WORKSPACE-PERSISTENCE` | `active` | [بستهٔ ۲۰ گام بعدی — Project Workspace و Settings](roadmap/NEXT-20-STEPS-20260911-WORKSPACE-PERSISTENCE.md) |
-| `HERO-ROADMAP-NEXT-100-STEPS-20260911-PROJECT-CONTROL` | `active` | [بستهٔ ۱۰۰ گام بعدی — Project Control Room](roadmap/NEXT-100-STEPS-20260911-PROJECT-CONTROL.md) |
+| `HERO-ROADMAP-CONTROLLED-PRODUCT-FACTORY-20260917` | `active` | [رودمپ کنترل‌شدهٔ کارخانهٔ محصول Hero — ۲۰۲۶-۰۹-۱۷](roadmap/CONTROLLED-PRODUCT-FACTORY-ROADMAP-20260917.md) |
+| `HERO-ROADMAP-NEXT-100-STEPS-20260904` | `superseded` | [صد گام بعدی Hero — فهرست اجرایی و وضعیت واقعی](roadmap/NEXT-100-STEPS-20260904.md) |
+| `HERO-ROADMAP-NEXT-20-STEPS-20260904` | `superseded` | [بیست گام بعدی Hero — وضعیت اجرایی](roadmap/NEXT-20-STEPS-20260904.md) |
+| `HERO-ROADMAP-NEXT-20-STEPS-20260911-WORKSPACE-PERSISTENCE` | `superseded` | [بستهٔ ۲۰ گام بعدی — Project Workspace و Settings](roadmap/NEXT-20-STEPS-20260911-WORKSPACE-PERSISTENCE.md) |
+| `HERO-ROADMAP-NEXT-100-STEPS-20260911-PROJECT-CONTROL` | `superseded` | [بستهٔ ۱۰۰ گام بعدی — Project Control Room](roadmap/NEXT-100-STEPS-20260911-PROJECT-CONTROL.md) |
 | `HERO-ROADMAP-OPEN-50-PRIORITY-20260904` | `active` | [پنجاه گام باز و اولویت‌دار Hero](roadmap/OPEN-50-PRIORITY-20260904.md) |
 | `HERO-ROADMAP-ROADMAP-2-0-TEAM-OPERATING-MODEL` | `active` | [رودمپ ۲.۰ Hero — شرکت نرم‌افزاری چندتیمی](roadmap/ROADMAP-2.0-TEAM-OPERATING-MODEL.md) |
 | `HERO-ROADMAP-FUTURE-REQUIRED-PRICING-CATALOG` | `active` | [قابلیت ضروری آینده: Pricing Catalog نسخه‌دار Hero](roadmap/FUTURE-REQUIRED-PRICING-CATALOG.md) |
-| `HERO-ROADMAP-BACKOFFICE-COMMAND-CENTER-V1` | `active` | [برنامهٔ جامع توسعهٔ Back Office Command Center — v1.1](roadmap/BACKOFFICE-COMMAND-CENTER-IMPLEMENTATION-v1.0.md) |
+| `HERO-ROADMAP-BACKOFFICE-COMMAND-CENTER-V1` | `active` | [برنامهٔ جامع توسعهٔ Back Office Command Center — v1.2](roadmap/BACKOFFICE-COMMAND-CENTER-IMPLEMENTATION-v1.0.md) |
 | `HERO-ROADMAP-BACKOFFICE-UI-UX-V1` | `active` | [برنامهٔ توسعهٔ UI/UX جامع Back Office — v1.0](roadmap/BACKOFFICE-UI-UX-IMPLEMENTATION-v1.0.md) |
 
 ## Templateها

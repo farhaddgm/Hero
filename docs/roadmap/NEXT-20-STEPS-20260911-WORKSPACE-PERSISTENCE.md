@@ -2,12 +2,14 @@
 
 > Document ID: `HERO-ROADMAP-NEXT-20-STEPS-20260911-WORKSPACE-PERSISTENCE`
 > Version: `1.0.0`
-> Status: `active`
+> Status: `superseded`
 > Scope: `hero`
 > Owner: `hero-architecture`
 > Review cadence: `per-change`
 
 این بسته، گام‌های BO-031 تا BO-050 را در یک برش ایزولهٔ قابل‌آزمون توسعه می‌دهد. Provider واقعی، Secret، هزینه، Production، DNS، Notion write و اجرای پایلوت در این بسته وجود ندارد.
+
+> وضعیت تاریخی: این سند به‌عنوان evidence برش Workspace/Settings نگهداری می‌شود. ترتیب توسعهٔ جاری در `HERO-ROADMAP-CONTROLLED-PRODUCT-FACTORY-20260917@1.0.0` و مرجع الزام در `HERO-ROADMAP-BACKOFFICE-COMMAND-CENTER-V1@1.2.0` است.
 
 ## خروجی مورد انتظار
 

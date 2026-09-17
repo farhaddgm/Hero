@@ -1,15 +1,15 @@
 # قابلیت ضروری آینده: Pricing Catalog نسخه‌دار Hero
 
-وضعیت: `implemented-test-authorized-rollout-blocked`
+وضعیت: `implemented-test-released-live-evidence-pending`
 
 - Document ID: `HERO-ROADMAP-FUTURE-REQUIRED-PRICING-CATALOG`
-- Version: `1.1.1`
+- Version: `1.3.0`
 
 این قابلیت پیش از فعال‌سازی Provider پولی و هر استفادهٔ عملیاتی واقعی از محاسبهٔ
 هزینه تکمیل شده است. قرارداد، migration، Adapterها و تست‌های بدون شبکه اجرا شده‌اند.
-برای rollout محدود Test، یک authorization مستقل و نسخه‌دار ثبت شده است؛ با این حال
-فراخوانی واقعی تا وقتی artifact جدید، پیکربندی runtime منطبق و Project/Binding فعال در
-Test وجود نداشته باشد، fail-closed می‌ماند.
+برای rollout محدود Test، authorization مستقل و نسخه‌دار ثبت و artifact مربوط به مسیر
+orchestration روی Test منتشر شده است. با این حال فراخوانی واقعی تا وقتی پیکربندی runtime
+منطبق و Project/Profile/Binding فعال در Test وجود نداشته باشد، fail-closed می‌ماند.
 
 ## تصمیم و مرز فعلی
 
@@ -20,6 +20,12 @@ Test وجود نداشته باشد، fail-closed می‌ماند.
 - شناسهٔ مدل، Provider، سقف هزینه و زمان انقضای مجوز باید بعداً توسط Admin در پیکربندی نسخه‌دار تغییرپذیر باشند.
 - نرخ قیمت قابل ویرایش دستی در Environment نیست؛ نرخ فقط از Catalog معتبر و منبع رسمی Provider پذیرفته می‌شود.
 - Secret، API Key، مقدار خام credential و محتوای درخواست/پاسخ در Git، Google Sheet، Catalog یا Audit Log ثبت نمی‌شود.
+
+## وضعیت جاری Test — ۲۰۲۶-۰۹-۱۷
+
+- Release Candidate `v1.1.4-rc.3` با digest `sha256:996da1112d0c30ec419fb7ace035f2cb2106191a41cb4eb1d08c1e09a37f4896` از GitHub Actions run `35266951191` فقط به Hero Test promotion و smoke آن `PASS` شد.
+- authorization `AUTH-AI-TEST-001` همان Scope محدود Test را دارد؛ Production و Pilot خارج از Scope هستند.
+- این سند evidence فراخوانی واقعی Provider نیست: invocation، latency، usage و cost زنده برای Walk-Through و Smart Tester هنوز در این baseline ثبت نشده‌اند. نبود یک گیت منطبق باید با خطای امن و **بدون dispatch** پایان یابد.
 
 ## هدف معماری
 
@@ -108,8 +114,8 @@ Admin می‌تواند Provider، Model ID، cap و تاریخ انقضای م�
 - پیش از dispatch، authorization runtime باید active، خارج از انقضا، با Global Stop خاموش و دقیقاً منطبق با Project، Provider، Model، Role، Step ID و Document Version باشد. mismatch یا خطای configuration با پاسخ JSON امن متوقف می‌شود و Provider را صدا نمی‌زند.
 - Prompt و پاسخ مدل persist نمی‌شوند؛ ledger فقط invocation identifier امن، Provider/Model/Role/context identifiers، latency/usage/cost و وضعیت redacted را نگه می‌دارد. متن قابل‌نمایش نیز redaction و سقف طول دارد.
 - Test یکپارچهٔ هر دو capability با Provider fake تأیید می‌کند که Walk-Through و Smart Tester در مسیر live نتیجهٔ `analysis-v1` می‌گیرند؛ آزمون دوم، mismatch Role را با `403` و بدون هرگونه dispatch تأیید می‌کند. تست‌های کامل repository نیز این تغییر را پوشش می‌دهند.
-- وضعیت rollout پس از ممیزی ۲۰۲۶-۰۹-۱۷: Release Candidate `1.1.3-rc.1` برای commit `07c0ca591973a9b679a51c379e9d9cc259f10163` ساخته شد و artifact immutable `sha256:f97ad06b60cac7717fcea8513b9bc05b9b5265a1fba58d800129cc3f6901249d` را تولید کرد. workflow Test همان artifact و commit را با موفقیت verify کرد. ایراد syntax در validator workflow Test نیز با commit `7be8f0139b18560fcc2c7a85b0ae3bf9106d2615` و `389 pass / 0 fail` رفع شد.
-- محیط واقعی Test هنوز روی artifact قبلی `1.1.2` اجرا می‌شود. Runtime فقط authorization active/ID و Global Stop را دارد و scope اجباریِ مجوز ناقص است؛ PostgreSQL Test نیز Project، Provider، Model، Credential record و Invocation ندارد. بنابراین promotion و دو live scenario تا تکمیل configuration Test و ایجاد Project/Profile/Binding توسط Human Owner، بدون Provider call fail-closed می‌مانند؛ Secret Store و مقدار API key خوانده یا تغییر داده نشده‌اند.
+- سابقهٔ rollout: Release Candidate `1.1.3-rc.1` برای commit `07c0ca591973a9b679a51c379e9d9cc259f10163` پیش از candidate فعلی ساخته و verify شد. این evidence تاریخی است و وضعیت جاری را تعیین نمی‌کند.
+- وضعیت جاری در ابتدای سند معتبر است: `v1.1.4-rc.3` روی Hero Test promotion و smoke شده است. برای live scenario هنوز Profile/Binding/Health و همهٔ گیت‌های runtime باید برای Project `hero` منطبق باشند؛ تا آن زمان هر دو capability بدون Provider call fail-closed می‌مانند. Secret Store و مقدار API key در این گزارش خوانده یا تغییر داده نشده‌اند.
 
 ### Requirement trace
 

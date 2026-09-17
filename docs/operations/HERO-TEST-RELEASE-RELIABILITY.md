@@ -1,7 +1,7 @@
 # پایایی انتشار Hero در محیط Test
 
 - Document ID: `HERO-OPS-HERO-TEST-RELEASE-RELIABILITY`
-- Version: `1.1.0`
+- Version: `1.3.0`
 - Status: `active`
 - Owner: `hero-operations`
 - Scope: `hero`
@@ -11,7 +11,15 @@
 
 این runbook مسیر انتشار را از یک «فرمان دستی با چند مقدار مبهم» به یک زنجیرهٔ قابل‌ردیابی تبدیل می‌کند: نسخه و commit از ابتدا مشخص‌اند، image فقط با digest غیرقابل‌تغییر جابه‌جا می‌شود، manifest مرجع واحد است، backup هیچ Secretی ندارد و در شکست پس از تغییر، rollback خودکار انجام می‌شود.
 
-## آخرین اجرای واقعی — ۲۰۲۶-۰۹-۱۷
+## Snapshot جاری source و Test — ۲۰۲۶-۰۹-۱۷
+
+- source مرجع branch `codex/test-release-reliability-20260916`، commit `d889ab3c8d8544673f1ecf59bd9e63315d4ae7dc` است.
+- Runtime Test روی Release Candidate `v1.1.4-rc.3` و artifact immutable `ghcr.io/farhaddgm/hero@sha256:996da1112d0c30ec419fb7ace035f2cb2106191a41cb4eb1d08c1e09a37f4896` اجرا می‌شود.
+- GitHub Actions run `35266951191` موفق بود. Owner manifest همان run را promotion کرد؛ ابزار rollback point metadata-only را در `/etc/hero/hero-test.env.release-state.before-996da1112d0c30ec419fb7ace035f2cb2106191a41cb4eb1d08c1e09a37f4896.json` ثبت کرد.
+- curl reset اولیه در startup گذرا بود؛ promotion با `SUCCESS` پایان یافت و verify بعدی `/health`، `/ready` و `Hero Test smoke check: PASS` را ثبت کرد. Production، Pilot و Secretها تغییر نکردند.
+- `pnpm check` candidate برابر ۳۹۴ pass و ۰ fail و build برابر ۲۶۳ module و ۴۹ JSON بود. این runbook دربارهٔ انتشار Hero است؛ scenario زندهٔ Provider evidence جداگانه می‌خواهد.
+
+## اجرای پیشین — ۲۰۲۶-۰۹-۱۷
 
 - Release Candidate `1.1.3-rc.1` برای commit `07c0ca591973a9b679a51c379e9d9cc259f10163` با workflow run `35208122251` موفق شد. `pnpm check` در GitHub گذشت، tag و Test prerelease ساخته شد و artifact immutable زیر ایجاد شد: `ghcr.io/farhaddgm/hero@sha256:f97ad06b60cac7717fcea8513b9bc05b9b5265a1fba58d800129cc3f6901249d`.
 - نخستین Test verification یک ایراد syntax fail-closed در regex workflow را آشکار کرد. اصلاح workflow در commit `7be8f0139b18560fcc2c7a85b0ae3bf9106d2615` با `389 pass / 0 fail` تأیید و push شد؛ سپس workflow Test run `35208713807` همان artifact و commit را pull و labelهای version/revision را با موفقیت تطبیق داد.

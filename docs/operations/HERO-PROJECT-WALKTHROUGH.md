@@ -1,13 +1,13 @@
 # راهنمای جامع گام‌به‌گام ساخت محصول با Hero
 
 - Document ID: `HERO-OPS-PROJECT-WALKTHROUGH`
-- Version: `1.8.0`
+- Version: `1.8.1`
 - Status: `active`
 - Owner: `hero-product`
 - Scope: `cross-project`
 - Review cadence: `per-change`
 - UI route: `/walkthrough` (مسیری مستقیم در خود Hero) و `/portfolio?surface=walkthrough` (مسیر سازگار با پراکسی Test؛ مسیر پیشنهادی برای مرورگر)
-- Date: `2026-09-14`
+- Date: `2026-09-17`
 
 ## ۱. هدف و مرز صداقت
 
@@ -62,7 +62,8 @@
 
 - Owner با همان نشست انسانی شش‌ساعته می‌تواند Provider، Model، Profile، Skill و Policy سراسری را ثبت کند؛ فرم AI به Token مرورگر یا Token قابل‌کپی نیاز ندارد.
 - Admin نمی‌تواند اتصال یا کاتالوگ سراسری ایجاد کند، اما می‌تواند یک Profile فعالِ ازپیش‌تأییدشده را فقط برای Project دارای Grant خودش Binding کند. Scope پروژه هم در URL درخواست و هم در body تطبیق داده می‌شود.
-- در Test فعلی Provider زنده و API Key فعال نیست. مشاورهٔ Walk-Through عمداً از تحلیل‌گر محلی و زمینه‌مند استفاده می‌کند؛ اتصال‌های AI برای نقش‌ها، اجرای پروژه و Smart Tester در سطح خودشان و پشت گیت Health/Budget/Authorization مدیریت می‌شوند، نه در پنجرهٔ راهنما.
+- Runtime Hero Test روی `v1.1.4-rc.3` منتشر شده است. مشاوره به‌صورت پیش‌فرض از تحلیل‌گر محلی و زمینه‌مند استفاده می‌کند؛ انتخاب Profile فقط بیانگر مسیر بالقوه است و خودش dispatch یا هزینه ایجاد نمی‌کند.
+- source/Test مسیر پاسخ زنده را نیز دارد: فقط Profile فعال و project-bound، Health موفق، authorization دقیق external-spend، Cost Catalog معتبر، Step/Document version منطبق و Global Stop خاموش اجازهٔ dispatch می‌گیرند. تا وقتی همهٔ این گیت‌ها در Runtime Test برقرار و برای همان سناریو evidence ثبت نشده‌اند، راهنما باید به پاسخ محلی برگردد و هیچ Provider یا هزینه‌ای ایجاد نکند.
 
 ### فراخوانی دادهٔ ثبت‌شده در Workspace
 

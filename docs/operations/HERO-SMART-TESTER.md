@@ -1,13 +1,13 @@
 # اسمارت تستر Back Office Hero
 
 - Document ID: `HERO-OPS-SMART-TESTER`
-- Version: `1.2.0`
+- Version: `1.5.1`
 - Status: `active`
 - Owner: `hero-quality`
 - Scope: `hero`
 - Review cadence: `per-change`
 - UI: دکمهٔ «اسمارت تستر» در نوار بالای Back Office
-- Date: `2026-09-14`
+- Date: `2026-09-17`
 
 ## هدف
 
@@ -33,7 +33,8 @@
 
 پنل، route، Project ID انتخاب‌شده، کلید قابلیت، metadata امن پروژه (lifecycle، کامل‌بودن Intake، وضعیت Foundation، شمار ورودی/حافظه و مسیرهای تنظیم) و نقشهٔ source fileهای همان surface را به endpoint داخلی محدود می‌فرستد. متن حافظه، ورودی خصوصی، مقدار تنظیم و فایل کد خام به پنل یا گزارش منتقل نمی‌شود. مسیر فقط این contextهای allowlist را می‌پذیرد؛ URL یا فایل دلخواه از مرورگر پذیرفته نمی‌شود.
 
-- پاسخ‌گو در نسخهٔ `1.2.0`، تحلیلگر محلی و deterministic Hero است (`local-contextual-development-assistant`). فهرست امن Provider، Model و Profileهای فعال در پنجره نمایش داده می‌شود و Owner می‌تواند AI و نسخهٔ Profile را انتخاب کند. این انتخاب در پاسخ ثبت می‌شود، اما Provider خارجی، Token، هزینه یا فراخوانی Model زنده در این ابزار انجام نمی‌شود و به مجوز مستقل نیاز دارد.
+- پاسخ‌گو در حالت پیش‌فرض تحلیلگر محلی و deterministic Hero است (`local-contextual-development-assistant`). فهرست امن Provider، Model و Profileهای فعال در پنجره نمایش داده می‌شود و Owner می‌تواند AI و نسخهٔ Profile را انتخاب کند. اگر Profile فعال، project-bound، سالم و مشمول authorization دقیقِ external-spend باشد، source فعلی می‌تواند پاسخ ساخت‌یافتهٔ زنده (`analysis-v1`) را از همان Provider بگیرد؛ در غیر این صورت بدون dispatch به پاسخ محلی برمی‌گردد و fail-closed می‌ماند.
+- انتخاب‌گر فقط Profile سازگار با نقش `analyst`، schema `analysis-v1` و policy ابزار `read-only` را نشان می‌دهد و Provider/Model تکراری را deduplicate می‌کند؛ Profile ناسازگار یا آماده‌نشده قابل انتخاب نیست. این رفتار از تکرار ظاهری جلوگیری می‌کند، اما گیت authorization/health/budget را دور نمی‌زند.
 - سطح صفحه از آدرس canonical `/api/portal?surface=...` به context داخلی allowlist نگاشت می‌شود؛ بنابراین Portfolio، Studio، Workspace، مرکز فرمان، Operations، اتصال‌های AI، Identity و Walk-Through زمینهٔ جدا و معتبر دارند.
 - تحلیلگر دربارهٔ مرز داده، قرارداد UI/Backend و source map همان بخش توضیح می‌دهد. متن سؤال یا پاسخ در پایگاه‌داده، Audit یا history ذخیره نمی‌شود.
 - Secret، رمز، API key، MFA، Token یا دادهٔ شخصی را در سؤال وارد نکنید. درخواست‌هایی که شکل صریح مقدار حساس دارند رد می‌شوند.
@@ -75,7 +76,7 @@
 
 - تمام endpointهای `/api/smart-tester/*` به نشست انسانی معتبر نیاز دارند؛ Basic Auth شبکه به‌تنهایی کافی نیست.
 - فقط `project-owner` می‌تواند ابزار را باز کند یا گزارش اجرا کند. Viewer و Admin—even با Project Grant—دسترسی ندارند، چون ابزار به نقشهٔ کد Hero مربوط است.
-- برای context project-scoped، Project Grant `project.read` هم کنترل می‌شود و `projectId` در query و body باید دقیقاً یکسان باشد.
+- برای context project-scoped، Project Grant `project.read` هم کنترل می‌شود و `projectId` در query و body باید دقیقاً یکسان باشد. اجرای زنده علاوه بر آن به Profile/Binding فعال، Health، سقف هزینه، Step/Document version و Global Stop خاموش نیاز دارد.
 - mutationهای cookie-backed همچنان Origin same-origin را می‌خواهند.
 - گزارش با `reportId` تصادفی فقط برای همان Owner و همان context قابل‌خواندن است و حداکثر ۳۰ دقیقه در حافظهٔ Control Plane نگهداری می‌شود. Restart، logout یا پایان TTL آن را حذف می‌کند.
 
@@ -89,6 +90,6 @@
 
 گزارش به‌تنهایی Evidence انتشار، approval، acceptance یا Done نیست. برای رفع یک مشکل واقعی، Owner باید تغییر را از مسیر توسعه، review، test و گیت مستقل همان قابلیت انجام دهد.
 
-## مرز نسخهٔ ۱.۲.۰
+## مرز نسخهٔ ۱.۵.۰
 
-این نسخه علاوه بر پنل شناور، روشن/خاموش‌سازی، نشان در Boxها، گفت‌وگوی context-aware و گزارش محدود UI/UX/Backend/Code، انتخاب امن AI/نسخه، خطایاب مستقل و ثبت تأییدشدهٔ سند خطا را دارد. خطاهای اقدام‌های فرایندی نیز از پنجرهٔ نتیجه به Smart Tester منتقل می‌شوند تا در advice و گزارش خطا لحاظ شوند. اجرای جامع browser automation، تست بصری خودکار، اجرای تمام suiteها، lint خارجی یا اتصال به Provider/AI زنده عمداً درون این ابزار قرار نگرفته‌اند؛ افزودن هرکدام نیازمند طراحی pipeline، بودجه، isolation و مجوز جداگانه است.
+این نسخه علاوه بر پنل شناور، روشن/خاموش‌سازی، نشان در Boxها، گفت‌وگوی context-aware و گزارش محدود UI/UX/Backend/Code، انتخاب امن AI/نسخه، خطایاب مستقل و ثبت تأییدشدهٔ سند خطا را دارد. تشخیص خطا اکنون نتیجهٔ خلاصه و قابل‌اقدام تولید می‌کند و پس از تأیید Owner در سند project-scoped به‌صورت append-only ثبت می‌شود. مسیر live Provider در source پیاده‌سازی و با fake adapter آزموده شده، اما تا وقتی Test Profile/Binding و authorization runtime منطبق نداشته باشد اجرا نمی‌شود. اجرای جامع browser automation، تست بصری خودکار، اجرای تمام suiteها، lint خارجی، GitHub، Server یا عملیات Production درون این ابزار قرار نگرفته‌اند و گیت مستقل دارند.

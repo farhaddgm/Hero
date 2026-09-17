@@ -1,10 +1,31 @@
 # تغییرات رودمپ شرکت
 
-# ۲۰۲۶-۰۹-۱۷ — Walk-Through و Smart Tester: orchestration ایمن و release gate
+# ۲۰۲۶-۰۹-۱۷ — رودمپ کنترل‌شدهٔ کارخانهٔ محصول و تصحیح وضعیت Test
+
+- وضعیت canonical به `HERO-ROADMAP-STATUS-20260917@1.1.0` تصحیح شد: Hero Test اکنون `v1.1.4-rc.3` با digest `sha256:996da1112d0c30ec419fb7ace035f2cb2106191a41cb4eb1d08c1e09a37f4896` است؛ GitHub run `35266951191`، promotion Owner و smoke واقعی موفق‌اند. نتیجهٔ source همان candidate `394 pass / 0 fail` و build `263 module / 49 JSON` است.
+- `HERO-ROADMAP-CONTROLLED-PRODUCT-FACTORY-20260917@1.0.0` به‌عنوان sequencing فعال اضافه شد. مسیر مسئله تا Proposal، runner ایزوله، Product Test، artifact immutable، انتقال/recovery و Target خارجی را با Exit Gateهای جدا تعریف می‌کند.
+- امکان آیندهٔ اجرای محصول روی همان host ParsPack فقط با namespace و resourceهای مستقل Product (repo/worktree، Compose project، network، volume، database، port، Secret reference، quota و rollback) پذیرفته است؛ Docker socket، privileged، host network/mount و reuse منابع Hero ممنوع‌اند.
+- چهار roadmap تاریخی Next برای sequencing superseded شدند، اما جدول‌ها و evidence آن‌ها حذف نشد. برنامهٔ ۱۷۰ گام Back Office `active` و هنجاری باقی ماند؛ Pilot اکنون صریحاً بعد از BO-169 و مجوز مستقل است.
+- هیچ Product Runner، server خارجی، deploy محصول، Secret، Provider واقعی، هزینهٔ بیرونی، Pilot یا Production در این تغییر ایجاد یا فعال نشد. evidence تازهٔ live OpenAI نیز ادعا نشده است.
+
+# ۲۰۲۶-۰۹-۱۷ — snapshot تاریخی پیش از rc.3 (superseded by entry above)
+
+- سند مرجع وضعیت جاری به `HERO-ROADMAP-STATUS-20260917@1.0.0` ارتقا یافت و وضعیت source، Runtime Test، Release، AI live و تمام گیت‌های باز را یکجا ثبت کرد.
+- source فعلی `cd4df73aa72341b0596ad3fbe117c9fc36742017` است؛ Runtime Test هنوز روی `v1.1.2` با digest `sha256:641e6c75b5f871e87053cf2d959fe250a20067b8ecc7fe0571e15345f31c0d10` اجرا می‌شود.
+- Smoke Test مالک برای artifact فعلی `PASS` است؛ مسیر عمومی `/build-info` به‌دلیل allowlist فعلی Caddy هنوز `404` است و به‌عنوان گیت observability باز ثبت شد.
+- ممیزی جاری همچنان `20 verified / 150 remaining` برای ۱۷۰ گام و `5 implemented / 76 partial / 0 missing` برای ۸۱ نیازمندی است؛ این اعداد بدون Evidence جدید ارتقا داده نمی‌شوند.
+
+# ۲۰۲۶-۰۹-۱۷ — Smart Tester 1.5 و تشخیص قابل‌اقدام (source snapshot تاریخی)
+
+- نسخهٔ Smart Tester در source به `1.5.0` رسید؛ گزارش خطا اکنون نتیجهٔ کوتاه و قابل‌اقدام («چه اتفاقی افتاد؟»، «چرا؟»، «چه‌کار کنم؟»، «بعد از اصلاح») می‌دهد و جزئیات حساس یا غیرقابل‌اثبات را نمایش نمی‌دهد.
+- ثبت تشخیص پس از تأیید Owner در سند project-scoped خطا به‌صورت append-only باقی می‌ماند؛ مسیر live Provider فقط با Profile/Binding فعال، Health، Cost Catalog و authorization دقیق مجاز است.
+- این اصلاحات روی source جاری هستند و تا انتشار artifact جدید، در Runtime Test نسخهٔ `v1.1.2` فعال نشده‌اند.
+
+# ۲۰۲۶-۰۹-۱۷ — Walk-Through و Smart Tester: orchestration ایمن و release gate (source snapshot تاریخی)
 
 - تکمیل‌شده در source: هر دو capability از Back Office به AI Orchestration، context/role/policy، Profile/Binding و Provider adapter می‌رسند؛ UI به Provider خاص وابسته نیست و نتیجهٔ live با schema `analysis-v1`، evidence متادیتایی امن و usage/cost/latency قابل‌ردیابی برمی‌گردد.
 - اصلاح‌شده: timeout با abort در HTTP adapter، retry محدود، provider/network/invalid-output failure، redaction credential و fail-closed برای Role/Tool Policy/authorization/Binding اعمال شد. Smart Tester برای ثبت durable خطا به `project.write` نیاز دارد و اجرای live همچنان side-effect مستقل ندارد.
-- تأیید source: branch `codex/test-release-reliability-20260916`، implementation commit `9b0b45836dd47d650907923cbfe1a33b5ae42d9c` و evidence commit `323bc7faa135d28a41a692048d3e52e17c34fa2f`، `pnpm check` برابر ۳۸۹ pass و ۰ fail؛ build محلی Docker نیز verification را گذراند، اما artifact به GHCR publish نشد و release محسوب نمی‌شود.
+- تأیید source: branch `codex/test-release-reliability-20260916`، implementation commit جاری `cd4df73aa72341b0596ad3fbe117c9fc36742017` و اجرای source-snapshot برابر ۳۹۰ pass و ۰ fail؛ build مرجع نیز verification را گذراند، اما artifact این commit به GHCR publish نشده و release محسوب نمی‌شود.
 - وضعیت release: Test روی artifact قبلی `1.1.2` و digest قبلی باقی ماند؛ GHCR publish candidate به‌دلیل `permission_denied` و scope ناکافی token انجام نشد، پس tag/manifest/promotion جدید وجود ندارد.
 - وضعیت live: authorization و Test Secret Store metadata حاضر است، ولی Profile/Binding فعال برای Project `hero` در snapshot AI وجود ندارد؛ Walk-Through و Smart Tester واقعی اجرا نشدند و هیچ Provider، Secret، هزینه یا prompt/response حساسی لمس/ذخیره نشد.
 

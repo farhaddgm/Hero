@@ -1,5 +1,14 @@
 # Moving Hero to another server
 
+- Document ID: `HERO-OPS-MOVE-TO-ANOTHER-SERVER`
+- Version: `1.1.0`
+- Status: `active`
+- Scope: `hero`
+
+## Scope clarification
+
+This runbook moves the **Hero Control Plane** only. It does not authorize or describe a Product Runtime created/managed by Hero. A product has its own repository, artifact, data, secrets and environment boundaries; its same-host isolation, external target and clean-host transfer criteria are in `HERO-OPS-PRODUCT-RUNTIME-ISOLATION-AND-TRANSFER@1.0.0`.
+
 ## Purpose and authorization boundary
 
 This runbook is an operator checklist, not an automatic deployment script. A successful `PORTABILITY_VERIFIED` record proves that a versioned package has the required evidence. Copying a repository, touching a backup, writing secrets, provisioning a host, starting containers, public exposure and production operation each still require separate authorization.
