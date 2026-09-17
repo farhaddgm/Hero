@@ -44,6 +44,7 @@ import {
   getProjectIdentityContractSummary,
   getProjectSettingsContractSummary,
   getProjectWorkspaceContractSummary,
+  getProductFactoryContractSummary,
   getBackofficeCollaborationContractSummary,
   getBackofficeCommandCenterContractSummary,
   getSystemCatalogContractSummary,
@@ -2460,7 +2461,7 @@ export function createHeroServer(options = {}) {
       const projectFoundationApproveMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/foundation\/approve$/);
       if (projectFoundationApproveMatch && request.method === "POST") {
         const input = await readJson(request);
-        const proposal = projectWorkspace.approveFoundation({ actor: authenticatedOwner, projectId: projectFoundationApproveMatch[1], proposalId: input.proposalId, expectedVersion: input.expectedVersion });
+        const proposal = projectWorkspace.approveFoundation({ actor: authenticatedOwner, projectId: projectFoundationApproveMatch[1], proposalId: input.proposalId, expectedVersion: input.expectedVersion, riskApproval: input.riskApproval === true });
         await persistWorkspaceProposal(proposal);
         await persistWorkspaceProject(projectWorkspace.getProject(projectFoundationApproveMatch[1]), "Foundation approved");
         await persistWorkspaceSettings(projectFoundationApproveMatch[1]);
@@ -2660,7 +2661,7 @@ export function createHeroServer(options = {}) {
       }
 
       if (request.method === "GET" && url.pathname === "/api/product-development/contract") {
-        return json(response, 200, { service: HERO_SERVICE, productDevelopmentContract: getProductDevelopmentContractSummary() });
+        return json(response, 200, { service: HERO_SERVICE, productDevelopmentContract: getProductDevelopmentContractSummary(), productFactoryContract: getProductFactoryContractSummary() });
       }
 
       if (request.method === "GET" && url.pathname === "/api/product-development/catalog") {

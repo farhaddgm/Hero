@@ -459,6 +459,21 @@ export {
   validateProjectSettingsContract
 } from "./project-settings.mjs";
 
+export {
+  PRODUCT_AUTONOMY_MODES,
+  PRODUCT_EXECUTION_MODES,
+  PRODUCT_FACTORY_CONTRACT_VERSION,
+  PRODUCT_NETWORK_POLICIES,
+  PRODUCT_RISK_LEVELS,
+  PRODUCT_RUNTIME_DEFAULTS,
+  PRODUCT_RUNTIME_EFFECTS,
+  PRODUCT_TARGET_KINDS,
+  PRODUCT_TYPES,
+  getProductFactoryContractSummary,
+  validateProductFactoryContract,
+  validateProductRuntimePlan
+} from "./product-factory.mjs";
+
 export { BACKOFFICE_COLLABORATION_CONTRACT_VERSION, CONVERSATION_CONTEXTS, MEMORY_LEVELS, MEMORY_SENSITIVITIES, getBackofficeCollaborationContractSummary, validateBackofficeCollaborationContract } from "./backoffice-collaboration.mjs";
 export { BACKOFFICE_COMMAND_CENTER_CONTRACT_VERSION, COMMAND_RISKS, COMMAND_STATES, getBackofficeCommandCenterContractSummary, validateBackofficeCommandCenterContract } from "./backoffice-command-center.mjs";
 export { SYSTEM_CATALOG_CONTRACT_VERSION, SYSTEM_ENTITY_TYPES, SYSTEM_ENTITY_LIFECYCLES, getSystemCatalogContractSummary, validateSystemCatalogContract } from "./system-catalog.mjs";

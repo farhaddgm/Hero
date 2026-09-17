@@ -6,7 +6,9 @@ import os from "node:os";
 
 import { validateProjectSettingsContract } from "../packages/contracts/src/project-settings.mjs";
 import { validateProjectWorkspaceContract } from "../packages/contracts/src/project-workspace.mjs";
+import { validateProductFactoryContract, validateProductRuntimePlan } from "../packages/contracts/src/product-factory.mjs";
 import { createProjectSettingsRegistry, ProjectSettingsError } from "../packages/domain/src/project-settings.mjs";
+import { classifyProductRisk, createProductRuntimePlan } from "../packages/domain/src/product-factory.mjs";
 import { createProjectWorkspace, ProjectWorkspaceError } from "../packages/domain/src/project-workspace.mjs";
 import { createPrivateObjectStore } from "../packages/adapters/src/private-object-store.mjs";
 import { createHeroServer } from "../apps/control-plane/src/server.mjs";
@@ -25,16 +27,49 @@ function setup() {
 
 test("project registry creates isolated projects, safe intake, proposal and clone exclusions", () => {
   assert.deepEqual(validateProjectWorkspaceContract(), []);
+  assert.deepEqual(validateProductFactoryContract(), []);
   const { workspace } = setup();
   const vpn = workspace.createProject({ actor: owner, projectId: "project-vpn", name: "VPN", intake: { intent: "Build a VPN", goal: "Private connectivity", users: "Remote teams", constraints: ["No production deployment"], expectedOutputs: ["Web application"] } });
   assert.equal(vpn.project.lifecycle, "draft");
   assert.equal(vpn.project.status, "draft");
   assert.equal(vpn.foundationProposal.state, "proposed");
   assert.equal(workspace.getProject("project-vpn").intake.riskLevel, "standard");
+  assert.equal(vpn.project.riskAssessment.level, "standard");
+  assert.equal(vpn.foundationProposal.suggested.runtimePlan.execution.mode, "plan-only");
+  assert.deepEqual(validateProductRuntimePlan(vpn.foundationProposal.suggested.runtimePlan), []);
+  assert.equal(vpn.foundationProposal.suggested.runtimePlan.effects.containerStart, false);
+  assert.equal(vpn.foundationProposal.suggested.runtimePlan.security.hostNetwork, false);
   const cloned = workspace.cloneFromTemplate({ actor: owner, sourceProjectId: "project-vpn", projectId: "project-crm", name: "CRM" });
   assert.deepEqual(cloned.clone.exclusions, ["secret", "production-data", "memory", "private-history", "sessions", "uploads"]);
   assert.throws(() => workspace.createProject({ actor: admin, projectId: "project-x", name: "No" }), error => error instanceof ProjectWorkspaceError && error.code === "OWNER_REQUIRED");
   assert.throws(() => workspace.createProject({ actor: owner, projectId: "project-bad", name: "Bad", intake: { intent: "a", goal: "b", users: "c", secret: "never" } }), error => error.code === "SENSITIVE_INPUT_FORBIDDEN");
+});
+
+test("product factory classifies risk conservatively and keeps runtime effects fail-closed", () => {
+  const assessment = classifyProductRisk({ projectType: "security-tool", requestedLevel: "low", riskFlags: { internetFacing: true, securitySensitive: true } });
+  assert.equal(assessment.level, "critical");
+  assert.ok(assessment.requiredApprovals.includes("owner-risk-approval"));
+  assert.ok(assessment.blockedActions.includes("containerStart"));
+  const plan = createProductRuntimePlan({ projectId: "project-safe", riskLevel: assessment.level });
+  assert.deepEqual(validateProductRuntimePlan(plan), []);
+  assert.equal(plan.execution.network, "disabled");
+  assert.equal(plan.isolation.ports.length, 0);
+  assert.deepEqual(Object.values(plan.effects), [false, false, false, false, false, false, false]);
+});
+
+test("high-risk Foundation requires explicit owner risk approval", () => {
+  const { workspace } = setup();
+  const created = workspace.createProject({ actor: owner, projectId: "project-secure", name: "Secure", intake: { projectType: "security-tool", riskFlags: { internetFacing: true, securitySensitive: true } } });
+  assert.equal(created.project.riskAssessment.level, "critical");
+  assert.throws(() => workspace.approveFoundation({ actor: admin, projectId: "project-secure", proposalId: created.foundationProposal.proposalId, expectedVersion: 1, riskApproval: true }), error => error.code === "OWNER_RISK_APPROVAL_REQUIRED");
+  assert.throws(() => workspace.approveFoundation({ actor: owner, projectId: "project-secure", proposalId: created.foundationProposal.proposalId, expectedVersion: 1 }), error => error.code === "OWNER_RISK_APPROVAL_REQUIRED");
+  const approved = workspace.approveFoundation({ actor: owner, projectId: "project-secure", proposalId: created.foundationProposal.proposalId, expectedVersion: 1, riskApproval: true });
+  assert.equal(approved.riskApproval.approved, true);
+});
+
+test("project intake rejects unknown risk flags instead of silently weakening policy", () => {
+  const { workspace } = setup();
+  assert.throws(() => workspace.createProject({ actor: owner, projectId: "project-risk", name: "Risk", intake: { riskFlags: { unknownFlag: true } } }), error => error instanceof ProjectWorkspaceError && error.code === "INVALID_INTAKE");
 });
 
 test("private input pipeline validates signatures, scan, zip safety, instruction isolation and SSRF", () => {
