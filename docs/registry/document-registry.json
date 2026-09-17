@@ -1001,13 +1001,27 @@
       "review_cadence": "per-change"
     },
     {
+      "id": "HERO-EVIDENCE-PRODUCT-FACTORY-PF1-20260917",
+      "path": "docs/evidence/PRODUCT-FACTORY-PF1-IMPLEMENTATION-20260917.md",
+      "title": "Evidence برش اول کارخانهٔ کنترل‌شدهٔ محصول — PF-1",
+      "type": "evidence",
+      "scope": "hero",
+      "status": "active",
+      "version": "1.0.0",
+      "owner": "hero-product",
+      "canonical": true,
+      "supersedes": [],
+      "superseded_by": null,
+      "review_cadence": "per-change"
+    },
+    {
       "id": "HERO-ROADMAP-STATUS-20260917",
       "path": "docs/roadmap/STATUS-20260917.md",
       "title": "وضعیت جاری Hero — ۲۰۲۶-۰۹-۱۷",
       "type": "evidence",
       "scope": "hero",
       "status": "active",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "owner": "hero-operations",
       "canonical": true,
       "supersedes": ["HERO-ROADMAP-STATUS-20260911"],
@@ -1021,7 +1035,7 @@
       "type": "roadmap",
       "scope": "hero",
       "status": "active",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "owner": "hero-product",
       "canonical": true,
       "supersedes": [
