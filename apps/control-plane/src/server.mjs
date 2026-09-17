@@ -714,7 +714,7 @@ export function createHeroServer(options = {}) {
    * are deliberately absent.  A registered Provider is not presented as
    * connected until its recorded mode and health evidence support that claim.
    */
-  function walkthroughAdvisorOptions(projectId, { includeUnbound = false } = {}) {
+  function walkthroughAdvisorOptions(projectId, { includeUnbound = false, purpose = "walkthrough-guide" } = {}) {
     const ai = dashboard.aiOrchestrationSnapshot();
     const latestHealth = new Map();
     for (const event of dashboard.aiOrchestrationEvents(0)) {
@@ -766,7 +766,23 @@ export function createHeroServer(options = {}) {
       .map(profile => {
         const provider = providerById.get(profile.providerId);
         const model = modelByKey.get(`${profile.providerId}:${profile.modelId}`);
-        const selectable = provider?.advisorCompatible === true && (provider?.mode === "deterministic" || (provider?.mode === "live" && provider.connection.state === "healthy"));
+        let liveAuthorization = null;
+        let authorizationError = null;
+        if (provider?.mode === "live") {
+          try {
+            liveAuthorization = activeLiveAdvisorAuthorization({
+              purpose,
+              projectId,
+              providerId: profile.providerId,
+              modelId: profile.modelId,
+              role: profile.role
+            });
+          } catch (error) {
+            authorizationError = error?.code ?? "LIVE_ADVISOR_AUTHORIZATION_UNAVAILABLE";
+          }
+        }
+        const selectable = provider?.advisorCompatible === true
+          && (provider?.mode === "deterministic" || (provider?.mode === "live" && provider.connection.state === "healthy" && liveAuthorization?.authorized === true));
         return Object.freeze({
           profileId: profile.profileId,
           role: profile.role,
@@ -784,6 +800,8 @@ export function createHeroServer(options = {}) {
               : "برای فراخوانی زنده، مجوز هزینهٔ جداگانه و سقف مصرف معتبر نیز باید برقرار باشد."
             : provider?.advisorCompatible === false
               ? "Cursor در Hero فعلاً یک Coding Agent جداگانه است و برای گفت‌وگوی مستقیم Walk-Through/Smart Tester انتخاب نمی‌شود."
+              : authorizationError
+                ? "این Profile از نظر اتصال آماده است، اما مجوز هزینهٔ زندهٔ همین Project/Role/Model معتبر نیست (" + authorizationError + ")."
               : "این Profile هنوز برای مشاورهٔ Walk-Through آماده نیست؛ وضعیت اتصال، Binding یا گیت هزینه را بررسی کنید."
         });
       });
@@ -800,7 +818,7 @@ export function createHeroServer(options = {}) {
     // A project-scoped Smart Tester request may invoke a live Provider. Keep
     // it bound to the same project boundary as Walk-Through; the global panel
     // may still show unbound profiles as local-only selections.
-    const options = walkthroughAdvisorOptions(projectId, { includeUnbound: projectId === null });
+    const options = walkthroughAdvisorOptions(projectId, { includeUnbound: projectId === null, purpose: "smart-tester" });
     return Object.freeze({
       ...options,
       projectId: projectId ?? null,

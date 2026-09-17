@@ -451,6 +451,9 @@ test("Project-bound live advisor profiles invoke through the bounded authorizati
   t.after(() => app.stop());
   const base = `http://127.0.0.1:${address.port}`;
   const headers = { authorization: `Bearer ${owner.token}`, "content-type": "application/json" };
+  const walkthroughOptions = await fetch(`${base}/api/projects/project-vpn/walkthrough-advisor/options`, { headers });
+  assert.equal(walkthroughOptions.status, 200);
+  assert.equal((await walkthroughOptions.json()).advisorOptions.profiles.find(profile => profile.profileId === "live-advisor-profile")?.selectable, true, "a healthy live profile is selectable only when its scoped authorization is active");
   const walkthrough = await fetch(`${base}/api/walkthrough/advice?projectId=project-vpn`, { method: "POST", headers, body: JSON.stringify({ stepId: "intake", projectId: "project-vpn", advisorProfileId: "live-advisor-profile", question: "گام بعدی چیست؟" }) });
   assert.equal(walkthrough.status, 200);
   const walkthroughAdvisor = (await walkthrough.json()).advisor;
@@ -474,9 +477,14 @@ test("Project-bound live advisor profiles invoke through the bounded authorizati
   assert.equal(smartAdvisor.evidence.bindingId, "live-advisor-binding");
   const callsBeforeDeniedRequest = providerCalls;
   liveAdvisorPolicy = { ...liveAdvisorPolicy, roleIds: ["evaluator"] };
+  const unavailableOptions = await fetch(`${base}/api/smart-tester/options?projectId=project-vpn`, { headers });
+  assert.equal(unavailableOptions.status, 200);
+  const unavailableProfile = (await unavailableOptions.json()).smartTester.options.profiles.find(profile => profile.profileId === "live-advisor-profile");
+  assert.equal(unavailableProfile?.selectable, false, "Smart Tester must not offer a live profile after the scoped authorization changes");
+  assert.match(unavailableProfile?.selectionNotice ?? "", /LIVE_ADVISOR_AUTHORIZATION_SCOPE_MISMATCH/);
   const denied = await fetch(`${base}/api/smart-tester/advice?projectId=project-vpn&surface=%2Fworkspace&featureKey=workspace.intake&boxId=intake-card`, { method: "POST", headers, body: JSON.stringify({ surface: "/workspace", featureKey: "workspace.intake", boxId: "intake-card", projectId: "project-vpn", advisorProfileId: "live-advisor-profile", question: "نباید به Provider برسد" }) });
-  assert.equal(denied.status, 403);
-  assert.equal((await denied.json()).code, "LIVE_ADVISOR_AUTHORIZATION_SCOPE_MISMATCH");
+  assert.equal(denied.status, 400);
+  assert.equal((await denied.json()).code, "SMART_TESTER_ADVISOR_UNAVAILABLE");
   assert.equal(providerCalls, callsBeforeDeniedRequest);
 });
 
