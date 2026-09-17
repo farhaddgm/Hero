@@ -640,9 +640,13 @@ export function createHeroServer(options = {}) {
       ? Object.freeze({ source: "local", requestedProfileId: advisorProfileId, status: "not-eligible", reason: "Profile انتخابی برای بازبینی این پیشنهاد آماده و سازگار نیست." })
       : Object.freeze({ source: selectedAdvisor ? "connected-profile" : "local", profile: selectedAdvisor ?? null, status: "metadata-only", reason: selectedAdvisor ? "بازبینی Provider انتخابی فقط با اقدام جداگانه و مجوز زنده انجام می‌شود؛ ساخت پیشنهاد فعلی محلی و بدون هزینه است." : "پیشنهاد بر اساس Policy و کاتالوگ موجود Hero ساخته شد؛ بدون فراخوانی خارجی و بدون هزینه." });
     const proposalId = `ai-assignment-proposal-${crypto.randomUUID()}`;
-    const assignments = proposal.assignments.map(item => item.status === "ready"
-      ? Object.freeze({ ...item, bindingId: `hero-${projectId}-${item.role}-binding-${crypto.randomUUID()}`, idempotencyKey: `ai-assignment-${proposalId}-${item.role}` })
-      : item);
+    const assignments = proposal.assignments.map(item => {
+      if (item.status !== "ready") return item;
+      const recommendedProfile = item.requiresProfileCreation
+        ? Object.freeze({ ...item.recommendedProfile, profileId: `hero-${projectId}-${item.role}-profile-${crypto.randomUUID()}`, profileVersion: 1 })
+        : item.recommendedProfile;
+      return Object.freeze({ ...item, recommendedProfile, bindingId: `hero-${projectId}-${item.role}-binding-${crypto.randomUUID()}`, idempotencyKey: `ai-assignment-${proposalId}-${item.role}` });
+    });
     const stored = Object.freeze({
       proposalId,
       ownerId: identityOwner.userId,
@@ -670,6 +674,7 @@ export function createHeroServer(options = {}) {
     if (stored.projectId !== projectId) throw new DashboardCommandError("AI_ASSIGNMENT_PROJECT_MISMATCH", "پیشنهاد برای این پروژه ساخته نشده است.", 409);
     const current = dashboard.aiOrchestrationSnapshot();
     const direct = role => (current.bindings ?? []).find(binding => binding.projectId === projectId && binding.role === role && !binding.teamId && !binding.skillId) ?? null;
+    const providers = new Map((current.providers ?? []).map(provider => [provider.providerId, provider]));
     const pending = stored.proposal.assignments.filter(item => item.status === "ready" && !stored.applied.has(item.role));
     const conflicts = pending.filter(item => {
       const actual = direct(item.role);
@@ -680,7 +685,64 @@ export function createHeroServer(options = {}) {
     }
     const results = [];
     for (const item of pending) {
+      let profileCreated = false;
       try {
+        if (item.requiresProfileCreation === true) {
+          const provider = providers.get(item.recommendedProfile.providerId);
+          const profileId = item.recommendedProfile.profileId;
+          const existingProfile = (dashboard.aiOrchestrationSnapshot().profiles ?? []).find(profile => profile.profileId === profileId);
+          if (existingProfile) {
+            if (existingProfile.role !== item.role || existingProfile.providerId !== item.recommendedProfile.providerId || existingProfile.modelId !== item.recommendedProfile.modelId || existingProfile.status !== "active") {
+              results.push({ role: item.role, roleLabel: item.roleLabel, status: "failed", code: "AI_ASSIGNMENT_PROFILE_CONFLICT" });
+              break;
+            }
+          } else {
+            if (!provider) {
+              results.push({ role: item.role, roleLabel: item.roleLabel, status: "failed", code: "AI_ASSIGNMENT_PROVIDER_CHANGED" });
+              break;
+            }
+            const credentialRef = provider.mode === "live"
+              ? `vault:hero/test/${provider.providerId}/default`
+              : `runtime:hero-assignment-${provider.providerId}`;
+            try {
+              await executeDashboardCommand("ai.assignment-plan-profile-create", {
+                projectId,
+                role: item.role,
+                profileId,
+                providerId: item.recommendedProfile.providerId,
+                modelId: item.recommendedProfile.modelId,
+                idempotencyKey: `${item.idempotencyKey}-profile`,
+                actor
+              }, () => dashboard.registerAiProfile({
+                actor,
+                profileId,
+                role: item.role,
+                providerId: item.recommendedProfile.providerId,
+                modelId: item.recommendedProfile.modelId,
+                credentialRef,
+                promptVersion: `hero-auto-${item.role}-v1`,
+                contextPolicy: "project-approved-context",
+                toolPolicy: item.recommendedProfile.toolPolicy,
+                outputSchema: item.recommendedProfile.outputSchema,
+                status: "active",
+                timeoutMs: 120_000,
+                maxRetries: 0,
+                maxOutputTokens: 1_024,
+                maxCostUnits: 10_000,
+                costLatencyPriority: "balanced",
+                idempotencyKey: `${item.idempotencyKey}-profile`
+              }), actor);
+              profileCreated = true;
+            } catch (profileError) {
+              const afterProfileFailure = (dashboard.aiOrchestrationSnapshot().profiles ?? []).find(profile => profile.profileId === profileId);
+              if (!afterProfileFailure || afterProfileFailure.role !== item.role || afterProfileFailure.providerId !== item.recommendedProfile.providerId || afterProfileFailure.modelId !== item.recommendedProfile.modelId || afterProfileFailure.status !== "active") {
+                results.push({ role: item.role, roleLabel: item.roleLabel, status: "failed", code: profileError?.code ?? "AI_ASSIGNMENT_PROFILE_FAILED" });
+                break;
+              }
+              profileCreated = true;
+            }
+          }
+        }
         const result = await executeDashboardCommand("ai.assignment-plan-apply", {
           projectId,
           role: item.role,
@@ -698,7 +760,7 @@ export function createHeroServer(options = {}) {
           idempotencyKey: item.idempotencyKey
         }), actor);
         stored.applied.add(item.role);
-        results.push({ role: item.role, roleLabel: item.roleLabel, status: "applied", bindingId: result.binding?.bindingId ?? item.bindingId });
+        results.push({ role: item.role, roleLabel: item.roleLabel, status: "applied", bindingId: result.binding?.bindingId ?? item.bindingId, profileId: item.recommendedProfile.profileId, profileCreated });
       } catch (error) {
         // The domain write happens before optional persistence/audit work in
         // executeDashboardCommand. If that follow-up fails, recognize the
@@ -706,7 +768,7 @@ export function createHeroServer(options = {}) {
         const afterFailure = dashboard.aiOrchestrationSnapshot().bindings?.find(binding => binding.bindingId === item.bindingId);
         if (afterFailure?.projectId === projectId && afterFailure.role === item.role && afterFailure.profileId === item.recommendedProfile.profileId) {
           stored.applied.add(item.role);
-          results.push({ role: item.role, roleLabel: item.roleLabel, status: "applied-with-audit-warning", bindingId: item.bindingId, code: error?.code ?? "AUDIT_PERSISTENCE_FAILED" });
+          results.push({ role: item.role, roleLabel: item.roleLabel, status: "applied-with-audit-warning", bindingId: item.bindingId, profileId: item.recommendedProfile.profileId, profileCreated, code: error?.code ?? "AUDIT_PERSISTENCE_FAILED" });
         } else {
           results.push({ role: item.role, roleLabel: item.roleLabel, status: "failed", code: error?.code ?? "AI_ASSIGNMENT_FAILED" });
         }
@@ -723,7 +785,7 @@ export function createHeroServer(options = {}) {
       counts: Object.freeze({ applied: appliedCount, failed: results.filter(item => item.status === "failed").length, auditWarnings, remaining }),
       results: Object.freeze(results),
       blockedRoles: Object.freeze(stored.proposal.assignments.filter(item => item.status === "needs-admin-setup").map(item => ({ role: item.role, roleLabel: item.roleLabel, reason: item.reason }))),
-      safety: Object.freeze({ providerCalls: 0, catalogEntriesCreated: 0, existingBindingsPreserved: true })
+      safety: Object.freeze({ providerCalls: 0, providerModelEntriesCreated: 0, profileEntriesCreated: results.filter(item => item.profileCreated === true).length, existingBindingsPreserved: true })
     });
   }
 

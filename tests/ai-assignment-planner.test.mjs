@@ -21,7 +21,7 @@ test("assignment planner preserves a valid binding and proposes only compatible 
     profiles: [profile("analyst-v1", "analyst"), profile("evaluator-v1", "evaluator", "chatgpt", "read-only", "evaluation-v1"), profile("executor-v1", "executor", "codex", "development", "execution-v1")],
     bindings: [{ bindingId: "hero-analyst-v1", projectId: "hero", role: "analyst", profileId: "analyst-v1", teamId: null, skillId: null }]
   });
-  assert.deepEqual(proposal.counts, { total: 3, ready: 2, blocked: 0, unchanged: 1 });
+  assert.deepEqual(proposal.counts, { total: 3, ready: 2, blocked: 0, unchanged: 1, profilesToCreate: 0 });
   assert.equal(proposal.assignments.find(item => item.role === "analyst").operation, "unchanged");
   assert.equal(proposal.assignments.find(item => item.role === "evaluator").recommendedProfile.profileId, "evaluator-v1");
   assert.equal(proposal.policy.invokesProvider, false);
@@ -32,6 +32,26 @@ test("assignment planner explains missing prerequisites and never invents a prov
   assert.equal(proposal.counts.blocked, 1);
   assert.equal(proposal.assignments[0].status, "needs-admin-setup");
   assert.equal(proposal.assignments[0].recommendedProfile, null);
+});
+
+test("assignment planner can propose a safe new profile from an already-ready Provider and Model", () => {
+  const proposal = createAiAssignmentProposal({
+    projectId: "hero",
+    roles: ["evaluator"],
+    providers: [provider],
+    models,
+    profiles: [],
+    bindings: []
+  });
+  const assignment = proposal.assignments[0];
+  assert.equal(assignment.status, "ready");
+  assert.equal(assignment.operation, "create-with-created-profile");
+  assert.equal(assignment.requiresProfileCreation, true);
+  assert.equal(assignment.recommendedProfile.providerId, "openai");
+  assert.equal(assignment.recommendedProfile.modelId, "chatgpt");
+  assert.equal(assignment.recommendedProfile.outputSchema, "evaluation-v1");
+  assert.equal(assignment.recommendedProfile.toolPolicy, "read-only");
+  assert.equal(proposal.policy.createsProviderModelEntries, false);
 });
 
 test("HTTP proposal and one-confirmation apply are authenticated, version-aware and idempotent", async t => {
@@ -53,7 +73,7 @@ test("HTTP proposal and one-confirmation apply are authenticated, version-aware 
   assert.equal(registerProvider.status, 201);
   const registerModel = await fetch(`${baseUrl}/api/ai/models`, { method: "POST", headers, body: JSON.stringify({ providerId: "openai", modelId: "chatgpt", displayName: "ChatGPT", idempotencyKey: "assignment-model-1" }) });
   assert.equal(registerModel.status, 201);
-  for (const [role, schema] of [["analyst", "analysis-v1"], ["evaluator", "evaluation-v1"]]) {
+  for (const [role, schema] of [["analyst", "analysis-v1"]]) {
     const created = await fetch(`${baseUrl}/api/ai/profiles`, { method: "POST", headers, body: JSON.stringify({ profileId: `assignment-${role}-profile`, role, providerId: "openai", modelId: "chatgpt", credentialRef: "runtime:assignment-test", promptVersion: "assignment-prompt-v1", contextPolicy: "project-approved-context", toolPolicy: "read-only", outputSchema: schema, status: "active", idempotencyKey: `assignment-profile-${role}` }) });
     assert.equal(created.status, 201);
   }
@@ -63,15 +83,26 @@ test("HTTP proposal and one-confirmation apply are authenticated, version-aware 
   assert.equal(proposalResponse.status, 200);
   const proposal = (await proposalResponse.json()).proposal;
   assert.equal(proposal.counts.unchanged, 1);
-  assert.equal(proposal.counts.ready, 1);
-  assert.equal(proposal.policy.createsCatalogEntries, false);
+  assert.equal(proposal.counts.ready, 7);
+  assert.equal(proposal.counts.profilesToCreate, 7);
+  assert.equal(proposal.assignments.find(item => item.role === "evaluator").recommendedProfile.providerId, "openai");
+  assert.equal(proposal.assignments.find(item => item.role === "evaluator").recommendedProfile.modelId, "chatgpt");
+  assert.equal(proposal.policy.createsCatalogEntries, true);
+  assert.equal(proposal.policy.createsProviderModelEntries, false);
+  assert.equal(JSON.stringify(proposal).includes("credentialRef"), false);
   const localReview = await fetch(`${baseUrl}/api/ai/assignment-proposals/${encodeURIComponent(proposal.proposalId)}/review?projectId=hero`, { method: "POST", headers, body: JSON.stringify({ projectId: "hero" }) });
   assert.equal(localReview.status, 200);
   assert.equal((await localReview.json()).result.providerInvoked, false);
   const applied = await fetch(`${baseUrl}/api/ai/assignment-proposals/${encodeURIComponent(proposal.proposalId)}/apply?projectId=hero`, { method: "POST", headers, body: JSON.stringify({ projectId: "hero" }) });
   assert.equal(applied.status, 200);
-  assert.equal((await applied.json()).result.status, "completed");
+  const appliedResult = (await applied.json()).result;
+  assert.equal(appliedResult.status, "completed");
+  assert.equal(appliedResult.safety.providerCalls, 0);
+  assert.equal(appliedResult.safety.providerModelEntriesCreated, 0);
+  assert.equal(appliedResult.safety.profileEntriesCreated, 7);
   const state = await fetch(`${baseUrl}/api/ai-orchestration`, { headers });
   const bindings = (await state.json()).aiOrchestration.bindings;
-  assert.equal(bindings.filter(item => item.projectId === "hero" && !item.teamId && !item.skillId).length, 2);
+  assert.equal(bindings.filter(item => item.projectId === "hero" && !item.teamId && !item.skillId).length, 8);
+  const profiles = (await (await fetch(`${baseUrl}/api/ai-orchestration`, { headers })).json()).aiOrchestration.profiles;
+  assert.equal(profiles.filter(item => item.role === "evaluator" && item.providerId === "openai" && item.modelId === "chatgpt" && item.status === "active").length, 1);
 });

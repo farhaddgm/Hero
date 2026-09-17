@@ -9,20 +9,22 @@ const READY_CONNECTIONS = new Set(["healthy", "local-ready"]);
 const NON_ASSIGNABLE_PROVIDERS = new Set(["cursor"]);
 const IDENTIFIER = /^[A-Za-z][A-Za-z0-9._:-]{2,127}$/;
 
-function publicProfile(profile, provider, model) {
-  return profile ? Object.freeze({
-    profileId: profile.profileId,
-    profileVersion: profile.profileVersion ?? null,
-    role: profile.role,
-    providerId: profile.providerId,
-    providerName: provider?.displayName ?? profile.providerId,
-    modelId: profile.modelId,
-    modelName: model?.displayName ?? profile.modelId,
-    outputSchema: profile.outputSchema,
-    toolPolicy: profile.toolPolicy,
-    status: profile.status,
-    connectionState: provider?.connection?.state ?? "not-verified"
-  }) : null;
+function publicProfile(profile, provider, model, extras = {}) {
+  if (!profile && (!provider || !model)) return null;
+  return Object.freeze({
+    profileId: profile?.profileId ?? extras.profileId ?? null,
+    profileVersion: profile?.profileVersion ?? extras.profileVersion ?? null,
+    role: profile?.role ?? extras.role ?? null,
+    providerId: profile?.providerId ?? provider?.providerId ?? null,
+    providerName: provider?.displayName ?? profile?.providerId ?? null,
+    modelId: profile?.modelId ?? model?.modelId ?? null,
+    modelName: model?.displayName ?? profile?.modelId ?? null,
+    outputSchema: profile?.outputSchema ?? extras.outputSchema ?? null,
+    toolPolicy: profile?.toolPolicy ?? extras.toolPolicy ?? null,
+    status: profile?.status ?? extras.status ?? "to-be-created",
+    connectionState: provider?.connection?.state ?? "not-verified",
+    profileProvisioning: extras.profileProvisioning ?? (profile ? "existing" : "create-with-safe-defaults")
+  });
 }
 
 function roleLabel(role) {
@@ -55,6 +57,20 @@ function compareProfiles(left, right, role, policies) {
     || String(left.profileId).localeCompare(String(right.profileId));
 }
 
+function compareProviderModels(left, right, role, policies) {
+  const policy = policies?.[role] ?? AI_DEFAULT_ROLE_POLICIES[role];
+  const score = item => {
+    let value = 0;
+    if (item.provider.providerId === policy?.providerId) value += 8;
+    if (item.model.modelId === policy?.modelId) value += 6;
+    if (item.provider.mode === "deterministic") value -= 1;
+    return value;
+  };
+  return score(right) - score(left)
+    || String(left.provider.providerId).localeCompare(String(right.provider.providerId))
+    || String(left.model.modelId).localeCompare(String(right.model.modelId));
+}
+
 function currentDirectBinding(bindings, projectId, role) {
   return (bindings ?? []).find(binding =>
     binding.projectId === projectId && binding.role === role && !binding.teamId && !binding.skillId
@@ -75,9 +91,22 @@ function profileEligibility(profile, providers, models, role) {
   return null;
 }
 
+function readyProviderModels(providers, models, role, policies) {
+  const providerList = providers instanceof Map ? [...providers.values()] : providers;
+  const modelList = models instanceof Map ? [...models.values()] : models;
+  return modelList
+    .map(model => ({ model, provider: providerList.find(item => item.providerId === model.providerId) }))
+    .filter(item => item.provider)
+    .filter(item => !NON_ASSIGNABLE_PROVIDERS.has(item.provider.providerId))
+    .filter(item => item.provider.mode !== "disabled")
+    .filter(item => READY_CONNECTIONS.has(item.provider.connection?.state))
+    .sort((left, right) => compareProviderModels(left, right, role, policies));
+}
+
 /**
  * Builds a deterministic, provider-agnostic proposal from the current public
- * catalog. It never creates a Provider/Profile and never calls a model.
+ * catalog. It never calls a model; the apply step may provision only a
+ * versioned Profile from a Provider/Model that is already ready.
  */
 export function createAiAssignmentProposal({ projectId, roles = AI_ROLES, providers = [], models = [], profiles = [], bindings = [], defaultRolePolicies = [] } = {}) {
   if (typeof projectId !== "string" || !IDENTIFIER.test(projectId)) throw new Error("projectId is invalid.");
@@ -97,6 +126,7 @@ export function createAiAssignmentProposal({ projectId, roles = AI_ROLES, provid
       .filter(profile => profileEligibility(profile, providerMap, modelMap, role) === null)
       .sort((left, right) => compareProfiles(left, right, role, policies));
     const recommendation = candidates[0] ?? null;
+    const providerModelRecommendation = readyProviderModels(providerMap, modelMap, role, policies)[0] ?? null;
     if (existing && existingReason === null) {
       return Object.freeze({
         role,
@@ -109,16 +139,41 @@ export function createAiAssignmentProposal({ projectId, roles = AI_ROLES, provid
         recommendedProfile: publicProfile(existingProfile, providerMap.get(existingProfile?.providerId), modelMap.get(`${existingProfile?.providerId}:${existingProfile?.modelId}`))
       });
     }
+    if (!recommendation && providerModelRecommendation) {
+      const recommendedProfile = publicProfile(null, providerModelRecommendation.provider, providerModelRecommendation.model, {
+        role,
+        outputSchema: AI_ROLE_OUTPUT_SCHEMAS[role],
+        toolPolicy: AI_ROLE_MUTATION_POLICIES[role],
+        profileProvisioning: "create-with-safe-defaults"
+      });
+      return Object.freeze({
+        role,
+        roleLabel: roleLabel(role),
+        status: "ready",
+        operation: existing ? "replace-with-created-profile" : "create-with-created-profile",
+        reason: existing
+          ? `تخصیص فعلی آماده نیست؛ از ${recommendedProfile.providerName} / ${recommendedProfile.modelName} یک Profile نسخه‌دار با تنظیمات امن ساخته و جایگزین می‌شود.`
+          : `برای این Role Profile آماده وجود ندارد؛ از ${recommendedProfile.providerName} / ${recommendedProfile.modelName} یک Profile نسخه‌دار با تنظیمات امن ساخته و متصل می‌شود.`,
+        existingBindingId: existing?.bindingId ?? null,
+        existingProfile: publicProfile(existingProfile, providerMap.get(existingProfile?.providerId), modelMap.get(`${existingProfile?.providerId}:${existingProfile?.modelId}`)),
+        recommendedProfile,
+        requiresProfileCreation: true
+      });
+    }
     if (!recommendation) {
+      const missingTarget = existingReason
+        ? ` تخصیص فعلی آماده نیست: ${existingReason}`
+        : " هیچ Provider/Model سالم و قابل استفاده‌ای هم برای ساخت Profile پیدا نشد.";
       return Object.freeze({
         role,
         roleLabel: roleLabel(role),
         status: "needs-admin-setup",
         operation: "none",
-        reason: existingReason ? `تخصیص فعلی آماده نیست و Profile جایگزین معتبر پیدا نشد: ${existingReason}` : "برای این Role، Profile فعال با Policy، Output Schema و اتصال سالم پیدا نشد.",
+        reason: `برای این Role، Profile فعال با Policy، Output Schema و اتصال سالم پیدا نشد.${missingTarget}`,
         existingBindingId: existing?.bindingId ?? null,
         existingProfile: publicProfile(existingProfile, providerMap.get(existingProfile?.providerId), modelMap.get(`${existingProfile?.providerId}:${existingProfile?.modelId}`)),
-        recommendedProfile: null
+        recommendedProfile: null,
+        requiresProfileCreation: false
       });
     }
     return Object.freeze({
@@ -129,18 +184,20 @@ export function createAiAssignmentProposal({ projectId, roles = AI_ROLES, provid
       reason: existing ? "Profile فعلی آماده نیست؛ این Profile فعال و سازگار به‌عنوان جایگزین نسخه‌دار پیشنهاد شده است." : "Profile فعال با Policy نقش، Output Schema و سلامت اتصال سازگار است.",
       existingBindingId: existing?.bindingId ?? null,
       existingProfile: publicProfile(existingProfile, providerMap.get(existingProfile?.providerId), modelMap.get(`${existingProfile?.providerId}:${existingProfile?.modelId}`)),
-      recommendedProfile: publicProfile(recommendation, providerMap.get(recommendation.providerId), modelMap.get(`${recommendation.providerId}:${recommendation.modelId}`))
+      recommendedProfile: publicProfile(recommendation, providerMap.get(recommendation.providerId), modelMap.get(`${recommendation.providerId}:${recommendation.modelId}`)),
+      requiresProfileCreation: false
     });
   });
   const ready = plan.filter(item => item.status === "ready").length;
   const blocked = plan.filter(item => item.status === "needs-admin-setup").length;
   const unchanged = plan.filter(item => item.status === "already-bound").length;
+  const profilesToCreate = plan.filter(item => item.requiresProfileCreation === true).length;
   return Object.freeze({
     schemaVersion: "hero.ai-assignment-proposal/v1",
     projectId,
     roles: Object.freeze(requestedRoles),
-    policy: Object.freeze({ preserveExisting: true, providerAgnostic: true, createsCatalogEntries: false, invokesProvider: false }),
-    counts: Object.freeze({ total: plan.length, ready, blocked, unchanged }),
+    policy: Object.freeze({ preserveExisting: true, providerAgnostic: true, createsCatalogEntries: profilesToCreate > 0, createsProviderModelEntries: false, createsProfileEntries: profilesToCreate > 0, invokesProvider: false }),
+    counts: Object.freeze({ total: plan.length, ready, blocked, unchanged, profilesToCreate }),
     assignments: Object.freeze(plan),
     generatedAt: new Date().toISOString()
   });
