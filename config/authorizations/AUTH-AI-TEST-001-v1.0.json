@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "1.0",
+  "authorizationId": "AUTH-AI-TEST-001",
+  "action": "external-spend",
+  "environment": "test",
+  "status": "approved",
+  "ownerApproval": {
+    "approved": true,
+    "approvedAt": "2026-09-16T00:00:00Z",
+    "approvalSource": "owner-chat-authorization"
+  },
+  "scope": {
+    "projectId": "hero",
+    "stepId": "HERO-AI-TEST-001",
+    "documentVersion": "v1.0",
+    "providerId": "openai",
+    "modelIds": ["gpt-5.6-luna"],
+    "roleIds": ["analyst"],
+    "capabilities": ["smart-tester", "walkthrough-guide"],
+    "maxCostUnits": 50000,
+    "expiresAt": "2027-02-23T23:59:59Z",
+    "globalStop": false
+  },
+  "constraints": {
+    "network": "OpenAI Responses API only",
+    "toolPolicy": "read-only",
+    "credentialHandling": "Test Secret Store reference only; never expose or persist the secret",
+    "responseRetention": "Do not persist question or model response; retain redacted invocation metadata and usage only",
+    "production": false
+  }
+}

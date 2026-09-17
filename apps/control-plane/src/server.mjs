@@ -93,7 +93,7 @@ import { createFinalReadiness, FinalReadinessError } from "../../../packages/dom
 import { createBackofficeCompletion, BackofficeCompletionError } from "../../../packages/domain/src/backoffice-completion.mjs";
 import { rebuildPortfolioReadModel, rebuildProjectReadModel } from "../../../packages/domain/src/backoffice-read-models.mjs";
 import { ProductDevelopmentError, createProductDevelopmentCatalog } from "../../../packages/domain/src/product-development.mjs";
-import { HeroSecretStoreError, createConfiguredAiProviderAdapters, createHeroSecretStore, createNotionApiAdapter, createPostgresRuntime, createPricingCatalogRegistry, createRuntimeExternalSpendAuthorizer } from "../../../packages/adapters/src/index.mjs";
+import { HeroSecretStoreError, createConfiguredAiProviderAdapters, createHeroSecretStore, createNotionApiAdapter, createPostgresRuntime, createPricingCatalogRegistry, createRuntimeExternalSpendAuthorizer, readRuntimeExternalSpendPolicy } from "../../../packages/adapters/src/index.mjs";
 
 const PRIVATE_ROBOTS_POLICY = "noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate";
 const READ_MODEL_AUDIT_RESOURCES = new Set([
@@ -128,6 +128,36 @@ const BROWSER_PORTAL_DATA_PATH = "/api/portal-data";
 const BROWSER_PORTAL_DOCUMENT_PATH = "/api/portal-document";
 const BROWSER_PORTAL_SURFACES = new Set(["identity", "portfolio", "command", "studio", "workspace", "control", "walkthrough", "ai"]);
 const DEFAULT_BACKOFFICE_RESPONSE_LIMIT_BYTES = 512 * 1024;
+const OPENAI_TEST_ADVISOR = Object.freeze({
+  providerId: "openai",
+  modelId: "gpt-5.6-luna",
+  profileId: "openai-gpt-5.6-luna-analyst-v1",
+  role: "analyst",
+  catalogVersion: "openai-gpt-5.6-luna-20260916-v1",
+  catalogSourceUrl: "https://developers.openai.com/api/docs/models/gpt-5.6-luna",
+  catalogFetchedAt: "2026-09-16T00:00:00.000Z",
+  catalogValidUntil: "2026-10-16T00:00:00.000Z",
+  maxOutputTokens: 512,
+  maxCostUnits: 100
+});
+const OPENAI_TEST_PRICING_CATALOG = Object.freeze({
+  catalogVersion: OPENAI_TEST_ADVISOR.catalogVersion,
+  sourceUrl: OPENAI_TEST_ADVISOR.catalogSourceUrl,
+  fetchedAt: OPENAI_TEST_ADVISOR.catalogFetchedAt,
+  validUntil: OPENAI_TEST_ADVISOR.catalogValidUntil,
+  entries: Object.freeze([Object.freeze({
+    providerId: OPENAI_TEST_ADVISOR.providerId,
+    modelId: OPENAI_TEST_ADVISOR.modelId,
+    pricingMode: "tokens",
+    inputPricePer1mTokens: 0.2,
+    cachedInputPricePer1mTokens: 0.02,
+    outputPricePer1mTokens: 1.2,
+    currency: "USD",
+    sourceUrl: OPENAI_TEST_ADVISOR.catalogSourceUrl,
+    fetchedAt: OPENAI_TEST_ADVISOR.catalogFetchedAt,
+    validUntil: OPENAI_TEST_ADVISOR.catalogValidUntil
+  })])
+});
 const DEFAULT_BACKOFFICE_RATE_LIMIT_WINDOW_MS = 60_000;
 const DEFAULT_BACKOFFICE_RATE_LIMIT_MAX = 60;
 const ADMIN_ALLOWED_MUTATIONS = new Set([
@@ -397,10 +427,24 @@ export function createHeroServer(options = {}) {
       environment: "test"
     })
     : null);
+  if (secretStore?.enabled === true && secretStore.environment !== "test") {
+    throw new HeroSecretStoreError("SECRET_STORE_ENVIRONMENT_UNSUPPORTED", "The embedded Secret Store is Test-only.", 500);
+  }
   const pricingCatalog = options.pricingCatalogRegistry ?? createPricingCatalogRegistry({ now: options.clock ?? (() => Date.now()) });
   if (options.pricingCatalog) {
     pricingCatalog.publish(options.pricingCatalog);
     pricingCatalog.activate(options.pricingCatalog.catalogVersion ?? options.pricingCatalog.catalog_version);
+  }
+  // Test credentials need a versioned cost catalog even before a Provider is
+  // registered. The embedded store itself is Test-only; check its declared
+  // environment as well so an injected store can never make this Test
+  // catalog available to another environment. The short-lived,
+  // source-controlled entry prevents manual rates and fails closed when it
+  // reaches its review date.
+  const testSecretStoreEnabled = secretStore?.enabled === true && secretStore.environment === "test";
+  if (testSecretStoreEnabled) {
+    pricingCatalog.publish(OPENAI_TEST_PRICING_CATALOG);
+    pricingCatalog.activate(OPENAI_TEST_PRICING_CATALOG.catalogVersion);
   }
   const requestedProviderAdapterOptions = options.providerAdapterOptions ?? {};
   const providerAdapterOptions = Object.fromEntries(AI_CREDENTIAL_PROVIDERS.map(providerId => [
@@ -421,6 +465,7 @@ export function createHeroServer(options = {}) {
     ? createConfiguredAiProviderAdapters(providerAdapterOptions)
     : Object.freeze({}));
   const externalSpendAuthorizer = options.externalSpendAuthorizer ?? createRuntimeExternalSpendAuthorizer();
+  const liveAdvisorPolicy = options.liveAdvisorPolicy ?? (() => readRuntimeExternalSpendPolicy());
   const dashboard = options.dashboard ?? createControlDashboard({ now: options.now, providerAdapters, externalSpendAuthorizer });
   const productDevelopment = options.productDevelopment ?? createProductDevelopmentCatalog({
     root: options.repositoryRoot ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../.."),
@@ -746,7 +791,10 @@ export function createHeroServer(options = {}) {
   }
 
   function smartTesterAdvisorOptions(projectId = null) {
-    const options = walkthroughAdvisorOptions(projectId, { includeUnbound: true });
+    // A project-scoped Smart Tester request may invoke a live Provider. Keep
+    // it bound to the same project boundary as Walk-Through; the global panel
+    // may still show unbound profiles as local-only selections.
+    const options = walkthroughAdvisorOptions(projectId, { includeUnbound: projectId === null });
     return Object.freeze({
       ...options,
       projectId: projectId ?? null,
@@ -757,6 +805,70 @@ export function createHeroServer(options = {}) {
         selectable: options.providers.some(provider => provider.providerId === model.providerId && provider.advisorCompatible === true && ["local-ready", "healthy"].includes(provider.connection.state))
       })))
     });
+  }
+
+  function activeLiveAdvisorAuthorization({ projectId, providerId, modelId, role }) {
+    let policy;
+    try { policy = typeof liveAdvisorPolicy === "function" ? liveAdvisorPolicy() : liveAdvisorPolicy; } catch (error) {
+      throw new ProjectWorkspaceError("LIVE_ADVISOR_AUTHORIZATION_UNAVAILABLE", `مجوز هزینهٔ AI قابل‌خواندن نیست: ${error?.code ?? "CONFIGURATION_INVALID"}.`, 503);
+    }
+    if (!policy?.active || policy.globalStop === true) {
+      throw new ProjectWorkspaceError("LIVE_ADVISOR_AUTHORIZATION_UNAVAILABLE", "مجوز هزینهٔ AI فعال نیست یا توقف اضطراری برقرار است.", 503);
+    }
+    if (Date.now() >= policy.expiresAtMs || policy.projectId !== projectId || policy.providerId !== providerId || !policy.modelIds?.includes(modelId) || !policy.roleIds?.includes(role)) {
+      throw new ProjectWorkspaceError("LIVE_ADVISOR_AUTHORIZATION_SCOPE_MISMATCH", "مجوز هزینهٔ AI با Project، Provider، Model یا Role انتخاب‌شده هم‌خوان نیست.", 403);
+    }
+    return Object.freeze({
+      authorized: true,
+      action: "external-spend",
+      code: "AUTHORIZED",
+      authorizationId: policy.authorizationId,
+      projectId: policy.projectId,
+      stepId: policy.stepId,
+      documentVersion: policy.documentVersion,
+      globalStop: false
+    });
+  }
+
+  function liveAdvisorText(invocation) {
+    const output = invocation?.response?.output;
+    const candidate = [output?.answer, output?.response, output?.summary].find(value => typeof value === "string" && value.trim());
+    if (!candidate) throw new ProjectWorkspaceError("LIVE_ADVISOR_OUTPUT_INVALID", "پاسخ ساخت‌یافتهٔ قابل‌نمایش از Provider دریافت نشد.", 502);
+    return candidate
+      .replace(/((?:password|secret|credential|api[ _-]?key|token|mfa|رمز(?:\s*عبور)?|کلید\s*api)\s*[:=]\s*)[^\s,;]+/giu, "$1[redacted]")
+      .slice(0, 4_000);
+  }
+
+  async function invokeSelectedLiveAdvisor({ purpose, projectId, selectedProfile, question, context, localResponse }) {
+    const ai = dashboard.aiOrchestrationSnapshot();
+    const provider = (ai.providers ?? []).find(item => item.providerId === selectedProfile.providerId);
+    if (provider?.mode !== "live") return null;
+    const authorization = activeLiveAdvisorAuthorization({ projectId, providerId: selectedProfile.providerId, modelId: selectedProfile.modelId, role: selectedProfile.role });
+    const invocationId = `advisor-${purpose}-${crypto.randomUUID()}`;
+    const result = await dashboard.invokeAi({
+      invocationId,
+      projectId,
+      role: selectedProfile.role,
+      taskId: `advisor-${purpose}`,
+      stepId: authorization.stepId,
+      documentVersion: authorization.documentVersion,
+      contextSnapshotId: `advisor-context-${crypto.randomUUID()}`,
+      idempotencyKey: `advisor-request-${crypto.randomUUID()}`,
+      request: Object.freeze({
+        purpose,
+        locale: "fa-IR",
+        question: typeof question === "string" ? question : "",
+        localGuidance: localResponse,
+        constraints: Object.freeze(["Return only JSON.", "Set schema exactly to analysis-v1.", "Use concise Persian.", "Do not include secrets, credentials, host paths, tools, or executable actions."])
+      }),
+      context: Object.freeze({ advisor: purpose, projectId, surface: context?.pathname ?? null, featureKey: context?.featureKey ?? null, stepId: context?.stepId ?? null }),
+      requireHealthyProvider: true,
+      externalSpendAuthorization: authorization
+    });
+    if (result?.invocation?.status !== "completed") {
+      throw new ProjectWorkspaceError("LIVE_ADVISOR_INVOCATION_FAILED", `فراخوانی Provider کامل نشد: ${result?.invocation?.code ?? "UNKNOWN"}.`, 502);
+    }
+    return Object.freeze({ response: liveAdvisorText(result.invocation), invocationId: result.invocation.invocationId, costUnits: result.invocation.accountedCostUnits ?? null });
   }
 
   function projectControlSnapshot(projectId) {
@@ -1745,15 +1857,19 @@ export function createHeroServer(options = {}) {
             projectId: queryProjectId,
             question: input.question
           });
-          // Do not persist the question or response: this helper is local,
-          // deterministic guidance and is deliberately not a conversation
-          // record, AI provider invocation, or spend event.
+          const live = selectedProfile
+            ? await invokeSelectedLiveAdvisor({ purpose: "walkthrough-guide", projectId: queryProjectId, selectedProfile, question: input.question, context: { stepId: input.stepId }, localResponse: advisor.response })
+            : null;
+          // Questions and answers are not stored in the Walk-Through record.
+          // The AI orchestration ledger retains only redacted invocation and
+          // usage metadata when a separately authorized live profile is used.
           return json(response, 200, {
             service: HERO_SERVICE,
             advisor: Object.freeze({
               ...advisor,
+              ...(live ? { mode: "live-project-advisor", providerInvoked: true, response: live.response, invocation: Object.freeze({ invocationId: live.invocationId, costUnits: live.costUnits }) } : {}),
               selectedAdvisor: selectedProfile
-                ? Object.freeze({ kind: "profile", profileId: selectedProfile.profileId, providerId: selectedProfile.providerId, modelId: selectedProfile.modelId, profileVersion: selectedProfile.profileVersion, dispatch: selectedProfile.selectable ? "selection-recorded-awaiting-separate-external-authorization" : "not-ready" })
+                ? Object.freeze({ kind: "profile", profileId: selectedProfile.profileId, providerId: selectedProfile.providerId, modelId: selectedProfile.modelId, profileVersion: selectedProfile.profileVersion, dispatch: live ? "live-response" : "local-response" })
                 : Object.freeze({ kind: "local", dispatch: "local-response" })
             })
           });
@@ -1837,9 +1953,15 @@ export function createHeroServer(options = {}) {
               selectedAdvisor = profile;
             }
             const advisor = createSmartTesterAdvisory({ context: contextualSmartTesterContext, question: input.question, report, selectedAdvisor, actionFailure: input.actionFailure });
-            // Questions and answers are intentionally not persisted. The only
-            // retained item is the bounded, redacted test report above.
-            return json(response, 200, { service: HERO_SERVICE, smartTester: Object.freeze({ advisor }) });
+            const live = selectedAdvisor && contextualSmartTesterContext.projectId
+              ? await invokeSelectedLiveAdvisor({ purpose: "smart-tester", projectId: contextualSmartTesterContext.projectId, selectedProfile: selectedAdvisor, question: input.question, context: contextualSmartTesterContext, localResponse: advisor.response })
+              : null;
+            // Questions and answers are not persisted; a live invocation keeps
+            // only redacted metadata and metered usage in the AI ledger.
+            const renderedAdvisor = live
+              ? Object.freeze({ ...advisor, mode: "live-contextual-development-assistant", providerInvoked: true, response: live.response, invocation: Object.freeze({ invocationId: live.invocationId, costUnits: live.costUnits }), selectedAdvisor: Object.freeze({ ...advisor.selectedAdvisor, providerInvoked: true }) })
+              : advisor;
+            return json(response, 200, { service: HERO_SERVICE, smartTester: Object.freeze({ advisor: renderedAdvisor }) });
           } catch (error) {
             if (error instanceof RangeError || error instanceof TypeError) {
               throw new ProjectWorkspaceError("SMART_TESTER_ADVICE_INVALID", "Smart Tester advice request is invalid.", 400);

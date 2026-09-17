@@ -11,6 +11,13 @@ import { createHumanIdentity, createTotpCode } from "../packages/domain/src/huma
 import { createOwnerAuth } from "../packages/domain/src/owner-auth.mjs";
 import { createProjectAccessRegistry } from "../packages/domain/src/project-access.mjs";
 
+test("Control Plane refuses a non-Test embedded Secret Store before provider setup", () => {
+  assert.throws(
+    () => createHeroServer({ secretStore: { enabled: true, environment: "production" } }),
+    error => error.code === "SECRET_STORE_ENVIRONMENT_UNSUPPORTED"
+  );
+});
+
 test("AI Connections registers and safely tests a Cursor credential boundary without a network dispatch", async t => {
   const ownerAuth = createOwnerAuth({ secret: "ai-connections-owner-secret-1234567890" });
   const token = ownerAuth.issueSession({ subject: "hero-owner", sessionId: "ai-connections-session", expiresAt: 2_000_000_000 });

@@ -410,7 +410,7 @@ test("Walk-Through lists only active Project-bound advisor Profiles and preserve
   const advice = await fetch(`${base}/api/walkthrough/advice?projectId=project-vpn`, { method: "POST", headers, body: JSON.stringify({ stepId: "intake", projectId: "project-vpn", advisorProfileId: "walkthrough-analyst-v1", question: "برای هدف چه پیشنهادی داری؟" }) });
   assert.equal(advice.status, 200);
   const selected = (await advice.json()).advisor.selectedAdvisor;
-  assert.deepEqual(selected, { kind: "profile", profileId: "walkthrough-analyst-v1", providerId: "deterministic", modelId: "local-advisor-v1", profileVersion: 1, dispatch: "selection-recorded-awaiting-separate-external-authorization" });
+  assert.deepEqual(selected, { kind: "profile", profileId: "walkthrough-analyst-v1", providerId: "deterministic", modelId: "local-advisor-v1", profileVersion: 1, dispatch: "local-response" });
   const unavailable = await fetch(`${base}/api/walkthrough/advice?projectId=project-vpn`, {
     method: "POST",
     headers,
@@ -418,6 +418,55 @@ test("Walk-Through lists only active Project-bound advisor Profiles and preserve
   });
   assert.equal(unavailable.status, 400, "a caller cannot bypass the picker with an unbound or unavailable profile");
   assert.equal((await unavailable.json()).code, "WALKTHROUGH_ADVISOR_PROFILE_UNAVAILABLE");
+});
+
+test("Project-bound live advisor profiles invoke through the bounded authorization path", async t => {
+  const { access, identity } = setup();
+  const owner = ownerLogin(identity);
+  let providerCalls = 0;
+  let liveAdvisorPolicy = { active: true, authorizationId: "AUTH-AI-TEST-001", projectId: "project-vpn", stepId: "HERO-AI-TEST-001", documentVersion: "v1.0", providerId: "openai", modelIds: ["gpt-5.6-luna"], roleIds: ["analyst"], maxCostUnits: 50000, expiresAtMs: Date.parse("2027-02-23T23:59:59Z"), globalStop: false };
+  const adapter = {
+    providerId: "openai",
+    mode: "live",
+    async validateConnection() { return { status: "ok" }; },
+    async assertDispatchReady() { return { status: "ok", pricing: { catalogVersion: "test", currency: "USD", inputPricePer1mTokens: 0.2, outputPricePer1mTokens: 1.2, cachedInputPricePer1mTokens: 0.02 } }; },
+    async generate(input) { providerCalls += 1; return { output: { schema: input.outputSchema, answer: "پاسخ زنده و محدود برای همین Project آماده شد." }, usage: { inputTokens: 12, outputTokens: 8, totalTokens: 20, costUnits: 1 } }; },
+    listCapabilities() { return []; }
+  };
+  const externalSpendAuthorizer = async input => ({ authorized: true, code: "AUTHORIZED", action: "external-spend", authorizationId: input.authorizationId, projectId: input.projectId, stepId: input.stepId, documentVersion: input.documentVersion, providerId: input.providerId, modelId: input.modelId, role: input.role, maxCostUnits: 50000, globalStop: false, safeCheckpointRequired: false });
+  const dashboard = createControlDashboard({ now, providerAdapters: { openai: adapter }, externalSpendAuthorizer });
+  const actor = { kind: "project-owner", id: "hero-owner" };
+  dashboard.registerAiProvider({ providerId: "openai", mode: "live", displayName: "OpenAI Test", capabilities: [], idempotencyKey: "live-advisor-provider", actor });
+  dashboard.registerAiModel({ providerId: "openai", modelId: "gpt-5.6-luna", displayName: "GPT-5.6 Luna", metadata: {}, idempotencyKey: "live-advisor-model", actor });
+  dashboard.registerAiProfile({ profileId: "live-advisor-profile", role: "analyst", providerId: "openai", modelId: "gpt-5.6-luna", credentialRef: "vault:hero/test/openai/default", promptVersion: "live-advisor-v1", contextPolicy: "redacted-project-context", toolPolicy: "read-only", outputSchema: "analysis-v1", status: "active", timeoutMs: 1000, maxRetries: 0, maxOutputTokens: 128, maxCostUnits: 10, costLatencyPriority: "cost", idempotencyKey: "live-advisor-profile-key", actor });
+  dashboard.bindAiRole({ bindingId: "live-advisor-binding", projectId: "project-vpn", teamId: null, skillId: null, role: "analyst", profileId: "live-advisor-profile", supersedesBindingId: null, idempotencyKey: "live-advisor-binding-key", actor });
+  dashboard.recordProjectMemory({ memoryId: "live-advisor-context", projectId: "project-vpn", memoryKey: "advisor.context", kind: "rule", scope: "project", status: "approved", content: "Only redacted project metadata may be used for advisor requests.", tags: ["advisor"], recipientRoles: ["planner"], source: { kind: "specification", reference: "hero://tests/live-advisor", documentVersion: "v1.0" }, idempotencyKey: "live-advisor-context-key" });
+  await dashboard.checkAiProviderHealth({ providerId: "openai", profileId: "live-advisor-profile", actor });
+  const app = createHeroServer({
+    host: "127.0.0.1", port: 0, now, dashboard, projectAccessRegistry: access, humanIdentity: identity,
+    liveAdvisorPolicy: () => liveAdvisorPolicy
+  });
+  const address = await app.start();
+  t.after(() => app.stop());
+  const base = `http://127.0.0.1:${address.port}`;
+  const headers = { authorization: `Bearer ${owner.token}`, "content-type": "application/json" };
+  const walkthrough = await fetch(`${base}/api/walkthrough/advice?projectId=project-vpn`, { method: "POST", headers, body: JSON.stringify({ stepId: "intake", projectId: "project-vpn", advisorProfileId: "live-advisor-profile", question: "گام بعدی چیست؟" }) });
+  assert.equal(walkthrough.status, 200);
+  const walkthroughAdvisor = (await walkthrough.json()).advisor;
+  assert.equal(walkthroughAdvisor.providerInvoked, true);
+  assert.equal(walkthroughAdvisor.selectedAdvisor.dispatch, "live-response");
+  assert.match(walkthroughAdvisor.response, /پاسخ زنده/);
+  const smart = await fetch(`${base}/api/smart-tester/advice?projectId=project-vpn&surface=%2Fworkspace&featureKey=workspace.intake&boxId=intake-card`, { method: "POST", headers, body: JSON.stringify({ surface: "/workspace", featureKey: "workspace.intake", boxId: "intake-card", projectId: "project-vpn", advisorProfileId: "live-advisor-profile", question: "چه چیزی را بررسی کنم؟" }) });
+  assert.equal(smart.status, 200);
+  const smartAdvisor = (await smart.json()).smartTester.advisor;
+  assert.equal(smartAdvisor.providerInvoked, true);
+  assert.match(smartAdvisor.response, /پاسخ زنده/);
+  const callsBeforeDeniedRequest = providerCalls;
+  liveAdvisorPolicy = { ...liveAdvisorPolicy, roleIds: ["evaluator"] };
+  const denied = await fetch(`${base}/api/smart-tester/advice?projectId=project-vpn&surface=%2Fworkspace&featureKey=workspace.intake&boxId=intake-card`, { method: "POST", headers, body: JSON.stringify({ surface: "/workspace", featureKey: "workspace.intake", boxId: "intake-card", projectId: "project-vpn", advisorProfileId: "live-advisor-profile", question: "نباید به Provider برسد" }) });
+  assert.equal(denied.status, 403);
+  assert.equal((await denied.json()).code, "LIVE_ADVISOR_AUTHORIZATION_SCOPE_MISMATCH");
+  assert.equal(providerCalls, callsBeforeDeniedRequest);
 });
 
 test("Control Plane startup hydrates identity users, grants and revocations from its PostgreSQL boundary", async t => {

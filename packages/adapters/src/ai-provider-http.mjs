@@ -36,8 +36,19 @@ function assertCredentialEnv(value) {
   return value;
 }
 
+function isSafeCredentialReference(value) {
+  if (typeof value !== "string") return false;
+  if (/^(?:runtime|env):[A-Za-z0-9._:-]{3,120}$/.test(value)) return true;
+  if (!value.startsWith("vault:")) return false;
+  const segments = value.slice("vault:".length).split("/");
+  return segments.length >= 2
+    && segments.length <= 5
+    && value.length <= 160
+    && segments.every(segment => /^[A-Za-z0-9._:-]{1,80}$/.test(segment) && segment !== "." && segment !== "..");
+}
+
 function resolveCredential({ credentialRef, credentialEnv, env }) {
-  if (typeof credentialRef !== "string" || !/^(?:runtime|vault|env):[A-Za-z0-9._:-]{3,120}$/.test(credentialRef)) {
+  if (!isSafeCredentialReference(credentialRef)) {
     throw new AiProviderAdapterError("CREDENTIAL_REFERENCE_INVALID", "The runtime credential reference is invalid.");
   }
   const envName = credentialRef.startsWith("env:") ? credentialRef.slice(4) : credentialEnv;

@@ -20,7 +20,18 @@ const ACTOR_KINDS = new Set(["project-owner", "admin", "orchestrator", "agent", 
 const SENSITIVE_FIELD = /(?:api[_-]?key|access[_-]?token|refresh[_-]?token|secret|password|private[_-]?key)/i;
 const SENSITIVE_VALUE = /(?:\bsk-[A-Za-z0-9_-]{12,}\b|\bBearer\s+[A-Za-z0-9._-]{12,}\b|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----)/i;
 const HOST_PATH = /(?:^|[\s"'(])(?:[A-Za-z]:[\\/]|\/(?:home|Users|mnt|opt)\/)/;
-const CREDENTIAL_REFERENCE = /^(?:runtime|vault|env):[A-Za-z0-9._:-]{3,120}$/;
+const SIMPLE_CREDENTIAL_REFERENCE = /^(?:runtime|env):[A-Za-z0-9._:-]{3,120}$/;
+
+function isSafeCredentialReference(value) {
+  if (typeof value !== "string") return false;
+  if (SIMPLE_CREDENTIAL_REFERENCE.test(value)) return true;
+  if (!value.startsWith("vault:")) return false;
+  const segments = value.slice("vault:".length).split("/");
+  return segments.length >= 2
+    && segments.length <= 5
+    && value.length <= 160
+    && segments.every(segment => /^[A-Za-z0-9._:-]{1,80}$/.test(segment) && segment !== "." && segment !== "..");
+}
 
 function immutableCopy(value) {
   return Object.freeze(structuredClone(value));
@@ -69,7 +80,7 @@ function assertSafePayload(value, path = "input") {
   }
   if (value && typeof value === "object") {
     for (const [key, child] of Object.entries(value)) {
-      const safeCredentialReference = key === "credentialRef" && typeof child === "string" && CREDENTIAL_REFERENCE.test(child);
+      const safeCredentialReference = key === "credentialRef" && isSafeCredentialReference(child);
       const safeAuthorizationBoundary = key === "authorizationCreated" && typeof child === "boolean";
       if (SENSITIVE_FIELD.test(key) && !safeCredentialReference && !safeAuthorizationBoundary) {
         throw new AiOrchestrationError("SENSITIVE_INPUT_REJECTED", `${path}.${key} is not allowed.`);
@@ -107,7 +118,7 @@ function assertEnum(label, value, values) {
 }
 
 function assertCredentialReference(value) {
-  if (typeof value !== "string" || !CREDENTIAL_REFERENCE.test(value)) {
+  if (!isSafeCredentialReference(value)) {
     throw new AiOrchestrationError("INVALID_CREDENTIAL_REFERENCE", "credentialRef must be a runtime reference, never a secret value.");
   }
   return value;

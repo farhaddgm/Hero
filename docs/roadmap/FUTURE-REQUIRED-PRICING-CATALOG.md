@@ -1,16 +1,22 @@
 # قابلیت ضروری آینده: Pricing Catalog نسخه‌دار Hero
 
-وضعیت: `implemented-synthetic-awaiting-live-authorized-rollout`
+وضعیت: `implemented-test-authorized-rollout-blocked`
 
-این قابلیت باید پیش از فعال‌سازی Provider پولی و پیش از هر استفادهٔ عملیاتی واقعی از
-محاسبهٔ هزینه تکمیل شود. مالک پیاده‌سازی synthetic آن را تأیید کرده است؛ بنابراین
-قرارداد، migration، Adapterها و تست‌های بدون شبکه اجرا شده‌اند. فعال‌سازی Provider
-واقعی، همگام‌سازی از منبع رسمی و هرگونه هزینه همچنان جداگانه gated است.
+- Document ID: `HERO-ROADMAP-FUTURE-REQUIRED-PRICING-CATALOG`
+- Version: `1.1.0`
+
+این قابلیت پیش از فعال‌سازی Provider پولی و هر استفادهٔ عملیاتی واقعی از محاسبهٔ
+هزینه تکمیل شده است. قرارداد، migration، Adapterها و تست‌های بدون شبکه اجرا شده‌اند.
+برای rollout محدود Test، یک authorization مستقل و نسخه‌دار ثبت شده است؛ با این حال
+فراخوانی واقعی تا وقتی artifact جدید، پیکربندی runtime منطبق و Project/Binding فعال در
+Test وجود نداشته باشد، fail-closed می‌ماند.
 
 ## تصمیم و مرز فعلی
 
-- Provider Test فعلاً خاموش است و در این مرحله هیچ API Key، درخواست Provider یا هزینهٔ واقعی استفاده نمی‌شود.
-- تنظیم پیشنهادی فعلی برای تست، OpenAI با Model IDهای اعلام‌شدهٔ `gpt-5.6-luna` برای تحلیل و اجرا، سقف کل `5 USD` و هشدار `4 USD` است؛ این مقادیر مجوز اجرایی نیستند.
+- مسیر Provider-agnostic برای Smart Tester و Walk-Through Guide فقط در صورت انتخاب یک Profile فعالِ bound به همان Project می‌تواند Provider را فراخوانی کند؛ در نبود آن، پاسخ محلی و بدون dispatch ارائه می‌شود.
+- authorization `AUTH-AI-TEST-001` فقط برای `test`، Project `hero`، OpenAI Model `gpt-5.6-luna`، Role `analyst`، دو capability `smart-tester` و `walkthrough-guide`، سقف تجمعی `50,000` Hero cost units و پایان `2027-02-23T23:59:59Z` است. این record هیچ Secretی ندارد و Production/Pilot را در scope نمی‌آورد.
+- نرخ Test از منبع رسمی OpenAI با Catalog نسخه‌دار `openai-gpt-5.6-luna-20260916-v1` می‌آید: input `0.20 USD/1M`، cached input `0.02 USD/1M` و output `1.20 USD/1M`. Catalog در `2026-10-16T00:00:00Z` منقضی می‌شود تا review نرخ الزامی و fail-closed باشد.
+- پیکربندی runtime، Project، Provider، Model، Profile و Binding باید جداگانه و در محیط Test برقرار باشند. هیچ API Key، مقدار خام credential، محتوای درخواست/پاسخ یا مسیر host در Git، Catalog یا Evidence ثبت نمی‌شود.
 - شناسهٔ مدل، Provider، سقف هزینه و زمان انقضای مجوز باید بعداً توسط Admin در پیکربندی نسخه‌دار تغییرپذیر باشند.
 - نرخ قیمت قابل ویرایش دستی در Environment نیست؛ نرخ فقط از Catalog معتبر و منبع رسمی Provider پذیرفته می‌شود.
 - Secret، API Key، مقدار خام credential و محتوای درخواست/پاسخ در Git، Google Sheet، Catalog یا Audit Log ثبت نمی‌شود.
@@ -96,6 +102,23 @@ Admin می‌تواند Provider، Model ID، cap و تاریخ انقضای م�
 - تست‌های synthetic برای مدل ناشناخته، Catalog منقضی/ناقص، منبع نامعتبر، cap، عدم تماس شبکه، Adapter غیرتوکنی، persistence و redaction اضافه شد؛
 - API Key، Provider واقعی، sync اینترنتی و هزینهٔ واقعی در این مرحله استفاده نشده است.
 
+## آمادگی rollout محدود Test — ۲۰۲۶-۰۹-۱۷
+
+- مسیر live برای هر Provider انتخاب‌شده، از Policy/Role/Profile/Binding همان Project عبور می‌کند؛ UI فقط نتیجهٔ ساخت‌یافته و مصرف حسابداری‌شده را نمایش می‌دهد و به OpenAI وابستگی مستقیم ندارد.
+- پیش از dispatch، authorization runtime باید active، خارج از انقضا، با Global Stop خاموش و دقیقاً منطبق با Project، Provider، Model، Role، Step ID و Document Version باشد. mismatch یا خطای configuration با پاسخ JSON امن متوقف می‌شود و Provider را صدا نمی‌زند.
+- Prompt و پاسخ مدل persist نمی‌شوند؛ ledger فقط invocation identifier امن، Provider/Model/Role/context identifiers، latency/usage/cost و وضعیت redacted را نگه می‌دارد. متن قابل‌نمایش نیز redaction و سقف طول دارد.
+- Test یکپارچهٔ هر دو capability با Provider fake تأیید می‌کند که Walk-Through و Smart Tester در مسیر live نتیجهٔ `analysis-v1` می‌گیرند؛ آزمون دوم، mismatch Role را با `403` و بدون هرگونه dispatch تأیید می‌کند. تست‌های کامل repository نیز این تغییر را پوشش می‌دهند.
+- وضعیت runtime مشاهده‌شده هنوز blocker واقعی است: artifact Test قدیمی است، `HERO_ENABLE_REAL_PROVIDERS=false`، authorization runtime به رکورد منقضی Pilot اشاره می‌کند و دیتابیس Test فاقد Project/Provider/Model/Profile/Binding فعال است. بنابراین در این commit هیچ تماس OpenAI و هیچ هزینه‌ای ایجاد نشده است.
+
+### Requirement trace
+
+| الزام | پیاده‌سازی و Evidence |
+|---|---|
+| انتخاب Provider بدون وابستگی مستقیم UI | `apps/control-plane/src/server.mjs`، `apps/control-plane/src/hero-shell.mjs`، `tests/project-identity.test.mjs` |
+| authorization/permission/cost fail-closed | `packages/adapters/src/external-spend-authorization.mjs`، `packages/domain/src/ai-orchestration.mjs`، `tests/real-provider-and-hydration.test.mjs` |
+| Secret redaction و Test-only vault reference | `packages/adapters/src/ai-provider-http.mjs`، `packages/adapters/src/hero-secret-store.mjs`، `tests/hero-secret-store.test.mjs` |
+| نرخ رسمی و Catalog محدود به Test | `apps/control-plane/src/server.mjs`، `config/authorizations/AUTH-AI-TEST-001-v1.0.json`، [مدل رسمی GPT-5.6 Luna](https://developers.openai.com/api/docs/models/gpt-5.6-luna) |
+
 ## Migration، تست و Rollback موردنیاز
 
 بخش synthetic این کارها انجام شده است. برای rollout واقعی، موارد باقی‌مانده در این ترتیب
@@ -111,15 +134,11 @@ Rollback باید بتواند نسخهٔ Catalog و کد مصرف‌کننده 
 صورت نامعتبر بودن هر دو، سیستم باید dispatch را متوقف نگه دارد، نه اینکه به نرخ دستی یا
 حدس‌زده برگردد.
 
-## شرط شروع فعال‌سازی واقعی
+## شرط اجرای live Test
 
-برای شروع، مالک باید این عبارت یا معادل روشن آن را ارسال کند:
-
-```text
-پیاده‌سازی Pricing Catalog طبق FUTURE-REQUIRED-PRICING-CATALOG.md را تأیید می‌کنم؛
-فقط با Catalog مصنوعی و تست بدون API Key، بدون شبکهٔ واقعی و بدون هزینهٔ واقعی.
-```
-
-تأیید synthetic ثبت و اجرا شده است. برای فعال‌سازی واقعی هنوز مجوز مستقل Provider،
-Secret و external-spend لازم است. یادآوری آن در بررسی‌های بعدی رودمپ انجام می‌شود؛
-یادآوری تقویمی خودکار بدون تاریخ/زمان مشخص ایجاد نشده است.
+مالک authorization مستقل را ثبت کرده است. اجرای واقعی فقط پس از promotion immutable
+artifact به Test و verify آن، و فقط با environment configuration منطبق با همان record
+انجام می‌شود. سپس Human Owner باید در همان Test، Project `hero`، Provider/Model، Profile
+`analyst` با Test vault reference و Role Binding را بسازد، health check را بگذراند و یک
+Walk-Through و یک Smart Tester را اجرا کند. هر گیت نامنطبق باید بدون dispatch متوقف شود.
+این مسیر نه Production را تغییر می‌دهد، نه Pilot را، و نه Secret را ایجاد/چاپ می‌کند.
