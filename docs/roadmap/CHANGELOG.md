@@ -1,5 +1,13 @@
 # تغییرات رودمپ شرکت
 
+# ۲۰۲۶-۰۹-۱۸ — Product Request پایدار و idempotent در PF-1
+
+- افزوده‌شده: جدول append-only `product_request_versions` و migration `017` برای نگهداری metadata امن Product Request، fingerprint و کلید idempotency یکتا؛ فرم خام، Secret و credential ذخیره نمی‌شوند.
+- افزوده‌شده: ایجاد Product Request و Project در PostgreSQL با تراکنش مشترک؛ خطای میانی با rollback کامل متوقف می‌شود.
+- اصلاح‌شده: API ساخت پروژه کلید idempotency را از body یا هدر `Idempotency-Key` می‌پذیرد؛ replay همان داده پاسخ ۲۰۰ می‌دهد و تغییر داده با همان کلید fail-closed با ۴۰۹ رد می‌شود.
+- شواهد: targeted برش `۲۰/۲۰` و `pnpm check` برابر `۴۰۰ pass / ۰ fail`، build برابر `۲۶۵ module / ۴۹ JSON` و documentation برابر `۱۴۰ document / ۰ error`.
+- commit کد: `e17b9f79bfec10620067531a62c4bc2a16ee8d31`. PF-1 هنوز تا migration/restart واقعی Test و دو درخواست مستقل project-scoped در وضعیت `in_progress` است؛ هیچ Product Runner، deployment، Secret، Provider زنده، external spend، Pilot یا Production لمس نشد.
+
 # ۲۰۲۶-۰۹-۱۷ — پیاده‌سازی برش اول PF-1 کارخانهٔ کنترل‌شدهٔ محصول
 
 - افزوده‌شده: قرارداد و منطق provider-agnostic برای Intake محصول، طبقه‌بندی محافظه‌کارانهٔ ریسک (`low/standard/high/critical`)، علت‌های قابل‌فهم و گیت تأیید صریح Owner برای ریسک بالا/بحرانی.
