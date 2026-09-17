@@ -498,20 +498,28 @@ export function getBackofficeHtml({ initialData = null, dataEndpoint = "/backoff
       async function testProviderConnection(template, button) {
         const credential = (currentData?.ai?.credentials || []).find(item => item.providerId === template.providerId);
         const provider = (currentData?.ai?.providers || []).find(item => item.providerId === template.providerId);
+        button.disabled = true;
         if (credential?.configured) {
-          button.disabled = true;
           try {
             const response = await requestJson('/api/ai/credentials/' + encodeURIComponent(template.providerId) + '/health', {});
             const result = response.credential || {};
-            await refresh('آمادگی کلید ' + template.brand + ' بررسی شد.');
-            setNotice(result.state === 'healthy' ? 'آمادگی کلید ' + template.brand + ' موفق بود. این آزمون شبکه یا مصرف Token ایجاد نمی‌کند.' : 'کلید برای استفاده آماده نیست: ' + (result.code || result.state || 'UNKNOWN'));
-          } catch (error) { setNotice(error.message || 'آزمون کلید انجام نشد.'); } finally { button.disabled = false; }
-          return;
+            if (result.state !== 'healthy') {
+              await refresh('آمادگی کلید ' + template.brand + ' بررسی شد.');
+              button.disabled = false;
+              setNotice('کلید برای استفاده آماده نیست: ' + (result.code || result.state || 'UNKNOWN'));
+              return;
+            }
+            if (!provider) {
+              await refresh('آمادگی کلید ' + template.brand + ' بررسی شد.');
+              button.disabled = false;
+              setNotice('آمادگی کلید ' + template.brand + ' موفق بود. ابتدا Provider را ثبت کنید تا سلامت اتصال آن هم بررسی شود.');
+              return;
+            }
+          } catch (error) { button.disabled = false; setNotice(error.message || 'آزمون کلید انجام نشد.'); return; }
         }
-        if (!provider) { setNotice('ابتدا کلید ' + template.brand + ' را در فرم ثبت امن ذخیره کنید.'); selectCredentialProvider(template.providerId); return; }
+        if (!provider) { button.disabled = false; setNotice('ابتدا کلید ' + template.brand + ' را در فرم ثبت امن ذخیره کنید.'); selectCredentialProvider(template.providerId); return; }
         const profile = (currentData?.ai?.profiles || []).find(item => item.providerId === template.providerId && item.status === 'active') || (currentData?.ai?.profiles || []).find(item => item.providerId === template.providerId);
         const testInput = profile ? { profileId: profile.profileId, timeoutMs: 10_000 } : { credentialRef: template.credentialRef, timeoutMs: 10_000 };
-        button.disabled = true;
         try {
           const response = await requestJson('/api/ai/providers/' + encodeURIComponent(template.providerId) + '/health', testInput);
           const result = response.result || {};
