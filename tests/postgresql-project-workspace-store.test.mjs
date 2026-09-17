@@ -28,6 +28,24 @@ test("Product Request and project metadata are committed together and remain sec
   assert.equal(rollbackQueries.at(-1).sql, "ROLLBACK");
 });
 
+test("Foundation persistence accepts blocked-effect policy flags without weakening secret rejection", async () => {
+  const queries = [];
+  const store = createPostgresProjectWorkspaceStore({ client: { async query(sql, values) { queries.push({ sql, values }); return { rows: [] }; } } });
+  await store.appendFoundationProposal({
+    proposalId: "foundation-policy-001",
+    projectId: "project-policy",
+    version: 1,
+    state: "proposed",
+    proposal: { suggested: { runtimePlan: { effects: { secretWrite: false } } } },
+    actorId: "hero-owner"
+  });
+  assert.equal(queries.length, 1);
+  await assert.rejects(
+    () => store.appendFoundationProposal({ proposalId: "foundation-policy-002", projectId: "project-policy", version: 2, state: "proposed", proposal: { secretWrite: "credential-ref" }, actorId: "hero-owner" }),
+    error => error instanceof ProjectWorkspaceStoreError && error.code === "SENSITIVE_PERSISTENCE_FORBIDDEN"
+  );
+});
+
 test("project workspace store reads latest projects and all append-only metadata", async () => {
   const client = { async query(sql) {
     if (sql.includes("FROM project_registry_versions")) return { rows: [{ project_id: "project-vpn", project_version: 2, name: "VPN", description: "Private", lifecycle: "active", status: "active", intake: { goal: "connect" }, actor_id: "hero-owner", recorded_at: "2026-09-11T10:00:00.000Z" }] };

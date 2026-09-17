@@ -1,10 +1,15 @@
 const ID = /^[A-Za-z][A-Za-z0-9._:-]{2,127}$/;
 const FINGERPRINT = /^[a-f0-9]{64}$/;
 const SENSITIVE = /(?:api[_-]?key|access[_-]?token|refresh[_-]?token|secret|password|credential|authorization)/i;
+// Runtime plans contain policy flags such as `secretWrite: false`.  That is
+// a safe, non-secret assertion about a blocked effect, not credential data.
+// Keep the exception narrow and type-bound so actual secret-bearing fields
+// remain rejected by the persistence boundary.
+function isSafePolicyFlag(key, value) { return key === "secretWrite" && typeof value === "boolean"; }
 
 function copy(value) { return Object.freeze(structuredClone(value)); }
 function assertId(label, value) { if (typeof value !== "string" || !ID.test(value)) throw new ProjectWorkspaceStoreError("INVALID_IDENTIFIER", `${label} is invalid.`); return value; }
-function safe(value, path = "data") { if (Array.isArray(value)) return value.forEach((item, index) => safe(item, `${path}[${index}]`)); if (!value || typeof value !== "object") return; for (const [key, child] of Object.entries(value)) { if (SENSITIVE.test(key)) throw new ProjectWorkspaceStoreError("SENSITIVE_PERSISTENCE_FORBIDDEN", `${path}.${key} is forbidden.`); safe(child, `${path}.${key}`); } }
+function safe(value, path = "data") { if (Array.isArray(value)) return value.forEach((item, index) => safe(item, `${path}[${index}]`)); if (!value || typeof value !== "object") return; for (const [key, child] of Object.entries(value)) { if (SENSITIVE.test(key) && !isSafePolicyFlag(key, child)) throw new ProjectWorkspaceStoreError("SENSITIVE_PERSISTENCE_FORBIDDEN", `${path}.${key} is forbidden.`); safe(child, `${path}.${key}`); } }
 function targetOf({ client, pool }) { if (client?.query) return client; if (pool?.query) return pool; throw new Error("Project workspace store requires an injected PostgreSQL client or pool."); }
 async function transaction(target, action) {
   const connection = typeof target.connect === "function" ? await target.connect() : target;
