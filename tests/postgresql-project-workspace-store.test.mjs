@@ -63,6 +63,16 @@ test("project workspace store reads latest projects and all append-only metadata
   assert.equal((await store.listImportPlans())[0].repositoryUrl, "https://github.com/acme/vpn");
 });
 
+test("project read-model carries Product Request project scope for restart hydration", async () => {
+  const client = { async query(sql) {
+    if (sql.includes("FROM project_registry_versions")) return { rows: [{ project_id: "project-replay", project_version: 1, name: "Replayable", description: "safe", lifecycle: "draft", status: "draft", intake: { goal: "safe" }, actor_id: "hero-owner", recorded_at: "2026-09-18T00:00:00.000Z", request_id: "product-request-001", request_version: 1, idempotency_key: "product-request-key-001", request_fingerprint: "a".repeat(64), request_state: "accepted", request_actor_id: "hero-owner", request_recorded_at: "2026-09-18T00:00:00.000Z" }] };
+    return { rows: [] };
+  } };
+  const store = createPostgresProjectWorkspaceStore({ client });
+  const project = (await store.listProjects())[0];
+  assert.equal(project.productRequest.projectId, project.projectId);
+});
+
 test("Smart Tester error documents are scoped, append-only and secret-free", async () => {
   const queries = [];
   const store = createPostgresProjectWorkspaceStore({ client: { async query(sql, values) { queries.push({ sql, values }); return { rows: [{ project_id: "project-vpn", error_id: "error-123", report_version: "1.0.0", title: "دفتر خطا", surface: "/workspace", feature_key: "workspace.intake", severity: "medium", summary: "یک یافته", findings: [], reproduction_steps: [], limitations: [], source_report: {}, actor_id: "hero-owner", recorded_at: "2026-09-14T00:00:00.000Z" }] }; } } });
