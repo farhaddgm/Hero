@@ -1,7 +1,7 @@
 # پایایی انتشار Hero در محیط Test
 
 - Document ID: `HERO-OPS-HERO-TEST-RELEASE-RELIABILITY`
-- Version: `1.3.0`
+- Version: `1.4.0`
 - Status: `active`
 - Owner: `hero-operations`
 - Scope: `hero`
@@ -11,13 +11,19 @@
 
 این runbook مسیر انتشار را از یک «فرمان دستی با چند مقدار مبهم» به یک زنجیرهٔ قابل‌ردیابی تبدیل می‌کند: نسخه و commit از ابتدا مشخص‌اند، image فقط با digest غیرقابل‌تغییر جابه‌جا می‌شود، manifest مرجع واحد است، backup هیچ Secretی ندارد و در شکست پس از تغییر، rollback خودکار انجام می‌شود.
 
-## Snapshot جاری source و Test — ۲۰۲۶-۰۹-۱۷
+## Snapshot جاری source و Test — ۲۰۲۶-۰۹-۱۸
 
-- source مرجع branch `codex/test-release-reliability-20260916`، commit `d889ab3c8d8544673f1ecf59bd9e63315d4ae7dc` است.
-- Runtime Test روی Release Candidate `v1.1.4-rc.3` و artifact immutable `ghcr.io/farhaddgm/hero@sha256:996da1112d0c30ec419fb7ace035f2cb2106191a41cb4eb1d08c1e09a37f4896` اجرا می‌شود.
-- GitHub Actions run `35266951191` موفق بود. Owner manifest همان run را promotion کرد؛ ابزار rollback point metadata-only را در `/etc/hero/hero-test.env.release-state.before-996da1112d0c30ec419fb7ace035f2cb2106191a41cb4eb1d08c1e09a37f4896.json` ثبت کرد.
-- curl reset اولیه در startup گذرا بود؛ promotion با `SUCCESS` پایان یافت و verify بعدی `/health`، `/ready` و `Hero Test smoke check: PASS` را ثبت کرد. Production، Pilot و Secretها تغییر نکردند.
-- `pnpm check` candidate برابر ۳۹۴ pass و ۰ fail و build برابر ۲۶۳ module و ۴۹ JSON بود. این runbook دربارهٔ انتشار Hero است؛ scenario زندهٔ Provider evidence جداگانه می‌خواهد.
+- source مرجع branch `codex/test-release-reliability-20260916`، commit `790bfe8097236e285fcf9cb8f6699dc62f5e07b4` است.
+- Runtime Test روی Release Candidate `v1.1.4-rc.6` و artifact immutable `ghcr.io/farhaddgm/hero@sha256:14c31d1f2fb30bd0771af87459a217a63d1aaf95a1221f3d26b77e7b8fadf307` اجرا می‌شود؛ این container پس از restart به‌علت hydration crash-loop شده است.
+- GitHub Actions run `35285907556` برای rc.6 موفق بود و promotion مالک rollback point metadata-only را ثبت کرد؛ verify پایدار به‌علت crash-loop کامل نشد.
+- candidate اصلاحی `v1.1.4-rc.8` از run `35287418094` با digest `ghcr.io/farhaddgm/hero@sha256:e87e6063975fdea86d81682f19668a6458209afc3aeaff77cfeb896478d1d8ee` آماده است؛ promotion آن به‌علت نیاز به sudo هنوز pending است.
+- `pnpm check` candidate برابر ۴۰۴ pass و ۰ fail و build برابر ۲۶۵ module و ۴۹ JSON بود. این runbook دربارهٔ انتشار Hero است؛ scenario زندهٔ Provider evidence جداگانه می‌خواهد.
+
+## رخداد و اصلاح ۲۰۲۶-۰۹-۱۸
+
+- علت crash-loop: `listProjects()` فیلد `productRequest.projectId` را در read model برنمی‌گرداند و hydration fail-closed با `Product request metadata is invalid` متوقف می‌شد.
+- اصلاح‌های هم‌زمان: read model اکنون scope درخواست را کامل برمی‌گرداند؛ ثبت اولیهٔ Product Request، Project و Foundation در یک تراکنش انجام می‌شود؛ replay رکورد قدیمی نیمه‌ثبت‌شده Foundation گمشده را بدون درج دوباره repair می‌کند.
+- candidate rc.8 همهٔ checkهای منبع، build و workflow انتشار را گذرانده است. تا promotion، هیچ ادعای healthy بودن Runtime Test یا موفقیت smoke ثبت نمی‌شود.
 
 ## اجرای پیشین — ۲۰۲۶-۰۹-۱۷
 

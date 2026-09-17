@@ -1,5 +1,13 @@
 # تغییرات رودمپ شرکت
 
+# ۲۰۲۶-۰۹-۱۸ — audit ریشه‌ای persistence و candidate rc.8
+
+- ریشه‌یابی شد: rc.6 بعد از restart به‌علت حذف `productRequest.projectId` از read model با `Product request metadata is invalid` crash-loop می‌شد؛ read model اصلاح شد و regression test اضافه شد.
+- اصلاح شد: ثبت Product Request، Project و Foundation اکنون در یک تراکنش PostgreSQL انجام می‌شود و خطای مرحلهٔ Foundation هر دو metadata قبلی را rollback می‌کند؛ replay امن برای رکوردهای نیمه‌ثبت‌شده فقط Foundation گمشده را repair می‌کند.
+- تأیید شد: targeted persistence/API برابر `24/24` و full assurance برابر `404 pass / 0 fail`، build برابر `265 module / 49 JSON` و documentation برابر `140 document / 0 error` است.
+- ساخته شد: candidate تست `v1.1.4-rc.8` از run `35287418094`، commit `790bfe8097236e285fcf9cb8f6699dc62f5e07b4` و digest `sha256:e87e6063975fdea86d81682f19668a6458209afc3aeaff77cfeb896478d1d8ee`؛ promotion به Test به‌علت نیاز به sudo هنوز pending است.
+- وضعیت صریح: Test فعلاً روی rc.6 crash-loop است؛ پس از promotion rc.8 باید smoke، replay repair و دو درخواست مستقل PF-1 اجرا و ثبت شود. Production، Pilot، Secret و Provider زنده لمس نشدند.
+
 # ۲۰۲۶-۰۹-۱۸ — اصلاح مسیر Idempotency-Key و آماده‌سازی rc.5
 
 - اصلاح‌شده: route ساخت Product Request اکنون هدر `Idempotency-Key` را مطابق API Node HTTP از object هدر می‌خواند؛ خطای قبلی `request.headers.get is not a function` و پاسخ 500 رفع شد.
