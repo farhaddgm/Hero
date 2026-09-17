@@ -225,7 +225,16 @@ test("domain registry snapshots are append-only, secret-safe and hydrate all con
     }
   };
   const store = createPostgresDomainRegistrySnapshotStore({ client, now });
-  const safe = { schemaVersion: "1.0", registryId: "ai-orchestration", providers: [], profiles: [{ credentialRef: "runtime:provider-key" }], authorizationCreated: false };
+  const safe = {
+    schemaVersion: "1.0",
+    registryId: "ai-orchestration",
+    providers: [],
+    profiles: [
+      { credentialRef: "runtime:provider-key" },
+      { credentialRef: "vault:hero/test/openai/default" }
+    ],
+    authorizationCreated: false
+  };
   const saved = await store.save({ registryId: "ai-orchestration", sourceSequence: 12, data: safe, snapshotId: "snapshot-ai-001" });
   assert.equal(saved.revision, 1);
   const hydrated = await store.hydrate({ registryIds: ["ai-orchestration", "team-registry"] });

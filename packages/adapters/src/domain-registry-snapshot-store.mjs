@@ -5,7 +5,6 @@ const REGISTRY_ID = /^[a-z][a-z0-9._:-]{2,63}$/;
 const SENSITIVE_KEY = /(?:api[_-]?key|access[_-]?token|refresh[_-]?token|secret|password|credential|authorization)/i;
 const SENSITIVE_VALUE = /(?:\bsk-[A-Za-z0-9_-]{12,}\b|\bBearer\s+[A-Za-z0-9._-]{12,}\b|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----)/i;
 const HOST_PATH = /(?:^|[\s"'(])(?:[A-Za-z]:[\\/]|\/(?:home|Users|mnt|opt)\/)/;
-const SAFE_CREDENTIAL_REFERENCE = /^(?:runtime|vault|env):[A-Za-z0-9._:-]{3,120}$/;
 
 function copy(value) {
   return Object.freeze(structuredClone(value));
@@ -26,11 +25,22 @@ function assertSchemaVersion(value) {
   return value;
 }
 
+function isSafeCredentialReference(value) {
+  if (typeof value !== "string") return false;
+  if (/^(?:runtime|env):[A-Za-z0-9._:-]{3,120}$/.test(value)) return true;
+  if (!value.startsWith("vault:")) return false;
+  const segments = value.slice("vault:".length).split("/");
+  return segments.length >= 2
+    && segments.length <= 5
+    && value.length <= 160
+    && segments.every(segment => /^[A-Za-z0-9._:-]{1,80}$/.test(segment) && segment !== "." && segment !== "..");
+}
+
 function assertSafe(value, path = "data") {
   if (Array.isArray(value)) return value.forEach((child, index) => assertSafe(child, `${path}[${index}]`));
   if (value && typeof value === "object") {
     for (const [key, child] of Object.entries(value)) {
-      const safeReference = key === "credentialRef" && typeof child === "string" && SAFE_CREDENTIAL_REFERENCE.test(child);
+      const safeReference = key === "credentialRef" && isSafeCredentialReference(child);
       const safeBoundaryFlag = key === "authorizationCreated" && typeof child === "boolean";
       if (SENSITIVE_KEY.test(key) && !safeReference && !safeBoundaryFlag) throw new DomainRegistrySnapshotError("SENSITIVE_DATA_REJECTED", `${path}.${key} is not allowed in a registry snapshot.`);
       assertSafe(child, `${path}.${key}`);
