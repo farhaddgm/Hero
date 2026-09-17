@@ -1,5 +1,13 @@
 # تغییرات رودمپ شرکت
 
+# ۲۰۲۶-۰۹-۱۷ — Walk-Through و Smart Tester: orchestration ایمن و release gate
+
+- تکمیل‌شده در source: هر دو capability از Back Office به AI Orchestration، context/role/policy، Profile/Binding و Provider adapter می‌رسند؛ UI به Provider خاص وابسته نیست و نتیجهٔ live با schema `analysis-v1`، evidence متادیتایی امن و usage/cost/latency قابل‌ردیابی برمی‌گردد.
+- اصلاح‌شده: timeout با abort در HTTP adapter، retry محدود، provider/network/invalid-output failure، redaction credential و fail-closed برای Role/Tool Policy/authorization/Binding اعمال شد. Smart Tester برای ثبت durable خطا به `project.write` نیاز دارد و اجرای live همچنان side-effect مستقل ندارد.
+- تأیید source: branch `codex/test-release-reliability-20260916`، commit `9b0b458e0c59366f9f3cc835e7e6b70f15a7b7a9`، `pnpm check` برابر ۳۸۹ pass و ۰ fail؛ build محلی Docker نیز موفق شد.
+- وضعیت release: Test روی artifact قبلی `1.1.2` و digest قبلی باقی ماند؛ GHCR publish candidate به‌دلیل `permission_denied` و scope ناکافی token انجام نشد، پس tag/manifest/promotion جدید وجود ندارد.
+- وضعیت live: authorization و Test Secret Store metadata حاضر است، ولی Profile/Binding فعال برای Project `hero` در snapshot AI وجود ندارد؛ Walk-Through و Smart Tester واقعی اجرا نشدند و هیچ Provider، Secret، هزینه یا prompt/response حساسی لمس/ذخیره نشد.
+
 # ۲۰۲۶-۰۹-۱۵ — AI Connections 1.1.1 و مسیر دسترسی روشن
 
 - اصلاح‌شده: سرصفحهٔ صفحهٔ «اتصال‌های AI» اکنون دکمهٔ مستقیم `رفتن به ثبت امن کلید` دارد که فرم Owner-only `ثبت امن کلید Provider` را در همان صفحه باز می‌کند.

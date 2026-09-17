@@ -108,7 +108,7 @@ Admin می‌تواند Provider، Model ID، cap و تاریخ انقضای م�
 - پیش از dispatch، authorization runtime باید active، خارج از انقضا، با Global Stop خاموش و دقیقاً منطبق با Project، Provider، Model، Role، Step ID و Document Version باشد. mismatch یا خطای configuration با پاسخ JSON امن متوقف می‌شود و Provider را صدا نمی‌زند.
 - Prompt و پاسخ مدل persist نمی‌شوند؛ ledger فقط invocation identifier امن، Provider/Model/Role/context identifiers، latency/usage/cost و وضعیت redacted را نگه می‌دارد. متن قابل‌نمایش نیز redaction و سقف طول دارد.
 - Test یکپارچهٔ هر دو capability با Provider fake تأیید می‌کند که Walk-Through و Smart Tester در مسیر live نتیجهٔ `analysis-v1` می‌گیرند؛ آزمون دوم، mismatch Role را با `403` و بدون هرگونه dispatch تأیید می‌کند. تست‌های کامل repository نیز این تغییر را پوشش می‌دهند.
-- وضعیت runtime مشاهده‌شده هنوز blocker واقعی است: Test روی artifact `1.1.2` از commit `0caa40b49b74aad13e2a0c78545f6c0eb28262ea` اجرا می‌شود، نه artifact این تغییر. `HERO_ENABLE_REAL_PROVIDERS=true` و authorization ID جدید حاضرند، اما configuration runtime فقط `active`، ID و Global Stop را دارد و تمام فیلدهای scope اجباری (Project/Step/Version/Provider/Model/Role/cap/expiry) غایب‌اند؛ پس policy قابل‌خواندن نیست و dispatch fail-closed است. دیتابیس Test نیز در مشاهدهٔ ۲۰۲۶-۰۹-۱۷ شمارش صفر برای `projects`، `ai_providers`، `ai_models` و `ai_invocations` داشت. بنابراین در این commit هیچ تماس OpenAI و هیچ هزینه‌ای ایجاد نشده است.
+- وضعیت rollout پس از ممیزی ۲۰۲۶-۰۹-۱۷: source تغییر مرتبط روی commit `9b0b458e0c59366f9f3cc835e7e6b70f15a7b7a9` است و `pnpm check` برابر `389 pass / 0 fail` است؛ Test هنوز روی artifact قبلی `1.1.2` از commit `0caa40b49b74aad13e2a0c78545f6c0eb28262ea` و digest `ghcr.io/farhaddgm/hero@sha256:641e6c75b5f871e87053cf2d959fe250a20067b8ecc7fe0571e15345f31c0d10` اجرا می‌شود. Runtime authorization اکنون کامل و active است: `AUTH-AI-TEST-001`، Project `hero`، OpenAI، `gpt-5.6-luna`، Role `analyst`، cap `50000`، expiry `2027-02-23T23:59:59Z` و Global Stop خاموش. Secret Store reference در Test configured با version `6` است، اما snapshot AI برای Project `hero` هیچ Profile فعال و هیچ Binding ندارد؛ بنابراین dispatch هر دو capability بدون Provider call fail-closed می‌ماند. Publish candidate به GHCR نیز به‌دلیل `permission_denied` و scope ناکافی token انجام نشد؛ tag، manifest و promotion جدید عمداً ساخته نشدند و هیچ تماس OpenAI یا هزینه‌ای ایجاد نشده است.
 
 ### Requirement trace
 
@@ -117,6 +117,8 @@ Admin می‌تواند Provider، Model ID، cap و تاریخ انقضای م�
 | انتخاب Provider بدون وابستگی مستقیم UI | `apps/control-plane/src/server.mjs`، `apps/control-plane/src/hero-shell.mjs`، `tests/project-identity.test.mjs` |
 | authorization/permission/cost fail-closed | `packages/adapters/src/external-spend-authorization.mjs`، `packages/domain/src/ai-orchestration.mjs`، `tests/real-provider-and-hydration.test.mjs` |
 | Secret redaction و Test-only vault reference | `packages/adapters/src/ai-provider-http.mjs`، `packages/adapters/src/hero-secret-store.mjs`، `tests/hero-secret-store.test.mjs` |
+| structured result و evidence امن برای دو capability | `apps/control-plane/src/server.mjs`، `tests/project-identity.test.mjs`؛ result با schema `analysis-v1` و evidence فقط شامل metadata، usage/cost، latency و binding است |
+| timeout، retry محدود، provider failure، invalid output و unavailable binding | `packages/adapters/src/ai-provider-http.mjs`، `packages/domain/src/ai-orchestration.mjs`، `tests/ai-governance-v2.test.mjs`، `tests/real-provider-and-hydration.test.mjs` |
 | نرخ رسمی و Catalog محدود به Test | `apps/control-plane/src/server.mjs`، `config/authorizations/AUTH-AI-TEST-001-v1.0.json`، [مدل رسمی GPT-5.6 Luna](https://developers.openai.com/api/docs/models/gpt-5.6-luna) |
 
 ## Migration، تست و Rollback موردنیاز
@@ -142,3 +144,12 @@ artifact به Test و verify آن، و فقط با environment configuration م�
 `analyst` با Test vault reference و Role Binding را بسازد، health check را بگذراند و یک
 Walk-Through و یک Smart Tester را اجرا کند. هر گیت نامنطبق باید بدون dispatch متوقف شود.
 این مسیر نه Production را تغییر می‌دهد، نه Pilot را، و نه Secret را ایجاد/چاپ می‌کند.
+
+## Evidence اجرای live — ۲۰۲۶-۰۹-۱۷
+
+| Scenario | Capability | Provider/Model/Role | Status | Evidence امن |
+|---|---|---|---|---|
+| Walk-Through واقعی | `walkthrough-guide` | OpenAI / `gpt-5.6-luna` / `analyst` | `not-executed` | قبل از dispatch به‌دلیل نبود Profile/Binding فعال برای Project `hero` متوقف شد؛ invocation id، prompt و پاسخ ایجاد/ذخیره نشد |
+| Smart Tester واقعی | `smart-tester` | OpenAI / `gpt-5.6-luna` / `analyst` | `not-executed` | همان گیت fail-closed؛ هیچ side-effect، Provider call یا هزینه‌ای ایجاد نشد |
+
+برای تکمیل این دو evidence، Human Owner باید در Test و فقط در Project `hero` Profile و Binding منطبق با authorization بسازد/تأیید کند؛ سپس health check و هر دو سناریو با ثبت امنِ scenario id، provider/model/role، binding، status، latency، usage/cost metadata، schema و timestamp اجرا شوند. مجوز یا Secret جدید در این سند یا چت درخواست نمی‌شود.
