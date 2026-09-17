@@ -2380,7 +2380,7 @@ export function createHeroServer(options = {}) {
 
       if (request.method === "POST" && url.pathname === "/api/projects") {
         const input = await readJson(request);
-        const created = projectWorkspace.createProject({ actor: authenticatedOwner, projectId: input.projectId, name: input.name, description: input.description, intake: input.intake, idempotencyKey: input.idempotencyKey ?? request.headers.get("idempotency-key") ?? undefined });
+        const created = projectWorkspace.createProject({ actor: authenticatedOwner, projectId: input.projectId, name: input.name, description: input.description, intake: input.intake, idempotencyKey: input.idempotencyKey ?? request.headers["idempotency-key"] ?? undefined });
         await persistWorkspaceProject(created.project, "Project created");
         await persistWorkspaceProposal(created.foundationProposal);
         return json(response, created.replayed ? 200 : 201, { service: HERO_SERVICE, ...created });

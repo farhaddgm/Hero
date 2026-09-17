@@ -314,6 +314,15 @@ test("project HTTP APIs enforce owner create, project grant isolation, settings 
   const conflictBody = await conflict.json();
   assert.equal(conflict.status, 409, JSON.stringify(conflictBody));
   assert.equal(conflictBody.code, "IDEMPOTENCY_KEY_REUSED");
+  const headerOnlyHeaders = { ...headers, "idempotency-key": "http-header-project-create-001" };
+  const headerOnly = await fetch(`${base}/api/projects`, { method: "POST", headers: headerOnlyHeaders, body: JSON.stringify({ projectId: "project-header-vpn", name: "Header VPN" }) });
+  const headerOnlyBody = await headerOnly.json();
+  assert.equal(headerOnly.status, 201, JSON.stringify(headerOnlyBody));
+  assert.equal(headerOnlyBody.request.idempotencyKey, "http-header-project-create-001");
+  const invalid = await fetch(`${base}/api/projects`, { method: "POST", headers: { ...headers, "idempotency-key": "http-invalid-project-create-001" }, body: JSON.stringify({}) });
+  const invalidBody = await invalid.json();
+  assert.equal(invalid.status, 400, JSON.stringify(invalidBody));
+  assert.equal(invalidBody.code, "INVALID_PROJECT_ID");
   const approve = await fetch(`${base}/api/projects/project-vpn/foundation/approve`, { method: "POST", headers, body: JSON.stringify({ proposalId: body.foundationProposal.proposalId, expectedVersion: 1 }) });
   assert.equal(approve.status, 200);
   const returnToDraft = await fetch(`${base}/api/projects/project-vpn/return-to-draft`, { method: "POST", headers, body: JSON.stringify({ expectedVersion: 2, reason: "Re-open product definition" }) });
