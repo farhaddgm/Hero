@@ -3,6 +3,7 @@
 set -Eeuo pipefail
 readonly PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 readonly PROJECT_NAME="hero-test"
+source "$PROJECT_ROOT/tools/release-json.sh"
 ENV_FILE="${HERO_TEST_ENV_FILE:-/etc/hero/hero-test.env}"
 STATE_FILE="${HERO_TEST_RELEASE_STATE_FILE:-${ENV_FILE}.release-state}"
 
@@ -26,15 +27,16 @@ assert_parent "$STATE_FILE"
 command -v docker >/dev/null 2>&1 || fail "Docker is required on the Hero server."
 docker info >/dev/null 2>&1 || fail "Docker access is required; use a Docker-enabled account."
 
-STATE_VALUES="$(node --input-type=module - "$STATE_FILE" <<'NODE'
-import fs from "node:fs";
-const state = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
-if (state.schema !== "hero.test-release-state/v1" || state.environment !== "test") process.exit(1);
-if (state.status !== "promoted") process.exit(2);
-console.log([state.currentImage ?? "", state.previousImage ?? "", state.previousReleaseVersion ?? "", state.previousSourceCommit ?? "", state.previousImageDigest ?? ""].join("\t"));
-NODE
-)" || fail "The release state is invalid or is not a promotable state."
-IFS=$'\t' read -r CURRENT_IMAGE PREVIOUS_IMAGE PREVIOUS_VERSION PREVIOUS_COMMIT PREVIOUS_DIGEST <<< "$STATE_VALUES"
+release_json_require_parser || fail "A JSON parser (jq or python3) is required on the Test host."
+STATE_SCHEMA="$(release_json_get "$STATE_FILE" schema)" || fail "The release state is unreadable."
+STATE_ENVIRONMENT="$(release_json_get "$STATE_FILE" environment)" || fail "The release state is unreadable."
+STATE_STATUS="$(release_json_get "$STATE_FILE" status)" || fail "The release state is unreadable."
+[[ "$STATE_SCHEMA" == 'hero.test-release-state/v1' && "$STATE_ENVIRONMENT" == 'test' && "$STATE_STATUS" == 'promoted' ]] || fail "The release state is invalid or is not a promotable state."
+CURRENT_IMAGE="$(release_json_get "$STATE_FILE" currentImage)" || fail "The current image is unreadable."
+PREVIOUS_IMAGE="$(release_json_get "$STATE_FILE" previousImage)" || fail "The previous image is unreadable."
+PREVIOUS_VERSION="$(release_json_get "$STATE_FILE" previousReleaseVersion)" || fail "The previous release version is unreadable."
+PREVIOUS_COMMIT="$(release_json_get "$STATE_FILE" previousSourceCommit)" || fail "The previous source commit is unreadable."
+PREVIOUS_DIGEST="$(release_json_get "$STATE_FILE" previousImageDigest)" || fail "The previous image digest is unreadable."
 validate_digest "$CURRENT_IMAGE"
 validate_digest "$PREVIOUS_IMAGE"
 [[ "$PREVIOUS_DIGEST" == "$PREVIOUS_IMAGE" || -z "$PREVIOUS_DIGEST" ]] || fail "Rollback metadata has an inconsistent previous digest."
@@ -59,27 +61,7 @@ update_env() {
 write_state() {
   local target="$1"
   HERO_STATE_FILE="$target" HERO_STATE_CURRENT="$PREVIOUS_IMAGE" HERO_STATE_PREVIOUS="$CURRENT_IMAGE" \
-  HERO_STATE_VERSION="$PREVIOUS_VERSION" HERO_STATE_COMMIT="$PREVIOUS_COMMIT" node --input-type=module <<'NODE'
-import fs from "node:fs";
-const target = process.env.HERO_STATE_FILE;
-const previous = fs.existsSync(target) ? JSON.parse(fs.readFileSync(target, "utf8")) : {};
-const record = {
-  ...previous,
-  schema: "hero.test-release-state/v1",
-  status: "rolled-back",
-  environment: "test",
-  currentImage: process.env.HERO_STATE_CURRENT,
-  previousImage: process.env.HERO_STATE_PREVIOUS,
-  releaseVersion: process.env.HERO_STATE_VERSION || null,
-  commitSha: process.env.HERO_STATE_COMMIT || null,
-  rolledBackAt: new Date().toISOString()
-};
-const temp = target + ".tmp-" + process.pid + "-" + Math.random().toString(16).slice(2);
-const fd = fs.openSync(temp, "wx", 0o600);
-try { fs.writeFileSync(fd, JSON.stringify(record, null, 2) + "\n", "utf8"); fs.fsyncSync(fd); }
-finally { fs.closeSync(fd); }
-fs.renameSync(temp, target);
-NODE
+  HERO_STATE_VERSION="$PREVIOUS_VERSION" HERO_STATE_COMMIT="$PREVIOUS_COMMIT" release_json_write_rollback_state "$target" || fail "Could not write rollback state."
 }
 
 cd "$PROJECT_ROOT"

@@ -4,6 +4,7 @@ set -Eeuo pipefail
 
 readonly PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 readonly PROJECT_NAME="hero-test"
+source "$PROJECT_ROOT/tools/release-json.sh"
 ENV_FILE="${HERO_TEST_ENV_FILE:-/etc/hero/hero-test.env}"
 STATE_FILE="${HERO_TEST_RELEASE_STATE_FILE:-${ENV_FILE}.release-state}"
 MANIFEST_FILE=""
@@ -55,21 +56,11 @@ validate_digest() {
 
 if [[ -n "$MANIFEST_FILE" ]]; then
   assert_regular_file "$MANIFEST_FILE"
-  MANIFEST_JSON="$(HERO_PROJECT_ROOT="$PROJECT_ROOT" node --input-type=module - "$MANIFEST_FILE" <<'NODE'
-import fs from "node:fs";
-const { validateReleaseManifest } = await import(new URL("packages/contracts/src/release-manifest.mjs", "file://" + process.env.HERO_PROJECT_ROOT + "/").href);
-const manifest = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
-const errors = validateReleaseManifest(manifest);
-if (errors.length) { console.error(errors.join(" ")); process.exit(1); }
-process.stdout.write(JSON.stringify(manifest));
-NODE
-)" || fail "Release manifest is invalid or unreadable."
-  read -r MANIFEST_ARTIFACT MANIFEST_VERSION MANIFEST_COMMIT MANIFEST_URL < <(
-    MANIFEST_JSON="$MANIFEST_JSON" node --input-type=module <<'NODE'
-const m = JSON.parse(process.env.MANIFEST_JSON);
-console.log([m.artifact, m.releaseVersion, m.commitSha, m.releaseUrl ?? ""].join("\t"));
-NODE
-  )
+  release_json_validate_manifest "$MANIFEST_FILE" || fail "Release manifest is invalid or unreadable."
+  MANIFEST_ARTIFACT="$(release_json_get "$MANIFEST_FILE" artifact)" || fail "Release manifest artifact is unreadable."
+  MANIFEST_VERSION="$(release_json_get "$MANIFEST_FILE" releaseVersion)" || fail "Release manifest version is unreadable."
+  MANIFEST_COMMIT="$(release_json_get "$MANIFEST_FILE" commitSha)" || fail "Release manifest commit is unreadable."
+  MANIFEST_URL="$(release_json_get "$MANIFEST_FILE" releaseUrl)" || fail "Release manifest URL is unreadable."
   if [[ -n "$IMAGE_REF" && "$IMAGE_REF" != "$MANIFEST_ARTIFACT" ]]; then fail "CLI digest does not match the release manifest artifact."; fi
   IMAGE_REF="$MANIFEST_ARTIFACT"
   RELEASE_VERSION="$MANIFEST_VERSION"
@@ -107,31 +98,7 @@ write_record() {
   HERO_RECORD_COMMIT="$SOURCE_COMMIT" HERO_RECORD_RELEASE_URL="$RELEASE_URL" HERO_RECORD_CURRENT="$current" \
   HERO_RECORD_PREVIOUS="$previous" HERO_RECORD_PREVIOUS_VERSION="$PREVIOUS_RELEASE_VERSION" \
   HERO_RECORD_PREVIOUS_COMMIT="$PREVIOUS_SOURCE_COMMIT" HERO_RECORD_PREVIOUS_DIGEST="$PREVIOUS_IMAGE_DIGEST" \
-  HERO_RECORD_BACKUP="$backup" node --input-type=module <<'NODE'
-import fs from "node:fs";
-const target = process.env.HERO_RECORD_FILE;
-const record = {
-  schema: "hero.test-release-state/v1",
-  status: process.env.HERO_RECORD_STATUS,
-  environment: "test",
-  releaseVersion: process.env.HERO_RECORD_VERSION || null,
-  commitSha: process.env.HERO_RECORD_COMMIT || null,
-  releaseUrl: process.env.HERO_RECORD_RELEASE_URL || null,
-  currentImage: process.env.HERO_RECORD_CURRENT || null,
-  previousImage: process.env.HERO_RECORD_PREVIOUS || null,
-  previousReleaseVersion: process.env.HERO_RECORD_PREVIOUS_VERSION || null,
-  previousSourceCommit: process.env.HERO_RECORD_PREVIOUS_COMMIT || null,
-  previousImageDigest: process.env.HERO_RECORD_PREVIOUS_DIGEST || null,
-  metadataOnlyBackup: process.env.HERO_RECORD_BACKUP || null,
-  recordedAt: new Date().toISOString()
-};
-const temporary = target + ".tmp-" + process.pid + "-" + Math.random().toString(16).slice(2);
-const handle = fs.openSync(temporary, "wx", 0o600);
-try { fs.writeFileSync(handle, JSON.stringify(record, null, 2) + "\n", "utf8"); fs.fsyncSync(handle); }
-finally { fs.closeSync(handle); }
-fs.renameSync(temporary, target);
-try { fs.chmodSync(target, 0o600); } catch {}
-NODE
+  HERO_RECORD_BACKUP="$backup" release_json_write_record "$target" || fail "Could not write release state metadata."
 }
 
 update_env() {
@@ -188,10 +155,9 @@ done
 ACTUAL_IMAGE="$(docker inspect hero-test-control-plane-1 --format '{{.Config.Image}}')"
 [[ "$ACTUAL_IMAGE" == "$IMAGE_REF" ]] || fail "Container image does not match the requested immutable artifact."
 BUILD_INFO="$(curl --fail --silent --show-error --max-time 5 http://127.0.0.1:43101/build-info)"
-BUILD_INFO="$BUILD_INFO" EXPECTED_IMAGE="$IMAGE_REF" EXPECTED_VERSION="$RELEASE_VERSION" EXPECTED_COMMIT="$SOURCE_COMMIT" node --input-type=module <<'NODE'
-const info = JSON.parse(process.env.BUILD_INFO);
-if (info.imageDigest !== process.env.EXPECTED_IMAGE || info.releaseVersion !== (process.env.EXPECTED_VERSION || null) || info.sourceCommit !== (process.env.EXPECTED_COMMIT || null)) process.exit(1);
-NODE
+[[ "$(release_json_get_text "$BUILD_INFO" imageDigest)" == "$IMAGE_REF" ]] || fail "Build info image digest does not match the requested artifact."
+[[ "$(release_json_get_text "$BUILD_INFO" releaseVersion)" == "${RELEASE_VERSION:-}" ]] || fail "Build info release version does not match the requested version."
+[[ "$(release_json_get_text "$BUILD_INFO" sourceCommit)" == "${SOURCE_COMMIT:-}" ]] || fail "Build info source commit does not match the requested commit."
 for path in /health /ready /workspace?projectId=project-vpn /project-control?projectId=project-vpn; do
   code="$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 5 "http://127.0.0.1:43101${path}")"
   case "$path:$code" in
