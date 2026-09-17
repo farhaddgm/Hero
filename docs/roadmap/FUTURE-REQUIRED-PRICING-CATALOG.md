@@ -108,7 +108,7 @@ Admin می‌تواند Provider، Model ID، cap و تاریخ انقضای م�
 - پیش از dispatch، authorization runtime باید active، خارج از انقضا، با Global Stop خاموش و دقیقاً منطبق با Project، Provider، Model، Role، Step ID و Document Version باشد. mismatch یا خطای configuration با پاسخ JSON امن متوقف می‌شود و Provider را صدا نمی‌زند.
 - Prompt و پاسخ مدل persist نمی‌شوند؛ ledger فقط invocation identifier امن، Provider/Model/Role/context identifiers، latency/usage/cost و وضعیت redacted را نگه می‌دارد. متن قابل‌نمایش نیز redaction و سقف طول دارد.
 - Test یکپارچهٔ هر دو capability با Provider fake تأیید می‌کند که Walk-Through و Smart Tester در مسیر live نتیجهٔ `analysis-v1` می‌گیرند؛ آزمون دوم، mismatch Role را با `403` و بدون هرگونه dispatch تأیید می‌کند. تست‌های کامل repository نیز این تغییر را پوشش می‌دهند.
-- وضعیت runtime مشاهده‌شده هنوز blocker واقعی است: artifact Test قدیمی است، `HERO_ENABLE_REAL_PROVIDERS=false`، authorization runtime به رکورد منقضی Pilot اشاره می‌کند و دیتابیس Test فاقد Project/Provider/Model/Profile/Binding فعال است. بنابراین در این commit هیچ تماس OpenAI و هیچ هزینه‌ای ایجاد نشده است.
+- وضعیت runtime مشاهده‌شده هنوز blocker واقعی است: Test روی artifact `1.1.2` از commit `0caa40b49b74aad13e2a0c78545f6c0eb28262ea` اجرا می‌شود، نه artifact این تغییر. `HERO_ENABLE_REAL_PROVIDERS=true` و authorization ID جدید حاضرند، اما configuration runtime فقط `active`، ID و Global Stop را دارد و تمام فیلدهای scope اجباری (Project/Step/Version/Provider/Model/Role/cap/expiry) غایب‌اند؛ پس policy قابل‌خواندن نیست و dispatch fail-closed است. دیتابیس Test نیز در مشاهدهٔ ۲۰۲۶-۰۹-۱۷ شمارش صفر برای `projects`، `ai_providers`، `ai_models` و `ai_invocations` داشت. بنابراین در این commit هیچ تماس OpenAI و هیچ هزینه‌ای ایجاد نشده است.
 
 ### Requirement trace
 
