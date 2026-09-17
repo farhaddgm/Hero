@@ -1873,7 +1873,10 @@ export function createHeroServer(options = {}) {
         const providerId = typeof input.providerId === "string" ? input.providerId.trim() : "";
         if (!AI_CREDENTIAL_PROVIDERS.includes(providerId)) throw new HeroSecretStoreError("SECRET_PROVIDER_INVALID", "این Provider برای ثبت Secret پشتیبانی نمی‌شود.", 400);
         const result = secretStore.set({ providerId, secretId: "default", value: input.value });
-        await persistIdentityAudit({ userId: authenticatedOwner.subject, eventType: "ai.credential-stored", data: { providerId, credentialRef: result.credentialRef, environment: result.environment, version: result.version, state: result.state } });
+        // Audit metadata must prove the operation without retaining a secret
+        // reference.  The identity audit store deliberately rejects any
+        // credential/secret-shaped field name, including credentialRef.
+        await persistIdentityAudit({ userId: authenticatedOwner.subject, eventType: "ai.credential-stored", data: { providerId, environment: result.environment, version: result.version, state: result.state } });
         return json(response, 201, { service: HERO_SERVICE, credential: Object.freeze({ ...result, secretValueExposed: false }) });
       }
 
@@ -1890,11 +1893,11 @@ export function createHeroServer(options = {}) {
         if (!adapter?.validateConnection) throw new HeroSecretStoreError("PROVIDER_ADAPTER_NOT_CONFIGURED", "Provider adapter is not enabled in this runtime.", 503);
         try {
           const checked = await adapter.validateConnection({ credentialRef });
-          await persistIdentityAudit({ userId: authenticatedOwner.subject, eventType: "ai.credential-health-checked", data: { providerId, credentialRef, status: "healthy", mode: checked.mode } });
+          await persistIdentityAudit({ userId: authenticatedOwner.subject, eventType: "ai.credential-health-checked", data: { providerId, status: "healthy", mode: checked.mode } });
           return json(response, 200, { service: HERO_SERVICE, credential: Object.freeze({ credentialRef, providerId, environment: "test", configured: true, state: "healthy", mode: checked.mode, secretValueExposed: false }) });
         } catch (error) {
           const status = secretStore.status({ credentialRef });
-          await persistIdentityAudit({ userId: authenticatedOwner.subject, eventType: "ai.credential-health-checked", outcome: "rejected", data: { providerId, credentialRef, status: status.configured ? "blocked" : "not-configured", code: error?.code ?? "CREDENTIAL_HEALTH_FAILED" } });
+          await persistIdentityAudit({ userId: authenticatedOwner.subject, eventType: "ai.credential-health-checked", outcome: "rejected", data: { providerId, status: status.configured ? "blocked" : "not-configured", code: error?.code ?? "CREDENTIAL_HEALTH_FAILED" } });
           return json(response, 503, { service: HERO_SERVICE, credential: Object.freeze({ ...status, state: status.configured ? "blocked" : "not-configured", code: error?.code ?? "CREDENTIAL_HEALTH_FAILED", secretValueExposed: false }) });
         }
       }
