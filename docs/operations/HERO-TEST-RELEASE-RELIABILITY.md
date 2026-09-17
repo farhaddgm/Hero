@@ -13,7 +13,7 @@
 
 ## آخرین اجرای واقعی — ۲۰۲۶-۰۹-۱۷
 
-- ممیزی source روی branch `codex/test-release-reliability-20260916` انجام شد و commit مرتبط `9b0b458e0c59366f9f3cc835e7e6b70f15a7b7a9` با `pnpm check` برابر `389 pass / 0 fail` تأیید شد؛ build محلی Docker نیز همین verification را با ۳۸۹ تست موفق گذراند.
+- ممیزی source روی branch `codex/test-release-reliability-20260916` انجام شد و commit مرتبط `9b0b45836dd47d650907923cbfe1a33b5ae42d9c` با `pnpm check` برابر `389 pass / 0 fail` تأیید شد؛ build محلی Docker نیز verification را با ۳۸۹ تست موفق گذراند، اما چون publish آن به GHCR مجاز نشد، release artifact محسوب نمی‌شود.
 - محیط Test عمداً روی release قبلی `1.1.2`، commit `0caa40b49b74aad13e2a0c78545f6c0eb28262ea` و digest `ghcr.io/farhaddgm/hero@sha256:641e6c75b5f871e87053cf2d959fe250a20067b8ecc7fe0571e15345f31c0d10` باقی ماند؛ `/health`، `/ready` و `/build-info` سالم و منطبق بودند.
 - GHCR preflight برای artifact فعلی PASS شد، اما publish candidate جدید با خطای `permission_denied` و نبود scope لازم token متوقف شد. در نتیجه برای candidate جدید هیچ tag، manifest یا promotion ساخته/اعمال نشد.
 - authorization Test فعال و منطبق است (`AUTH-AI-TEST-001`، Project `hero`، OpenAI، مدل `gpt-5.6-luna`، Role `analyst`، Global Stop خاموش، expiry `2027-02-23T23:59:59Z`). Secret Store reference در Test فقط به‌صورت metadata با state `configured` و version `6` مشاهده شد و مقدار Secret خوانده یا چاپ نشد.
