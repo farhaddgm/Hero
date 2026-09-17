@@ -575,6 +575,43 @@ export function createHeroServer(options = {}) {
     persistedWorkspaceRecords.add(key);
   }
 
+  async function persistWorkspaceProjectAndProposal(project, proposal, reason = null) {
+    if (!postgresRuntime?.projectWorkspace || !project) return;
+    const projectKey = workspaceRecordKey("project", project);
+    const proposalKey = proposal ? workspaceRecordKey("proposal", proposal) : null;
+    const request = project.version === 1 ? project.productRequest : null;
+    const store = postgresRuntime.projectWorkspace;
+    if (!persistedWorkspaceRecords.has(projectKey) && !persistedWorkspaceRecords.has(proposalKey) && request && proposal && store.appendProjectWithRequestAndFoundation) {
+      await store.appendProjectWithRequestAndFoundation({
+        projectId: project.projectId,
+        version: project.version,
+        name: project.name,
+        description: project.description,
+        lifecycle: project.lifecycle,
+        status: project.status,
+        intake: project.intake,
+        actorId: project.createdBy ?? identityOwner.userId,
+        reason,
+        requestId: request.requestId,
+        requestVersion: request.version,
+        idempotencyKey: request.idempotencyKey,
+        requestFingerprint: request.fingerprint,
+        requestMetadata: { projectId: request.projectId, source: "owner-project-intake" },
+        requestState: request.state,
+        proposalId: proposal.proposalId,
+        proposalVersion: proposal.version,
+        proposalState: proposal.state,
+        proposal,
+        proposalActorId: proposal.approvedBy ?? proposal.createdBy ?? identityOwner.userId
+      });
+      persistedWorkspaceRecords.add(projectKey);
+      persistedWorkspaceRecords.add(proposalKey);
+      return;
+    }
+    await persistWorkspaceProject(project, reason);
+    await persistWorkspaceProposal(proposal);
+  }
+
   async function persistWorkspaceSettings(projectId) {
     if (!postgresRuntime?.projectWorkspace || !projectSettings.listRecords) return;
     for (const setting of projectSettings.listRecords({ projectId })) {
@@ -2381,8 +2418,7 @@ export function createHeroServer(options = {}) {
       if (request.method === "POST" && url.pathname === "/api/projects") {
         const input = await readJson(request);
         const created = projectWorkspace.createProject({ actor: authenticatedOwner, projectId: input.projectId, name: input.name, description: input.description, intake: input.intake, idempotencyKey: input.idempotencyKey ?? request.headers["idempotency-key"] ?? undefined });
-        await persistWorkspaceProject(created.project, "Project created");
-        await persistWorkspaceProposal(created.foundationProposal);
+        await persistWorkspaceProjectAndProposal(created.project, created.foundationProposal, "Project created");
         return json(response, created.replayed ? 200 : 201, { service: HERO_SERVICE, ...created });
       }
 
@@ -2390,8 +2426,7 @@ export function createHeroServer(options = {}) {
         if (authenticatedOwner?.role !== "project-owner") throw new ProjectWorkspaceError("OWNER_REQUIRED", "Only the owner may clone a project template.", 403);
         const input = await readJson(request);
         const cloned = projectWorkspace.cloneFromTemplate({ actor: authenticatedOwner, sourceProjectId: input.sourceProjectId, projectId: input.projectId, name: input.name, description: input.description });
-        await persistWorkspaceProject(cloned.project, `Cloned from ${input.sourceProjectId}`);
-        await persistWorkspaceProposal(cloned.foundationProposal);
+        await persistWorkspaceProjectAndProposal(cloned.project, cloned.foundationProposal, `Cloned from ${input.sourceProjectId}`);
         return json(response, 201, { service: HERO_SERVICE, ...cloned });
       }
 

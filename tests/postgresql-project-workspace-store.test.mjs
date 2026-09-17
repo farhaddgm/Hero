@@ -28,6 +28,34 @@ test("Product Request and project metadata are committed together and remain sec
   assert.equal(rollbackQueries.at(-1).sql, "ROLLBACK");
 });
 
+test("new Product Request, Project and Foundation are committed in one transaction", async () => {
+  const queries = [];
+  const store = createPostgresProjectWorkspaceStore({ client: { async query(sql, values) { queries.push({ sql, values }); return { rows: [] }; } } });
+  const result = await store.appendProjectWithRequestAndFoundation({
+    projectId: "project-atomic",
+    version: 1,
+    name: "Atomic",
+    lifecycle: "draft",
+    status: "draft",
+    intake: { goal: "safe" },
+    actorId: "hero-owner",
+    requestId: "product-request-atomic",
+    idempotencyKey: "product-request-atomic-key",
+    requestFingerprint: "a".repeat(64),
+    requestMetadata: { projectId: "project-atomic", source: "owner-project-intake" },
+    proposalId: "foundation-atomic",
+    proposalVersion: 1,
+    proposalState: "proposed",
+    proposal: { suggested: { runtimePlan: { effects: { secretWrite: false } } } }
+  });
+  assert.equal(result.proposalId, "foundation-atomic");
+  assert.deepEqual(queries.map(item => item.sql), ["BEGIN", "INSERT INTO product_request_versions (request_id, request_version, idempotency_key, request_fingerprint, project_id, state, request_metadata, actor_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)", "INSERT INTO project_registry_versions (project_id, project_version, name, description, lifecycle, status, intake, actor_id, reason) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)", "INSERT INTO foundation_proposal_versions (proposal_id, project_id, proposal_version, state, proposal, actor_id) VALUES ($1,$2,$3,$4,$5,$6)", "COMMIT"]);
+  const rollbackQueries = [];
+  const rollbackStore = createPostgresProjectWorkspaceStore({ client: { async query(sql, values) { rollbackQueries.push({ sql, values }); if (sql.startsWith("INSERT INTO foundation_proposal_versions")) throw new Error("foundation insert failed"); return { rows: [] }; } } });
+  await assert.rejects(() => rollbackStore.appendProjectWithRequestAndFoundation({ projectId: "project-atomic-fail", version: 1, name: "Atomic fail", lifecycle: "draft", status: "draft", intake: {}, actorId: "hero-owner", requestId: "product-request-atomic-fail", idempotencyKey: "product-request-atomic-fail-key", requestFingerprint: "b".repeat(64), proposalId: "foundation-atomic-fail", proposalVersion: 1, proposalState: "proposed", proposal: {} }), /foundation insert failed/);
+  assert.equal(rollbackQueries.at(-1).sql, "ROLLBACK");
+});
+
 test("Foundation persistence accepts blocked-effect policy flags without weakening secret rejection", async () => {
   const queries = [];
   const store = createPostgresProjectWorkspaceStore({ client: { async query(sql, values) { queries.push({ sql, values }); return { rows: [] }; } } });

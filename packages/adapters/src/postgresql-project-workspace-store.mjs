@@ -50,6 +50,20 @@ export function createPostgresProjectWorkspaceStore({ client, pool } = {}) {
       });
       return copy({ projectId, version, requestId, requestVersion, idempotencyKey, lifecycle, status });
     },
+    async appendProjectWithRequestAndFoundation({ projectId, version, name, description = "", lifecycle, status, intake, actorId, reason = null, requestId, requestVersion = 1, idempotencyKey, requestFingerprint, requestMetadata = {}, requestState = "accepted", proposalId, proposalVersion, proposalState, proposal, proposalActorId }) {
+      assertId("projectId", projectId); assertId("actorId", actorId); assertId("requestId", requestId); assertId("idempotencyKey", idempotencyKey); assertId("proposalId", proposalId); assertId("proposalActorId", proposalActorId ?? actorId);
+      if (!Number.isInteger(version) || version < 1 || !Number.isInteger(requestVersion) || requestVersion < 1 || !Number.isInteger(proposalVersion) || proposalVersion < 1) throw new ProjectWorkspaceStoreError("INVALID_VERSION", "Project, request or proposal version is invalid.");
+      if (typeof requestFingerprint !== "string" || !FINGERPRINT.test(requestFingerprint)) throw new ProjectWorkspaceStoreError("INVALID_FINGERPRINT", "Product request fingerprint is invalid.");
+      if (!["accepted", "rejected"].includes(requestState)) throw new ProjectWorkspaceStoreError("INVALID_REQUEST_STATE", "Product request state is invalid.");
+      if (!["proposed", "revision-requested", "approved", "superseded"].includes(proposalState)) throw new ProjectWorkspaceStoreError("INVALID_PROPOSAL_STATE", "Foundation proposal state is invalid.");
+      safe(intake); safe(requestMetadata); safe(proposal);
+      await transaction(target, async connection => {
+        await connection.query(`INSERT INTO product_request_versions (request_id, request_version, idempotency_key, request_fingerprint, project_id, state, request_metadata, actor_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`, [requestId, requestVersion, idempotencyKey, requestFingerprint, projectId, requestState, requestMetadata, actorId]);
+        await connection.query(`INSERT INTO project_registry_versions (project_id, project_version, name, description, lifecycle, status, intake, actor_id, reason) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`, [projectId, version, String(name).slice(0, 160), String(description).slice(0, 2000), lifecycle, status, intake, actorId, reason]);
+        await connection.query(`INSERT INTO foundation_proposal_versions (proposal_id, project_id, proposal_version, state, proposal, actor_id) VALUES ($1,$2,$3,$4,$5,$6)`, [proposalId, projectId, proposalVersion, proposalState, proposal, proposalActorId ?? actorId]);
+      });
+      return copy({ projectId, version, requestId, requestVersion, idempotencyKey, proposalId, proposalVersion, lifecycle, status });
+    },
     async listProjects() {
       const result = await target.query(`SELECT DISTINCT ON (p.project_id) p.project_id, p.project_version, p.name, p.description, p.lifecycle, p.status, p.intake, p.actor_id, p.reason, p.recorded_at, r.request_id, r.request_version, r.idempotency_key, r.request_fingerprint, r.state AS request_state, r.actor_id AS request_actor_id, r.recorded_at AS request_recorded_at FROM project_registry_versions p LEFT JOIN product_request_versions r ON r.project_id = p.project_id AND r.request_version = 1 ORDER BY p.project_id, p.project_version DESC`);
       return Object.freeze((result.rows ?? []).map(row => copy({ projectId: row.project_id, version: row.project_version, name: row.name, description: row.description, lifecycle: row.lifecycle, status: row.status, intake: row.intake ?? {}, createdBy: row.actor_id, updatedAt: row.recorded_at, createdAt: row.recorded_at, archiveReason: row.reason ?? undefined, ...(row.request_id ? { productRequest: { requestId: row.request_id, version: row.request_version, idempotencyKey: row.idempotency_key, fingerprint: row.request_fingerprint, projectId: row.project_id, state: row.request_state, submittedBy: row.request_actor_id, submittedAt: row.request_recorded_at } } : {}) })));

@@ -93,7 +93,8 @@ export function createProjectWorkspace({ ownerUserId = "hero-owner", now = () =>
         if (priorRequest.fingerprint !== requestFingerprint) throw new ProjectWorkspaceError("IDEMPOTENCY_KEY_REUSED", "idempotencyKey was already used for different project data.", 409);
         const priorProject = projects.get(priorRequest.projectId);
         if (!priorProject) throw new ProjectWorkspaceError("REQUEST_RECOVERY_REQUIRED", "The accepted Product Request has no recoverable project.", 409);
-        return copy({ project: priorProject, foundationProposal: currentFoundation(priorProject.projectId), policyPack: settings?.policyPack(priorProject.projectId) ?? null, request: requestMetadata(priorRequest), replayed: true });
+        const foundationProposal = currentFoundation(priorProject.projectId) ?? makeFoundationProposal(priorProject, actor);
+        return copy({ project: priorProject, foundationProposal, policyPack: settings?.policyPack(priorProject.projectId) ?? null, request: requestMetadata(priorRequest), replayed: true });
       }
       if (projects.has(id)) throw new ProjectWorkspaceError("PROJECT_EXISTS", "ProjectId already exists.", 409);
       const request = copy({ requestId: `product-request-${randomUUID()}`, version: 1, idempotencyKey: key, fingerprint: requestFingerprint, projectId: id, state: "accepted", submittedBy: actor.subject, submittedAt: now() });

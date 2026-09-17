@@ -91,6 +91,12 @@ test("Product Request creation is idempotent, fingerprint-bound and survives pro
   assert.equal(restoredReplay.replayed, true);
   assert.equal(restoredReplay.request.requestId, first.request.requestId);
   assert.equal(restoredReplay.foundationProposal.proposalId, first.foundationProposal.proposalId);
+
+  const repaired = setup().workspace;
+  repaired.hydrateProject({ project: first.project });
+  const repairedReplay = repaired.createProject(input);
+  assert.equal(repairedReplay.replayed, true);
+  assert.equal(repairedReplay.foundationProposal.state, "proposed");
 });
 
 test("product runtime admission rejects host escape, collisions and quota violations without side effects", () => {
@@ -356,4 +362,32 @@ test("project HTTP APIs enforce owner create, project grant isolation, settings 
   assert.equal((await fetch(`${base}/api/projects/project-vpn/workspace-overview`, { headers: viewerHeaders })).status, 200);
   assert.equal((await fetch(`${base}/api/projects/project-vpn/inputs/${encodeURIComponent(uploadedBody.input.uploadId)}/recall`, { headers: viewerHeaders })).status, 403);
   assert.equal((await fetch(`${base}/api/projects/project-vpn/settings`, { method: "POST", headers: viewerHeaders, body: JSON.stringify({ path: "ai.defaultModel", value: "luna", reason: "no" }) })).status, 403);
+});
+
+test("HTTP project creation uses the atomic PostgreSQL persistence boundary when available", async t => {
+  const access = createProjectAccessRegistry({ ownerUserId: "hero-owner", ownerUser: { email: "owner@example.test", displayName: "Owner" }, now });
+  const identity = createHumanIdentity({ accessRegistry: access, sessionSecret: "atomic-http-session-secret-1234567890", now, owner: { userId: "hero-owner", email: "owner@example.test", password: "Owner password 123", mfaSecret: "owner-mfa-secret-for-atomic" } });
+  const challenge = identity.beginLogin({ email: "owner@example.test", password: "Owner password 123" });
+  const ownerSession = identity.completeLogin({ challengeId: challenge.challengeId, mfaCode: createTotpCode("owner-mfa-secret-for-atomic", Math.floor(Date.parse(now()) / 1000)) });
+  const persisted = [];
+  const app = createHeroServer({
+    host: "127.0.0.1",
+    port: 0,
+    now,
+    projectAccessRegistry: access,
+    humanIdentity: identity,
+    projectWorkspace: createProjectWorkspace({ ownerUserId: "hero-owner", now, settings: createProjectSettingsRegistry({ now }) }),
+    postgresRuntime: {
+      async ping() {},
+      projectWorkspace: { async appendProjectWithRequestAndFoundation(input) { persisted.push(input); } }
+    }
+  });
+  const address = await app.start(); t.after(() => app.stop());
+  const response = await fetch(`http://127.0.0.1:${address.port}/api/projects`, { method: "POST", headers: { authorization: `Bearer ${ownerSession.token}`, "content-type": "application/json" }, body: JSON.stringify({ projectId: "project-atomic-http", name: "Atomic HTTP" }) });
+  const body = await response.json();
+  assert.equal(response.status, 201, JSON.stringify(body));
+  assert.equal(persisted.length, 1);
+  assert.equal(persisted[0].projectId, "project-atomic-http");
+  assert.equal(persisted[0].requestId, body.request.requestId);
+  assert.equal(persisted[0].proposalId, body.foundationProposal.proposalId);
 });
