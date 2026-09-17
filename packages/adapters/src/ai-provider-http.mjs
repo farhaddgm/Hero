@@ -158,6 +158,24 @@ function inputEnvelope(input) {
   });
 }
 
+function openAiStructuredOutputFormat(outputSchema) {
+  const schema = typeof outputSchema === "string" ? outputSchema : "generic-json-v1";
+  return Object.freeze({
+    type: "json_schema",
+    name: `hero_${schema.replace(/[^A-Za-z0-9_-]/g, "_")}`,
+    strict: true,
+    schema: Object.freeze({
+      type: "object",
+      additionalProperties: false,
+      required: ["schema", "answer"],
+      properties: Object.freeze({
+        schema: Object.freeze({ type: "string", const: schema }),
+        answer: Object.freeze({ type: "string" })
+      })
+    })
+  });
+}
+
 function assertFetch(fetchImpl) {
   if (typeof fetchImpl !== "function") throw new AiProviderAdapterError("FETCH_UNAVAILABLE", "A fetch implementation is required for a live provider adapter.");
 }
@@ -285,7 +303,7 @@ export function createOpenAiResponsesAdapter(options = {}) {
           store: false,
           max_output_tokens: input.maxOutputTokens,
           input: [{ role: "user", content: [{ type: "input_text", text: inputEnvelope(input) }] }],
-          text: { format: { type: "json_object" } }
+          text: { format: openAiStructuredOutputFormat(input.outputSchema) }
         })
       }
     }),

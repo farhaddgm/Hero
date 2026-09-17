@@ -83,7 +83,20 @@ test("OpenAI Responses adapter uses runtime credentials, structured JSON and usa
   assert.equal(requests[0].options.headers.authorization, "Bearer runtime-secret-never-persisted");
   const body = JSON.parse(requests[0].options.body);
   assert.equal(body.store, false);
-  assert.deepEqual(body.text.format, { type: "json_object" });
+  assert.deepEqual(body.text.format, {
+    type: "json_schema",
+    name: "hero_analysis-v1",
+    strict: true,
+    schema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["schema", "answer"],
+      properties: {
+        schema: { type: "string", const: "analysis-v1" },
+        answer: { type: "string" }
+      }
+    }
+  });
   assert.equal(body.max_output_tokens, 100);
   assert.doesNotMatch(JSON.stringify(result), /runtime-secret/);
 });
