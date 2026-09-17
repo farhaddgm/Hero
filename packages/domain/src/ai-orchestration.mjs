@@ -895,11 +895,20 @@ export function createAiOrchestration(options = {}) {
     }
     let verifiedExternalAuthorization = null;
     let dispatchReadiness = null;
+    let effectiveMaxCostUnits = profile.maxCostUnits;
     if (provider.mode === "live") {
       if (typeof externalSpendAuthorizer !== "function") {
         return blockedInvocation({ input, actor, profile, provider, code: "ACTIVE_AUTHORIZATION_SNAPSHOT_REQUIRED", reason: "The active authorization snapshot verifier is not configured.", idempotencyKey, value });
       }
       let authorization;
+      // A runtime authorization may narrow a Profile's declared ceiling, but
+      // can never widen it.  This avoids a stale higher Profile limit blocking
+      // an otherwise valid, lower Test authorization while retaining the
+      // authorization as the final source of truth for external spend.
+      const authorizedCeiling = input.externalSpendAuthorization?.maxCostUnits;
+      const requestedMaxCostUnits = Number.isSafeInteger(authorizedCeiling) && authorizedCeiling >= 0
+        ? Math.min(profile.maxCostUnits, authorizedCeiling)
+        : profile.maxCostUnits;
       try {
         authorization = await externalSpendAuthorizer({
           authorizationId: input.externalSpendAuthorization.authorizationId,
@@ -912,7 +921,7 @@ export function createAiOrchestration(options = {}) {
           providerId: provider.providerId,
           modelId: profile.modelId,
           role,
-          maxCostUnits: profile.maxCostUnits,
+          maxCostUnits: requestedMaxCostUnits,
           globalStop: input.externalSpendAuthorization.globalStop
         });
       } catch (error) {
@@ -932,11 +941,12 @@ export function createAiOrchestration(options = {}) {
         || authorization?.modelId !== profile.modelId
         || authorization?.role !== role
         || !Number.isInteger(authorization?.maxCostUnits)
-        || authorization.maxCostUnits < profile.maxCostUnits
+        || authorization.maxCostUnits < requestedMaxCostUnits
       ) {
         return blockedInvocation({ input, actor, profile, provider, code: "ACTIVE_AUTHORIZATION_SNAPSHOT_REJECTED", reason: "The active authorization snapshot does not exactly match the live invocation.", idempotencyKey, value });
       }
       verifiedExternalAuthorization = authorization;
+      effectiveMaxCostUnits = requestedMaxCostUnits;
     }
     if (profile.toolPolicy === "read-only" && input.toolAction) {
       return blockedInvocation({ input, actor, profile, provider, code: "READ_ONLY_TOOL_POLICY", reason: "Read-only profiles cannot request a tool action.", idempotencyKey, value });
@@ -977,7 +987,7 @@ export function createAiOrchestration(options = {}) {
       timeoutMs: profile.timeoutMs,
       maxRetries: profile.maxRetries,
       maxOutputTokens: profile.maxOutputTokens,
-      maxCostUnits: profile.maxCostUnits
+      maxCostUnits: effectiveMaxCostUnits
     };
     if (provider.mode === "live") {
       if (typeof provider.adapter?.assertDispatchReady !== "function") {
@@ -994,7 +1004,8 @@ export function createAiOrchestration(options = {}) {
       if (health.status !== "healthy") return blockedInvocation({ input, actor, profile, provider, code: "PROVIDER_UNHEALTHY", reason: health.reason ?? "Provider health check failed.", idempotencyKey, value });
     }
 
-    const spendReservation = verifiedExternalAuthorization ? reserveExternalSpend(verifiedExternalAuthorization, profile) : null;
+    const effectiveProfile = effectiveMaxCostUnits === profile.maxCostUnits ? profile : { ...profile, maxCostUnits: effectiveMaxCostUnits };
+    const spendReservation = verifiedExternalAuthorization ? reserveExternalSpend(verifiedExternalAuthorization, effectiveProfile) : null;
     if (spendReservation && spendReservation.accepted !== true) {
       return blockedInvocation({ input, actor, profile, provider, code: spendReservation.code, reason: spendReservation.reason, idempotencyKey, value });
     }
@@ -1016,7 +1027,7 @@ export function createAiOrchestration(options = {}) {
         profileVersion: profile.profileVersion,
         spendApprovalId: verifiedExternalAuthorization?.authorizationId ?? null,
         externalSpendMaximumCostUnits: verifiedExternalAuthorization?.maxCostUnits ?? null,
-        maxCostUnits: profile.maxCostUnits,
+        maxCostUnits: effectiveMaxCostUnits,
         catalogVersion: dispatchReadiness?.pricing?.catalogVersion ?? null,
         pricingCurrency: dispatchReadiness?.pricing?.currency ?? null,
         inputPricePer1mTokens: dispatchReadiness?.pricing?.inputPricePer1mTokens ?? null,
@@ -1040,7 +1051,7 @@ export function createAiOrchestration(options = {}) {
         response = await withTimeout(provider.adapter.generate(adapterInput), profile.timeoutMs);
         response = assertStructuredResponse(profile, response);
         const usage = normalizeUsage(response.usage);
-        if (usage.costUnits > profile.maxCostUnits) throw new AiOrchestrationError("COST_LIMIT_REACHED", "Provider usage exceeded the profile cost limit.");
+        if (usage.costUnits > effectiveMaxCostUnits) throw new AiOrchestrationError("COST_LIMIT_REACHED", "Provider usage exceeded the effective cost limit.");
         response = immutableCopy({ ...response, usage });
       } catch (error) {
         response = null;
@@ -1062,14 +1073,14 @@ export function createAiOrchestration(options = {}) {
       const error = failure;
       const reason = safeErrorMessage(error);
       const code = error instanceof AiOrchestrationError ? error.code : "PROVIDER_EXECUTION_FAILED";
-      const budget = settleExternalSpend(spendReservation?.accepted === true ? spendReservation : null, profile.maxCostUnits * attempts);
+      const budget = settleExternalSpend(spendReservation?.accepted === true ? spendReservation : null, effectiveMaxCostUnits * attempts);
       if (circuitFailure(error)) recordCircuitFailure(provider.providerId, actor, { probe: circuitProbe, code });
       const failedEvent = appendEvent({
         aggregateType: "ai-invocation",
         aggregateId: invocationId,
         type: "ai.invocation-failed",
         actor,
-        data: { invocationId, projectId, teamId, skillId, role, providerId: provider.providerId, modelId: profile.modelId, profileId: profile.profileId, spendApprovalId: budget?.approvalId ?? null, accountedCostUnits: budget?.accountedCostUnits ?? 0, remainingSpendCostUnits: budget?.remainingCostUnits ?? null, maxCostUnits: profile.maxCostUnits, catalogVersion: dispatchReadiness?.pricing?.catalogVersion ?? null, pricingCurrency: dispatchReadiness?.pricing?.currency ?? null, code, reason, attempts },
+        data: { invocationId, projectId, teamId, skillId, role, providerId: provider.providerId, modelId: profile.modelId, profileId: profile.profileId, spendApprovalId: budget?.approvalId ?? null, accountedCostUnits: budget?.accountedCostUnits ?? 0, remainingSpendCostUnits: budget?.remainingCostUnits ?? null, maxCostUnits: effectiveMaxCostUnits, catalogVersion: dispatchReadiness?.pricing?.catalogVersion ?? null, pricingCurrency: dispatchReadiness?.pricing?.currency ?? null, code, reason, attempts },
         correlationId: input.runId ?? projectId,
         causationId: started.eventId
       });
@@ -1079,7 +1090,7 @@ export function createAiOrchestration(options = {}) {
     }
 
     recordCircuitSuccess(provider.providerId, actor, { probe: circuitProbe });
-    const budget = settleExternalSpend(spendReservation?.accepted === true ? spendReservation : null, profile.maxCostUnits * Math.max(0, attempts - 1) + response.usage.costUnits);
+    const budget = settleExternalSpend(spendReservation?.accepted === true ? spendReservation : null, effectiveMaxCostUnits * Math.max(0, attempts - 1) + response.usage.costUnits);
     const completed = appendEvent({
       aggregateType: "ai-invocation",
       aggregateId: invocationId,
@@ -1097,7 +1108,7 @@ export function createAiOrchestration(options = {}) {
         spendApprovalId: budget?.approvalId ?? null,
         accountedCostUnits: budget?.accountedCostUnits ?? response.usage.costUnits,
         remainingSpendCostUnits: budget?.remainingCostUnits ?? null,
-        maxCostUnits: profile.maxCostUnits,
+        maxCostUnits: effectiveMaxCostUnits,
         catalogVersion: response.usage.pricing?.catalogVersion ?? dispatchReadiness?.pricing?.catalogVersion ?? null,
         pricingCurrency: response.usage.pricing?.currency ?? dispatchReadiness?.pricing?.currency ?? null,
         inputPricePer1mTokens: response.usage.pricing?.inputPricePer1mTokens ?? null,

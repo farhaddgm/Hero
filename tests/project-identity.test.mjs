@@ -424,12 +424,13 @@ test("Project-bound live advisor profiles invoke through the bounded authorizati
   const { access, identity } = setup();
   const owner = ownerLogin(identity);
   let providerCalls = 0;
+  let dispatchedMaxCostUnits = null;
   let liveAdvisorPolicy = { active: true, authorizationId: "AUTH-AI-TEST-001", projectId: "project-vpn", stepId: "HERO-AI-TEST-001", documentVersion: "v1.0", providerId: "openai", modelIds: ["gpt-5.6-luna"], roleIds: ["analyst"], maxCostUnits: 50000, expiresAtMs: Date.parse("2027-02-23T23:59:59Z"), globalStop: false };
   const adapter = {
     providerId: "openai",
     mode: "live",
     async validateConnection() { return { status: "ok" }; },
-    async assertDispatchReady() { return { status: "ok", pricing: { catalogVersion: "test", currency: "USD", inputPricePer1mTokens: 0.2, outputPricePer1mTokens: 1.2, cachedInputPricePer1mTokens: 0.02 } }; },
+    async assertDispatchReady(input) { dispatchedMaxCostUnits = input.maxCostUnits; return { status: "ok", pricing: { catalogVersion: "test", currency: "USD", inputPricePer1mTokens: 0.2, outputPricePer1mTokens: 1.2, cachedInputPricePer1mTokens: 0.02 } }; },
     async generate(input) { providerCalls += 1; return { output: { schema: input.outputSchema, answer: "پاسخ زنده و محدود برای همین Project آماده شد." }, usage: { inputTokens: 12, outputTokens: 8, totalTokens: 20, costUnits: 1 } }; },
     listCapabilities() { return []; }
   };
@@ -438,7 +439,7 @@ test("Project-bound live advisor profiles invoke through the bounded authorizati
   const actor = { kind: "project-owner", id: "hero-owner" };
   dashboard.registerAiProvider({ providerId: "openai", mode: "live", displayName: "OpenAI Test", capabilities: [], idempotencyKey: "live-advisor-provider", actor });
   dashboard.registerAiModel({ providerId: "openai", modelId: "gpt-5.6-luna", displayName: "GPT-5.6 Luna", metadata: {}, idempotencyKey: "live-advisor-model", actor });
-  dashboard.registerAiProfile({ profileId: "live-advisor-profile", role: "analyst", providerId: "openai", modelId: "gpt-5.6-luna", credentialRef: "vault:hero/test/openai/default", promptVersion: "live-advisor-v1", contextPolicy: "redacted-project-context", toolPolicy: "read-only", outputSchema: "analysis-v1", status: "active", timeoutMs: 1000, maxRetries: 0, maxOutputTokens: 128, maxCostUnits: 10, costLatencyPriority: "cost", idempotencyKey: "live-advisor-profile-key", actor });
+  dashboard.registerAiProfile({ profileId: "live-advisor-profile", role: "analyst", providerId: "openai", modelId: "gpt-5.6-luna", credentialRef: "vault:hero/test/openai/default", promptVersion: "live-advisor-v1", contextPolicy: "redacted-project-context", toolPolicy: "read-only", outputSchema: "analysis-v1", status: "active", timeoutMs: 1000, maxRetries: 0, maxOutputTokens: 128, maxCostUnits: 100000, costLatencyPriority: "cost", idempotencyKey: "live-advisor-profile-key", actor });
   dashboard.bindAiRole({ bindingId: "live-advisor-binding", projectId: "project-vpn", teamId: null, skillId: null, role: "analyst", profileId: "live-advisor-profile", supersedesBindingId: null, idempotencyKey: "live-advisor-binding-key", actor });
   dashboard.recordProjectMemory({ memoryId: "live-advisor-context", projectId: "project-vpn", memoryKey: "advisor.context", kind: "rule", scope: "project", status: "approved", content: "Only redacted project metadata may be used for advisor requests.", tags: ["advisor"], recipientRoles: ["planner"], source: { kind: "specification", reference: "hero://tests/live-advisor", documentVersion: "v1.0" }, idempotencyKey: "live-advisor-context-key" });
   await dashboard.checkAiProviderHealth({ providerId: "openai", profileId: "live-advisor-profile", actor });
@@ -461,6 +462,7 @@ test("Project-bound live advisor profiles invoke through the bounded authorizati
   assert.equal(walkthroughAdvisor.evidence.bindingId, "live-advisor-binding");
   assert.equal(walkthroughAdvisor.evidence.usage.totalTokens, 20);
   assert.equal(walkthroughAdvisor.evidence.resultSchema, "analysis-v1");
+  assert.equal(dispatchedMaxCostUnits, 100, "the Test advisor must clamp a stale higher Profile ceiling to its versioned per-request limit");
   assert.doesNotMatch(JSON.stringify(walkthroughAdvisor.evidence), /(?:credential|secret|prompt|response)/i);
   const smart = await fetch(`${base}/api/smart-tester/advice?projectId=project-vpn&surface=%2Fworkspace&featureKey=workspace.intake&boxId=intake-card`, { method: "POST", headers, body: JSON.stringify({ surface: "/workspace", featureKey: "workspace.intake", boxId: "intake-card", projectId: "project-vpn", advisorProfileId: "live-advisor-profile", question: "چه چیزی را بررسی کنم؟" }) });
   assert.equal(smart.status, 200);

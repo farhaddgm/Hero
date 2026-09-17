@@ -833,6 +833,11 @@ export function createHeroServer(options = {}) {
       stepId: policy.stepId,
       documentVersion: policy.documentVersion,
       capability: purpose,
+      // The authorization remains the cumulative ceiling.  Live advisors
+      // additionally use the small, versioned per-request bound published
+      // with this Test-only model catalog, leaving room for both approved
+      // scenarios under one authorization.
+      maxCostUnits: Math.min(policy.maxCostUnits, OPENAI_TEST_ADVISOR.maxCostUnits),
       globalStop: false
     });
   }
