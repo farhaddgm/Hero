@@ -84,6 +84,11 @@ test("Smart Tester carries a failed process action into advice and the owner-rev
   assert.equal(report.summary.findingCount, 1);
   assert.equal(report.findings[0].findingId, "smart-tester.action-failure");
   assert.equal(report.findings[0].severity, "medium");
+  assert.equal(report.diagnosis.classification, "state-or-version-conflict");
+  assert.match(report.diagnosis.problem, /ثبت Intake/);
+  assert.match(report.diagnosis.likelyRootCause, /نسخه/);
+  assert.match(report.diagnosis.proposedFix, /تازه‌سازی/);
+  assert.match(report.diagnosis.verification, /همان نشست انسانی/);
   assert.doesNotMatch(JSON.stringify(report), /(?:password|secret|credential)\s*[:=]/i);
 });
 

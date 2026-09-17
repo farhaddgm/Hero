@@ -258,6 +258,9 @@ test("Smart Tester is an opt-in floating development assistant on every shared B
   assert.match(shell, /عملیات با موفقیت انجام شد/);
   assert.match(shell, /عملیات ناموفق بود/);
   assert.match(shell, /تحلیل با اسمارت تستر/);
+  assert.match(shell, /heroActionCode/);
+  assert.match(shell, /شرح مسئله/);
+  assert.match(shell, /راه‌حل پیشنهادی/);
   assert.match(shell, /انتقال به لبهٔ چپ/);
   assert.match(shell, /انتقال به لبهٔ راست/);
   assert.match(shell, /actions\.append\(moveLeft, moveRight, next\)/);

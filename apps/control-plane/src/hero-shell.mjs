@@ -508,6 +508,10 @@ export function getHeroShellScript() {
       const detail = String(candidate || fallback || '').replace(/((?:password|secret|credential|api[ _-]?key|token|mfa|رمز(?:\\s*عبور)?|کلید\\s*api)\\s*[:=]\\s*)[^\\s,;]+/gi, '$1[redacted]').replace(/\\s+/g, ' ').trim().slice(0, 700);
       return detail || (status ? 'پاسخ سرویس: ' + status : 'پاسخی از سرویس دریافت نشد.');
     };
+    const heroActionCode = body => {
+      const candidate = body?.code || body?.error?.code || body?.errorCode || '';
+      return typeof candidate === 'string' && /^[A-Z][A-Z0-9_:-]{2,119}$/.test(candidate) ? candidate : '';
+    };
     const normalizeHeroActionFeedback = value => {
       if (!value || typeof value !== 'object') return null;
       const label = String(value.label || 'اقدام فرایندی').replace(/\\s+/g, ' ').trim().slice(0, 160);
@@ -516,7 +520,8 @@ export function getHeroShellScript() {
       const path = typeof value.path === 'string' && /^\\/api\\/[A-Za-z0-9._/-]{1,180}$/.test(value.path) ? value.path : '/api/unknown';
       const status = Number.isInteger(value.status) && value.status >= 0 && value.status <= 599 ? value.status : 0;
       const featureKey = typeof value.featureKey === 'string' && /^[a-z][a-zA-Z0-9]*(?:\\.[a-z][a-zA-Z0-9]*)+$/.test(value.featureKey) ? value.featureKey : null;
-      return Object.freeze({ ok: value.ok === true, label, detail, method, path, status, featureKey });
+      const code = typeof value.code === 'string' && /^[A-Z][A-Z0-9_:-]{2,119}$/.test(value.code) ? value.code : '';
+      return Object.freeze({ ok: value.ok === true, label, detail, method, path, status, code, featureKey });
     };
     const readHeroActionFeedback = () => { try { return normalizeHeroActionFeedback(JSON.parse(sessionStorage.getItem(heroActionFeedbackKey) || 'null')); } catch { return null; } };
     const persistHeroActionFeedback = value => { try { sessionStorage.setItem(heroActionFeedbackKey, JSON.stringify(value)); } catch { /* browser-local persistence only */ } };
@@ -529,8 +534,8 @@ export function getHeroShellScript() {
       if (forget) forgetHeroActionFeedback();
       if (restoreFocus && trigger?.isConnected) trigger.focus({ preventScroll: true });
     };
-    const showHeroActionFeedback = ({ ok, label, status, detail, trigger = null, method, path, featureKey = null, restored = false }) => {
-      const record = normalizeHeroActionFeedback({ ok, label, status, detail, method, path, featureKey });
+    const showHeroActionFeedback = ({ ok, label, status, detail, code = '', trigger = null, method, path, featureKey = null, restored = false }) => {
+      const record = normalizeHeroActionFeedback({ ok, label, status, detail, code, method, path, featureKey });
       if (!record) return;
       closeHeroActionFeedback({ forget: false });
       if (!restored) persistHeroActionFeedback(record);
@@ -538,7 +543,7 @@ export function getHeroShellScript() {
       popup.className = 'hero-action-feedback'; popup.dataset.state = record.ok ? 'success' : 'error'; popup.dataset.heroActionFeedback = 'true'; popup.dataset.heroActionFeedbackSide = heroActionFeedbackSide(); popup.setAttribute('role', 'dialog'); popup.setAttribute('aria-modal', 'false'); popup.setAttribute('aria-live', 'assertive'); popup.setAttribute('tabindex', '-1'); popup._heroActionTrigger = trigger;
       const head = document.createElement('header'); head.className = 'hero-action-feedback-head'; const title = document.createElement('h2'); title.textContent = record.ok ? 'عملیات با موفقیت انجام شد' : 'عملیات ناموفق بود'; head.append(title); popup.append(head);
       const statusNode = document.createElement('p'); statusNode.className = 'hero-action-feedback-status'; statusNode.textContent = record.detail || (record.ok ? 'تغییر موردنظر ثبت شد.' : 'سرویس نتوانست اقدام را تکمیل کند.'); popup.append(statusNode);
-      const meta = document.createElement('p'); meta.className = 'hero-action-feedback-meta'; meta.textContent = record.label + ' · ' + record.method + ' · HTTP ' + (record.status || '—') + ' · ' + record.path; popup.append(meta);
+      const meta = document.createElement('p'); meta.className = 'hero-action-feedback-meta'; meta.textContent = record.label + ' · ' + record.method + ' · HTTP ' + (record.status || '—') + (record.code ? ' · ' + record.code : '') + ' · ' + record.path; popup.append(meta);
       const actions = document.createElement('div'); actions.className = 'hero-action-feedback-actions';
       let side = popup.dataset.heroActionFeedbackSide;
       const moveLeft = document.createElement('button'); moveLeft.type = 'button'; moveLeft.dataset.kind = 'move'; moveLeft.textContent = 'انتقال به لبهٔ چپ'; moveLeft.setAttribute('aria-label', moveLeft.textContent);
@@ -551,7 +556,7 @@ export function getHeroShellScript() {
       } else {
         const smart = document.createElement('button'); smart.type = 'button'; smart.dataset.kind = 'smart'; smart.textContent = 'تحلیل با اسمارت تستر'; smart.addEventListener('click', () => {
           const open = window.heroSmartTester?.openForElement;
-          if (typeof open === 'function') open(trigger || document.body, { label: record.label, featureKey: record.featureKey || heroActionFeatureKey(trigger), actionFailure: { label: record.label, method: record.method, path: record.path, status: record.status, message: record.detail } });
+          if (typeof open === 'function') open(trigger || document.body, { label: record.label, featureKey: record.featureKey || heroActionFeatureKey(trigger), actionFailure: { label: record.label, method: record.method, path: record.path, status: record.status, code: record.code, message: record.detail } });
         });
         const close = document.createElement('button'); close.type = 'button'; close.dataset.kind = 'close'; close.textContent = 'بستن'; close.addEventListener('click', () => closeHeroActionFeedback({ restoreFocus: true })); actions.append(smart, close);
         actions.prepend(moveLeft, moveRight);
@@ -581,7 +586,7 @@ export function getHeroShellScript() {
         const response = await originalHeroFetch(input, init);
         if (action) {
           let body = {}; try { body = await response.clone().json(); } catch { /* empty/stream response */ }
-          showHeroActionFeedback({ ok: response.ok, label: action.label, status: response.status, detail: heroActionDetail(body, response.status, response.ok ? action.label + ' ثبت شد.' : action.label + ' انجام نشد.'), trigger: action.trigger, method, path: requestUrl.pathname, featureKey: heroActionFeatureKey(action.trigger) });
+          showHeroActionFeedback({ ok: response.ok, label: action.label, status: response.status, detail: heroActionDetail(body, response.status, response.ok ? action.label + ' ثبت شد.' : action.label + ' انجام نشد.'), code: heroActionCode(body), trigger: action.trigger, method, path: requestUrl.pathname, featureKey: heroActionFeatureKey(action.trigger) });
         }
         return response;
       } catch (error) {
@@ -755,6 +760,19 @@ export function getHeroShellScript() {
       const summary = report?.summary || {}; const heading = document.createElement('article'); heading.className = 'hero-smart-tester-report'; heading.dataset.state = summary.findingCount ? 'attention' : 'passed';
       const title = document.createElement('b'); title.textContent = 'گزارش خطایاب · ' + (summary.findingCount ? 'نیازمند رسیدگی' : 'خطای قطعی تأیید نشد');
       const body = document.createElement('span'); body.textContent = (summary.findingCount ?? 0) + ' یافته · ' + (summary.notRun ?? 0) + ' بررسی اجرا نشده'; heading.append(title, body); container.append(heading);
+      const diagnosis = report?.diagnosis;
+      if (diagnosis && typeof diagnosis === 'object') {
+        const diagnosisRows = [
+          ['شرح مسئله', diagnosis.problem],
+          ['علت محتمل', diagnosis.likelyRootCause],
+          ['راه‌حل پیشنهادی', diagnosis.proposedFix],
+          ['تأیید پس از رفع', diagnosis.verification]
+        ];
+        for (const [label, value] of diagnosisRows) {
+          if (typeof value !== 'string' || !value) continue;
+          const row = document.createElement('article'); row.className = 'hero-smart-tester-report'; row.dataset.state = 'attention'; const rowTitle = document.createElement('b'); rowTitle.textContent = label; const detail = document.createElement('span'); detail.textContent = value; row.append(rowTitle, detail); container.append(row);
+        }
+      }
       for (const finding of Array.isArray(report?.findings) ? report.findings : []) { const row = document.createElement('article'); row.className = 'hero-smart-tester-report'; row.dataset.state = 'attention'; const rowTitle = document.createElement('b'); rowTitle.textContent = (finding.severity || 'medium') + ' · ' + (finding.area || 'بخش'); const detail = document.createElement('span'); detail.textContent = (finding.title || 'یافته') + ' — ' + (finding.evidence || '') + ' پیشنهاد: ' + (finding.recommendation || ''); row.append(rowTitle, detail); container.append(row); }
       for (const step of Array.isArray(report?.reproductionSteps) ? report.reproductionSteps : []) { const row = document.createElement('article'); row.className = 'hero-smart-tester-report'; row.dataset.state = 'not-run'; const rowTitle = document.createElement('b'); rowTitle.textContent = 'گام بازتولید'; const detail = document.createElement('span'); detail.textContent = step; row.append(rowTitle, detail); container.append(row); }
     };
@@ -773,7 +791,7 @@ export function getHeroShellScript() {
       const endpoint = path => { const url = new URL(path, location.origin); url.searchParams.set('surface', smartTesterSurface()); url.searchParams.set('featureKey', featureKey); url.searchParams.set('boxId', boxId); url.searchParams.set('boxTitle', label); url.searchParams.set('boxDescription', boxDescription); if (projectId) url.searchParams.set('projectId', projectId); return url.pathname + url.search; };
       const applySide = nextSide => { side = nextSide; panel.dataset.heroSmartTesterSide = side; setSmartTesterSide(side); move.textContent = side === 'right' ? 'انتقال به لبهٔ چپ' : 'انتقال به لبهٔ راست'; move.setAttribute('aria-label', move.textContent); };
       const loadOptions = async () => { const response = await fetch(endpoint('/api/smart-tester/options'), { credentials: 'same-origin', cache: 'no-store' }); const body = await response.json().catch(() => null); if (!response.ok) throw new Error(apiErrorMessage(response, body, 'فهرست AIهای Smart Tester دریافت نشد')); const options = body?.smartTester?.options || {}; for (const profile of Array.isArray(options.profiles) ? options.profiles : []) { const option = document.createElement('option'); option.value = profile.profileId; option.textContent = (profile.providerName || profile.providerId) + ' / ' + (profile.modelName || profile.modelId) + ' · v' + (profile.profileVersion || '?') + (profile.selectable ? '' : ' · آماده نیست'); option.disabled = profile.selectable !== true; selector.append(option); } if (!options.profiles?.length && options.models?.length) { for (const model of options.models) { const option = document.createElement('option'); option.value = 'unavailable:' + model.providerId + ':' + model.modelId; option.textContent = model.displayName + ' · Profile فعال ندارد'; option.disabled = true; selector.append(option); } } };
-      const loadContext = async () => { try { await Promise.all([loadOptions(), (async () => { const response = await fetch(endpoint('/api/smart-tester/context'), { credentials: 'same-origin', cache: 'no-store' }); const body = await response.json().catch(() => null); if (!response.ok) throw new Error(apiErrorMessage(response, body, 'زمینهٔ اسمارت تستر در دسترس نیست')); context = body?.smartTester?.context || null; })()]); status.textContent = 'زمینهٔ امن همین باکس آماده است.'; if (actionFailure?.message) appendMessage('assistant', 'این گفت‌وگو به شکست «' + (actionFailure.label || label) + '» متصل است؛ برای گزارش دقیق، «خطایاب» را اجرا کنید.'); } catch (error) { status.dataset.state = 'error'; status.textContent = error.message || 'برای استفاده، ورود انسانی مالک را بررسی کنید.'; appendMessage('assistant', 'زمینهٔ این باکس دریافت نشد. نشست انسانی مالک و Scope پروژه را بررسی کنید.'); ask.disabled = true; test.disabled = true; diagnose.disabled = true; } };
+      const loadContext = async () => { try { await Promise.all([loadOptions(), (async () => { const response = await fetch(endpoint('/api/smart-tester/context'), { credentials: 'same-origin', cache: 'no-store' }); const body = await response.json().catch(() => null); if (!response.ok) throw new Error(apiErrorMessage(response, body, 'زمینهٔ اسمارت تستر در دسترس نیست')); context = body?.smartTester?.context || null; })()]); status.textContent = 'زمینهٔ امن همین باکس آماده است.'; if (actionFailure?.message) appendMessage('assistant', 'این گفت‌وگو به شکست «' + (actionFailure.label || label) + '» متصل است؛ نتیجهٔ HTTP و کد امن خطا منتقل شده‌اند. برای گزارش دقیق، «خطایاب» را اجرا کنید.'); } catch (error) { status.dataset.state = 'error'; status.textContent = error.message || 'برای استفاده، ورود انسانی مالک را بررسی کنید.'; appendMessage('assistant', 'زمینهٔ این باکس دریافت نشد. نشست انسانی مالک و Scope پروژه را بررسی کنید.'); ask.disabled = true; test.disabled = true; diagnose.disabled = true; } };
       const sendAdvice = async rawQuestion => { if (!context) return; ask.disabled = true; chatInformed = true; status.dataset.state = ''; status.textContent = 'در حال آماده‌سازی پاسخ زمینه‌مند…'; appendMessage('user', rawQuestion); try { const response = await fetch(endpoint('/api/smart-tester/advice'), { method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ surface: context.pathname, featureKey: context.featureKey, boxId: context.boxId, projectId: context.projectId, question: rawQuestion, reportId, advisorProfileId: selector.value === 'local' ? null : selector.value, actionFailure }) }); const body = await response.json().catch(() => null); if (!response.ok) throw new Error(apiErrorMessage(response, body, 'پاسخ اسمارت تستر دریافت نشد')); const advisor = body?.smartTester?.advisor; appendMessage('assistant', advisor?.response || 'پاسخ قابل‌نمایش وجود ندارد.'); status.textContent = advisor?.providerInvoked === true ? 'پاسخ زنده با Provider انتخابی تولید شد؛ مصرف حسابداری‌شده: ' + (advisor?.invocation?.costUnits ?? '—') + ' واحد.' : (advisor?.selectedAdvisor?.kind === 'profile' ? 'پاسخ محلی با Profile انتخابی آماده شد؛ فراخوانی خارجی انجام نشد.' : (reportId ? 'پاسخ با آگاهی از آخرین گزارش تست ارائه شد.' : 'پاسخ زمینه‌مند آماده شد.')); } catch (error) { status.dataset.state = 'error'; status.textContent = error.message || 'پاسخ در دسترس نیست.'; appendMessage('assistant', 'پاسخ در این لحظه در دسترس نیست. نشست انسانی، Scope پروژه و مجوز هزینه را بررسی کنید.'); } finally { ask.disabled = false; } };
       form.addEventListener('submit', event => { event.preventDefault(); const value = question.value.trim(); if (!value) { question.focus(); status.dataset.state = 'error'; status.textContent = 'ابتدا پرسش خود را بنویسید.'; return; } question.value = ''; void sendAdvice(value); });
       test.addEventListener('click', async () => { if (!context) return; test.disabled = true; status.dataset.state = ''; status.textContent = 'در حال اجرای بررسی محدود UI، UX، backend و قرارداد کد…'; try { const response = await fetch(endpoint('/api/smart-tester/run'), { method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ surface: context.pathname, featureKey: context.featureKey, boxId: context.boxId, projectId: context.projectId }) }); const body = await response.json().catch(() => ({})); if (!response.ok) throw new Error(body.message || body.code || 'گزارش تست دریافت نشد.'); reportId = body.smartTester?.reportId || null; renderSmartTesterReport(scroll, body.smartTester?.report); status.textContent = 'گزارش قابل‌بحث آماده است.'; scroll.scrollTop = scroll.scrollHeight; } catch (error) { status.dataset.state = 'error'; status.textContent = error.message || 'اجرای تست ناموفق بود.'; } finally { test.disabled = false; } });

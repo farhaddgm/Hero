@@ -1233,7 +1233,8 @@ export function createHeroServer(options = {}) {
       findings: report.findings,
       reproductionSteps: report.reproductionSteps,
       limitations: report.limitations,
-      sourceReport: report.sourceReport
+      sourceReport: report.sourceReport,
+      diagnosis: report.diagnosis ?? null
     });
     const current = smartTesterErrorDocuments.get(documentId) ?? Object.freeze({
       documentId,
@@ -1255,7 +1256,7 @@ export function createHeroServer(options = {}) {
         findings: entry.findings,
         reproductionSteps: entry.reproductionSteps,
         limitations: entry.limitations,
-        sourceReport: entry.sourceReport,
+        sourceReport: { ...entry.sourceReport, diagnosis: entry.diagnosis },
         actorId: principal.subject
       });
     }
@@ -1271,7 +1272,7 @@ export function createHeroServer(options = {}) {
     if (current) return current;
     if (postgresRuntime?.projectWorkspace?.listSmartTesterErrors) {
       const entries = await postgresRuntime.projectWorkspace.listSmartTesterErrors({ projectId });
-      return Object.freeze({ documentId, projectId, title: `دفتر خطاهای Smart Tester · ${projectId}`, entries: Object.freeze(entries.map(entry => Object.freeze(entry))) });
+      return Object.freeze({ documentId, projectId, title: `دفتر خطاهای Smart Tester · ${projectId}`, entries: Object.freeze(entries.map(entry => Object.freeze({ ...entry, diagnosis: entry.sourceReport?.diagnosis ?? null }))) });
     }
     return Object.freeze({ documentId, projectId, title: `دفتر خطاهای Smart Tester · ${projectId}`, entries: Object.freeze([]) });
   }

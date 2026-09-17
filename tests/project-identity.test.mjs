@@ -292,18 +292,26 @@ test("Human Identity issues a six-hour HttpOnly browser session that survives re
   const smartTesterDiagnosis = await fetch(`${base}/api/smart-tester/diagnose?${smartTesterQuery}`, {
     method: "POST",
     headers: { cookie, origin: base, "content-type": "application/json" },
-    body: JSON.stringify({ surface: "/workspace", featureKey: "workspace.intake", boxId: "intake-card", projectId: "project-vpn", reportId: smartTester.reportId, chatInformed: true })
+    body: JSON.stringify({ surface: "/workspace", featureKey: "workspace.intake", boxId: "intake-card", projectId: "project-vpn", reportId: smartTester.reportId, chatInformed: true, actionFailure: { label: "ثبت Intake", method: "POST", path: "/api/projects/project-vpn/intake", status: 409, code: "VERSION_CONFLICT", message: "نسخهٔ فرم با نسخهٔ جاری هماهنگ نیست." } })
   });
   assert.equal(smartTesterDiagnosis.status, 200);
   const diagnosis = (await smartTesterDiagnosis.json()).smartTester;
   assert.match(diagnosis.errorReportId, /^[0-9a-f-]{36}$/i);
+  assert.equal(diagnosis.errorReport.diagnosis.classification, "state-or-version-conflict");
+  assert.match(diagnosis.errorReport.diagnosis.proposedFix, /تازه‌سازی/);
   const smartTesterSubmit = await fetch(`${base}/api/smart-tester/errors/submit?${smartTesterQuery}`, {
     method: "POST",
     headers: { cookie, origin: base, "content-type": "application/json" },
     body: JSON.stringify({ surface: "/workspace", featureKey: "workspace.intake", boxId: "intake-card", projectId: "project-vpn", errorReportId: diagnosis.errorReportId })
   });
   assert.equal(smartTesterSubmit.status, 201);
-  assert.match((await smartTesterSubmit.json()).smartTester.document.documentId, /^smart-tester-errors:project-vpn$/);
+  const smartTesterDocument = (await smartTesterSubmit.json()).smartTester.document;
+  assert.match(smartTesterDocument.documentId, /^smart-tester-errors:project-vpn$/);
+  assert.equal(smartTesterDocument.entryCount > 0, true);
+  const smartTesterNotebook = await fetch(`${base}/api/smart-tester/errors/document?projectId=project-vpn`, { headers: { cookie } });
+  assert.equal(smartTesterNotebook.status, 200);
+  const persistedNotebook = (await smartTesterNotebook.json()).smartTester.document;
+  assert.equal(persistedNotebook.entries.at(-1).diagnosis.classification, "state-or-version-conflict");
   assert.equal((await fetch(`${base}/api/smart-tester/run?${smartTesterQuery}`, {
     method: "POST",
     headers: { cookie, origin: base, "content-type": "application/json" },
