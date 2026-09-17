@@ -6,8 +6,8 @@
  * HTTP layer supplies a safe rendered page and a project-scoped read probe;
  * this module turns their result into an honest, contextual report.
  */
-export const HERO_SMART_TESTER_VERSION = "1.4.0";
-export const HERO_SMART_TESTER_ERROR_REPORT_VERSION = "1.1.0";
+export const HERO_SMART_TESTER_VERSION = "1.5.0";
+export const HERO_SMART_TESTER_ERROR_REPORT_VERSION = "1.2.0";
 export const HERO_SMART_TESTER_REPORT_TTL_MS = 30 * 60 * 1000;
 export const HERO_SMART_TESTER_MAX_QUESTION_LENGTH = 1_500;
 
@@ -174,7 +174,25 @@ function diagnoseActionFailure(actionFailure) {
     proposedFix = "کد خطا و زمان رخداد را در دفتر خطا ثبت کنید، سلامت وابستگی‌های همان مسیر را بررسی کنید و پس از رفع سرویس، اقدام را تکرار کنید.";
   }
 
-  if (code === "CONTEXT_NOT_FOUND" || code === "CONTEXT_ASSEMBLY_BLOCKED") {
+  if (code === "ROLE_PROFILE_MISMATCH") {
+    classification = "role-profile-mismatch";
+    problem = "نقش انتخاب‌شده برای این اتصال با نقش پروفایل AI انتخاب‌شده یکسان نیست.";
+    likelyRootCause = "هر پروفایل AI برای یک نقش مشخص ساخته می‌شود و سیستم اجازه نمی‌دهد پروفایلِ یک نقش به نقش دیگری تخصیص داده شود.";
+    proposedFix = "در فرم اتصال، نقش را با نقش همان پروفایل یکسان کنید یا پروفایل مناسبِ نقش انتخاب‌شده را برگزینید؛ سپس دوباره ثبت کنید.";
+    verification = "پس از ثبت، در نقشهٔ تخصیص باید نام نقش و پروفایل انتخاب‌شده با هم سازگار نشان داده شوند.";
+  } else if (code === "PROFILE_NOT_ACTIVE") {
+    classification = "profile-not-active";
+    problem = "پروفایل AI انتخاب‌شده هنوز فعال نیست و نمی‌تواند به پروژه تخصیص داده شود.";
+    likelyRootCause = "سیستم فقط پروفایل‌های فعال را برای جلوگیری از استفاده از تنظیمات ناقص می‌پذیرد.";
+    proposedFix = "وضعیت پروفایل را بررسی کنید؛ فقط پس از کامل بودن Provider، Model و تنظیمات آن، نسخهٔ فعال را انتخاب کنید.";
+    verification = "پروفایل باید با وضعیت «فعال» در فهرست دیده شود و ثبت تخصیص بدون خطا انجام شود.";
+  } else if (code === "LIVE_ADVISOR_BINDING_MISMATCH") {
+    classification = "live-advisor-binding-mismatch";
+    problem = "پروفایل انتخاب‌شده با تخصیص فعال همین پروژه هم‌خوان نیست.";
+    likelyRootCause = "برای این پروژه، یک Binding فعالِ دیگر ثبت شده یا Binding انتخاب‌شده به Profile دیگری اشاره می‌کند.";
+    proposedFix = "Binding فعال پروژه را با Profile موردنظر هماهنگ کنید؛ از ساختن تخصیص تکراری خودداری کنید.";
+    verification = "پس از اصلاح، همان Profile باید در فهرست راهنما و Smart Tester به‌عنوان گزینهٔ آماده دیده شود.";
+  } else if (code === "CONTEXT_NOT_FOUND" || code === "CONTEXT_ASSEMBLY_BLOCKED") {
     classification = "ai-context-missing";
     likelyRootCause = "Context تأییدشدهٔ پروژه برای Role انتخاب‌شده پیدا نشده است.";
     proposedFix = "Project و Binding فعال را بررسی کنید؛ Context حداقلی و پاک‌سازی‌شده را از مسیر مجاز پروژه آماده کنید، سپس درخواست را تکرار کنید.";
@@ -345,7 +363,7 @@ export function createSmartTesterErrorReport({ context, renderedHtml = "", backe
       `ورود با نشست انسانی Owner و باز کردن «${context.title}».`,
       `باز کردن Smart Tester روی «${context.boxTitle ?? context.featureKey}».`,
       normalizedActionFailure ? `تکرار کنترل‌شدهٔ «${normalizedActionFailure.label}» در همان Scope و ثبت HTTP ${normalizedActionFailure.status ?? "نامشخص"}.` : "زدن «خطایاب» و ثبت زمان/Scope همین گزارش.",
-      "برای یافته‌های attention، مسیر پیشنهادی و فایل‌های مسئول را بررسی و تست تخصصی را تکرار کنید."
+      "برای یافته‌های نیازمند رسیدگی، راه‌حل پیشنهادی را اجرا و بررسی تخصصی همان بخش را تکرار کنید."
     ]),
     limitations: immutable(baseReport.limits),
     sourceReport: immutable({ version: baseReport.version, generatedAt: baseReport.generatedAt, summary: baseReport.summary })

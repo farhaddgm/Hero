@@ -92,6 +92,15 @@ test("Smart Tester carries a failed process action into advice and the owner-rev
   assert.doesNotMatch(JSON.stringify(report), /(?:password|secret|credential)\s*[:=]/i);
 });
 
+test("Smart Tester explains a role/profile mismatch from its precise safe error code", () => {
+  const context = resolveSmartTesterContext({ pathname: "/ai", featureKey: "ai.connections", projectId: "hero" });
+  const report = createSmartTesterErrorReport({ context, actionFailure: { label: "ثبت نسخه با نشست انسانی", method: "POST", path: "/api/ai/bindings", status: 409, code: "ROLE_PROFILE_MISMATCH", message: "The profile role does not match the binding role." } });
+  assert.equal(report.diagnosis.classification, "role-profile-mismatch");
+  assert.match(report.diagnosis.problem, /نقش انتخاب‌شده/);
+  assert.match(report.diagnosis.proposedFix, /پروفایل مناسب/);
+  assert.doesNotMatch(report.diagnosis.proposedFix, /تازه‌سازی/);
+});
+
 test("Smart Tester advisory records a selected profile while keeping provider invocation bounded", () => {
   const context = resolveSmartTesterContext({ pathname: "/ai", featureKey: "ai.connections" });
   const advisor = createSmartTesterAdvisory({ context, selectedAdvisor: { profileId: "profile-sol", providerId: "sol", modelId: "sol-1", profileVersion: "2.0", providerName: "Sol", modelName: "Sol 1" } });
