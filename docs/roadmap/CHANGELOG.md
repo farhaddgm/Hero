@@ -1,5 +1,12 @@
 # تغییرات رودمپ شرکت
 
+# ۲۰۲۶-۰۹-۱۸ — Promotion کاندیدای PF-1 و تأیید migration در Test
+
+- کاندیدای `v1.1.4-rc.4` از GitHub Actions run `35280773195` با digest immutable `sha256:3b3685cb448ee18c1c7e635c70722f5c138cd0d3b4abfe8bb3c234a0e6ac3677` فقط روی Hero Test promote شد.
+- شواهد واقعی بعد از restart: container در وضعیت running، `/health` و `/ready` موفق، و `Hero Test smoke check: PASS`.
+- migration `017` و جدول `product_request_versions` در PostgreSQL Test تأیید شدند؛ تعداد رکورد Product Request هنگام بررسی `0` بود، پس Exit Gate PF-1 هنوز باز است.
+- Production، Pilot، Secret Store، Secretهای Provider، Product Runner، Product Test و Provider زنده لمس نشدند؛ GHCR/Actions فقط در scope انتشار Test استفاده شدند.
+
 # ۲۰۲۶-۰۹-۱۸ — Product Request پایدار و idempotent در PF-1
 
 - افزوده‌شده: جدول append-only `product_request_versions` و migration `017` برای نگهداری metadata امن Product Request، fingerprint و کلید idempotency یکتا؛ فرم خام، Secret و credential ذخیره نمی‌شوند.
