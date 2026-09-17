@@ -18,7 +18,7 @@
 
 وضعیت Exit Gate خود PF-1 هنوز `open` است؛ برای بستن آن دو Product Request مستقل با evidence persistence، version conflict و negative authorization لازم است. این سند فقط شواهد برش فعلی است و آن Exit Gate را به‌صورت زودهنگام Done اعلام نمی‌کند.
 
-source evidence: branch `codex/test-release-reliability-20260916`، commit `56c45ab6266f475fc53fa2000849de0d7fef8d0a`.
+source evidence: branch `codex/test-release-reliability-20260916`، commit `ac26f49cbf28f68e776653969e6c6cd6d2d4dee6`.
 
 ## تغییرات قابل مشاهده
 
@@ -29,6 +29,7 @@ source evidence: branch `codex/test-release-reliability-20260916`، commit `56c4
 | Foundation | `riskAssessment` و `runtimePlan` در Proposal ذخیره و نسخه‌دار می‌شوند؛ Proposal همچنان قابل revise است. |
 | Owner gate | Foundation با ریسک `high/critical` فقط با تأیید صریح Owner پذیرفته می‌شود؛ Admin به‌تنهایی نمی‌تواند این گیت را دور بزند. |
 | Product Test plan | مقصد پیش‌فرض Test ایزوله، repository مستقل، Compose/database/volume/network نام‌گذاری‌شدهٔ محصول، network خاموش، پورت خالی، محدودیت منابع، non-root، read-only و no-new-privileges است. |
+| Admission policy | پیش از start، host network/host path، resource collision، port collision و عبور از quota رد می‌شود؛ تصمیم admission بدون side effect است. |
 | Side effects | همهٔ اثرها در این مرحله `false` هستند: mutation مخزن، start کانتینر، ساخت DB، Secret write، deploy، external spend و پیام بیرونی. |
 | UI | Portfolio فیلدهای ضروری Intake و flagهای ریسک را می‌گیرد؛ Product Studio علت ریسک، گیت‌ها، طرح runtime و اثرهای قفل‌شده را به زبان قابل‌فهم نشان می‌دهد. |
 
@@ -38,14 +39,14 @@ source evidence: branch `codex/test-release-reliability-20260916`، commit `56c4
 
 | بررسی | نتیجه |
 |---|---:|
-| تست‌های Node | ۳۹۷ pass / ۰ fail |
+| تست‌های Node | ۳۹۸ pass / ۰ fail |
 | Build | ۲۶۵ module / ۴۹ JSON |
-| Documentation check | ۱۳۹ document / ۲ product / ۰ error |
+| Documentation check | ۱۴۰ document / ۲ product / ۰ error |
 | Roadmap audit | PASS؛ ۱۷۰ step، verified=۲۰، remaining=۱۵۰ |
 | Back Office coverage | PASS؛ implemented=۵، partial=۷۶، missing=۰ |
 | Docker داخل verify image | warning؛ socket در clean-room موجود نیست |
 
-تست‌های افزودهٔ اختصاصی PF-1 شامل طبقه‌بندی محافظه‌کارانهٔ ریسک، رد flag ناشناخته، طرح runtime معتبر، قفل‌بودن همهٔ اثرها، عدم وجود پورت، و الزام تأیید صریح Owner برای ریسک بالا/بحرانی هستند. تست‌های UI نیز serialization امن Portfolio را تأیید کردند.
+تست‌های افزودهٔ اختصاصی PF-1 شامل طبقه‌بندی محافظه‌کارانهٔ ریسک، رد flag ناشناخته، طرح runtime معتبر، قفل‌بودن همهٔ اثرها، عدم وجود پورت، admission منفی برای host escape/collision/quota و الزام تأیید صریح Owner برای ریسک بالا/بحرانی هستند. تست‌های UI نیز serialization امن Portfolio را تأیید کردند.
 
 ## مرز و گام بعدی
 

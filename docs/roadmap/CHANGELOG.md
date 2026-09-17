@@ -5,8 +5,9 @@
 - افزوده‌شده: قرارداد و منطق provider-agnostic برای Intake محصول، طبقه‌بندی محافظه‌کارانهٔ ریسک (`low/standard/high/critical`)، علت‌های قابل‌فهم و گیت تأیید صریح Owner برای ریسک بالا/بحرانی.
 - افزوده‌شده: Foundation Proposal اکنون runtime plan نسخه‌دار برای Product Test ایزوله دارد: repository/Compose/database/volume/network مستقل، network و port پیش‌فرض بسته، resource quota، non-root/read-only/no-new-privileges و همهٔ side effectها خاموش تا authorization بعدی.
 - اصلاح‌شده: Portfolio فیلدهای نوع محصول، سطح ریسک، محدودیت، خروجی و flagهای ریسک را می‌گیرد؛ Product Studio ارزیابی ریسک، گیت‌ها، طرح runtime و اثرهای قفل‌شده را نمایش می‌دهد.
-- Evidence source: `pnpm check` برابر `397 pass / 0 fail`، build برابر `265 module / 49 JSON`، documentation برابر `139 document / 0 error`. Exit Gate PF-1 هنوز به‌دلیل نبود دو Product Request مستقل و persistence/replay کامل `open` است.
+- Evidence source: `pnpm check` برابر `398 pass / 0 fail`، build برابر `265 module / 49 JSON`، documentation برابر `140 document / 0 error`. Exit Gate PF-1 هنوز به‌دلیل نبود دو Product Request مستقل و persistence/replay کامل `open` است.
 - commit کد این برش: `56c45ab6266f475fc53fa2000849de0d7fef8d0a`؛ commit مستندات پس از ثبت آن در همین شاخه درج می‌شود.
+- برش PF-2 طراحی: admission policy پیش از اجرای runtime افزوده شد تا host network/path، collision پورت/منبع و quota ناامن را fail-closed رد کند؛ بدون start یا side effect. commit کد: `ac26f49cbf28f68e776653969e6c6cd6d2d4dee6`.
 - هیچ Product Runner، container، server خارجی، deploy، Secret، Provider زنده، external spend، Pilot یا Production در این برش لمس نشد.
 
 # ۲۰۲۶-۰۹-۱۷ — رودمپ کنترل‌شدهٔ کارخانهٔ محصول و تصحیح وضعیت Test

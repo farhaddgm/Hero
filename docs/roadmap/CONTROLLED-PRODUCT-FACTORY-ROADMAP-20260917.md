@@ -22,7 +22,7 @@
 
 | موضوع | واقعیت تأییدشده | مرز صریح |
 |---|---|---|
-| source Hero | branch `codex/test-release-reliability-20260916`، commit `56c45ab6266f475fc53fa2000849de0d7fef8d0a` | source با Runtime یکی نیست مگر digest آن promotion شده باشد. |
+| source Hero | branch `codex/test-release-reliability-20260916`، commit `ac26f49cbf28f68e776653969e6c6cd6d2d4dee6` | source با Runtime یکی نیست مگر digest آن promotion شده باشد. |
 | Test Hero | `v1.1.4-rc.3`، digest `ghcr.io/farhaddgm/hero@sha256:996da1112d0c30ec419fb7ace035f2cb2106191a41cb4eb1d08c1e09a37f4896` | فقط Hero Test است؛ Product Test نیست. |
 | شواهد انتشار | GitHub run `35266951191`، smoke واقعی `PASS` پس از promotion | curl reset اولیهٔ startup گذرا بود؛ verify بعدی health و readiness را موفق ثبت کرد. |
 | کیفیت source | `pnpm check`: ۳۹۴ pass، ۰ fail؛ build: ۲۶۳ module و ۴۹ JSON | این نتیجه جای acceptance محصول هدف را نمی‌گیرد. |
@@ -124,7 +124,7 @@ Product Test:       hero-product-<slug>-test-*
 **نگاشت:** BO-031..042، BO-043..052، BO-063..074، BO-075..088.
 **Exit Gate:** دو Product Request مستقل با Role/Project isolation، version conflict و negative authorization test پوشش داده شوند. هیچ repo/container در این مرحله ایجاد نمی‌شود.
 
-**Evidence برش اول (2026-09-17):** Intake، risk classification، runtime plan نسخه‌دار، owner risk gate و UI قابل‌فهم در source پیاده و با `pnpm check` تأیید شده‌اند. این برش هنوز دو Product Request مستقل و persistence/replay کامل Exit Gate را ندارد؛ بنابراین PF-1 همچنان `in_progress` است. جزئیات در `HERO-EVIDENCE-PRODUCT-FACTORY-PF1-20260917@1.0.0` ثبت شده است.
+**Evidence برش اول (2026-09-17):** Intake، risk classification، runtime plan نسخه‌دار، owner risk gate، admission policy پیش از start و UI قابل‌فهم در source پیاده و با `pnpm check` تأیید شده‌اند. این برش هنوز دو Product Request مستقل و persistence/replay کامل Exit Gate را ندارد؛ بنابراین PF-1 همچنان `in_progress` است. جزئیات در `HERO-EVIDENCE-PRODUCT-FACTORY-PF1-20260917@1.0.0` ثبت شده است.
 
 ### PF-2 — Product Runner ایزوله روی host مشترک
 
