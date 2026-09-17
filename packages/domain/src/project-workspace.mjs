@@ -10,6 +10,8 @@ const PRIVATE_HOST = /(?:localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]|10\.|192\.168
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 const MAX_TEXT_BYTES = 512 * 1024;
 const MAX_ZIP_EXPANDED_BYTES = 50 * 1024 * 1024;
+const IDEMPOTENCY_KEY = /^[A-Za-z][A-Za-z0-9._:-]{2,127}$/;
+const FINGERPRINT = /^[a-f0-9]{64}$/;
 
 function copy(value) { return Object.freeze(structuredClone(value)); }
 function assertId(label, value) { if (typeof value !== "string" || !ID.test(value)) throw new ProjectWorkspaceError("INVALID_IDENTIFIER", `${label} is invalid.`, 400); return value; }
@@ -34,6 +36,12 @@ function signatureValid(type, value) {
   return false;
 }
 function previewText(type, data) { return type === "text" ? data.toString("utf8").slice(0, 4096) : null; }
+function canonical(value) {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (value && typeof value === "object") return Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])]));
+  return value;
+}
+function fingerprint(value) { return createHash("sha256").update(JSON.stringify(canonical(value))).digest("hex"); }
 
 export class ProjectWorkspaceError extends Error {
   constructor(code, message, statusCode = 409) { super(message); this.name = "ProjectWorkspaceError"; this.code = code; this.statusCode = statusCode; }
@@ -46,12 +54,23 @@ export function createProjectWorkspace({ ownerUserId = "hero-owner", now = () =>
   assertId("ownerUserId", ownerUserId);
   if (!Number.isInteger(uploadQuotaBytes) || uploadQuotaBytes < 1024 || uploadQuotaBytes > 100 * 1024 * 1024) throw new Error("uploadQuotaBytes must be a safe integer quota.");
   if (objectStoreAdapter !== null && typeof objectStoreAdapter?.put !== "function") throw new ProjectWorkspaceError("OBJECT_STORE_INVALID", "Object store adapter must provide put().", 500);
-  const projects = new Map(); const uploads = new Map(); const proposals = new Map(); const imports = new Map(); const deletionRequests = new Map(); const objectStore = new Map();
+  const projects = new Map(); const uploads = new Map(); const proposals = new Map(); const imports = new Map(); const deletionRequests = new Map(); const objectStore = new Map(); const productRequests = new Map();
   function project(projectId) { const row = projects.get(assertProjectId(projectId)); if (!row) throw new ProjectWorkspaceError("PROJECT_NOT_FOUND", "Project was not found.", 404); return row; }
   function assertVersion(row, expectedVersion) { if (expectedVersion !== undefined && expectedVersion !== row.version) throw new ProjectWorkspaceError("STALE_PROJECT_VERSION", "Project changed before this command was applied.", 409); }
   function update(row, patch) { const next = copy({ ...row, ...patch, version: row.version + 1, updatedAt: now() }); projects.set(row.projectId, next); return next; }
   function projectUploads(projectId) { return [...uploads.values()].filter(item => item.projectId === projectId); }
   function policyRiskLevel(riskLevel) { return riskLevel === "critical" ? "high" : riskLevel; }
+  function currentFoundation(projectId) { return [...proposals.values()].filter(item => item.projectId === projectId).sort((a, b) => b.version - a.version)[0] ?? null; }
+  function assertIdempotencyKey(value) { if (typeof value !== "string" || !IDEMPOTENCY_KEY.test(value)) throw new ProjectWorkspaceError("INVALID_IDEMPOTENCY_KEY", "idempotencyKey must be a stable safe identifier.", 400); return value; }
+  function requestMetadata(row) { return copy({ requestId: row.requestId, version: row.version, idempotencyKey: row.idempotencyKey, fingerprint: row.fingerprint, projectId: row.projectId, state: row.state, submittedBy: row.submittedBy, submittedAt: row.submittedAt }); }
+  function hydrateProductRequest(row) {
+    if (!row?.productRequest) return;
+    const request = row.productRequest;
+    if (typeof request.requestId !== "string" || typeof request.idempotencyKey !== "string" || !FINGERPRINT.test(request.fingerprint ?? "") || request.projectId !== row.projectId || request.version !== 1) throw new ProjectWorkspaceError("INVALID_HYDRATION", "Product request metadata is invalid.", 500);
+    const prior = productRequests.get(request.idempotencyKey);
+    if (prior && prior.fingerprint !== request.fingerprint) throw new ProjectWorkspaceError("INVALID_HYDRATION", "Product request idempotency metadata conflicts.", 500);
+    productRequests.set(request.idempotencyKey, requestMetadata({ ...request, state: request.state ?? "accepted", submittedBy: request.submittedBy ?? row.createdBy, submittedAt: request.submittedAt ?? row.createdAt, projectId: row.projectId }));
+  }
   function makeFoundationProposal(row, actor) {
     const existing = [...proposals.values()].find(item => item.projectId === row.projectId && ["proposed", "revision-requested"].includes(item.state));
     if (existing) return existing;
@@ -62,13 +81,24 @@ export function createProjectWorkspace({ ownerUserId = "hero-owner", now = () =>
     proposals.set(proposal.proposalId, proposal); return proposal;
   }
   return Object.freeze({
-    createProject({ actor, projectId, name, description = "", intake = {} }) {
-      assertOwner(actor); const id = assertProjectId(projectId); if (projects.has(id)) throw new ProjectWorkspaceError("PROJECT_EXISTS", "ProjectId already exists.", 409);
-      noSensitive(intake);
+    createProject({ actor, projectId, name, description = "", intake = {}, idempotencyKey = undefined }) {
+      assertOwner(actor); const id = assertProjectId(projectId); noSensitive(intake);
       let normalized;
       try { normalized = normalizeProductIntake({ name, intake }); } catch (error) { throw new ProjectWorkspaceError("INVALID_INTAKE", error.message, 400); }
-      noSensitive(normalized); const row = copy({ projectId: id, name: string(name, "name", 160), description: String(description).slice(0, 2000), lifecycle: "draft", status: "draft", version: 1, createdAt: now(), updatedAt: now(), createdBy: actor.subject, intake: normalized, riskAssessment: normalized.riskAssessment }); projects.set(id, row);
-      const foundation = makeFoundationProposal(row, actor); return copy({ project: row, foundationProposal: foundation, policyPack: settings?.policyPack(id) ?? null });
+      const safeName = string(name, "name", 160); const safeDescription = String(description).slice(0, 2000); noSensitive(normalized);
+      const key = idempotencyKey === undefined ? `product-request-${randomUUID()}` : assertIdempotencyKey(idempotencyKey);
+      const requestFingerprint = fingerprint({ projectId: id, name: safeName, description: safeDescription, intake: normalized });
+      const priorRequest = productRequests.get(key);
+      if (priorRequest) {
+        if (priorRequest.fingerprint !== requestFingerprint) throw new ProjectWorkspaceError("IDEMPOTENCY_KEY_REUSED", "idempotencyKey was already used for different project data.", 409);
+        const priorProject = projects.get(priorRequest.projectId);
+        if (!priorProject) throw new ProjectWorkspaceError("REQUEST_RECOVERY_REQUIRED", "The accepted Product Request has no recoverable project.", 409);
+        return copy({ project: priorProject, foundationProposal: currentFoundation(priorProject.projectId), policyPack: settings?.policyPack(priorProject.projectId) ?? null, request: requestMetadata(priorRequest), replayed: true });
+      }
+      if (projects.has(id)) throw new ProjectWorkspaceError("PROJECT_EXISTS", "ProjectId already exists.", 409);
+      const request = copy({ requestId: `product-request-${randomUUID()}`, version: 1, idempotencyKey: key, fingerprint: requestFingerprint, projectId: id, state: "accepted", submittedBy: actor.subject, submittedAt: now() });
+      const row = copy({ projectId: id, name: safeName, description: safeDescription, lifecycle: "draft", status: "draft", version: 1, createdAt: now(), updatedAt: now(), createdBy: actor.subject, intake: normalized, riskAssessment: normalized.riskAssessment, productRequest: request }); projects.set(id, row); productRequests.set(key, request);
+      const foundation = makeFoundationProposal(row, actor); return copy({ project: row, foundationProposal: foundation, policyPack: settings?.policyPack(id) ?? null, request, replayed: false });
     },
     getProject(projectId) { return copy(project(projectId)); },
     listProjects() { return Object.freeze([...projects.values()].sort((a, b) => a.projectId.localeCompare(b.projectId)).map(copy)); },
@@ -79,6 +109,7 @@ export function createProjectWorkspace({ ownerUserId = "hero-owner", now = () =>
       const normalized = copy({ ...project, intake: normalizedIntake, riskAssessment: project.riskAssessment ?? normalizedIntake.riskAssessment });
       assertProjectId(normalized.projectId);
       if (!Number.isInteger(normalized.version) || normalized.version < 1) throw new ProjectWorkspaceError("INVALID_HYDRATION", "Project version is invalid.", 500);
+      hydrateProductRequest(normalized);
       const current = projects.get(normalized.projectId);
       if (!current || normalized.version >= current.version) projects.set(normalized.projectId, normalized);
       if (settings?.policyPack && settings?.suggestPolicyPack && !settings.policyPack(normalized.projectId)) {
@@ -128,7 +159,7 @@ export function createProjectWorkspace({ ownerUserId = "hero-owner", now = () =>
       uploads.set(normalized.uploadId, normalized);
       return normalized;
     },
-    foundationProposal({ projectId }) { project(projectId); return [...proposals.values()].filter(item => item.projectId === projectId).sort((a, b) => b.version - a.version)[0] ?? null; },
+    foundationProposal({ projectId }) { project(projectId); return currentFoundation(projectId); },
     listFoundationProposals({ projectId } = {}) {
       if (projectId) project(projectId);
       return Object.freeze([...proposals.values()].filter(item => !projectId || item.projectId === projectId).sort((a, b) => a.projectId.localeCompare(b.projectId) || a.version - b.version).map(copy));

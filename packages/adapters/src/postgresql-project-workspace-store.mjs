@@ -1,10 +1,25 @@
 const ID = /^[A-Za-z][A-Za-z0-9._:-]{2,127}$/;
+const FINGERPRINT = /^[a-f0-9]{64}$/;
 const SENSITIVE = /(?:api[_-]?key|access[_-]?token|refresh[_-]?token|secret|password|credential|authorization)/i;
 
 function copy(value) { return Object.freeze(structuredClone(value)); }
 function assertId(label, value) { if (typeof value !== "string" || !ID.test(value)) throw new ProjectWorkspaceStoreError("INVALID_IDENTIFIER", `${label} is invalid.`); return value; }
 function safe(value, path = "data") { if (Array.isArray(value)) return value.forEach((item, index) => safe(item, `${path}[${index}]`)); if (!value || typeof value !== "object") return; for (const [key, child] of Object.entries(value)) { if (SENSITIVE.test(key)) throw new ProjectWorkspaceStoreError("SENSITIVE_PERSISTENCE_FORBIDDEN", `${path}.${key} is forbidden.`); safe(child, `${path}.${key}`); } }
 function targetOf({ client, pool }) { if (client?.query) return client; if (pool?.query) return pool; throw new Error("Project workspace store requires an injected PostgreSQL client or pool."); }
+async function transaction(target, action) {
+  const connection = typeof target.connect === "function" ? await target.connect() : target;
+  try {
+    await connection.query("BEGIN");
+    const result = await action(connection);
+    await connection.query("COMMIT");
+    return result;
+  } catch (error) {
+    try { await connection.query("ROLLBACK"); } catch { /* preserve the original failure */ }
+    throw error;
+  } finally {
+    if (connection !== target && typeof connection.release === "function") connection.release();
+  }
+}
 
 export class ProjectWorkspaceStoreError extends Error { constructor(code, message) { super(message); this.name = "ProjectWorkspaceStoreError"; this.code = code; } }
 
@@ -18,9 +33,27 @@ export function createPostgresProjectWorkspaceStore({ client, pool } = {}) {
       await target.query(`INSERT INTO project_registry_versions (project_id, project_version, name, description, lifecycle, status, intake, actor_id, reason) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`, [projectId, version, String(name).slice(0, 160), String(description).slice(0, 2000), lifecycle, status, intake, actorId, reason]);
       return copy({ projectId, version, lifecycle, status });
     },
+    async appendProjectWithRequest({ projectId, version, name, description = "", lifecycle, status, intake, actorId, reason = null, requestId, requestVersion = 1, idempotencyKey, requestFingerprint, requestMetadata = {}, requestState = "accepted" }) {
+      assertId("projectId", projectId); assertId("actorId", actorId); assertId("requestId", requestId); assertId("idempotencyKey", idempotencyKey);
+      if (!Number.isInteger(version) || version < 1 || !Number.isInteger(requestVersion) || requestVersion < 1) throw new ProjectWorkspaceStoreError("INVALID_VERSION", "Project or request version is invalid.");
+      if (typeof requestFingerprint !== "string" || !FINGERPRINT.test(requestFingerprint)) throw new ProjectWorkspaceStoreError("INVALID_FINGERPRINT", "Product request fingerprint is invalid.");
+      if (!["accepted", "rejected"].includes(requestState)) throw new ProjectWorkspaceStoreError("INVALID_REQUEST_STATE", "Product request state is invalid.");
+      safe(intake); safe(requestMetadata);
+      await transaction(target, async connection => {
+        await connection.query(`INSERT INTO product_request_versions (request_id, request_version, idempotency_key, request_fingerprint, project_id, state, request_metadata, actor_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`, [requestId, requestVersion, idempotencyKey, requestFingerprint, projectId, requestState, requestMetadata, actorId]);
+        await connection.query(`INSERT INTO project_registry_versions (project_id, project_version, name, description, lifecycle, status, intake, actor_id, reason) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`, [projectId, version, String(name).slice(0, 160), String(description).slice(0, 2000), lifecycle, status, intake, actorId, reason]);
+      });
+      return copy({ projectId, version, requestId, requestVersion, idempotencyKey, lifecycle, status });
+    },
     async listProjects() {
-      const result = await target.query(`SELECT DISTINCT ON (project_id) project_id, project_version, name, description, lifecycle, status, intake, actor_id, reason, recorded_at FROM project_registry_versions ORDER BY project_id, project_version DESC`);
-      return Object.freeze((result.rows ?? []).map(row => copy({ projectId: row.project_id, version: row.project_version, name: row.name, description: row.description, lifecycle: row.lifecycle, status: row.status, intake: row.intake ?? {}, createdBy: row.actor_id, updatedAt: row.recorded_at, createdAt: row.recorded_at, archiveReason: row.reason ?? undefined })));
+      const result = await target.query(`SELECT DISTINCT ON (p.project_id) p.project_id, p.project_version, p.name, p.description, p.lifecycle, p.status, p.intake, p.actor_id, p.reason, p.recorded_at, r.request_id, r.request_version, r.idempotency_key, r.request_fingerprint, r.state AS request_state, r.actor_id AS request_actor_id, r.recorded_at AS request_recorded_at FROM project_registry_versions p LEFT JOIN product_request_versions r ON r.project_id = p.project_id AND r.request_version = 1 ORDER BY p.project_id, p.project_version DESC`);
+      return Object.freeze((result.rows ?? []).map(row => copy({ projectId: row.project_id, version: row.project_version, name: row.name, description: row.description, lifecycle: row.lifecycle, status: row.status, intake: row.intake ?? {}, createdBy: row.actor_id, updatedAt: row.recorded_at, createdAt: row.recorded_at, archiveReason: row.reason ?? undefined, ...(row.request_id ? { productRequest: { requestId: row.request_id, version: row.request_version, idempotencyKey: row.idempotency_key, fingerprint: row.request_fingerprint, state: row.request_state, submittedBy: row.request_actor_id, submittedAt: row.request_recorded_at } } : {}) })));
+    },
+    async findProductRequest({ idempotencyKey }) {
+      assertId("idempotencyKey", idempotencyKey);
+      const result = await target.query(`SELECT request_id, request_version, idempotency_key, request_fingerprint, project_id, state, actor_id, recorded_at FROM product_request_versions WHERE idempotency_key = $1 LIMIT 1`, [idempotencyKey]);
+      const row = result.rows?.[0];
+      return row ? copy({ requestId: row.request_id, version: row.request_version, idempotencyKey: row.idempotency_key, fingerprint: row.request_fingerprint, projectId: row.project_id, state: row.state, submittedBy: row.actor_id, submittedAt: row.recorded_at }) : null;
     },
     async recordInput({ inputId, projectId, type, filename = null, objectKey = null, checksum = null, byteLength = null, scanState, parseState, reviewRequired = false, metadata = {} }) {
       assertId("inputId", inputId); assertId("projectId", projectId); safe(metadata); if (objectKey && !String(objectKey).startsWith(`hero/uploads/${projectId}/`)) throw new ProjectWorkspaceStoreError("OBJECT_SCOPE_INVALID", "Private object key must be project scoped.");

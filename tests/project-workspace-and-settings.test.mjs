@@ -72,6 +72,27 @@ test("project intake rejects unknown risk flags instead of silently weakening po
   assert.throws(() => workspace.createProject({ actor: owner, projectId: "project-risk", name: "Risk", intake: { riskFlags: { unknownFlag: true } } }), error => error instanceof ProjectWorkspaceError && error.code === "INVALID_INTAKE");
 });
 
+test("Product Request creation is idempotent, fingerprint-bound and survives project hydration", () => {
+  const { workspace } = setup();
+  const input = { actor: owner, projectId: "project-replay", name: "Replayable product", description: "A stable request", intake: { goal: "Build safely" }, idempotencyKey: "product-request-replay-001" };
+  const first = workspace.createProject(input);
+  assert.equal(first.replayed, false);
+  assert.equal(first.request.idempotencyKey, input.idempotencyKey);
+  const replay = workspace.createProject(input);
+  assert.equal(replay.replayed, true);
+  assert.equal(replay.request.requestId, first.request.requestId);
+  assert.equal(replay.project.version, first.project.version);
+  assert.throws(() => workspace.createProject({ ...input, name: "Changed request" }), error => error instanceof ProjectWorkspaceError && error.code === "IDEMPOTENCY_KEY_REUSED");
+
+  const restored = setup().workspace;
+  restored.hydrateProject({ project: first.project });
+  restored.hydrateFoundation({ proposal: first.foundationProposal });
+  const restoredReplay = restored.createProject(input);
+  assert.equal(restoredReplay.replayed, true);
+  assert.equal(restoredReplay.request.requestId, first.request.requestId);
+  assert.equal(restoredReplay.foundationProposal.proposalId, first.foundationProposal.proposalId);
+});
+
 test("product runtime admission rejects host escape, collisions and quota violations without side effects", () => {
   const plan = createProductRuntimePlan({ projectId: "project-safe" });
   const rejected = evaluateProductRuntimeAdmission({ plan, networkMode: "host", ports: [43101], reservedPorts: [43101], resourceNames: ["hero-product-project-safe"], reservedResourceNames: ["hero-product-project-safe"], hostPaths: ["/opt/hero", "../outside"], resourceLimits: { cpuLimit: 2, memoryMiB: 2048 } });
@@ -280,9 +301,19 @@ test("project HTTP APIs enforce owner create, project grant isolation, settings 
   const address = await app.start(); t.after(() => app.stop());
   const base = `http://127.0.0.1:${address.port}`;
   const headers = { authorization: `Bearer ${ownerSession.token}`, "content-type": "application/json" };
-  const create = await fetch(`${base}/api/projects`, { method: "POST", headers, body: JSON.stringify({ projectId: "project-vpn", name: "VPN" }) });
+  const create = await fetch(`${base}/api/projects`, { method: "POST", headers, body: JSON.stringify({ projectId: "project-vpn", name: "VPN", idempotencyKey: "http-project-create-001" }) });
   assert.equal(create.status, 201);
   const body = await create.json();
+  assert.equal(body.request.idempotencyKey, "http-project-create-001");
+  const replay = await fetch(`${base}/api/projects`, { method: "POST", headers, body: JSON.stringify({ projectId: "project-vpn", name: "VPN", idempotencyKey: "http-project-create-001" }) });
+  const replayBody = await replay.json();
+  assert.equal(replay.status, 200, JSON.stringify(replayBody));
+  assert.equal(replayBody.replayed, true);
+  assert.equal(replayBody.request.requestId, body.request.requestId);
+  const conflict = await fetch(`${base}/api/projects`, { method: "POST", headers, body: JSON.stringify({ projectId: "project-other", name: "Changed", idempotencyKey: "http-project-create-001" }) });
+  const conflictBody = await conflict.json();
+  assert.equal(conflict.status, 409, JSON.stringify(conflictBody));
+  assert.equal(conflictBody.code, "IDEMPOTENCY_KEY_REUSED");
   const approve = await fetch(`${base}/api/projects/project-vpn/foundation/approve`, { method: "POST", headers, body: JSON.stringify({ proposalId: body.foundationProposal.proposalId, expectedVersion: 1 }) });
   assert.equal(approve.status, 200);
   const returnToDraft = await fetch(`${base}/api/projects/project-vpn/return-to-draft`, { method: "POST", headers, body: JSON.stringify({ expectedVersion: 2, reason: "Re-open product definition" }) });

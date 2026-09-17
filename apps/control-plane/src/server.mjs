@@ -549,7 +549,12 @@ export function createHeroServer(options = {}) {
     if (!postgresRuntime?.projectWorkspace || !project) return;
     const key = workspaceRecordKey("project", project);
     if (persistedWorkspaceRecords.has(key)) return;
-    await postgresRuntime.projectWorkspace.appendProject({ projectId: project.projectId, version: project.version, name: project.name, description: project.description, lifecycle: project.lifecycle, status: project.status, intake: project.intake, actorId: project.createdBy ?? identityOwner.userId, reason });
+    const request = project.version === 1 ? project.productRequest : null;
+    if (request && postgresRuntime.projectWorkspace.appendProjectWithRequest) {
+      await postgresRuntime.projectWorkspace.appendProjectWithRequest({ projectId: project.projectId, version: project.version, name: project.name, description: project.description, lifecycle: project.lifecycle, status: project.status, intake: project.intake, actorId: project.createdBy ?? identityOwner.userId, reason, requestId: request.requestId, requestVersion: request.version, idempotencyKey: request.idempotencyKey, requestFingerprint: request.fingerprint, requestMetadata: { projectId: request.projectId, source: "owner-project-intake" }, requestState: request.state });
+    } else {
+      await postgresRuntime.projectWorkspace.appendProject({ projectId: project.projectId, version: project.version, name: project.name, description: project.description, lifecycle: project.lifecycle, status: project.status, intake: project.intake, actorId: project.createdBy ?? identityOwner.userId, reason });
+    }
     persistedWorkspaceRecords.add(key);
   }
 
@@ -2375,10 +2380,10 @@ export function createHeroServer(options = {}) {
 
       if (request.method === "POST" && url.pathname === "/api/projects") {
         const input = await readJson(request);
-        const created = projectWorkspace.createProject({ actor: authenticatedOwner, projectId: input.projectId, name: input.name, description: input.description, intake: input.intake });
+        const created = projectWorkspace.createProject({ actor: authenticatedOwner, projectId: input.projectId, name: input.name, description: input.description, intake: input.intake, idempotencyKey: input.idempotencyKey ?? request.headers.get("idempotency-key") ?? undefined });
         await persistWorkspaceProject(created.project, "Project created");
         await persistWorkspaceProposal(created.foundationProposal);
-        return json(response, 201, { service: HERO_SERVICE, ...created });
+        return json(response, created.replayed ? 200 : 201, { service: HERO_SERVICE, ...created });
       }
 
       if (request.method === "POST" && url.pathname === "/api/project-clones") {

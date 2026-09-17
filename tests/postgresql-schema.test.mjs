@@ -56,6 +56,7 @@ test("PostgreSQL schema contract covers append-only audit and release boundaries
     "foundation_proposal_versions",
     "project_setting_versions",
     "project_import_plans",
+    "product_request_versions",
     "smart_tester_error_documents",
     "collaboration_records",
     "command_decision_records",

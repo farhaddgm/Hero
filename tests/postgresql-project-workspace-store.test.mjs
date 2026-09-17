@@ -13,6 +13,21 @@ test("project workspace persistence accepts scoped, secret-free metadata only", 
   await assert.rejects(() => store.appendProject({ projectId: "project-vpn", version: 2, name: "VPN", lifecycle: "active", status: "active", intake: { apiKey: "no" }, actorId: "hero-owner" }), error => error.code === "SENSITIVE_PERSISTENCE_FORBIDDEN");
 });
 
+test("Product Request and project metadata are committed together and remain secret-free", async () => {
+  const queries = [];
+  const store = createPostgresProjectWorkspaceStore({ client: { async query(sql, values) { queries.push({ sql, values }); return { rows: [] }; } } });
+  const fingerprint = "a".repeat(64);
+  const result = await store.appendProjectWithRequest({ projectId: "project-replay", version: 1, name: "Replayable", lifecycle: "draft", status: "draft", intake: { goal: "safe" }, actorId: "hero-owner", requestId: "product-request-001", idempotencyKey: "product-request-key-001", requestFingerprint: fingerprint, requestMetadata: { projectId: "project-replay", source: "owner-project-intake" } });
+  assert.equal(result.requestId, "product-request-001");
+  assert.deepEqual(queries.map(item => item.sql), ["BEGIN", "INSERT INTO product_request_versions (request_id, request_version, idempotency_key, request_fingerprint, project_id, state, request_metadata, actor_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)", "INSERT INTO project_registry_versions (project_id, project_version, name, description, lifecycle, status, intake, actor_id, reason) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)", "COMMIT"]);
+  await assert.rejects(() => store.appendProjectWithRequest({ projectId: "project-replay", version: 1, name: "Replayable", lifecycle: "draft", status: "draft", intake: { goal: "safe", apiKey: "never" }, actorId: "hero-owner", requestId: "product-request-002", idempotencyKey: "product-request-key-002", requestFingerprint: fingerprint }), error => error.code === "SENSITIVE_PERSISTENCE_FORBIDDEN");
+
+  const rollbackQueries = [];
+  const rollbackStore = createPostgresProjectWorkspaceStore({ client: { async query(sql, values) { rollbackQueries.push({ sql, values }); if (sql.startsWith("INSERT INTO project_registry_versions")) throw new Error("project insert failed"); return { rows: [] }; } } });
+  await assert.rejects(() => rollbackStore.appendProjectWithRequest({ projectId: "project-rollback", version: 1, name: "Rollback", lifecycle: "draft", status: "draft", intake: {}, actorId: "hero-owner", requestId: "product-request-rollback", idempotencyKey: "product-request-rollback-key", requestFingerprint: fingerprint }), /project insert failed/);
+  assert.equal(rollbackQueries.at(-1).sql, "ROLLBACK");
+});
+
 test("project workspace store reads latest projects and all append-only metadata", async () => {
   const client = { async query(sql) {
     if (sql.includes("FROM project_registry_versions")) return { rows: [{ project_id: "project-vpn", project_version: 2, name: "VPN", description: "Private", lifecycle: "active", status: "active", intake: { goal: "connect" }, actor_id: "hero-owner", recorded_at: "2026-09-11T10:00:00.000Z" }] };
