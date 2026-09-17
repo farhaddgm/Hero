@@ -1,5 +1,12 @@
 # تغییرات رودمپ شرکت
 
+# ۲۰۲۶-۰۹-۱۸ — اصلاح مسیر Idempotency-Key و آماده‌سازی rc.5
+
+- اصلاح‌شده: route ساخت Product Request اکنون هدر `Idempotency-Key` را مطابق API Node HTTP از object هدر می‌خواند؛ خطای قبلی `request.headers.get is not a function` و پاسخ 500 رفع شد.
+- تست‌شده: تست header-only و بدنهٔ نامعتبر اضافه شد؛ targeted `16/16` و `pnpm check` برابر `400 pass / 0 fail` است.
+- ساخته‌شده: کاندیدای Test `v1.1.4-rc.5` از run `35283381777` با digest `sha256:4e8bb963f6036d3663b7173613a1f47a122de78b77b5dd08d26441125e7c13a8`؛ promotion به Test به‌علت نیاز به رمز sudo باقی مانده است.
+- تا زمان promotion، Runtime Test روی rc.4 است؛ هیچ Production، Pilot، Secret یا Provider زنده لمس نشد.
+
 # ۲۰۲۶-۰۹-۱۸ — Promotion کاندیدای PF-1 و تأیید migration در Test
 
 - کاندیدای `v1.1.4-rc.4` از GitHub Actions run `35280773195` با digest immutable `sha256:3b3685cb448ee18c1c7e635c70722f5c138cd0d3b4abfe8bb3c234a0e6ac3677` فقط روی Hero Test promote شد.

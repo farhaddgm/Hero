@@ -6,7 +6,7 @@
 > Type: evidence
 > Scope: hero
 > Status: active
-> Version: 1.2.0
+> Version: 1.3.0
 > Owner: hero-product
 > Review cadence: per-change
 > Supersedes: none
@@ -14,11 +14,11 @@
 
 ## نتیجه
 
-برش PF-1 در source پیاده و در تست محلی تأیید شد. این برش از یک درخواست Owner، Intake معتبر، طبقه‌بندی ریسک، Foundation Proposal نسخه‌دار و طرح اجرای Product Test ایزوله تولید می‌کند و Product Request را با idempotency/fingerprint پایدار ثبت می‌کند. در ادامه، در ۲۰۲۶-۰۹-۱۸ همان source به‌صورت Test-only در کاندیدای `v1.1.4-rc.4` منتشر و promote شد؛ smoke، health/readiness و migration startup موفق بودند. هیچ repository، کانتینر محصول، سرور خارجی، Secret، Provider زنده، هزینهٔ بیرونی، Pilot یا Production ایجاد نشد.
+برش PF-1 در source پیاده و در تست محلی تأیید شد. این برش از یک درخواست Owner، Intake معتبر، طبقه‌بندی ریسک، Foundation Proposal نسخه‌دار و طرح اجرای Product Test ایزوله تولید می‌کند و Product Request را با idempotency/fingerprint پایدار ثبت می‌کند. باگ واقعی خواندن `Idempotency-Key` از هدر Node HTTP نیز اصلاح و regression test آن اضافه شد. کاندیدای `v1.1.4-rc.5` با workflow موفق ساخته شده، اما به‌علت نیاز به رمز sudo هنوز روی Test promote نشده است. هیچ repository، کانتینر محصول، سرور خارجی، Secret، Provider زنده، هزینهٔ بیرونی، Pilot یا Production ایجاد نشد.
 
-وضعیت Exit Gate خود PF-1 هنوز `open` است؛ قرارداد persistence/replay اکنون در source و mock integration test پوشش دارد و migration/restart واقعی روی Test، وجود migration `017` و جدول `product_request_versions` نیز تأیید شده‌اند. با این حال در زمان ثبت این evidence هیچ رکورد Product Request واقعی در Test وجود ندارد؛ برای بستن آن دو Product Request مستقل با project isolation، replay واقعی، version conflict و negative authorization لازم است. این سند فقط شواهد برش فعلی است و آن Exit Gate را به‌صورت زودهنگام Done اعلام نمی‌کند.
+وضعیت Exit Gate خود PF-1 هنوز `open` است؛ قرارداد persistence/replay اکنون در source و mock integration test پوشش دارد و migration/restart واقعی روی Test، وجود migration `017` و جدول `product_request_versions` نیز تأیید شده‌اند. candidate اصلاحی هنوز promote نشده و در زمان ثبت این evidence هیچ رکورد Product Request واقعی در Test وجود ندارد؛ برای بستن آن promotion rc.5، دو Product Request مستقل با project isolation، replay واقعی، version conflict و negative authorization لازم است. این سند فقط شواهد برش فعلی است و آن Exit Gate را به‌صورت زودهنگام Done اعلام نمی‌کند.
 
-source evidence کاندیدای Test: branch `codex/test-release-reliability-20260916`، commit `b5dcdf91c5dcf0c2430388073425ab769fd1916f`.
+source evidence کاندیدای Test: branch `codex/test-release-reliability-20260916`، commit `b7243a018b4145143c2492e494f04597e31a5423`.
 
 ## تغییرات قابل مشاهده
 
@@ -33,6 +33,15 @@ source evidence کاندیدای Test: branch `codex/test-release-reliability-20
 | Side effects | همهٔ اثرها در این مرحله `false` هستند: mutation مخزن، start کانتینر، ساخت DB، Secret write، deploy، external spend و پیام بیرونی. |
 | UI | Portfolio فیلدهای ضروری Intake و flagهای ریسک را می‌گیرد؛ Product Studio علت ریسک، گیت‌ها، طرح runtime و اثرهای قفل‌شده را به زبان قابل‌فهم نشان می‌دهد. |
 | Product Request durability | کلید idempotency از بدنه یا هدر `Idempotency-Key` پذیرفته می‌شود؛ replay همسان پاسخ ۲۰۰، درخواست تازه پاسخ ۲۰۱ و fingerprint متفاوت پاسخ ۴۰۹ می‌گیرد. metadata درخواست و پروژه در PostgreSQL با migration `017` و تراکنش مشترک ثبت می‌شود؛ فرم خام و Secret ذخیره نمی‌شوند. |
+
+## وضعیت candidate و promotion
+
+| بررسی | نتیجه |
+|---|---|
+| API fix | دسترسی هدر در `apps/control-plane/src/server.mjs` به قرارداد Node HTTP اصلاح شد؛ تست header-only و invalid-body اضافه و targeted `16/16` موفق شد. |
+| Full assurance | `pnpm check`: `400 pass / 0 fail`؛ build `265 module / 49 JSON`؛ documentation `140 / 0 error`. |
+| Candidate | `v1.1.4-rc.5`، run `35283381777`، digest `sha256:4e8bb963f6036d3663b7173613a1f47a122de78b77b5dd08d26441125e7c13a8`؛ workflow موفق، promotion pending sudo. |
+| Existing Test | Test هنوز روی rc.4 است؛ migration `017` و جدول `product_request_versions` قبلاً تأیید شده‌اند و رکورد Product Request `0` است. |
 
 ## شواهد اجرای Test
 
@@ -60,6 +69,6 @@ source evidence کاندیدای Test: branch `codex/test-release-reliability-20
 
 ## مرز و گام بعدی
 
-این evidence مجوز شروع Product Runner نیست. migration و restart schema در Test انجام و تأیید شده است. گام بعدی PF-1 ثبت دو درخواست مستقل project-scoped از مسیر مجاز Owner، replay همان درخواست، رد fingerprint متفاوت و negative testهای permission/version است؛ سپس PF-2 فقط در Test و با authorization مستقل می‌تواند به طراحی/اجرای نمونهٔ بی‌خطر Product Runner برسد.
+این evidence مجوز شروع Product Runner نیست. migration و restart schema در Test انجام و تأیید شده است. پس از promotion rc.5، گام بعدی PF-1 ثبت دو درخواست مستقل project-scoped از مسیر مجاز Owner، replay همان درخواست، رد fingerprint متفاوت و negative testهای permission/version است؛ سپس PF-2 فقط در Test و با authorization مستقل می‌تواند به طراحی/اجرای نمونهٔ بی‌خطر Product Runner برسد.
 
 Production، Pilot، Secret Store، Secretهای Provider و اپلیکیشن‌های دیگر ParsPack لمس نشدند. GitHub Actions و GHCR فقط برای ساخت/انتقال artifact همین Test استفاده شدند؛ Product Runner، Product Test، external spend و Provider زنده فعال نشدند.
