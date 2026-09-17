@@ -3,7 +3,7 @@
 وضعیت: `implemented-test-authorized-rollout-blocked`
 
 - Document ID: `HERO-ROADMAP-FUTURE-REQUIRED-PRICING-CATALOG`
-- Version: `1.1.0`
+- Version: `1.1.1`
 
 این قابلیت پیش از فعال‌سازی Provider پولی و هر استفادهٔ عملیاتی واقعی از محاسبهٔ
 هزینه تکمیل شده است. قرارداد، migration، Adapterها و تست‌های بدون شبکه اجرا شده‌اند.
@@ -108,7 +108,8 @@ Admin می‌تواند Provider، Model ID، cap و تاریخ انقضای م�
 - پیش از dispatch، authorization runtime باید active، خارج از انقضا، با Global Stop خاموش و دقیقاً منطبق با Project، Provider، Model، Role، Step ID و Document Version باشد. mismatch یا خطای configuration با پاسخ JSON امن متوقف می‌شود و Provider را صدا نمی‌زند.
 - Prompt و پاسخ مدل persist نمی‌شوند؛ ledger فقط invocation identifier امن، Provider/Model/Role/context identifiers، latency/usage/cost و وضعیت redacted را نگه می‌دارد. متن قابل‌نمایش نیز redaction و سقف طول دارد.
 - Test یکپارچهٔ هر دو capability با Provider fake تأیید می‌کند که Walk-Through و Smart Tester در مسیر live نتیجهٔ `analysis-v1` می‌گیرند؛ آزمون دوم، mismatch Role را با `403` و بدون هرگونه dispatch تأیید می‌کند. تست‌های کامل repository نیز این تغییر را پوشش می‌دهند.
-- وضعیت rollout پس از ممیزی ۲۰۲۶-۰۹-۱۷: source تغییر مرتبط روی commit `9b0b45836dd47d650907923cbfe1a33b5ae42d9c` است و `pnpm check` برابر `389 pass / 0 fail` است؛ Test هنوز روی artifact قبلی `1.1.2` از commit `0caa40b49b74aad13e2a0c78545f6c0eb28262ea` و digest `ghcr.io/farhaddgm/hero@sha256:641e6c75b5f871e87053cf2d959fe250a20067b8ecc7fe0571e15345f31c0d10` اجرا می‌شود. Runtime authorization اکنون کامل و active است: `AUTH-AI-TEST-001`، Project `hero`، OpenAI، `gpt-5.6-luna`، Role `analyst`، cap `50000`، expiry `2027-02-23T23:59:59Z` و Global Stop خاموش. Secret Store reference در Test configured با version `6` است، اما snapshot AI برای Project `hero` هیچ Profile فعال و هیچ Binding ندارد؛ بنابراین dispatch هر دو capability بدون Provider call fail-closed می‌ماند. Publish candidate به GHCR نیز به‌دلیل `permission_denied` و scope ناکافی token انجام نشد؛ tag، manifest و promotion جدید عمداً ساخته نشدند و هیچ تماس OpenAI یا هزینه‌ای ایجاد نشده است.
+- وضعیت rollout پس از ممیزی ۲۰۲۶-۰۹-۱۷: Release Candidate `1.1.3-rc.1` برای commit `07c0ca591973a9b679a51c379e9d9cc259f10163` ساخته شد و artifact immutable `sha256:f97ad06b60cac7717fcea8513b9bc05b9b5265a1fba58d800129cc3f6901249d` را تولید کرد. workflow Test همان artifact و commit را با موفقیت verify کرد. ایراد syntax در validator workflow Test نیز با commit `7be8f0139b18560fcc2c7a85b0ae3bf9106d2615` و `389 pass / 0 fail` رفع شد.
+- محیط واقعی Test هنوز روی artifact قبلی `1.1.2` اجرا می‌شود. Runtime فقط authorization active/ID و Global Stop را دارد و scope اجباریِ مجوز ناقص است؛ PostgreSQL Test نیز Project، Provider، Model، Credential record و Invocation ندارد. بنابراین promotion و دو live scenario تا تکمیل configuration Test و ایجاد Project/Profile/Binding توسط Human Owner، بدون Provider call fail-closed می‌مانند؛ Secret Store و مقدار API key خوانده یا تغییر داده نشده‌اند.
 
 ### Requirement trace
 

@@ -1,7 +1,7 @@
 # پایایی انتشار Hero در محیط Test
 
 - Document ID: `HERO-OPS-HERO-TEST-RELEASE-RELIABILITY`
-- Version: `1.0.0`
+- Version: `1.1.0`
 - Status: `active`
 - Owner: `hero-operations`
 - Scope: `hero`
@@ -13,11 +13,11 @@
 
 ## آخرین اجرای واقعی — ۲۰۲۶-۰۹-۱۷
 
-- ممیزی source روی branch `codex/test-release-reliability-20260916` انجام شد و commit مرتبط `9b0b45836dd47d650907923cbfe1a33b5ae42d9c` با `pnpm check` برابر `389 pass / 0 fail` تأیید شد؛ build محلی Docker نیز verification را با ۳۸۹ تست موفق گذراند، اما چون publish آن به GHCR مجاز نشد، release artifact محسوب نمی‌شود.
-- محیط Test عمداً روی release قبلی `1.1.2`، commit `0caa40b49b74aad13e2a0c78545f6c0eb28262ea` و digest `ghcr.io/farhaddgm/hero@sha256:641e6c75b5f871e87053cf2d959fe250a20067b8ecc7fe0571e15345f31c0d10` باقی ماند؛ `/health`، `/ready` و `/build-info` سالم و منطبق بودند.
-- GHCR preflight برای artifact فعلی PASS شد، اما publish candidate جدید با خطای `permission_denied` و نبود scope لازم token متوقف شد. در نتیجه برای candidate جدید هیچ tag، manifest یا promotion ساخته/اعمال نشد.
-- authorization Test فعال و منطبق است (`AUTH-AI-TEST-001`، Project `hero`، OpenAI، مدل `gpt-5.6-luna`، Role `analyst`، Global Stop خاموش، expiry `2027-02-23T23:59:59Z`). Secret Store reference در Test فقط به‌صورت metadata با state `configured` و version `6` مشاهده شد و مقدار Secret خوانده یا چاپ نشد.
-- snapshot AI در PostgreSQL Test Provider زندهٔ OpenAI را دارد، اما برای Project `hero` هیچ Profile فعال و هیچ Role Binding ندارد؛ بنابراین هر دو live scenario قبل از dispatch fail-closed متوقف شدند و هیچ تماس OpenAI یا هزینه‌ای رخ نداد.
+- Release Candidate `1.1.3-rc.1` برای commit `07c0ca591973a9b679a51c379e9d9cc259f10163` با workflow run `35208122251` موفق شد. `pnpm check` در GitHub گذشت، tag و Test prerelease ساخته شد و artifact immutable زیر ایجاد شد: `ghcr.io/farhaddgm/hero@sha256:f97ad06b60cac7717fcea8513b9bc05b9b5265a1fba58d800129cc3f6901249d`.
+- نخستین Test verification یک ایراد syntax fail-closed در regex workflow را آشکار کرد. اصلاح workflow در commit `7be8f0139b18560fcc2c7a85b0ae3bf9106d2615` با `389 pass / 0 fail` تأیید و push شد؛ سپس workflow Test run `35208713807` همان artifact و commit را pull و labelهای version/revision را با موفقیت تطبیق داد.
+- محیط Test هنوز عمداً روی release قبلی `1.1.2`، commit `0caa40b49b74aad13e2a0c78545f6c0eb28262ea` و digest `ghcr.io/farhaddgm/hero@sha256:641e6c75b5f871e87053cf2d959fe250a20067b8ecc7fe0571e15345f31c0d10` باقی مانده است؛ `/health`، `/ready` و `/build-info` سالم‌اند. promotion به فایل runtime خارج از repository نیاز دارد و تا زمان تکمیل تنظیمات، انجام نشده است.
+- در runtime Test فقط `HERO_ENABLE_REAL_PROVIDERS=true`، authorization active، شناسهٔ `AUTH-AI-TEST-001` و Global Stop خاموش قابل مشاهده بود؛ فیلدهای scope اجباریِ Project/Step/Version/Provider/Model/Role/cap/expiry غایب‌اند. بنابراین runtime policy قابل‌خواندن نیست و dispatch به‌درستی fail-closed می‌ماند.
+- شمارش PostgreSQL Test برای `projects`، `ai_providers`، `ai_models`، `ai_credentials` و `ai_invocations` همگی صفر بود. Secret Store و مقدار API key نه خوانده، نه چاپ و نه تغییر داده شد. تا ایجاد Project/Profile/Binding توسط Human Owner، هر دو سناریوی زنده قبل از dispatch متوقف می‌شوند و هیچ هزینه‌ای رخ نمی‌دهد.
 
 ## علت‌های رخداد قبلی و کنترل دائمی
 
