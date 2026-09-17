@@ -5,6 +5,7 @@ import {
   PRODUCT_RISK_LEVELS,
   PRODUCT_RUNTIME_DEFAULTS,
   PRODUCT_RUNTIME_EFFECTS,
+  PRODUCT_RUNTIME_NETWORK_MODES,
   PRODUCT_TARGET_KINDS,
   PRODUCT_TYPES,
   validateProductRuntimePlan
@@ -78,6 +79,26 @@ export function createProductRuntimePlan({ projectId, riskLevel = "standard", ta
   const errors = validateProductRuntimePlan(plan);
   if (errors.length) throw new Error(`Invalid product runtime plan: ${errors.join(" ")}`);
   return copy(plan);
+}
+
+export function evaluateProductRuntimeAdmission({ plan, networkMode = "none", ports = [], reservedPorts = [], resourceNames = [], reservedResourceNames = [], hostPaths = [], resourceLimits = {} } = {}) {
+  const errors = validateProductRuntimePlan(plan);
+  const limits = resourceLimits && typeof resourceLimits === "object" && !Array.isArray(resourceLimits) ? resourceLimits : {};
+  if (!resourceLimits || typeof resourceLimits !== "object" || Array.isArray(resourceLimits)) errors.push("runtime resource limits must be an object.");
+  if (!PRODUCT_RUNTIME_NETWORK_MODES.includes(networkMode)) errors.push("host or unknown network mode is forbidden.");
+  const requestedPorts = Array.isArray(ports) ? ports : [];
+  const occupiedPorts = Array.isArray(reservedPorts) ? reservedPorts : [];
+  const requestedNames = Array.isArray(resourceNames) ? resourceNames : [];
+  const occupiedNames = Array.isArray(reservedResourceNames) ? reservedResourceNames : [];
+  const requestedPaths = Array.isArray(hostPaths) ? hostPaths : [];
+  if (!Array.isArray(ports) || requestedPorts.some(port => !Number.isInteger(port) || port < 1024 || port > 65535)) errors.push("runtime ports must be integers from 1024 to 65535.");
+  if (!Array.isArray(reservedPorts) || requestedPorts.some(port => occupiedPorts.includes(port))) errors.push("a requested runtime port is already reserved or reservation data is invalid.");
+  if (!Array.isArray(resourceNames) || requestedNames.some(name => typeof name !== "string" || !/^hero-product-[a-z0-9-]+$/.test(name))) errors.push("runtime resource names must use the hero-product namespace.");
+  if (!Array.isArray(reservedResourceNames) || requestedNames.some(name => occupiedNames.includes(name))) errors.push("a runtime resource name is already reserved or reservation data is invalid.");
+  if (!Array.isArray(hostPaths) || requestedPaths.some(path => typeof path !== "string" || path.startsWith("/") || path.split("/").includes("..") || path === ".hero" || path.startsWith(".hero/"))) errors.push("host paths must not escape the product workspace.");
+  if (limits.cpuLimit !== undefined && (!Number.isFinite(limits.cpuLimit) || limits.cpuLimit <= 0 || limits.cpuLimit > PRODUCT_RUNTIME_DEFAULTS.cpuLimit)) errors.push("cpu limit exceeds the product default quota.");
+  if (limits.memoryMiB !== undefined && (!Number.isInteger(limits.memoryMiB) || limits.memoryMiB <= 0 || limits.memoryMiB > PRODUCT_RUNTIME_DEFAULTS.memoryMiB)) errors.push("memory limit exceeds the product default quota.");
+  return copy({ decision: errors.length ? "reject" : "admit", errors, sideEffects: "none" });
 }
 
 export function normalizeProductIntake({ name, intake = {} } = {}) {

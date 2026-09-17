@@ -8,7 +8,7 @@ import { validateProjectSettingsContract } from "../packages/contracts/src/proje
 import { validateProjectWorkspaceContract } from "../packages/contracts/src/project-workspace.mjs";
 import { validateProductFactoryContract, validateProductRuntimePlan } from "../packages/contracts/src/product-factory.mjs";
 import { createProjectSettingsRegistry, ProjectSettingsError } from "../packages/domain/src/project-settings.mjs";
-import { classifyProductRisk, createProductRuntimePlan } from "../packages/domain/src/product-factory.mjs";
+import { classifyProductRisk, createProductRuntimePlan, evaluateProductRuntimeAdmission } from "../packages/domain/src/product-factory.mjs";
 import { createProjectWorkspace, ProjectWorkspaceError } from "../packages/domain/src/project-workspace.mjs";
 import { createPrivateObjectStore } from "../packages/adapters/src/private-object-store.mjs";
 import { createHeroServer } from "../apps/control-plane/src/server.mjs";
@@ -70,6 +70,16 @@ test("high-risk Foundation requires explicit owner risk approval", () => {
 test("project intake rejects unknown risk flags instead of silently weakening policy", () => {
   const { workspace } = setup();
   assert.throws(() => workspace.createProject({ actor: owner, projectId: "project-risk", name: "Risk", intake: { riskFlags: { unknownFlag: true } } }), error => error instanceof ProjectWorkspaceError && error.code === "INVALID_INTAKE");
+});
+
+test("product runtime admission rejects host escape, collisions and quota violations without side effects", () => {
+  const plan = createProductRuntimePlan({ projectId: "project-safe" });
+  const rejected = evaluateProductRuntimeAdmission({ plan, networkMode: "host", ports: [43101], reservedPorts: [43101], resourceNames: ["hero-product-project-safe"], reservedResourceNames: ["hero-product-project-safe"], hostPaths: ["/opt/hero", "../outside"], resourceLimits: { cpuLimit: 2, memoryMiB: 2048 } });
+  assert.equal(rejected.decision, "reject");
+  assert.ok(rejected.errors.length >= 6);
+  assert.equal(rejected.sideEffects, "none");
+  const admitted = evaluateProductRuntimeAdmission({ plan, networkMode: "none", ports: [43102], reservedPorts: [43101], resourceNames: ["hero-product-project-safe-test"], reservedResourceNames: [] });
+  assert.deepEqual(admitted, { decision: "admit", errors: [], sideEffects: "none" });
 });
 
 test("private input pipeline validates signatures, scan, zip safety, instruction isolation and SSRF", () => {

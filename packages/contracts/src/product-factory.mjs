@@ -6,6 +6,7 @@ export const PRODUCT_AUTONOMY_MODES = Object.freeze(["approval-each-stage", "app
 export const PRODUCT_TARGET_KINDS = Object.freeze(["product-test-local-isolated", "remote-product-target"]);
 export const PRODUCT_EXECUTION_MODES = Object.freeze(["plan-only", "isolated-test", "remote-agent"]);
 export const PRODUCT_NETWORK_POLICIES = Object.freeze(["disabled", "egress-allowlist"]);
+export const PRODUCT_RUNTIME_NETWORK_MODES = Object.freeze(["none", "bridge"]);
 
 export const PRODUCT_RUNTIME_DEFAULTS = Object.freeze({
   environment: "test",
@@ -46,6 +47,7 @@ export function getProductFactoryContractSummary() {
     targetKinds: PRODUCT_TARGET_KINDS,
     executionModes: PRODUCT_EXECUTION_MODES,
     networkPolicies: PRODUCT_NETWORK_POLICIES,
+    runtimeNetworkModes: PRODUCT_RUNTIME_NETWORK_MODES,
     runtimeDefaults: PRODUCT_RUNTIME_DEFAULTS,
     effects: PRODUCT_RUNTIME_EFFECTS,
     boundary: "intake and foundation produce a reviewable plan; execution requires a later authorization"
@@ -59,6 +61,7 @@ export function validateProductFactoryContract() {
   if (!PRODUCT_RISK_LEVELS.includes("critical")) errors.push("Critical risk level is required.");
   if (PRODUCT_RUNTIME_DEFAULTS.executionMode !== "plan-only") errors.push("Factory runtime must default to plan-only.");
   if (PRODUCT_RUNTIME_DEFAULTS.network !== "disabled") errors.push("Factory runtime must default to disabled network.");
+  if (!PRODUCT_RUNTIME_NETWORK_MODES.includes("none") || PRODUCT_RUNTIME_NETWORK_MODES.includes("host")) errors.push("Runtime network modes must exclude host network.");
   if (PRODUCT_RUNTIME_DEFAULTS.privileged || PRODUCT_RUNTIME_DEFAULTS.hostNetwork || PRODUCT_RUNTIME_DEFAULTS.dockerSocket || PRODUCT_RUNTIME_DEFAULTS.hostMounts) errors.push("Factory runtime must deny privileged and host escape controls by default.");
   if (!PRODUCT_RUNTIME_EFFECTS.includes("externalSpend")) errors.push("External spend must be an explicit effect gate.");
   return errors;
