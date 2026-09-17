@@ -29,6 +29,7 @@ test("manual rollback is Test-scoped and refuses non-immutable state", async () 
 test("GHCR checker never accepts a mutable tag", async () => {
   const source = await read("tools/check-ghcr-access.sh");
   assert.match(source, /manifest inspect/);
+  assert.match(source, /--manifest/);
   assert.match(source, /sha256:\[a-f0-9\]\{64\}/);
   assert.match(source, /read:packages/);
   assert.doesNotMatch(source, /(?:TOKEN|PASSWORD|SECRET)=\$|printf .*\$\{(?:TOKEN|PASSWORD|SECRET)/i);
