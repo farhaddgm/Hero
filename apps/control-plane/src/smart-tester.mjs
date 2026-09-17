@@ -15,6 +15,9 @@ const PROJECT_ID_PATTERN = /^[A-Za-z][A-Za-z0-9._:-]{2,127}$/;
 const FEATURE_KEY_PATTERN = /^[a-z][a-zA-Z0-9]*(?:\.[a-z][a-zA-Z0-9]*)+$/;
 const ADVISOR_PROFILE_ID_PATTERN = /^[A-Za-z][A-Za-z0-9._:-]{2,127}$/;
 const BOX_ID_PATTERN = /^[A-Za-z][A-Za-z0-9._:-]{0,127}$/;
+const SENSITIVE_ASSIGNMENT = /(?:\b(?:password|secret|credential|api[ _-]?key|token|mfa|توکن|رمز(?:\s*عبور)?|کلید\s*api)\b\s*[:=])\s*\S+/iu;
+const SENSITIVE_VALUE = /(?:\bsk-[A-Za-z0-9_-]{12,}\b|\bBearer\s+[A-Za-z0-9._-]{12,}\b|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----)/iu;
+const HOST_PATH = /(?:^|[\s"'(])(?:[A-Za-z]:[\\/]|\/(?:home|Users|mnt|opt)\/)/u;
 
 const SURFACES = Object.freeze({
   "/portfolio": Object.freeze({
@@ -89,7 +92,7 @@ function safeQuestion(value) {
   const question = nonEmptyString(value, "question", HERO_SMART_TESTER_MAX_QUESTION_LENGTH);
   // The assistant has no reason to receive or retain sensitive material. This
   // is a narrow guard, not a promise to detect every secret format.
-  if (/(?:\b(?:password|secret|credential|api[ _-]?key|mfa|توکن|رمز(?:\s*عبور)?|کلید\s*api)\b\s*[:=])/i.test(question)) {
+  if (SENSITIVE_ASSIGNMENT.test(question) || SENSITIVE_VALUE.test(question) || HOST_PATH.test(question)) {
     throw new RangeError("Sensitive values must not be sent to Smart Tester.");
   }
   return question;
@@ -98,7 +101,7 @@ function safeQuestion(value) {
 function safeBoxText(value, name, fallback, maximum) {
   if (value === undefined || value === null || value === "") return fallback;
   const text = nonEmptyString(value, name, maximum).replace(/\s+/g, " ");
-  if (/(?:\b(?:password|secret|credential|api[ _-]?key|mfa|token|توکن|رمز(?:\s*عبور)?|کلید\s*api)\b\s*[:=]\s*)\S+/i.test(text)) {
+  if (SENSITIVE_ASSIGNMENT.test(text) || SENSITIVE_VALUE.test(text) || HOST_PATH.test(text)) {
     throw new RangeError(`${name} must not contain sensitive material.`);
   }
   return text;
@@ -113,7 +116,9 @@ function safeBoxId(value, fallback) {
 function redactActionText(value, maximum = 500) {
   if (value === undefined || value === null || value === "") return "";
   return String(value)
-    .replace(/((?:password|secret|credential|api[ _-]?key|token|mfa|رمز(?:\s*عبور)?|کلید\s*api)\s*[:=]\s*)[^\s,;]+/gi, "$1[redacted]")
+    .replace(/((?:password|secret|credential|api[ _-]?key|token|mfa|رمز(?:\s*عبور)?|کلید\s*api)\s*[:=]\s*)[^\s,;]+/giu, "$1[redacted]")
+    .replace(SENSITIVE_VALUE, "[redacted]")
+    .replace(HOST_PATH, "[redacted]")
     .slice(0, maximum);
 }
 

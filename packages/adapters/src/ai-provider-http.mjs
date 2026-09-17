@@ -129,6 +129,15 @@ function parseStructuredText(text) {
   }
 }
 
+function redactCredential(value, credential) {
+  if (typeof value === "string") return credential ? value.split(credential).join("[redacted]") : value;
+  if (Array.isArray(value)) return value.map(item => redactCredential(item, credential));
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, redactCredential(child, credential)]));
+  }
+  return value;
+}
+
 async function readResponse(response) {
   let body = null;
   try { body = await response.json(); } catch { body = null; }
@@ -212,13 +221,26 @@ function createHttpAdapter({ providerId, endpoint, credentialEnv, credentialReso
     const credential = await credentialFor(input);
     const request = buildRequest({ input, endpoint: normalizedEndpoint, credential });
     let response;
+    const timeoutMs = Number.isInteger(input.timeoutMs) && input.timeoutMs >= 100 && input.timeoutMs <= 600_000
+      ? input.timeoutMs
+      : 120_000;
+    const controller = typeof AbortController === "function" ? new AbortController() : null;
+    const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
     try {
-      response = await fetchImpl(request.url, request.options);
-    } catch {
+      const options = controller
+        ? { ...request.options, signal: request.options?.signal ?? controller.signal }
+        : request.options;
+      response = await fetchImpl(request.url, options);
+    } catch (error) {
+      if (controller?.signal.aborted || error?.name === "AbortError") {
+        throw new AiProviderAdapterError("PROVIDER_TIMEOUT", `Provider did not respond within ${timeoutMs}ms.`, { retryable: true });
+      }
       throw new AiProviderAdapterError("PROVIDER_NETWORK_ERROR", "The provider network request failed.", { retryable: true });
+    } finally {
+      if (timer) clearTimeout(timer);
     }
     const body = await readResponse(response);
-    const output = parseStructuredText(parseResponse.text(body));
+    const output = redactCredential(parseStructuredText(parseResponse.text(body)), credential);
     return copy({ output, usage: buildUsage(parseResponse.usage(body), costAccountingFor(input)), providerRequestId: typeof body?.id === "string" ? body.id : null, pricing: readiness.pricing });
   }
 

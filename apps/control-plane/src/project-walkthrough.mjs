@@ -8,6 +8,10 @@ export const HERO_PROJECT_WALKTHROUGH_VERSION = "1.8.0";
 export const HERO_PROJECT_WALKTHROUGH_STATE_VERSION = 1;
 export const HERO_PROJECT_WALKTHROUGH_ENABLED_SETTING = "backoffice.walkthrough.enabled";
 
+const SENSITIVE_ASSIGNMENT = /(?:\b(?:password|secret|credential|api[ _-]?key|token|mfa|توکن|رمز(?:\s*عبور)?|کلید\s*api)\b\s*[:=])\s*\S+/iu;
+const SENSITIVE_VALUE = /(?:\bsk-[A-Za-z0-9_-]{12,}\b|\bBearer\s+[A-Za-z0-9._-]{12,}\b|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----)/iu;
+const HOST_PATH = /(?:^|[\s"'(])(?:[A-Za-z]:[\\/]|\/(?:home|Users|mnt|opt)\/)/u;
+
 export const HERO_PROJECT_WALKTHROUGH_STEPS = Object.freeze([
   Object.freeze({
     id: "identity",
@@ -456,6 +460,9 @@ function normalizedAdvisorQuestion(question) {
   const normalized = question.trim().replace(/\s+/g, " ");
   if (normalized.length > HERO_PROJECT_WALKTHROUGH_ADVISOR_MAX_QUESTION_LENGTH) {
     throw new RangeError(`Walk-Through advisor question must be at most ${HERO_PROJECT_WALKTHROUGH_ADVISOR_MAX_QUESTION_LENGTH} characters.`);
+  }
+  if (SENSITIVE_ASSIGNMENT.test(normalized) || SENSITIVE_VALUE.test(normalized) || HOST_PATH.test(normalized)) {
+    throw new RangeError("Walk-Through advisor questions must not contain sensitive material.");
   }
   return normalized;
 }

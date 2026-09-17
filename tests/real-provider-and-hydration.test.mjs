@@ -57,7 +57,7 @@ test("OpenAI Responses adapter uses runtime credentials, structured JSON and usa
         async json() {
           return {
             id: "resp_test_001",
-            output_text: JSON.stringify({ schema: "analysis-v1", summary: "safe" }),
+            output_text: JSON.stringify({ schema: "analysis-v1", summary: "safe runtime-secret-never-persisted" }),
             usage: { input_tokens: 10, output_tokens: 5, total_tokens: 15 }
           };
         }
@@ -76,6 +76,7 @@ test("OpenAI Responses adapter uses runtime credentials, structured JSON and usa
     context: { artifact: "hero://artifact/test" }
   });
   assert.equal(result.output.schema, "analysis-v1");
+  assert.equal(result.output.summary, "safe [redacted]");
   assert.equal(result.usage.totalTokens, 15);
   assert.equal(result.usage.costUnits, 1);
   assert.equal(requests.length, 1);
@@ -97,7 +98,7 @@ test("a configured live provider still requires version-bound external-spend aut
     pricingCatalog: testPricingCatalog(),
     fetchImpl: async () => {
       calls += 1;
-      return { ok: true, status: 200, async json() { return { output_text: '{"schema":"analysis-v1"}', usage: { input_tokens: 10, output_tokens: 5, total_tokens: 15 } }; } };
+      return { ok: true, status: 200, async json() { return { output_text: '{"schema":"analysis-v1","answer":"token: hidden-value"}', usage: { input_tokens: 10, output_tokens: 5, total_tokens: 15 } }; } };
     }
   });
   orchestration.registerProvider({ providerId: "openai", mode: "live", displayName: "OpenAI live", adapter, actor: OWNER, idempotencyKey: "live-provider-001" });
@@ -112,6 +113,8 @@ test("a configured live provider still requires version-bound external-spend aut
   const authorized = await orchestration.invoke({ invocationId: "live-invocation-approved", projectId: "hero", taskId: "live-task", stepId: "HERO-021", documentVersion: "v1.0", role: "analyst", contextSnapshotId: "live-context-approved", request: "تحلیل کن.", context: { artifact: "hero://artifact/live" }, externalSpendAuthorization: liveAuthorization(), actor: AGENT, idempotencyKey: "live-invocation-approved-key" });
   assert.equal(authorized.invocation.status, "completed");
   assert.equal(calls, 1);
+  assert.equal(authorized.invocation.response.output.answer, "token: [redacted]");
+  assert.doesNotMatch(JSON.stringify(authorized.invocation), /hidden-value/);
   assert.doesNotMatch(JSON.stringify(orchestration.events()), /runtime-secret/);
 });
 

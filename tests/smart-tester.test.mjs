@@ -51,6 +51,8 @@ test("Smart Tester advisor is local, contextual and does not echo questions or a
   assert.equal(advisor.reportAvailable, true);
   assert.doesNotMatch(advisor.response, /کدام دسته/);
   assert.throws(() => createSmartTesterAdvisory({ context, question: "password: should-not-be-sent" }), RangeError);
+  assert.throws(() => createSmartTesterAdvisory({ context, question: "sk-12345678901234567890" }), RangeError);
+  assert.throws(() => createSmartTesterAdvisory({ context, question: "بررسی /opt/hero/.env" }), RangeError);
   assert.throws(() => createSmartTesterAdvisory({ context, question: "a".repeat(HERO_SMART_TESTER_MAX_QUESTION_LENGTH + 1) }), RangeError);
 });
 

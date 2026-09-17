@@ -19,6 +19,7 @@ const SYSTEM = Object.freeze({ kind: "system", id: "hero-ai-orchestration" });
 const ACTOR_KINDS = new Set(["project-owner", "admin", "orchestrator", "agent", "system"]);
 const SENSITIVE_FIELD = /(?:api[_-]?key|access[_-]?token|refresh[_-]?token|secret|password|private[_-]?key)/i;
 const SENSITIVE_VALUE = /(?:\bsk-[A-Za-z0-9_-]{12,}\b|\bBearer\s+[A-Za-z0-9._-]{12,}\b|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----)/i;
+const SENSITIVE_ASSIGNMENT = /((?:\b(?:password|secret|credential|api[ _-]?key|token|mfa|رمز(?:\s*عبور)?|کلید\s*api)\b\s*[:=]\s*))[^\s,;]+/giu;
 const HOST_PATH = /(?:^|[\s"'(])(?:[A-Za-z]:[\\/]|\/(?:home|Users|mnt|opt)\/)/;
 const SIMPLE_CREDENTIAL_REFERENCE = /^(?:runtime|env):[A-Za-z0-9._:-]{3,120}$/;
 
@@ -71,6 +72,27 @@ function safeErrorMessage(error, fallback = "Provider execution failed.") {
   const message = error instanceof Error ? error.message : typeof error === "string" ? error : "";
   if (!message || message.length > 500 || SENSITIVE_VALUE.test(message) || HOST_PATH.test(message)) return fallback;
   return message;
+}
+
+function sanitizeProviderOutput(value, path = "output", depth = 0) {
+  if (depth > 8) throw new AiOrchestrationError("OUTPUT_SCHEMA_INVALID", "Provider output nesting is too deep.");
+  if (typeof value === "string") {
+    return value
+      .replace(SENSITIVE_ASSIGNMENT, "$1[redacted]")
+      .replace(SENSITIVE_VALUE, "[redacted]")
+      .replace(HOST_PATH, "[redacted]")
+      .slice(0, 8_000);
+  }
+  if (Array.isArray(value)) return value.map((item, index) => sanitizeProviderOutput(item, `${path}[${index}]`, depth + 1));
+  if (value && typeof value === "object") {
+    const result = {};
+    for (const [key, child] of Object.entries(value)) {
+      if (SENSITIVE_FIELD.test(key)) throw new AiOrchestrationError("OUTPUT_SENSITIVE_REJECTED", `${path}.${key} is not allowed in provider output.`);
+      result[key] = sanitizeProviderOutput(child, `${path}.${key}`, depth + 1);
+    }
+    return result;
+  }
+  return value;
 }
 
 function assertSafePayload(value, path = "input") {
@@ -141,7 +163,11 @@ function assertNonNegativeInteger(label, value, maximum = Number.MAX_SAFE_INTEGE
 function withTimeout(promise, timeoutMs) {
   let timer;
   const timeout = new Promise((_, reject) => {
-    timer = setTimeout(() => reject(new AiOrchestrationError("PROVIDER_TIMEOUT", `Provider did not respond within ${timeoutMs}ms.`)), timeoutMs);
+    timer = setTimeout(() => {
+      const error = new AiOrchestrationError("PROVIDER_TIMEOUT", `Provider did not respond within ${timeoutMs}ms.`);
+      error.retryable = true;
+      reject(error);
+    }, timeoutMs);
   });
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
@@ -203,14 +229,22 @@ function assertObject(label, value) {
 }
 
 function assertStructuredResponse(profile, response) {
-  assertObject("provider response", response);
-  if (!response.output || typeof response.output !== "object" || Array.isArray(response.output)) {
+  if (!response || typeof response !== "object" || Array.isArray(response)) {
+    throw new AiOrchestrationError("OUTPUT_SCHEMA_INVALID", "Provider response must be a structured object.");
+  }
+  // Usage and adapter metadata are checked as a whole, while provider output
+  // is sanitized independently so a model cannot echo a credential or host
+  // path into the persisted invocation/evidence projection.
+  const { output, ...metadata } = response;
+  assertObject("provider response", metadata);
+  if (!output || typeof output !== "object" || Array.isArray(output)) {
     throw new AiOrchestrationError("OUTPUT_SCHEMA_INVALID", "Provider response must contain a structured output object.");
   }
-  if (response.output.schema !== profile.outputSchema) {
+  const safeOutput = sanitizeProviderOutput(output);
+  if (safeOutput.schema !== profile.outputSchema) {
     throw new AiOrchestrationError("OUTPUT_SCHEMA_INVALID", `Provider output schema must be ${profile.outputSchema}.`);
   }
-  return response;
+  return { ...metadata, output: safeOutput };
 }
 
 function eventIdFactory() {
@@ -1004,7 +1038,7 @@ export function createAiOrchestration(options = {}) {
       attempts += 1;
       try {
         response = await withTimeout(provider.adapter.generate(adapterInput), profile.timeoutMs);
-        assertStructuredResponse(profile, response);
+        response = assertStructuredResponse(profile, response);
         const usage = normalizeUsage(response.usage);
         if (usage.costUnits > profile.maxCostUnits) throw new AiOrchestrationError("COST_LIMIT_REACHED", "Provider usage exceeded the profile cost limit.");
         response = immutableCopy({ ...response, usage });
