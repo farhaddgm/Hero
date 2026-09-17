@@ -6,7 +6,7 @@
 > Type: evidence
 > Scope: hero
 > Status: active
-> Version: 1.4.0
+> Version: 1.5.0
 > Owner: hero-product
 > Review cadence: per-change
 > Supersedes: none
@@ -14,9 +14,9 @@
 
 ## نتیجه
 
-برش PF-1 در source پیاده و در تست محلی و CI تأیید شد. این برش از یک درخواست Owner، Intake معتبر، طبقه‌بندی ریسک، Foundation Proposal نسخه‌دار و طرح اجرای Product Test ایزوله تولید می‌کند و Product Request را با idempotency/fingerprint پایدار ثبت می‌کند. چهار ایراد واقعی در audit مسیر قبلی اصلاح شد: دسترسی نادرست به هدر `Idempotency-Key` در Node، ردشدن policy flag امن `secretWrite`، حذف‌شدن `productRequest.projectId` از read model و ثبت جداگانهٔ Request/Project/Foundation. اکنون سه رکورد اصلی در یک تراکنش PostgreSQL ثبت می‌شوند و خطای میانی rollback می‌شود؛ replay دادهٔ قدیمی نیمه‌ثبت‌شده نیز Foundation گمشده را بدون درج دوبارهٔ Request/Project repair می‌کند. کاندیدای `v1.1.4-rc.8` با workflow موفق ساخته شده، اما به‌علت نیاز به رمز sudo هنوز روی Test promote نشده است. هیچ repository، کانتینر محصول، سرور خارجی، Secret، Provider زنده، هزینهٔ بیرونی، Pilot یا Production ایجاد نشد.
+برش PF-1 در source، CI و Test واقعی تأیید شد. این برش از یک درخواست Owner، Intake معتبر، طبقه‌بندی ریسک، Foundation Proposal نسخه‌دار و طرح اجرای Product Test ایزوله تولید می‌کند و Product Request را با idempotency/fingerprint پایدار ثبت می‌کند. چهار ایراد واقعی در audit مسیر قبلی اصلاح شد: دسترسی نادرست به هدر `Idempotency-Key` در Node، ردشدن policy flag امن `secretWrite`، حذف‌شدن `productRequest.projectId` از read model و ثبت جداگانهٔ Request/Project/Foundation. اکنون سه رکورد اصلی در یک تراکنش PostgreSQL ثبت می‌شوند و خطای میانی rollback می‌شود؛ replay دادهٔ قدیمی نیمه‌ثبت‌شده نیز Foundation گمشده را بدون درج دوبارهٔ Request/Project repair می‌کند. candidate `v1.1.4-rc.8` در Test promote و smoke شد. هیچ repository، کانتینر محصول، سرور خارجی، Secret، Provider زنده، هزینهٔ بیرونی، Pilot یا Production ایجاد نشد.
 
-وضعیت Exit Gate خود PF-1 هنوز `open` است؛ قرارداد persistence/replay اکنون در source و mock/API integration test پوشش دارد و migration واقعی روی Test، وجود migration `017` و جدول `product_request_versions` نیز تأیید شده‌اند. rc.6 روی Test promote شد اما restart با خطای hydration مربوط به metadata پروژه وارد crash-loop شد؛ این failure با restore شدن `projectId` در read model و atomic persistence در rc.8 اصلاح شده است. در Test فعلی دو Product Request metadata-only از probe قبلی باقی مانده و Foundation آن‌ها باید با replay پس از promotion repair شود. برای بستن gate، promotion rc.8، smoke پایدار، دو Product Request مستقل با project isolation، replay واقعی، version conflict و negative authorization لازم است. این سند فقط شواهد برش فعلی است و آن Exit Gate را به‌صورت زودهنگام Done اعلام نمی‌کند.
+وضعیت Exit Gate خود PF-1 اکنون `verified` است؛ قرارداد persistence/replay در source و mock/API integration test پوشش دارد و migration واقعی روی Test، وجود migration `017` و جدول `product_request_versions` نیز تأیید شده‌اند. rc.6 روی Test promote شد اما restart با خطای hydration مربوط به metadata پروژه وارد crash-loop شد؛ این failure با restore شدن `projectId` در read model و atomic persistence در rc.8 اصلاح شد. rc.8 با container سالم، health/readiness موفق و persistence PostgreSQL تأیید شد. دو درخواست جدید مستقل C/D هرکدام ۲۰۱، replay هرکدام ۲۰۰، تعارض همان کلید ۴۰۹، درخواست بدون مجوز ۴۰۱ و replay/repair دو رکورد قدیمی A/B هرکدام ۲۰۰ ثبت شد؛ شمارش نهایی ۴ Product Request، ۴ Project و ۴ Foundation است. این سند شواهد PF-1 را ثبت می‌کند و PF-2 را زودتر از موعد فعال اعلام نمی‌کند.
 
 source evidence کاندیدای Test: branch `codex/test-release-reliability-20260916`، commit `790bfe8097236e285fcf9cb8f6699dc62f5e07b4`.
 
@@ -38,18 +38,18 @@ source evidence کاندیدای Test: branch `codex/test-release-reliability-20
 
 | بررسی | نتیجه |
 |---|---|
-| API fix | دسترسی هدر در `apps/control-plane/src/server.mjs` به قرارداد Node HTTP اصلاح شد؛ تست header-only و invalid-body اضافه و targeted `16/16` موفق شد. |
+| API fix | دسترسی هدر در `apps/control-plane/src/server.mjs` به قرارداد Node HTTP اصلاح شد؛ تست header-only و invalid-body اضافه و targeted PF-1/API `24/24` موفق شد. |
 | Full assurance | `pnpm check`: `404 pass / 0 fail`؛ build `265 module / 49 JSON`؛ documentation `140 / 0 error`. |
-| Candidate | `v1.1.4-rc.8`، run `35287418094`، commit `790bfe8`، digest `sha256:e87e6063975fdea86d81682f19668a6458209afc3aeaff77cfeb896478d1d8ee`؛ workflow موفق، promotion pending sudo. |
-| Existing Test | Test روی rc.6 promote شده اما healthy نیست و crash-loop دارد؛ migration `017` و جدول `product_request_versions` موجودند و دو Product Request metadata-only ثبت شده‌اند. |
+| Candidate | `v1.1.4-rc.8`، run `35287418094`، commit `790bfe8`، digest `sha256:e87e6063975fdea86d81682f19668a6458209afc3aeaff77cfeb896478d1d8ee`؛ workflow، promotion و smoke موفق. |
+| Existing Test | Test روی rc.8 healthy است؛ migration `017` و جدول `product_request_versions` موجودند و شمارش PF-1 برابر ۴ Request، ۴ Project و ۴ Foundation است. |
 
 ## شواهد اجرای Test
 
 | بررسی | نتیجه |
 |---|---|
-| Release candidate | `v1.1.4-rc.6` از GitHub Actions run `35285907556` با digest `sha256:14c31d1f2fb30bd0771af87459a217a63d1aaf95a1221f3d26b77e7b8fadf307` به Hero Test promote شد؛ rc.8 جایگزین اصلاحی آماده است. |
-| Runtime | rc.6 پس از restart با `Product request metadata is invalid` crash-loop شد؛ `/health` و `/ready` تا promotion rc.8 دوباره قابل‌اعتماد نیستند. |
-| PostgreSQL schema | migration `017` و جدول `product_request_versions` موجود؛ دو Product Request metadata-only از probe قبلی ثبت شده‌اند و Foundation آن‌ها هنوز باید با replay repair شود. |
+| Release candidate | `v1.1.4-rc.8` از GitHub Actions run `35287418094` با digest `sha256:e87e6063975fdea86d81682f19668a6458209afc3aeaff77cfeb896478d1d8ee` فقط به Hero Test promote شد. |
+| Runtime | container با image digest بالا `running/healthy`، restart count صفر؛ `/health` و `/ready` هر دو ۲۰۰ و persistence برابر PostgreSQL است. |
+| PostgreSQL schema | migration `017` و جدول `product_request_versions` موجود؛ ۴ Product Request و ۴ Foundation برای چهار پروژهٔ PF-1 ثبت و تأیید شد. |
 | Scope | این evidence شامل فراخوانی زندهٔ OpenAI، external spend، Product Runner یا Product Test محصول نیست. |
 
 ## تست و نتیجه
@@ -69,6 +69,6 @@ source evidence کاندیدای Test: branch `codex/test-release-reliability-20
 
 ## مرز و گام بعدی
 
-این evidence مجوز شروع Product Runner نیست. migration schema در Test تأیید شده، اما restart سالم rc.8 و replay repair هنوز pending است. پس از promotion rc.8، گام بعدی PF-1 اجرای smoke، replay دو رکورد قدیمی برای repair، ثبت دو درخواست مستقل project-scoped، replay همان درخواست، رد fingerprint متفاوت و negative testهای permission/version است؛ سپس PF-2 فقط در Test و با authorization مستقل می‌تواند به طراحی/اجرای نمونهٔ بی‌خطر Product Runner برسد.
+این evidence مجوز شروع Product Runner نیست. PF-1 تا Foundation Proposal تأیید شد، اما PF-2 فقط در Test و با authorization مستقل می‌تواند به طراحی/اجرای نمونهٔ بی‌خطر Product Runner برسد؛ repo mutation، ساخت container محصول و deploy همچنان انجام نشده‌اند.
 
 Production، Pilot، Secret Store، Secretهای Provider و اپلیکیشن‌های دیگر ParsPack لمس نشدند. GitHub Actions و GHCR فقط برای ساخت/انتقال artifact همین Test استفاده شدند؛ Product Runner، Product Test، external spend و Provider زنده فعال نشدند.

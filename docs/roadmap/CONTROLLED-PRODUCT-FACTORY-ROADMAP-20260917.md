@@ -6,7 +6,7 @@
 > Type: roadmap
 > Scope: hero
 > Status: active
-> Version: 1.5.0
+> Version: 1.6.0
 > Owner: hero-product
 > Review cadence: per-change
 > Supersedes: `HERO-ROADMAP-NEXT-100-STEPS-20260904`, `HERO-ROADMAP-NEXT-20-STEPS-20260904`, `HERO-ROADMAP-NEXT-20-STEPS-20260911-WORKSPACE-PERSISTENCE`, `HERO-ROADMAP-NEXT-100-STEPS-20260911-PROJECT-CONTROL`
@@ -23,15 +23,15 @@
 | موضوع | واقعیت تأییدشده | مرز صریح |
 |---|---|---|
 | source Hero | branch `codex/test-release-reliability-20260916`، commit `790bfe8097236e285fcf9cb8f6699dc62f5e07b4` | این همان source کاندیدای بعدی Test است؛ اسناد مستندات بعدی ممکن است commit جدا داشته باشند. |
-| Test Hero | `v1.1.4-rc.6`، digest `ghcr.io/farhaddgm/hero@sha256:14c31d1f2fb30bd0771af87459a217a63d1aaf95a1221f3d26b77e7b8fadf307` | فقط Hero Test است؛ Product Test نیست؛ این image پس از restart به‌علت hydration خطا در crash-loop است. |
-| شواهد انتشار | run `35285907556` برای rc.6 موفق و promotion مالک با rollback point metadata-only ثبت شد | smoke پایدار نشد؛ لاگ علت `Product request metadata is invalid` بود و این وضعیت failure release را آشکار کرد. |
-| کاندیدای اصلاح بعدی | `v1.1.4-rc.8`، digest `ghcr.io/farhaddgm/hero@sha256:e87e6063975fdea86d81682f19668a6458209afc3aeaff77cfeb896478d1d8ee`، run `35287418094` | workflow، check، build و انتشار موفق؛ promotion به Test هنوز به‌دلیل نیاز به sudo انجام نشده است. |
+| Test Hero | `v1.1.4-rc.8`، digest `ghcr.io/farhaddgm/hero@sha256:e87e6063975fdea86d81682f19668a6458209afc3aeaff77cfeb896478d1d8ee` | فقط Hero Test است؛ Product Test نیست؛ container running/healthy و persistence PostgreSQL است. |
+| شواهد انتشار | run `35287418094`، promotion مالک و smoke واقعی موفق | `/health` و `/ready` هر دو ۲۰۰، restart count صفر و rollback point metadata-only ثبت شده است. |
+| رخداد اصلاح‌شده | rc.6 بعد از restart با `Product request metadata is invalid` crash-loop شد | علت و اصلاح در source ثبت شده؛ rc.8 همان مسیر را سالم کرده است. |
 | کیفیت source | `pnpm check`: ۴۰۴ pass، ۰ fail؛ build: ۲۶۵ module و ۴۹ JSON | این نتیجه جای acceptance محصول هدف را نمی‌گیرد. |
 | AI | مسیر provider-agnostic، policy، redaction و result ساخت‌یافته در source/Test حاضر است | evidence تازه‌ای از فراخوانی زندهٔ OpenAI در این baseline ثبت نشده است؛ provider و هزینه fail-closed هستند. |
 | Back Office | ممیزی مرجع: ۲۰/۱۷۰ گام verified، ۱۵۰ گام نیازمند evidence کامل؛ ۵/۸۱ requirement implemented، ۷۶ partial | UI یا قرارداد موجود به معنی کارخانهٔ خودکار محصول نیست. |
 | اجرای محصول | قراردادهای Web Factory، Provider Agent و Infrastructure Plan وجود دارند | هنوز اجرای کد در مخزن محصول، ساخت container محصول، deploy هدف یا Node Agent عملیاتی نشده است. |
 
-مرجع جزئی شواهد جاری: `HERO-ROADMAP-STATUS-20260917@1.6.0` و `HERO-OPS-HERO-TEST-RELEASE-RELIABILITY@1.4.0`.
+مرجع جزئی شواهد جاری: `HERO-ROADMAP-STATUS-20260917@1.7.0` و `HERO-OPS-HERO-TEST-RELEASE-RELIABILITY@1.5.0`.
 
 ## ۳. هدف نهایی و معیار موفقیت
 
@@ -123,9 +123,9 @@ Product Test:       hero-product-<slug>-test-*
 | UI قابل‌فهم | Owner فقط انتخاب‌های ضروری را می‌بیند؛ جزئیات پیش‌فرض و علت پیشنهاد قابل مشاهده‌اند. |
 
 **نگاشت:** BO-031..042، BO-043..052، BO-063..074، BO-075..088.
-**Exit Gate:** دو Product Request مستقل با Role/Project isolation، version conflict و negative authorization test پوشش داده شوند. هیچ repo/container در این مرحله ایجاد نمی‌شود.
+**Exit Gate:** PASS در ۲۰۲۶-۰۹-۱۸؛ دو Product Request مستقل project-scoped با persistence، replay، version conflict و negative authorization واقعی تأیید شدند؛ چهار رکورد قدیمی/جدید دارای Foundation هستند. هیچ repo/container در این مرحله ایجاد نمی‌شود.
 
-**Evidence برش PF-1 (2026-09-18):** Intake، risk classification، runtime plan نسخه‌دار، owner risk gate، admission policy پیش از start، UI قابل‌فهم و Product Request idempotent در source پیاده و با `pnpm check` تأیید شده‌اند. Product Request fingerprint-bound است، replay همسان می‌دهد، تغییر داده با همان کلید را رد می‌کند و metadata درخواست، پروژه و Foundation در PostgreSQL با migration `017` در یک تراکنش ثبت می‌شود؛ کلید خام، فرم خام و Secret ذخیره نمی‌شوند. چهار ایراد واقعی در این مسیر ریشه‌یابی و اصلاح شده‌اند: خواندن نادرست هدر `Idempotency-Key` در Node، ردشدن policy flag امن `secretWrite`، حذف‌شدن `productRequest.projectId` از read model و ثبت سه رکورد در تراکنش‌های جدا. برای دادهٔ قدیمی نیمه‌ثبت‌شده، replay امن Foundation گمشده را repair می‌کند. کاندیدای `v1.1.4-rc.8` با commit `790bfe8`، digest immutable و workflow `35287418094` موفق ساخته شده، اما promotion به‌دلیل نیاز به sudo هنوز انجام نشده است؛ Test فعلی روی rc.6 crash-loop است. در Test دو Product Request metadata-only باقی مانده و Foundation آن‌ها باید پس از promotion با replay ترمیم شود. PF-1 برای بستن Exit Gate همچنان به promotion rc.8، smoke پایدار، دو درخواست مستقل project-scoped، replay واقعی و negative authorization نیاز دارد؛ بنابراین `in_progress` باقی می‌ماند. جزئیات در `HERO-EVIDENCE-PRODUCT-FACTORY-PF1-20260917@1.4.0` ثبت شده است.
+**Evidence برش PF-1 (2026-09-18):** Intake، risk classification، runtime plan نسخه‌دار، owner risk gate، admission policy پیش از start، UI قابل‌فهم و Product Request idempotent در source پیاده و با `pnpm check` تأیید شده‌اند. Product Request fingerprint-bound است، replay همسان می‌دهد، تغییر داده با همان کلید را رد می‌کند و metadata درخواست، پروژه و Foundation در PostgreSQL با migration `017` در یک تراکنش ثبت می‌شود؛ کلید خام، فرم خام و Secret ذخیره نمی‌شوند. چهار ایراد واقعی در این مسیر ریشه‌یابی و اصلاح شده‌اند: خواندن نادرست هدر `Idempotency-Key` در Node، ردشدن policy flag امن `secretWrite`، حذف‌شدن `productRequest.projectId` از read model و ثبت سه رکورد در تراکنش‌های جدا. برای دادهٔ قدیمی نیمه‌ثبت‌شده، replay امن Foundation گمشده را repair می‌کند. rc.8 با commit `790bfe8` و digest immutable در Test promote شد؛ container healthy است و `/health`، `/ready` و PostgreSQL persistence موفق‌اند. دو درخواست جدید C/D هرکدام ۲۰۱، replay هرکدام ۲۰۰، تعارض کلید ۴۰۹، درخواست بدون مجوز ۴۰۱ و replay/repair دو رکورد قدیمی A/B هرکدام ۲۰۰ ثبت شد؛ شمارش نهایی ۴ Product Request، ۴ Project و ۴ Foundation است. PF-1 اکنون `verified` است و جزئیات در `HERO-EVIDENCE-PRODUCT-FACTORY-PF1-20260917@1.5.0` ثبت شده است.
 
 ### PF-2 — Product Runner ایزوله روی host مشترک
 

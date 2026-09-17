@@ -1,7 +1,7 @@
 # فهرست مرکزی مستندات Hero
 
 - Document ID: `HERO-DOC-INDEX`
-- Version: `1.6.0`
+- Version: `1.7.0`
 - Status: `active`
 - Owner: `hero-documentation`
 - Scope: `hero`

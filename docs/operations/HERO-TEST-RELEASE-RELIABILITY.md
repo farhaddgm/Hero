@@ -1,7 +1,7 @@
 # پایایی انتشار Hero در محیط Test
 
 - Document ID: `HERO-OPS-HERO-TEST-RELEASE-RELIABILITY`
-- Version: `1.4.0`
+- Version: `1.5.0`
 - Status: `active`
 - Owner: `hero-operations`
 - Scope: `hero`
@@ -14,16 +14,16 @@
 ## Snapshot جاری source و Test — ۲۰۲۶-۰۹-۱۸
 
 - source مرجع branch `codex/test-release-reliability-20260916`، commit `790bfe8097236e285fcf9cb8f6699dc62f5e07b4` است.
-- Runtime Test روی Release Candidate `v1.1.4-rc.6` و artifact immutable `ghcr.io/farhaddgm/hero@sha256:14c31d1f2fb30bd0771af87459a217a63d1aaf95a1221f3d26b77e7b8fadf307` اجرا می‌شود؛ این container پس از restart به‌علت hydration crash-loop شده است.
-- GitHub Actions run `35285907556` برای rc.6 موفق بود و promotion مالک rollback point metadata-only را ثبت کرد؛ verify پایدار به‌علت crash-loop کامل نشد.
-- candidate اصلاحی `v1.1.4-rc.8` از run `35287418094` با digest `ghcr.io/farhaddgm/hero@sha256:e87e6063975fdea86d81682f19668a6458209afc3aeaff77cfeb896478d1d8ee` آماده است؛ promotion آن به‌علت نیاز به sudo هنوز pending است.
+- Runtime Test روی Release Candidate `v1.1.4-rc.8` و artifact immutable `ghcr.io/farhaddgm/hero@sha256:e87e6063975fdea86d81682f19668a6458209afc3aeaff77cfeb896478d1d8ee` اجرا می‌شود؛ container running/healthy و restart count صفر است.
+- GitHub Actions run `35287418094` موفق بود؛ promotion مالک، rollback point metadata-only، `/health` و `/ready` هر دو ۲۰۰ و persistence PostgreSQL تأیید شدند.
+- rc.6 رخداد crash-loop ناشی از hydration داشت؛ rc.8 با read model اصلاح‌شده و persistence atomic جایگزین و smoke شد.
 - `pnpm check` candidate برابر ۴۰۴ pass و ۰ fail و build برابر ۲۶۵ module و ۴۹ JSON بود. این runbook دربارهٔ انتشار Hero است؛ scenario زندهٔ Provider evidence جداگانه می‌خواهد.
 
 ## رخداد و اصلاح ۲۰۲۶-۰۹-۱۸
 
 - علت crash-loop: `listProjects()` فیلد `productRequest.projectId` را در read model برنمی‌گرداند و hydration fail-closed با `Product request metadata is invalid` متوقف می‌شد.
 - اصلاح‌های هم‌زمان: read model اکنون scope درخواست را کامل برمی‌گرداند؛ ثبت اولیهٔ Product Request، Project و Foundation در یک تراکنش انجام می‌شود؛ replay رکورد قدیمی نیمه‌ثبت‌شده Foundation گمشده را بدون درج دوباره repair می‌کند.
-- candidate rc.8 همهٔ checkهای منبع، build و workflow انتشار را گذرانده است. تا promotion، هیچ ادعای healthy بودن Runtime Test یا موفقیت smoke ثبت نمی‌شود.
+- candidate rc.8 همهٔ checkهای منبع، build و workflow انتشار را گذرانده و روی Test smoke شده است. این runbook دربارهٔ انتشار Hero است؛ سناریوی زندهٔ Provider evidence جداگانه می‌خواهد.
 
 ## اجرای پیشین — ۲۰۲۶-۰۹-۱۷
 

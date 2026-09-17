@@ -1,5 +1,12 @@
 # تغییرات رودمپ شرکت
 
+# ۲۰۲۶-۰۹-۱۸ — تأیید نهایی PF-1 روی Test
+
+- `v1.1.4-rc.8` با digest `sha256:e87e6063975fdea86d81682f19668a6458209afc3aeaff77cfeb896478d1d8ee` از run `35287418094` روی Hero Test promote و smoke شد؛ container `healthy`، restart count صفر، `/health` و `/ready` هر دو ۲۰۰ و PostgreSQL آماده است.
+- سناریوهای واقعی PF-1 ثبت شدند: ایجاد C و D هرکدام ۲۰۱، replay هرکدام ۲۰۰، تغییر داده با همان idempotency key برابر ۴۰۹، درخواست بدون مجوز برابر ۴۰۱ و replay/repair رکوردهای قدیمی A و B هرکدام ۲۰۰.
+- شمارش امن Test برای PF-1: ۴ Product Request، ۴ Project و ۴ Foundation؛ Exit Gate PF-1 تا Foundation Proposal `verified` شد.
+- PF-2، ساخت repository/container محصول، Product Runner، deploy محصول، انتقال به سرور دیگر، Pilot و Production همچنان خارج از این گام هستند.
+
 # ۲۰۲۶-۰۹-۱۸ — audit ریشه‌ای persistence و candidate rc.8
 
 - ریشه‌یابی شد: rc.6 بعد از restart به‌علت حذف `productRequest.projectId` از read model با `Product request metadata is invalid` crash-loop می‌شد؛ read model اصلاح شد و regression test اضافه شد.
