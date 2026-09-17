@@ -924,9 +924,8 @@ export function createHeroServer(options = {}) {
       throw new ProjectWorkspaceError("LIVE_ADVISOR_BINDING_MISMATCH", "Binding فعال این Project با Profile انتخاب‌شده هم‌خوان نیست.", 403);
     }
     const authorization = activeLiveAdvisorAuthorization({ purpose, projectId, providerId: selectedProfile.providerId, modelId: selectedProfile.modelId, role: selectedProfile.role });
-    const invocationId = `advisor-${purpose}-${crypto.randomUUID()}`;
-    const result = await dashboard.invokeAi({
-      invocationId,
+    const dispatch = () => dashboard.invokeAi({
+      invocationId: `advisor-${purpose}-${crypto.randomUUID()}`,
       projectId,
       role: selectedProfile.role,
       taskId: `advisor-${purpose}`,
@@ -945,6 +944,34 @@ export function createHeroServer(options = {}) {
       requireHealthyProvider: true,
       externalSpendAuthorization: authorization
     });
+    let result;
+    try {
+      result = await dispatch();
+    } catch (error) {
+      const contextMissing = error?.code === "CONTEXT_ASSEMBLY_BLOCKED" && /\bCONTEXT_NOT_FOUND\b/.test(error?.message ?? "");
+      if (!contextMissing) throw error;
+      // This anchor contains no user prompt, provider credential, server path, or
+      // mutable instruction.  It is created only after all human, binding,
+      // provider-health, and Test-spend gates above have passed.  It closes the
+      // otherwise empty project-memory bootstrap gap without weakening context
+      // assembly for any non-empty or stale context.
+      if (!dashboard.findProjectMemory({ projectId, memoryKey: "live-advisor.context-v1" })) {
+        dashboard.recordProjectMemory({
+          memoryId: `live-advisor-context-v1-${projectId}`,
+          projectId,
+          memoryKey: "live-advisor.context-v1",
+          kind: "rule",
+          scope: "project",
+          status: "approved",
+          content: "Live advisor requests may use only redacted project-scoped metadata. User questions, secrets, credentials, host paths, and executable actions are never stored in this context.",
+          tags: ["live-advisor", "redacted"],
+          recipientRoles: ["planner"],
+          source: { kind: "policy", reference: "hero://ai/live-advisor-context-v1", documentVersion: authorization.documentVersion },
+          idempotencyKey: `live-advisor-context-v1-${projectId}`
+        });
+      }
+      result = await dispatch();
+    }
     if (result?.invocation?.status !== "completed") {
       throw new ProjectWorkspaceError("LIVE_ADVISOR_INVOCATION_FAILED", `فراخوانی Provider کامل نشد: ${result?.invocation?.code ?? "UNKNOWN"}.`, 502);
     }

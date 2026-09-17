@@ -441,7 +441,8 @@ test("Project-bound live advisor profiles invoke through the bounded authorizati
   dashboard.registerAiModel({ providerId: "openai", modelId: "gpt-5.6-luna", displayName: "GPT-5.6 Luna", metadata: {}, idempotencyKey: "live-advisor-model", actor });
   dashboard.registerAiProfile({ profileId: "live-advisor-profile", role: "analyst", providerId: "openai", modelId: "gpt-5.6-luna", credentialRef: "vault:hero/test/openai/default", promptVersion: "live-advisor-v1", contextPolicy: "redacted-project-context", toolPolicy: "read-only", outputSchema: "analysis-v1", status: "active", timeoutMs: 1000, maxRetries: 0, maxOutputTokens: 128, maxCostUnits: 100000, costLatencyPriority: "cost", idempotencyKey: "live-advisor-profile-key", actor });
   dashboard.bindAiRole({ bindingId: "live-advisor-binding", projectId: "project-vpn", teamId: null, skillId: null, role: "analyst", profileId: "live-advisor-profile", supersedesBindingId: null, idempotencyKey: "live-advisor-binding-key", actor });
-  dashboard.recordProjectMemory({ memoryId: "live-advisor-context", projectId: "project-vpn", memoryKey: "advisor.context", kind: "rule", scope: "project", status: "approved", content: "Only redacted project metadata may be used for advisor requests.", tags: ["advisor"], recipientRoles: ["planner"], source: { kind: "specification", reference: "hero://tests/live-advisor", documentVersion: "v1.0" }, idempotencyKey: "live-advisor-context-key" });
+  // Do not seed Project Memory: the first authorized live request must safely
+  // bootstrap its fixed redacted context anchor, then invoke once.
   await dashboard.checkAiProviderHealth({ providerId: "openai", profileId: "live-advisor-profile", actor });
   const app = createHeroServer({
     host: "127.0.0.1", port: 0, now, dashboard, projectAccessRegistry: access, humanIdentity: identity,

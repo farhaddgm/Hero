@@ -1357,6 +1357,10 @@ export function createControlDashboard(options = {}) {
     return runMemoryCommand(projectMemory.record, input);
   }
 
+  function findProjectMemory({ projectId, memoryKey } = {}) {
+    return projectMemory.list().find(record => record.projectId === projectId && record.memoryKey === memoryKey) ?? null;
+  }
+
   function assembleAiContext(input = {}) {
     return runAiCommand(aiOrchestration.assembleContext, input, { kind: "system", id: "hero-ai-orchestration" });
   }
@@ -1811,6 +1815,7 @@ export function createControlDashboard(options = {}) {
     rebuildReadModel,
     aiOrchestration,
     recordProjectMemory,
+    findProjectMemory,
     assembleAiContext,
     registerAiProvider,
     checkAiProviderHealth,
