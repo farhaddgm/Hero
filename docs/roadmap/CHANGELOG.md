@@ -1,5 +1,11 @@
 # تغییرات رودمپ شرکت
 
+# ۲۰۲۶-۰۹-۱۸ — candidate rc.12 آمادهٔ promotion روی Test
+
+- workflow `35309418424` برای `v1.1.4-rc.12` با commit `d1b4d0600c4a2d360ec4e94266b63efb439cc380` موفق شد؛ artifact immutable برابر `ghcr.io/farhaddgm/hero@sha256:a9caf69e2240ec0a211325b1269e8213924eba673b67d039857a3cb17606d39e` است.
+- push branch توسعه موفق بود. Promotion روی host Test هنوز انجام نشده، چون اجرای `sudo` رمز عبور می‌خواهد؛ تا آن زمان rc.11 نسخهٔ فعال Test است.
+- Production، Pilot، Secret Store/Secret، Provider زنده، Product Test و external spend لمس نشدند.
+
 # ۲۰۲۶-۰۹-۱۸ — رزرو پایدار منابع Product Test در PF-2
 
 - migration `018_product_runtime_reservations` و store PostgreSQL اضافه شد؛ رزروها فقط metadata امن دارند، با advisory transaction lock سریال می‌شوند و replay، تعارض پورت/منبع، release و reuse رکورد را کنترل می‌کنند.

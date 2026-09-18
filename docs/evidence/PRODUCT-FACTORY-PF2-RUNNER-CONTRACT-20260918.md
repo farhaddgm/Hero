@@ -6,7 +6,7 @@
 > Type: evidence
 > Scope: hero
 > Status: active
-> Version: 1.7.0
+> Version: 1.8.0
 > Owner: hero-product
 > Review cadence: per-change
 > Supersedes: none
@@ -46,6 +46,8 @@
 ## انتشار و تأیید Test
 
 نسخهٔ فعال Hero Test اکنون `v1.1.4-rc.11` از run `35307457878` با commit `dd95723f6cbd5d4ec75aafb59e72941b185e2e2f` و digest `ghcr.io/farhaddgm/hero@sha256:7a42b5592e60ae5d8b61c10040ee20d56a22a276bae76e3258920e76ed51bba2` است. مالک روی host Test promotion را انجام داد؛ container شروع شد، `/health` و `/ready` موفق بودند و `Hero Test smoke check: PASS` ثبت شد. خطای موقت `curl: (56) Recv failure: Connection reset by peer` در زمان restart رخ داد و با بررسی‌های نهایی سلامت دنبال شد. rollback point metadata-only در `/etc/hero/hero-test.env.release-state.before-7a42b5592e60ae5d8b61c10040ee20d56a22a276bae76e3258920e76ed51bba2.json` ثبت شده است. این تأییدها مربوط به خود Hero Test هستند، نه اجرای محصول هدف.
+
+candidate بعدی فقط برای Test با نسخهٔ `v1.1.4-rc.12`، run `35309418424`، commit `d1b4d0600c4a2d360ec4e94266b63efb439cc380` و digest `ghcr.io/farhaddgm/hero@sha256:a9caf69e2240ec0a211325b1269e8213924eba673b67d039857a3cb17606d39e` با workflow موفق ساخته و در GHCR منتشر شده است. Promotion روی host Test هنوز انجام نشده، چون اجرای `sudo` در محیط فعلی رمز عبور می‌خواهد؛ بنابراین rc.11 همچنان نسخهٔ فعال است.
 
 ## آنچه هنوز انجام نشده است
 
