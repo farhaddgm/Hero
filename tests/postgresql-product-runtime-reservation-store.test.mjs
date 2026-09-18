@@ -29,6 +29,9 @@ const baseRow = Object.freeze({
   pids_limit: 256,
   state: "active",
   reserved_at: "2026-09-18T00:00:00.000Z",
+  lease_ttl_seconds: 1800,
+  last_heartbeat_at: "2026-09-18T00:00:00.000Z",
+  expires_at: "2026-09-18T00:30:00.000Z",
   released_at: null,
   release_reason: null
 });
@@ -48,7 +51,11 @@ function fakeClient({ existing = [], conflicts = [], active = [], capacityRows =
       if (text.includes("target_id = $1 AND state = 'active' AND (ports &&")) return { rows: conflicts };
       if (text.includes("COALESCE(SUM(cpu_cores)")) return { rows: [totals ?? { cpu_cores: 0, memory_mib: 0, pids_limit: 0, concurrent_runs: 0, unknown_count: 0 }] };
       if (text.startsWith("INSERT INTO product_runtime_reservations")) return { rows: [baseRow] };
-      if (text.startsWith("UPDATE product_runtime_reservations SET reservation_id")) return { rows: [{ ...baseRow, reservation_id: values[0], target_id: values[1], capacity_snapshot_id: values[2], plan_fingerprint: values[3], ports: values[4], resource_names: values[5], cpu_cores: values[6], memory_mib: values[7], pids_limit: values[8], reserved_at: values[9] }] };
+      if (text.startsWith("UPDATE product_runtime_reservations SET reservation_id")) return { rows: [{ ...baseRow, reservation_id: values[0], target_id: values[1], capacity_snapshot_id: values[2], plan_fingerprint: values[3], ports: values[4], resource_names: values[5], cpu_cores: values[6], memory_mib: values[7], pids_limit: values[8], reserved_at: values[9], lease_ttl_seconds: values[10], last_heartbeat_at: values[11], expires_at: values[12] }] };
+      if (text.includes("WHERE project_id = $1 AND run_id = $2 AND reservation_id = $3 FOR UPDATE")) return { rows: existing.length ? existing : [baseRow] };
+      if (text.startsWith("UPDATE product_runtime_reservations SET last_heartbeat_at")) return { rows: [{ ...baseRow, last_heartbeat_at: values[3], expires_at: values[4] }] };
+      if (text.startsWith("UPDATE product_runtime_reservations SET state = 'expired'")) return { rows: [] , rowCount: 1 };
+      if (text.startsWith("INSERT INTO product_runtime_reconciliation_runs")) return { rows: [] };
       if (text.startsWith("UPDATE product_runtime_reservations SET state")) return { rows: [{ ...baseRow, state: "released", released_at: values[3], release_reason: values[4] }] };
       if (text.includes("WHERE project_id = $1 AND run_id = $2 LIMIT 1")) return { rows: existing };
       if (text.includes("WHERE state = 'active' ORDER BY")) return { rows: active };
@@ -154,4 +161,21 @@ test("release is transactional, redacts unsafe reasons, and lists active rows", 
   assert.equal(released.reservation.state, "released");
   assert.deepEqual((await store.listActive()).map(row => row.reservationId), ["reservation-001"]);
   assert.ok(client.queries.some(query => query.text === "COMMIT"));
+});
+
+test("persistent store reports expired leases and requires explicit reconciliation", async () => {
+  const expiredRow = { ...baseRow, expires_at: "2026-09-17T23:00:00.000Z" };
+  const { store } = storeFor({ active: [expiredRow] });
+  const report = await store.reconcile();
+  assert.equal(report.status, "report-only");
+  assert.equal(report.expiredCount, 1);
+  assert.equal((await store.reconcile({ mode: "expire" })).code, "PRODUCT_RUNTIME_RECONCILIATION_CONFIRMATION_REQUIRED");
+});
+
+test("persistent store renews a live lease without exposing command data", async () => {
+  const { store } = storeFor({ existing: [baseRow] });
+  const renewed = await store.heartbeat({ projectId: "project-safe", runId: "run-product-001", reservationId: "reservation-001" });
+  assert.equal(renewed.status, "renewed");
+  assert.equal(renewed.reservation.lastHeartbeatAt, "2026-09-18T00:00:00.000Z");
+  assert.equal(Object.hasOwn(renewed, "stdout"), false);
 });

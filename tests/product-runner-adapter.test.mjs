@@ -8,6 +8,7 @@ import {
   getProductRunnerContractSummary,
   validateProductRunnerContract
 } from "../packages/contracts/src/product-runner.mjs";
+import { createProductArtifactManifest } from "../packages/contracts/src/product-artifact.mjs";
 import { createProductRuntimePlan } from "../packages/domain/src/product-factory.mjs";
 import { createDockerProductExecutor, createDockerProductRunner } from "../packages/adapters/src/product-runner.mjs";
 import { createProductRuntimeReservationRegistry } from "../packages/adapters/src/product-runtime-reservations.mjs";
@@ -207,6 +208,17 @@ test("start requires an immutable image digest and uses no volume destruction", 
     assert.equal(calls.at(-1).argv.includes("up"), true);
     assert.equal(calls.at(-1).argv.includes("-v"), false);
     assert.equal(calls.at(-1).argv.includes("--remove-orphans"), true);
+  } finally { cleanup(data); }
+});
+
+test("Product Runner rejects an artifact manifest that does not match the immutable image", async () => {
+  const data = fixture({ executor: async () => ({ exitCode: 0, stdout: "safe", stderr: "" }) });
+  try {
+    const digest = "sha256:" + "a".repeat(64);
+    const artifactManifest = createProductArtifactManifest({ projectId, releaseVersion: "1.0.0-test.1", sourceCommit: "a".repeat(40), artifact: "ghcr.io/example/product@sha256:" + "b".repeat(64), sbomDigest: digest, attestationDigest: digest, testEvidenceDigest: digest, createdAt: "2026-09-18T00:00:00.000Z" });
+    const result = await data.runner.execute({ ...data.base, action: "start", runtimeSpec: { ...data.base.runtimeSpec, artifactManifest }, dispatchDecision: data.dispatch("test"), runtimeAuthorization: data.runtimeAuthorization("product-test-start") });
+    assert.equal(result.status, "blocked");
+    assert.equal(result.code, "PRODUCT_RUNNER_ADMISSION_REJECTED");
   } finally { cleanup(data); }
 });
 

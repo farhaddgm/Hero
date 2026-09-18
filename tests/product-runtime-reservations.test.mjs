@@ -59,3 +59,28 @@ test("snapshot contains only safe reservation metadata", () => {
   assert.equal(Object.hasOwn(snapshot.reservations[0], "secret"), false);
   assert.equal(Object.hasOwn(snapshot.reservations[0], "credential"), false);
 });
+
+test("reservation leases heartbeat and report expiry without implicit mutation", () => {
+  let clock = "2026-09-18T00:00:00.000Z";
+  const registry = createProductRuntimeReservationRegistry({ now: () => clock });
+  const first = registry.reserve({ projectId: "project-safe", runId: "run-product-001", plan: plan(), leaseTtlSeconds: 300 });
+  assert.equal(first.reservation.expiresAt, "2026-09-18T00:05:00.000Z");
+  clock = "2026-09-18T00:06:00.000Z";
+  const report = registry.reconcile();
+  assert.equal(report.status, "report-only");
+  assert.equal(report.expiredCount, 1);
+  assert.equal(registry.inspect({ projectId: "project-safe", runId: "run-product-001" }).state, "active");
+  assert.equal(registry.heartbeat({ projectId: "project-safe", runId: "run-product-001", reservationId: first.reservation.reservationId }).code, "PRODUCT_RUNTIME_RESERVATION_EXPIRED");
+  assert.equal(registry.reconcile({ apply: true }).expiredCount, 1);
+  assert.equal(registry.inspect({ projectId: "project-safe", runId: "run-product-001" }), null);
+});
+
+test("live reservation heartbeat renews the lease", () => {
+  let clock = "2026-09-18T00:00:00.000Z";
+  const registry = createProductRuntimeReservationRegistry({ now: () => clock });
+  const first = registry.reserve({ projectId: "project-safe", runId: "run-product-001", plan: plan(), leaseTtlSeconds: 300 });
+  clock = "2026-09-18T00:02:00.000Z";
+  const renewed = registry.heartbeat({ projectId: "project-safe", runId: "run-product-001", reservationId: first.reservation.reservationId });
+  assert.equal(renewed.status, "renewed");
+  assert.equal(renewed.reservation.expiresAt, "2026-09-18T00:07:00.000Z");
+});

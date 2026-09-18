@@ -1,4 +1,10 @@
 import { evaluateProductRuntimeAdmission } from "../../domain/src/product-factory.mjs";
+import {
+  createProductRuntimeLease,
+  evaluateProductRuntimeLease,
+  heartbeatProductRuntimeLease,
+  PRODUCT_RUNTIME_LEASE_DEFAULT_TTL_SECONDS
+} from "../../contracts/src/product-runtime-lease.mjs";
 
 const SAFE_PROJECT = /^[a-z][a-z0-9-]{2,62}$/;
 const SAFE_RUN = /^[a-z][a-z0-9-]{2,127}$/;
@@ -46,7 +52,7 @@ export function createProductRuntimeReservationRegistry({ now = () => new Date()
     };
   }
 
-  function reserve({ projectId, runId, plan, ports = plan?.isolation?.ports, resourceNames = resourceNamesFor(plan) } = {}) {
+  function reserve({ projectId, runId, plan, ports = plan?.isolation?.ports, resourceNames = resourceNamesFor(plan), leaseTtlSeconds = PRODUCT_RUNTIME_LEASE_DEFAULT_TTL_SECONDS } = {}) {
     const safeProjectId = assertId("projectId", projectId, SAFE_PROJECT);
     const safeRunId = assertId("runId", runId, SAFE_RUN);
     const key = reservationKey(safeProjectId, safeRunId);
@@ -55,6 +61,8 @@ export function createProductRuntimeReservationRegistry({ now = () => new Date()
     if (plan?.state !== "approved" || plan?.execution?.mode !== "isolated-test") return immutableCopy({ status: "blocked", code: "PRODUCT_RUNTIME_RESOURCE_CONFLICT", admission: { decision: "reject", errors: ["Product Test reservations require an approved isolated-test plan."], sideEffects: "none" } });
     const existing = reservations.get(key);
     if (existing) {
+      const leaseState = evaluateProductRuntimeLease({ lease: existing, now: now() });
+      if (leaseState.decision === "expire") return immutableCopy({ status: "blocked", code: "PRODUCT_RUNTIME_RESERVATION_EXPIRED", reservation: null });
       const same = JSON.stringify(existing.ports) === JSON.stringify(requestedPorts) && JSON.stringify(existing.resourceNames) === JSON.stringify(requestedNames);
       return immutableCopy({ status: same ? "replayed" : "blocked", code: same ? "PRODUCT_RUNTIME_RESERVATION_REPLAY" : "PRODUCT_RUNTIME_RESOURCE_CONFLICT", reservation: same ? existing : null });
     }
@@ -76,6 +84,8 @@ export function createProductRuntimeReservationRegistry({ now = () => new Date()
       }
     });
     if (admission.decision !== "admit") return immutableCopy({ status: "blocked", code: "PRODUCT_RUNTIME_RESOURCE_CONFLICT", admission });
+    const reservedAt = now();
+    const lease = createProductRuntimeLease({ reservationId: `product-reservation-${safeProjectId}-${safeRunId}`, reservedAt, leaseTtlSeconds });
     const reservation = immutableCopy({
       reservationId: `product-reservation-${safeProjectId}-${safeRunId}`,
       key,
@@ -84,7 +94,8 @@ export function createProductRuntimeReservationRegistry({ now = () => new Date()
       state: "active",
       ports: requestedPorts,
       resourceNames: requestedNames,
-      reservedAt: now()
+      reservedAt,
+      ...lease
     });
     reservations.set(key, reservation);
     return immutableCopy({ status: "reserved", code: "PRODUCT_RUNTIME_RESERVED", reservation });
@@ -103,9 +114,28 @@ export function createProductRuntimeReservationRegistry({ now = () => new Date()
     return immutableCopy({ status: "released", code: "PRODUCT_RUNTIME_RELEASED", reservation: current });
   }
 
+  function heartbeat({ projectId, runId, reservationId } = {}) {
+    const current = inspect({ projectId, runId });
+    if (!current || current.reservationId !== reservationId) return immutableCopy({ status: "not-found", code: "PRODUCT_RUNTIME_RESERVATION_NOT_FOUND" });
+    const renewed = heartbeatProductRuntimeLease({ lease: current, now: now() });
+    if (renewed.status !== "renewed") return immutableCopy({ status: "blocked", code: "PRODUCT_RUNTIME_RESERVATION_EXPIRED", reservation: current });
+    reservations.set(current.key, immutableCopy({ ...current, ...renewed.lease }));
+    return immutableCopy({ status: "renewed", code: "PRODUCT_RUNTIME_LEASE_HEARTBEAT", reservation: reservations.get(current.key) });
+  }
+
+  function reconcile({ apply = false } = {}) {
+    const proposals = [...reservations.values()].flatMap(item => {
+      const decision = evaluateProductRuntimeLease({ lease: item, now: now() });
+      return decision.decision === "expire" ? [{ reservationId: item.reservationId, projectId: item.projectId, runId: item.runId, reason: "lease-expired" }] : decision.decision === "reject" ? [{ reservationId: item.reservationId, projectId: item.projectId, runId: item.runId, reason: "lease-metadata-missing" }] : [];
+    });
+    if (!apply) return immutableCopy({ status: "report-only", code: "PRODUCT_RUNTIME_RECONCILIATION_REPORT", sideEffects: "none", expiredCount: proposals.filter(item => item.reason === "lease-expired").length, unknownCount: proposals.filter(item => item.reason === "lease-metadata-missing").length, proposals });
+    for (const item of proposals.filter(candidate => candidate.reason === "lease-expired")) reservations.delete(reservationKey(item.projectId, item.runId));
+    return immutableCopy({ status: "applied", code: "PRODUCT_RUNTIME_RECONCILIATION_APPLIED", sideEffects: "bounded-product-metadata", expiredCount: proposals.filter(item => item.reason === "lease-expired").length, unknownCount: proposals.filter(item => item.reason === "lease-metadata-missing").length, proposals });
+  }
+
   function snapshot() {
     return immutableCopy({ reservations: [...reservations.values()] });
   }
 
-  return Object.freeze({ reserve, inspect, release, snapshot });
+  return Object.freeze({ reserve, inspect, release, heartbeat, reconcile, snapshot });
 }

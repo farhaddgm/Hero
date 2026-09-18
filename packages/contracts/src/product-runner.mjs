@@ -28,6 +28,7 @@ export const PRODUCT_RUNNER_DECISION_CODES = Object.freeze([
   "PRODUCT_RUNNER_EXECUTOR_FAILED",
   "PRODUCT_RUNNER_RESOURCE_CONFLICT",
   "PRODUCT_RUNNER_RESOURCE_RESERVATION_REQUIRED",
+  "PRODUCT_RUNNER_RESOURCE_RESERVATION_EXPIRED",
   "PRODUCT_RUNNER_OUTPUT_REDACTED"
 ]);
 
@@ -46,7 +47,7 @@ export function getProductRunnerContractSummary() {
     authorizationOperations: PRODUCT_RUNNER_AUTH_OPERATIONS,
     decisionCodes: PRODUCT_RUNNER_DECISION_CODES,
     defaults: PRODUCT_RUNNER_DEFAULTS,
-    boundary: "Product Runner uses a separate workspace, capacity-aware persistent reservations when PostgreSQL is attached (with a process-local fallback), argv-only Docker commands and a separate version-bound Product Test authorization.",
+    boundary: "Product Runner uses a separate workspace, capacity-aware persistent reservations with lease heartbeat/reconciliation when PostgreSQL is attached (with a process-local fallback), argv-only Docker commands and a separate version-bound Product Test authorization.",
     output: "stdout/stderr are never returned; only exit code, duration and byte counts are retained."
   });
 }

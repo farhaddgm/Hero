@@ -10,6 +10,7 @@ import {
   PRODUCT_RUNNER_DEFAULTS,
   getProductRunnerContractSummary
 } from "../../contracts/src/product-runner.mjs";
+import { validateProductArtifactManifest } from "../../contracts/src/product-artifact.mjs";
 import { evaluateProductRuntimeAdmission } from "../../domain/src/product-factory.mjs";
 
 const execFile = promisify(execFileCallback);
@@ -245,6 +246,10 @@ export function createDockerProductRunner({ workspaceRoot, executor = null, rese
     const serviceName = assertText("serviceName", input.runtimeSpec?.serviceName, 64);
     if (!SAFE_SERVICE.test(serviceName)) throw new Error("serviceName is invalid.");
     if (input.action === "start" && (!DIGEST_ARTIFACT.test(input.runtimeSpec?.artifact ?? ""))) throw new Error("start requires an immutable image digest.");
+    if (input.runtimeSpec?.artifactManifest !== undefined) {
+      const artifactErrors = validateProductArtifactManifest(input.runtimeSpec.artifactManifest);
+      if (artifactErrors.length || input.runtimeSpec.artifactManifest.artifact !== input.runtimeSpec.artifact) throw new Error("artifact manifest does not match the requested immutable artifact.");
+    }
     if (input.action === "start") assertImmutableComposeStart(composePath, input.runtimeSpec.artifact, plan);
     if (admission.decision !== "admit") return { projectId, runId, plan, workspaceKey, workspacePath, composePath, serviceName, admission };
     return { projectId, runId, plan, workspaceKey, workspacePath, composePath, serviceName, admission };
@@ -306,7 +311,8 @@ export function createDockerProductRunner({ workspaceRoot, executor = null, rese
           cpuLimit: normalized.plan.resources.cpuLimit,
           memoryMiB: normalized.plan.resources.memoryMiB,
           pidsLimit: normalized.plan.resources.pidsLimit
-        }
+        },
+        leaseTtlSeconds: input.runtimeSpec?.leaseTtlSeconds ?? Math.min(86_400, normalized.plan.execution.timeoutSeconds + 60)
       });
       if (!["reserved", "replayed"].includes(reservationResult.status)) return blocked("PRODUCT_RUNNER_RESOURCE_CONFLICT", input, { reservation: reservationResult });
       reservation = reservationResult.reservation;
@@ -321,6 +327,11 @@ export function createDockerProductRunner({ workspaceRoot, executor = null, rese
       const startedAt = now();
       const results = [];
       for (const argv of commands) {
+        if (reservationRegistry && reservation && typeof reservationRegistry.heartbeat === "function") {
+          const heartbeat = await reservationRegistry.heartbeat({ projectId: normalized.projectId, runId: normalized.runId, reservationId: reservation.reservationId });
+          if (heartbeat.status !== "renewed") return blocked("PRODUCT_RUNNER_RESOURCE_RESERVATION_EXPIRED", input, { reservation: heartbeat });
+          reservation = heartbeat.reservation;
+        }
         try {
           const raw = await executor({ argv: Object.freeze([...argv]), cwd: normalized.workspacePath, timeoutMs: normalized.plan.execution.timeoutSeconds * 1_000 });
           const result = executionSummary(raw, startedAt);

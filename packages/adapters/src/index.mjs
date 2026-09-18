@@ -126,3 +126,7 @@ export {
 export {
   createPostgresProductRuntimeReservationStore
 } from "./postgresql-product-runtime-reservation-store.mjs";
+
+export {
+  createDockerProductRuntimeCapacityProbe
+} from "./product-runtime-capacity.mjs";

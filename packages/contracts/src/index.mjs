@@ -495,6 +495,30 @@ export {
   validateProductRuntimeCapacityContract
 } from "./product-runtime-capacity.mjs";
 
+export {
+  PRODUCT_RUNTIME_LEASE_CONTRACT_VERSION,
+  PRODUCT_RUNTIME_LEASE_DEFAULT_TTL_SECONDS,
+  PRODUCT_RUNTIME_LEASE_MIN_TTL_SECONDS,
+  PRODUCT_RUNTIME_LEASE_MAX_TTL_SECONDS,
+  createProductRuntimeLease,
+  normalizeProductRuntimeLease,
+  evaluateProductRuntimeLease,
+  heartbeatProductRuntimeLease,
+  getProductRuntimeLeaseSummary,
+  validateProductRuntimeLeaseContract
+} from "./product-runtime-lease.mjs";
+
+export {
+  PRODUCT_ARTIFACT_SCHEMA,
+  PRODUCT_ARTIFACT_CONTRACT_VERSION,
+  PRODUCT_ARTIFACT_DIGEST_PATTERN,
+  PRODUCT_ARTIFACT_HASH_PATTERN,
+  createProductArtifactManifest,
+  getProductArtifactContractSummary,
+  validateProductArtifactManifest,
+  validateProductArtifactContract
+} from "./product-artifact.mjs";
+
 export { BACKOFFICE_COLLABORATION_CONTRACT_VERSION, CONVERSATION_CONTEXTS, MEMORY_LEVELS, MEMORY_SENSITIVITIES, getBackofficeCollaborationContractSummary, validateBackofficeCollaborationContract } from "./backoffice-collaboration.mjs";
 export { BACKOFFICE_COMMAND_CENTER_CONTRACT_VERSION, COMMAND_RISKS, COMMAND_STATES, getBackofficeCommandCenterContractSummary, validateBackofficeCommandCenterContract } from "./backoffice-command-center.mjs";
 export { SYSTEM_CATALOG_CONTRACT_VERSION, SYSTEM_ENTITY_TYPES, SYSTEM_ENTITY_LIFECYCLES, getSystemCatalogContractSummary, validateSystemCatalogContract } from "./system-catalog.mjs";
