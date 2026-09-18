@@ -11,6 +11,8 @@ test("Test promotion is manifest-bound, metadata-only backed up and auto-rollbac
   assert.doesNotMatch(source, /\bnode\b/);
   assert.match(source, /metadata-only/i);
   assert.match(source, /auto-rolled-back/);
+  assert.match(source, /assert_unique_env_keys/);
+  assert.match(source, /duplicate key names/);
   assert.match(source, /build-info/);
   assert.match(source, /--no-deps --no-build --force-recreate control-plane/);
   assert.doesNotMatch(source, /cp --|tar .*env|production-deploy/);

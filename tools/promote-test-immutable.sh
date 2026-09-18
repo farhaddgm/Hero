@@ -45,6 +45,19 @@ assert_regular_file() {
   local target="$1"
   [[ -f "$target" && ! -L "$target" ]] || fail "Expected a regular non-symlink file: $target"
 }
+assert_unique_env_keys() {
+  local duplicate_keys
+  duplicate_keys="$(awk '
+    /^[[:space:]]*#/ || /^[[:space:]]*$/ { next }
+    {
+      line=$0
+      sub(/^[[:space:]]*export[[:space:]]+/, "", line)
+      sub(/[[:space:]]*=.*/, "", line)
+      if (line ~ /^[A-Za-z_][A-Za-z0-9_]*$/ && ++seen[line] == 2) print line
+    }
+  ' "$ENV_FILE" | sort -u)"
+  [[ -z "$duplicate_keys" ]] || fail "Environment file contains duplicate key names; first duplicate: ${duplicate_keys%%$'\n'*}"
+}
 assert_new_or_regular() {
   local target="$1"
   assert_parent "$target"
@@ -71,6 +84,7 @@ fi
 validate_digest "$IMAGE_REF"
 assert_regular_file "$ENV_FILE"
 [[ "$ENV_FILE" != *production* ]] || fail "Refusing a production-named environment file."
+assert_unique_env_keys
 assert_new_or_regular "$STATE_FILE"
 command -v docker >/dev/null 2>&1 || fail "Docker is required on the Hero server."
 docker info >/dev/null 2>&1 || fail "Docker access is required; use a Docker-enabled account."
