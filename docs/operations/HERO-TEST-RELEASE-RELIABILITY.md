@@ -11,19 +11,19 @@
 
 این runbook مسیر انتشار را از یک «فرمان دستی با چند مقدار مبهم» به یک زنجیرهٔ قابل‌ردیابی تبدیل می‌کند: نسخه و commit از ابتدا مشخص‌اند، image فقط با digest غیرقابل‌تغییر جابه‌جا می‌شود، manifest مرجع واحد است، backup هیچ Secretی ندارد و در شکست پس از تغییر، rollback خودکار انجام می‌شود.
 
-## Snapshot جاری source و Test — ۲۰۲۶-۰۹-۱۸
+## Snapshot جاری source و Test — ۲۰۲۶-۰۹-۱۹
 
-- source مرجع branch `codex/test-release-reliability-20260916`، commit `790bfe8097236e285fcf9cb8f6699dc62f5e07b4` است.
-- Runtime Test روی Release Candidate `v1.1.4-rc.8` و artifact immutable `ghcr.io/farhaddgm/hero@sha256:e87e6063975fdea86d81682f19668a6458209afc3aeaff77cfeb896478d1d8ee` اجرا می‌شود؛ container running/healthy و restart count صفر است.
+- source مرجع branch `codex/test-release-reliability-20260916`، commit `286ec555ff2ff385162efe8443552ec3902f7f0e` است.
+- Runtime Test طبق آخرین promotion ثبت‌شده روی `v1.1.5-rc.5` و artifact immutable `ghcr.io/farhaddgm/hero@sha256:0860c09fbd815ef381690ff354e68dee185786279ed34499cf7a5a3bdf1e2bf3` اجرا می‌شود؛ candidateهای بعدی تا promotion جداگانه وارد runtime نمی‌شوند.
 - GitHub Actions run `35287418094` موفق بود؛ promotion مالک، rollback point metadata-only، `/health` و `/ready` هر دو ۲۰۰ و persistence PostgreSQL تأیید شدند.
 - rc.6 رخداد crash-loop ناشی از hydration داشت؛ rc.8 با read model اصلاح‌شده و persistence atomic جایگزین و smoke شد.
-- `pnpm check` candidate برابر ۴۰۴ pass و ۰ fail و build برابر ۲۶۵ module و ۴۹ JSON بود. این runbook دربارهٔ انتشار Hero است؛ scenario زندهٔ Provider evidence جداگانه می‌خواهد.
+- Candidate `v1.1.5-rc.8` در CI برابر ۴۷۴ pass، ۰ fail و ۰ skipped بود؛ build برابر ۲۹۸ module و ۵۰ JSON و Documentation check برابر ۱۴۸ سند، ۲ محصول و ۰ خطا بود. این runbook دربارهٔ انتشار Hero است؛ scenario زندهٔ Provider evidence جداگانه می‌خواهد.
 
 ## رخداد و اصلاح ۲۰۲۶-۰۹-۱۸
 
 - علت crash-loop: `listProjects()` فیلد `productRequest.projectId` را در read model برنمی‌گرداند و hydration fail-closed با `Product request metadata is invalid` متوقف می‌شد.
 - اصلاح‌های هم‌زمان: read model اکنون scope درخواست را کامل برمی‌گرداند؛ ثبت اولیهٔ Product Request، Project و Foundation در یک تراکنش انجام می‌شود؛ replay رکورد قدیمی نیمه‌ثبت‌شده Foundation گمشده را بدون درج دوباره repair می‌کند.
-- candidate rc.8 همهٔ checkهای منبع، build و workflow انتشار را گذرانده و روی Test smoke شده است. این runbook دربارهٔ انتشار Hero است؛ سناریوی زندهٔ Provider evidence جداگانه می‌خواهد.
+- candidate `v1.1.5-rc.8` همهٔ checkهای منبع، build و workflow انتشار را گذرانده اما هنوز روی Test promote نشده است. این runbook دربارهٔ انتشار Hero است؛ سناریوی زندهٔ Provider evidence جداگانه می‌خواهد.
 
 ## اجرای پیشین — ۲۰۲۶-۰۹-۱۷
 

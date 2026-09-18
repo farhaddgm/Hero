@@ -6,7 +6,7 @@
 > Type: roadmap
 > Scope: hero
 > Status: active
-> Version: 3.3.0
+> Version: 3.4.0
 > Owner: hero-product
 > Review cadence: per-change
 > Supersedes: `HERO-ROADMAP-NEXT-100-STEPS-20260904`, `HERO-ROADMAP-NEXT-20-STEPS-20260904`, `HERO-ROADMAP-NEXT-20-STEPS-20260911-WORKSPACE-PERSISTENCE`, `HERO-ROADMAP-NEXT-100-STEPS-20260911-PROJECT-CONTROL`
@@ -18,16 +18,20 @@
 
 هیچ عبارت این سند مجوز deploy، ایجاد سرور، ساخت Secret، خرج‌کرد بیرونی، فراخوانی Provider زنده، ارسال پیام بیرونی، Pilot یا Production نیست. برای هر Dispatch، Step ID، نسخهٔ سند، محیط، authorization snapshot و خاموش‌بودن Global Stop جداگانه کنترل می‌شود.
 
+### وضعیت جاری source و انتشار Test — ۲۰۲۶-۰۹-۱۹
+
+آخرین source معتبر این roadmap روی branch `codex/test-release-reliability-20260916` در commit `286ec55` است. Candidate `v1.1.5-rc.8` با run `35401564319` و digest `sha256:478638db0e8756c7e4ded23d2d3ac7599d4e416d6ce812ddc4f33c774f9468ce` همهٔ گیت‌های CI را گذرانده، اما هنوز روی Runtime Test promote نشده است. آخرین runtime تأییدشدهٔ Test همان نسخهٔ قبلی است؛ این تفکیک عمداً حفظ شده تا شواهد source با وضعیت واقعی runtime اشتباه نشود. هیچ Production، Pilot، Secret یا Provider زنده در این batch تغییر نکرده است.
+
 ## ۲. وضعیت مبنای تأییدشده
 
 | موضوع | واقعیت تأییدشده | مرز صریح |
 |---|---|---|
-| source Hero | branch `codex/test-release-reliability-20260916`، commit `be9ee96`؛ شامل قرارداد/admission، adapter رسمی گیت‌دار، stop/cleanup idempotent، capacity/lease lifecycle، probe ظرفیت، artifact contract، harness رسمی PF-3 و انتخاب project-scoped Target Test است | کاندیدای `v1.1.5-rc.1` از commit پیشین `fb6b8a3` با digest `sha256:a4d6a59893cb3a65816221ecc17a4dfb4c66c44f959e1fa824ee99fc37a70a21` فقط روی Hero Test promote/verify شده است؛ تغییر انتخاب Target هنوز نیازمند candidate جدید است. |
-| Test Hero | فعال: `v1.1.5-rc.1`، digest `ghcr.io/farhaddgm/hero@sha256:a4d6a59893cb3a65816221ecc17a4dfb4c66c44f959e1fa824ee99fc37a70a21` | فقط Hero Test است؛ `/health`، `/ready` و smoke موفق‌اند؛ rollback point metadata-only ثبت شده است. |
+| source Hero | branch `codex/test-release-reliability-20260916`، commit `286ec55`؛ شامل قرارداد/admission، adapter رسمی گیت‌دار، stop/cleanup idempotent، capacity/lease lifecycle، probe ظرفیت، artifact contract، harness رسمی PF-3 و انتخاب project-scoped Target Test است | Candidate `v1.1.5-rc.8` با digest `sha256:478638db0e8756c7e4ded23d2d3ac7599d4e416d6ce812ddc4f33c774f9468ce` در CI تأیید شده ولی هنوز promote نشده است. |
+| Test Hero | آخرین runtime ثبت‌شده: `v1.1.5-rc.5`، digest `ghcr.io/farhaddgm/hero@sha256:0860c09fbd815ef381690ff354e68dee185786279ed34499cf7a5a3bdf1e2bf3` | فقط Hero Test است؛ `/health`، `/ready` و smoke موفق‌اند؛ candidate جدید تا promotion جداگانه وارد runtime نمی‌شود. |
 | آخرین promotion Test | `v1.1.4-rc.15`، run `35314609142`، runtime commit `5c7291e069cddef935d269690fcd37e8891d0121` | manifest و digest immutable روی host Test promote و verify شدند؛ خطای موقت connection reset هنگام restart با health/readiness و smoke موفق نهایی شد. |
 | شواهد rollback | قبل از promotion، rc.14 با digest `sha256:6fba080967039dde9e884e5c8ca86e8343b6512577061bde55cfdd5dcb006228` pull شد | rollback point metadata-only در `/etc/hero/hero-test.env.release-state.before-bec56ba76d8b70e3a704bfc05d5d349abe1abe1a60bd35674f63bea4f94221b0.json` ثبت شد. |
 | رخداد اصلاح‌شده | rc.6 بعد از restart با `Product request metadata is invalid` crash-loop شد | علت و اصلاح در source ثبت شده؛ rc.8 همان مسیر را سالم کرده است. |
-| کیفیت source | اجرای معادل `pnpm check` در Linux container: ۴۴۷ pass، ۰ fail؛ build: ۲۸۰ module و ۴۹ JSON | به‌علت نبودن Node/pnpm روی host و نبودن Docker socket داخل check container، check در Docker مرجع با snapshot source اجرا شد؛ این نتیجه جای acceptance محصول هدف را نمی‌گیرد. |
+| کیفیت source | اجرای CI معادل `pnpm check`: ۴۷۴ pass، ۰ fail، ۰ skipped؛ build: ۲۹۸ module و ۵۰ JSON | به‌علت نبودن Node/pnpm روی host، نتیجهٔ CI مرجع است؛ این نتیجه جای acceptance محصول هدف را نمی‌گیرد. |
 | AI | مسیر provider-agnostic، policy، redaction و result ساخت‌یافته در source/Test حاضر است | evidence تازه‌ای از فراخوانی زندهٔ OpenAI در این baseline ثبت نشده است؛ provider و هزینه fail-closed هستند. |
 | Back Office | ممیزی مرجع: ۲۰/۱۷۰ گام verified، ۱۵۰ گام نیازمند evidence کامل؛ ۵/۸۱ requirement implemented، ۷۶ partial | UI یا قرارداد موجود به معنی کارخانهٔ خودکار محصول نیست. |
 | اجرای محصول | قراردادهای Web Factory، Provider Agent، Infrastructure Plan و Product Runner وجود دارند؛ safe sample با executor رسمی در Test اجرا شده است | اجرای خودکار محصول واقعی، target خارجی، Node Agent و deploy Product Production عملیاتی نشده‌اند. |
