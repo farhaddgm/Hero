@@ -24,9 +24,9 @@
 |---|---|
 | Authorization | `PRODUCT-TEST-20260918-001` |
 | Step/document | `PF3-PRODUCT-TEST-002` / `1.0.0` |
-| Run | `official-pf3-20260918e` |
-| Source commit | `5c7291e069cddef935d269690fcd37e8891d0121` |
-| Compose project | `hero-product-safe-sample-official-pf3-20260918e` |
+| Run | `official-pf3-20260918f` |
+| Source commit | `2b4ec6ae389f059cc7eee7cd3b39529fe7f4874e` |
+| Compose project | `hero-product-safe-sample-official-pf3-20260918f` |
 | Artifact | `hero-product-official-sample@sha256:873bb0e4f49fb8d875232e6478e2a6847c02e3a645b85342c1407b6c858dc884` |
 | Retained Test image tag | `hero-product-official-sample:official-pf3-20260918e` |
 | Environment | `test` |
@@ -55,13 +55,13 @@ Image با digest بالا در Docker host Test retained است و tagهای mu
 
 Evidence redacted نهایی در Test host در مسیر زیر نگهداری شد:
 
-`/tmp/hero-product-official-evidence-parent-official-pf3-20260918e/run/`
+`/tmp/hero-product-official-evidence-parent-official-pf3-20260918f/run/`
 
 این bundle شامل `hero-product-artifact-manifest.json`، SBOM، attestation، test evidence، quality/security evidence و state قبل/بعد Hero است. مقادیر ثبت‌شده:
 
 - SBOM: `sha256:15aef942bc7b427ebbc26bd815dce358d1f85a52a65d24b8e4af36b3c63c43c2`
-- in-toto/SLSA attestation: `sha256:4765ed2261263a3d63442847410002d9c1b6f34592e494674cc5bb7bb2c20d49`
-- redacted test evidence: `sha256:f8f8f59d1ba0cb68a0d8d9c1c3954af441a09a6c298b02c6deabb70021c1090e`
+- in-toto/SLSA attestation: `sha256:ba5fb9df9bad027867ed1aa214b56359b3753b8bc55c538f24684495021dce2b`
+- redacted test evidence: `sha256:5dec7580522dc5db405632bb3218ec63604c9ff201d969ca713b3e61654bf3de`
 - quality/security evidence: `sha256:95b86c852925497ed652d8e692dca5bf0ab6bf2d87a6a9bc8a8de6b791be3a0c`
 
 Quality/security gate واقعیِ نمونه این موارد را PASS کرد: artifact immutable، test bounded، health، network isolation، read-only، non-root، no-new-privileges، `cap_drop: ALL`، نبود host escape، نبود مقدار حساس و redaction خروجی. Browser E2E و dependency scan برای این safe sample که یک image حداقلی Alpine و بدون web surface/package manifest است `not-applicable-safe-sample` ثبت شده‌اند؛ این به معنی عبور اسکن یک محصول واقعی وب نیست.
