@@ -16,6 +16,7 @@ BUILD_IMAGE="hero-product-safe-sample:${RUN_ID}"
 TMP_DIR="$(mktemp -d -p /tmp "hero-product-test-${RUN_ID}.XXXXXX")"
 COMPOSE_FILE="$WORKSPACE/compose.yaml"
 ARTIFACT_MANIFEST="$TMP_DIR/hero-product-artifact-manifest.json"
+FINAL_EVIDENCE_DIR="/tmp/hero-product-test-evidence-${RUN_ID}"
 BEFORE_HERO="$TMP_DIR/hero-before.tsv"
 AFTER_HERO="$TMP_DIR/hero-after.tsv"
 STARTED=0
@@ -50,6 +51,7 @@ trap cleanup_on_exit EXIT
 
 [[ -f "$AUTH_FILE" && ! -L "$AUTH_FILE" ]] || fail "authorization snapshot is missing or symlinked"
 [[ -d "$WORKSPACE" && ! -L "$WORKSPACE" ]] || fail "sample workspace is missing or symlinked"
+[[ ! -e "$FINAL_EVIDENCE_DIR" ]] || fail "evidence output collision: ${FINAL_EVIDENCE_DIR}"
 command -v docker >/dev/null || fail "docker is unavailable"
 command -v jq >/dev/null || fail "jq is unavailable"
 docker image inspect alpine:3.20 >/dev/null 2>&1 || fail "required local base image alpine:3.20 is unavailable; refusing a network pull"
@@ -84,21 +86,19 @@ IMAGE_ID="$(docker image inspect "$BUILD_IMAGE" --format '{{.Id}}')"
 [[ "$IMAGE_ID" =~ ^sha256:[a-f0-9]{64}$ ]] || fail "built image id is not an immutable digest"
 IMAGE_DIGEST="${IMAGE_ID#sha256:}"
 IMMUTABLE_IMAGE="hero-product-safe-sample@sha256:${IMAGE_DIGEST}"
-SBOM_DIGEST="sha256:$(sha256sum "$WORKSPACE/Dockerfile" | awk '{print $1}')"
-ATTESTATION_DIGEST="sha256:$(sha256sum "$WORKSPACE/compose.yaml" | awk '{print $1}')"
-TEST_EVIDENCE_DIGEST="sha256:$(sha256sum "$WORKSPACE/test-evidence.txt" 2>/dev/null | awk '{print $1}')"
-if [[ "$TEST_EVIDENCE_DIGEST" == "sha256:" ]]; then
-  TEST_EVIDENCE_DIGEST="sha256:$(sha256sum "$WORKSPACE/Dockerfile" | awk '{print $1}')"
-fi
+SOURCE_COMMIT="$(git -C "$ROOT" rev-parse HEAD)"
+BASE_IMAGE_ID="$(docker image inspect alpine:3.20 --format '{{.Id}}')"
 jq -n \
-  --arg project "safe-sample" \
-  --arg version "1.0.0-test.1" \
-  --arg commit "$(git -C "$ROOT" rev-parse HEAD)" \
-  --arg artifact "$IMMUTABLE_IMAGE" \
-  --arg sbom "$SBOM_DIGEST" \
-  --arg attestation "$ATTESTATION_DIGEST" \
-  --arg evidence "$TEST_EVIDENCE_DIGEST" \
-  '{schema:"hero.product-artifact/v1",contractVersion:"1.0",projectId:$project,releaseVersion:$version,sourceCommit:$commit,artifact:$artifact,sbomDigest:$sbom,attestationDigest:$attestation,testEvidenceDigest:$evidence,portability:"oci-image-and-reproducible-bundle",environment:"test",createdAt:(now|todateiso8601)}' > "$ARTIFACT_MANIFEST"
+  --arg image "$IMMUTABLE_IMAGE" \
+  --arg base "$BASE_IMAGE_ID" \
+  '{spdxVersion:"SPDX-2.3",dataLicense:"CC0-1.0",SPDXID:"SPDXRef-DOCUMENT",name:"hero-safe-sample-1.0.0-test.1",documentNamespace:("hero://product-test/safe-sample/" + $image),creationInfo:{created:(now|todateiso8601),creators:["Tool: Hero Product Test"]},packages:[{SPDXID:"SPDXRef-Package-alpine-3.20",name:"alpine",versionInfo:"3.20",downloadLocation:"NOASSERTION",filesAnalyzed:false,externalRefs:[{referenceCategory:"PACKAGE-MANAGER",referenceType:"purl",referenceLocator:"pkg:docker/alpine@3.20"}]}],annotations:[{annotationDate:(now|todateiso8601),annotationType:"OTHER",annotator:"Tool: Hero Product Test",comment:("immutable-image=" + $image + "; base-image-id=" + $base)}]}' > "$TMP_DIR/sbom.spdx.json"
+SBOM_DIGEST="sha256:$(sha256sum "$TMP_DIR/sbom.spdx.json" | awk '{print $1}')"
+jq -n \
+  --arg image "$IMMUTABLE_IMAGE" \
+  --arg base "$BASE_IMAGE_ID" \
+  --arg commit "$SOURCE_COMMIT" \
+  '{_type:"https://in-toto.io/Statement/v1",subject:[{name:$image,digest:{sha256:($image|split("sha256:")[1])}}],predicateType:"https://slsa.dev/provenance/v1",predicate:{buildDefinition:{buildType:"hero.product-test.safe-sample",externalParameters:{sourceCommit:$commit,baseImageId:$base,network:"none"},resolvedDependencies:[{uri:"docker://alpine:3.20",digest:{imageId:$base}}]},runDetails:{builder:{id:"hero://product-test-runner"}}}}' > "$TMP_DIR/attestation.intoto.json"
+ATTESTATION_DIGEST="sha256:$(sha256sum "$TMP_DIR/attestation.intoto.json" | awk '{print $1}')"
 
 SAMPLE_IMAGE="$IMMUTABLE_IMAGE" docker compose -p "$PROJECT" -f "$COMPOSE_FILE" config --quiet
 SAMPLE_IMAGE="$IMMUTABLE_IMAGE" docker compose -p "$PROJECT" -f "$COMPOSE_FILE" run --rm --no-deps --pull never sample /opt/product/test >/dev/null
@@ -132,5 +132,33 @@ printf 'PRODUCT TEST: stop=PASS cleanup=PASS rollback=PASS\n'
 record_hero_state "$AFTER_HERO"
 diff -u "$BEFORE_HERO" "$AFTER_HERO" >/dev/null || fail "Hero container state changed during Product Test"
 printf 'PRODUCT TEST: no-impact=PASS hero-state-unchanged=true\n'
-printf 'PRODUCT TEST: evidence-manifest=%s\n' "$ARTIFACT_MANIFEST"
+
+mkdir -m 700 "$FINAL_EVIDENCE_DIR"
+jq -n \
+  --arg auth "$AUTH_ID" \
+  --arg step "$STEP_ID" \
+  --arg version "$DOCUMENT_VERSION" \
+  --arg run "$RUN_ID" \
+  --arg project "$PROJECT" \
+  --arg commit "$SOURCE_COMMIT" \
+  --arg artifact "$IMMUTABLE_IMAGE" \
+  --arg container "${CONTAINER_ID:0:12}" \
+  --arg health "$HEALTH" \
+  '{schema:"hero.product-test-evidence/v1",authorizationId:$auth,stepId:$step,documentVersion:$version,runId:$run,composeProject:$project,sourceCommit:$commit,artifact:$artifact,containerIdPrefix:$container,results:{build:"passed",test:"passed",start:"passed",health:"passed",stop:"passed",cleanup:"passed",rollback:"passed",heroNoImpact:"passed"},healthState:$health,network:"none",secrets:false,liveProvider:false,externalSpend:false,production:false,pilot:false}' > "$TMP_DIR/test-evidence.json"
+TEST_EVIDENCE_DIGEST="sha256:$(sha256sum "$TMP_DIR/test-evidence.json" | awk '{print $1}')"
+jq -n \
+  --arg project "safe-sample" \
+  --arg version "1.0.0-test.1" \
+  --arg commit "$SOURCE_COMMIT" \
+  --arg artifact "$IMMUTABLE_IMAGE" \
+  --arg sbom "$SBOM_DIGEST" \
+  --arg attestation "$ATTESTATION_DIGEST" \
+  --arg evidence "$TEST_EVIDENCE_DIGEST" \
+  '{schema:"hero.product-artifact/v1",contractVersion:"1.0",projectId:$project,releaseVersion:$version,sourceCommit:$commit,artifact:$artifact,sbomDigest:$sbom,attestationDigest:$attestation,testEvidenceDigest:$evidence,portability:"oci-image-and-reproducible-bundle",environment:"test",createdAt:(now|todateiso8601)}' > "$ARTIFACT_MANIFEST"
+cp "$ARTIFACT_MANIFEST" "$FINAL_EVIDENCE_DIR/hero-product-artifact-manifest.json"
+cp "$TMP_DIR/sbom.spdx.json" "$FINAL_EVIDENCE_DIR/sbom.spdx.json"
+cp "$TMP_DIR/attestation.intoto.json" "$FINAL_EVIDENCE_DIR/attestation.intoto.json"
+cp "$TMP_DIR/test-evidence.json" "$FINAL_EVIDENCE_DIR/test-evidence.json"
+chmod 0444 "$FINAL_EVIDENCE_DIR"/*.json
+printf 'PRODUCT TEST: evidence-manifest=%s\n' "$FINAL_EVIDENCE_DIR/hero-product-artifact-manifest.json"
 printf 'PRODUCT TEST: SUCCESS\n'
