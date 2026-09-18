@@ -54,6 +54,23 @@ test("assignment planner can propose a safe new profile from an already-ready Pr
   assert.equal(proposal.policy.createsProviderModelEntries, false);
 });
 
+test("assignment planner shows the best catalog target even when health still blocks registration", () => {
+  const proposal = createAiAssignmentProposal({
+    projectId: "hero",
+    roles: ["analyst"],
+    providers: [{ ...provider, connection: { state: "not-verified" } }],
+    models,
+    profiles: [],
+    bindings: []
+  });
+  const assignment = proposal.assignments[0];
+  assert.equal(assignment.status, "needs-admin-setup");
+  assert.equal(assignment.recommendedProfile.providerId, "openai");
+  assert.equal(assignment.recommendedProfile.modelId, "chatgpt");
+  assert.equal(assignment.recommendedProfile.profileProvisioning, "blocked-until-health");
+  assert.equal(proposal.counts.ready, 0);
+});
+
 test("HTTP proposal and one-confirmation apply are authenticated, version-aware and idempotent", async t => {
   const now = () => "2026-09-17T12:00:00.000Z";
   const ownerAuth = createOwnerAuth({ secret: "assignment-planner-owner-secret-1234567890", now });

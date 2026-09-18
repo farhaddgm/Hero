@@ -864,3 +864,10 @@
 - preflight: تعداد container و image برابر صفر بود؛ فقط شبکه‌های پیش‌فرض Docker و سرویس‌های پایهٔ SSH/DNS/containerd مشاهده شدند؛
 - مرز: هیچ محصول، image، Secret، Provider زنده، Port اختصاصی Hero، Production یا Pilot روی Target اجرا نشد؛
 - گیت بعدی: ثبت Target/Agent و heartbeat واقعی فقط پس از تعیین `projectId`، `targetId` و authorization نسخه‌دار مخصوص همان Target مجاز است؛ هیچ شناسه‌ای حدس زده نمی‌شود.
+# 2026-09-19 — تشخیص و راهنمای رفع Profile Advisor
+
+- اصلاح شد: اگر Model و Provider ثبت باشند اما Health هنوز مانع ثبت Profile باشد، Planner بهترین Provider/Model موجود در کاتالوگ را بدون ادعای آماده‌بودن نمایش می‌دهد و ثبت تخصیص همچنان fail-closed و غیرفعال می‌ماند.
+- اصلاح شد: readiness مشترک Advisor برای گیت‌های شکست‌خورده `nextAction` غیرمحرمانه و قابل‌فهم برمی‌گرداند؛ برای نبود Profile، اقدام پیشنهادی ساخت Profile فعال با Policy امن است و هیچ Secret یا credentialی نمایش داده نمی‌شود.
+- اصلاح شد: Smart Tester، پیشنهاد فرم و ماتریس تخصیص به‌جای پیام مبهم «Profile فعال ندارد»، مسیر «پیشنهاد اتصال همهٔ نقش‌ها» را معرفی می‌کنند؛ Health check همچنان فقط Health check است و ساخت خودکار پنهانی انجام نمی‌شود.
+- سخت‌سازی شد: خواندن وضعیت اتصال Provider در گزینه‌های Advisor در برابر دادهٔ ناقص null-safe شد.
+- تست‌های افزوده‌شده: readiness بدون Profile، Planner با Health تأییدنشده و assertion رابط کاربری برای مسیر پیشنهاد تخصیص؛ اجرای کامل نهایی باید در CI انجام شود.

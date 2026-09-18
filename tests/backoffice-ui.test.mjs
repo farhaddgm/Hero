@@ -84,6 +84,7 @@ test("AI Connections exposes safe provider setup, readiness checks and a project
   assert.match(html, /Smart Tester/);
   assert.match(html, /vault:hero\/test\/cursor\/default/);
   assert.match(html, /Workflow مخزن\/Agent جداگانه/);
+  assert.match(html, /پیشنهاد اتصال همهٔ نقش‌ها/);
 });
 
 test("global navigation never sends an unscoped project action to a 400 route", () => {

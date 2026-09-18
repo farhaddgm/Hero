@@ -92,6 +92,11 @@ function profileEligibility(profile, providers, models, role) {
 }
 
 function readyProviderModels(providers, models, role, policies) {
+  return catalogProviderModels(providers, models, role, policies)
+    .filter(item => READY_CONNECTIONS.has(item.provider.connection?.state));
+}
+
+function catalogProviderModels(providers, models, role, policies) {
   const providerList = providers instanceof Map ? [...providers.values()] : providers;
   const modelList = models instanceof Map ? [...models.values()] : models;
   return modelList
@@ -99,7 +104,6 @@ function readyProviderModels(providers, models, role, policies) {
     .filter(item => item.provider)
     .filter(item => !NON_ASSIGNABLE_PROVIDERS.has(item.provider.providerId))
     .filter(item => item.provider.mode !== "disabled")
-    .filter(item => READY_CONNECTIONS.has(item.provider.connection?.state))
     .sort((left, right) => compareProviderModels(left, right, role, policies));
 }
 
@@ -127,6 +131,7 @@ export function createAiAssignmentProposal({ projectId, roles = AI_ROLES, provid
       .sort((left, right) => compareProfiles(left, right, role, policies));
     const recommendation = candidates[0] ?? null;
     const providerModelRecommendation = readyProviderModels(providerMap, modelMap, role, policies)[0] ?? null;
+    const catalogRecommendation = catalogProviderModels(providerMap, modelMap, role, policies)[0] ?? null;
     if (existing && existingReason === null) {
       return Object.freeze({
         role,
@@ -172,7 +177,15 @@ export function createAiAssignmentProposal({ projectId, roles = AI_ROLES, provid
         reason: `برای این Role، Profile فعال با Policy، Output Schema و اتصال سالم پیدا نشد.${missingTarget}`,
         existingBindingId: existing?.bindingId ?? null,
         existingProfile: publicProfile(existingProfile, providerMap.get(existingProfile?.providerId), modelMap.get(`${existingProfile?.providerId}:${existingProfile?.modelId}`)),
-        recommendedProfile: null,
+        recommendedProfile: catalogRecommendation
+          ? publicProfile(null, catalogRecommendation.provider, catalogRecommendation.model, {
+            role,
+            outputSchema: AI_ROLE_OUTPUT_SCHEMAS[role],
+            toolPolicy: AI_ROLE_MUTATION_POLICIES[role],
+            status: "blocked-until-health",
+            profileProvisioning: "blocked-until-health"
+          })
+          : null,
         requiresProfileCreation: false
       });
     }

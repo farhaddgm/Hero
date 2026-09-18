@@ -1083,14 +1083,14 @@ export function createHeroServer(options = {}) {
           modelName: model?.displayName ?? profile.modelId,
           profileVersion: profile.profileVersion,
           outputSchema: profile.outputSchema,
-          connectionState: provider?.connection.state ?? "not-registered",
+          connectionState: provider?.connection?.state ?? "not-registered",
           selectable: readiness.selectable,
           ...(readiness.selectable ? {} : { readiness }),
           selectionNotice: readiness.selectable
             ? provider.mode === "deterministic"
               ? "پاسخ deterministic و بدون هزینهٔ Provider خارجی است."
               : "برای فراخوانی زنده آماده است؛ سقف مصرف و مجوز نسخه‌دار همچنان اعمال می‌شود."
-            : `${readiness.selectionNotice} (${readiness.code})`
+            : `${readiness.selectionNotice} (${readiness.code})${readiness.nextAction ? ` اقدام بعدی: ${readiness.nextAction}` : ""}`
         });
       });
     // Multiple advisor Profiles may still point at one Provider/Model (for
@@ -1126,7 +1126,8 @@ export function createHeroServer(options = {}) {
       models: Object.freeze(options.models.map(model => Object.freeze({
         ...model,
         selectable: options.profiles.some(profile => profile.providerId === model.providerId && profile.modelId === model.modelId && profile.selectable === true),
-        selectionNotice: options.profiles.find(profile => profile.providerId === model.providerId && profile.modelId === model.modelId)?.selectionNotice ?? "Profile سازگار و آماده‌ای برای این Model وجود ندارد."
+        selectionNotice: options.profiles.find(profile => profile.providerId === model.providerId && profile.modelId === model.modelId)?.selectionNotice ?? "Profile سازگار و آماده‌ای برای این Model وجود ندارد؛ از «پیشنهاد اتصال همهٔ نقش‌ها» برای ساخت امن آن استفاده کنید.",
+        setupAction: "ai-assignment-proposal"
       })))
     });
   }
@@ -1141,7 +1142,8 @@ export function createHeroServer(options = {}) {
       models: Object.freeze(options.models.map(model => Object.freeze({
         ...model,
         selectable: options.profiles.some(profile => profile.providerId === model.providerId && profile.modelId === model.modelId && profile.selectable === true),
-        selectionNotice: options.profiles.find(profile => profile.providerId === model.providerId && profile.modelId === model.modelId)?.selectionNotice ?? "Profile سازگار و آماده‌ای برای این Model وجود ندارد."
+        selectionNotice: options.profiles.find(profile => profile.providerId === model.providerId && profile.modelId === model.modelId)?.selectionNotice ?? "Profile سازگار و آماده‌ای برای این Model وجود ندارد؛ از «پیشنهاد اتصال همهٔ نقش‌ها» برای ساخت امن آن استفاده کنید.",
+        setupAction: "ai-assignment-proposal"
       }))),
       profiles: options.profiles,
       note: "پیشنهاد فرم به‌صورت محلی همیشه در دسترس است؛ Profile خارجی فقط وقتی قابل انتخاب است که Binding سالم، Scope پروژه و مجوز هزینهٔ form-suggestions هر سه فعال باشند."

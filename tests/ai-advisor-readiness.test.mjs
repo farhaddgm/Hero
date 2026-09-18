@@ -59,3 +59,21 @@ test("a local advisor remains selectable without external authorization", () => 
   });
   assert.equal(result.selectable, true);
 });
+
+test("missing advisor profile exposes a safe owner action without exposing credentials", () => {
+  const result = evaluateAiAdvisorReadiness({
+    purpose: "smart-tester",
+    projectId: "hero",
+    provider,
+    model,
+    profile: null,
+    binding: null,
+    health,
+    authorization
+  });
+  assert.equal(result.selectable, false);
+  assert.equal(result.code, "PROFILE_CONTRACT_MISMATCH");
+  assert.match(result.nextAction, /پیشنهاد اتصال/);
+  assert.match(result.blockingReasons[0].nextAction, /Profile/);
+  assert.doesNotMatch(JSON.stringify(result), /(?:credential|secret|api[_ -]?key|Bearer|sk-[A-Za-z0-9])/i);
+});
