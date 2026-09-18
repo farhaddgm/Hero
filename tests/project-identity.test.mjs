@@ -508,7 +508,7 @@ test("Project-bound live advisor profiles invoke through the bounded authorizati
   assert.equal(walkthroughAdvisor.evidence.bindingId, "live-advisor-binding");
   assert.equal(walkthroughAdvisor.evidence.usage.totalTokens, 20);
   assert.equal(walkthroughAdvisor.evidence.resultSchema, "analysis-v1");
-  assert.equal(dispatchedMaxCostUnits, 100, "the Test advisor must clamp a stale higher Profile ceiling to its versioned per-request limit");
+  assert.equal(dispatchedMaxCostUnits, 10_000, "the Test advisor must clamp a stale higher Profile ceiling to its versioned per-request limit");
   assert.doesNotMatch(JSON.stringify(walkthroughAdvisor.evidence), /(?:credential|secret|prompt|response)/i);
   assert.equal(lastProviderInput.context.repositoryContext.access.mode, "read-only");
   assert.equal(lastProviderInput.context.repositoryContext.access.codeMutation, false);

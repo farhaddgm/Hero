@@ -144,7 +144,12 @@ const OPENAI_TEST_ADVISOR = Object.freeze({
   catalogFetchedAt: "2026-09-16T00:00:00.000Z",
   catalogValidUntil: "2026-10-16T00:00:00.000Z",
   maxOutputTokens: 512,
-  maxCostUnits: 100
+  // The request includes a bounded, read-only repository context.  A 100-unit
+  // ceiling was lower than the adapter's conservative preflight estimate for
+  // that context, so valid requests were blocked before reaching the provider.
+  // Keep this as a per-request cap well below the separately authorized
+  // 50,000-unit Test ceiling while leaving room for the fixed context envelope.
+  maxCostUnits: 10_000
 });
 const OPENAI_TEST_PRICING_CATALOG = Object.freeze({
   catalogVersion: OPENAI_TEST_ADVISOR.catalogVersion,
