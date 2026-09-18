@@ -1,5 +1,11 @@
 # تغییرات رودمپ شرکت
 
+# ۲۰۲۶-۰۹-۱۸ — promotion موفق rc.12 روی Hero Test
+
+- `v1.1.4-rc.12` با run `35309418424`، commit runtime `d1b4d0600c4a2d360ec4e94266b63efb439cc380` و digest immutable `sha256:a9caf69e2240ec0a211325b1269e8213924eba673b67d039857a3cb17606d39e` فقط روی Hero Test promote و verify شد.
+- rc.11 پیش از تغییر pull و به‌عنوان rollback point metadata-only ثبت شد؛ پس از restart، `/health`، `/ready` و `Hero Test smoke check: PASS` ثبت شدند. خطای موقت connection reset در restart با شواهد نهایی سلامت دنبال شد.
+- این promotion فقط Hero Test است؛ Product Test، Production، Pilot، Secret Store/Secret، Provider زنده و external spend لمس نشدند.
+
 # ۲۰۲۶-۰۹-۱۸ — candidate rc.12 آمادهٔ promotion روی Test
 
 - workflow `35309418424` برای `v1.1.4-rc.12` با commit `d1b4d0600c4a2d360ec4e94266b63efb439cc380` موفق شد؛ artifact immutable برابر `ghcr.io/farhaddgm/hero@sha256:a9caf69e2240ec0a211325b1269e8213924eba673b67d039857a3cb17606d39e` است.

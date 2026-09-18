@@ -6,7 +6,7 @@
 > Type: evidence
 > Scope: hero
 > Status: active
-> Version: 1.8.0
+> Version: 1.9.0
 > Owner: hero-product
 > Review cadence: per-change
 > Supersedes: none
@@ -45,12 +45,12 @@
 
 ## انتشار و تأیید Test
 
-نسخهٔ فعال Hero Test اکنون `v1.1.4-rc.11` از run `35307457878` با commit `dd95723f6cbd5d4ec75aafb59e72941b185e2e2f` و digest `ghcr.io/farhaddgm/hero@sha256:7a42b5592e60ae5d8b61c10040ee20d56a22a276bae76e3258920e76ed51bba2` است. مالک روی host Test promotion را انجام داد؛ container شروع شد، `/health` و `/ready` موفق بودند و `Hero Test smoke check: PASS` ثبت شد. خطای موقت `curl: (56) Recv failure: Connection reset by peer` در زمان restart رخ داد و با بررسی‌های نهایی سلامت دنبال شد. rollback point metadata-only در `/etc/hero/hero-test.env.release-state.before-7a42b5592e60ae5d8b61c10040ee20d56a22a276bae76e3258920e76ed51bba2.json` ثبت شده است. این تأییدها مربوط به خود Hero Test هستند، نه اجرای محصول هدف.
+نسخهٔ فعال Hero Test اکنون `v1.1.4-rc.12` از run `35309418424` با commit runtime `d1b4d0600c4a2d360ec4e94266b63efb439cc380` و digest `ghcr.io/farhaddgm/hero@sha256:a9caf69e2240ec0a211325b1269e8213924eba673b67d039857a3cb17606d39e` است. مالک روی host Test promotion را انجام داد؛ container شروع شد، `/health` و `/ready` موفق بودند و `Hero Test smoke check: PASS` ثبت شد. خطای موقت `curl: (56) Recv failure: Connection reset by peer` در زمان restart رخ داد و با بررسی‌های نهایی سلامت دنبال شد. rollback point metadata-only برای rc.11 در `/etc/hero/hero-test.env.release-state.before-a9caf69e2240ec0a211325b1269e8213924eba673b67d039857a3cb17606d39e.json` ثبت شده است. این تأییدها مربوط به خود Hero Test هستند، نه اجرای محصول هدف.
 
-candidate بعدی فقط برای Test با نسخهٔ `v1.1.4-rc.12`، run `35309418424`، commit `d1b4d0600c4a2d360ec4e94266b63efb439cc380` و digest `ghcr.io/farhaddgm/hero@sha256:a9caf69e2240ec0a211325b1269e8213924eba673b67d039857a3cb17606d39e` با workflow موفق ساخته و در GHCR منتشر شده است. Promotion روی host Test هنوز انجام نشده، چون اجرای `sudo` در محیط فعلی رمز عبور می‌خواهد؛ بنابراین rc.11 همچنان نسخهٔ فعال است.
+rc.11 با digest `sha256:7a42b5592e60ae5d8b61c10040ee20d56a22a276bae76e3258920e76ed51bba2` به‌عنوان rollback قبلی pull و قابل‌بازگشت بودن آن تأیید شد. promotion rc.12 شامل migration `018` و store پایدار reservation است؛ با این حال این شواهد هنوز اجرای محصول هدف، Product Test یا اثبات عدم‌اختلال یک محصول جدا را نشان نمی‌دهد.
 
 ## آنچه هنوز انجام نشده است
 
-این زیرگام هیچ محصول هدفی را build یا start نکرده است. store پایدار رزرو منابع در runtime PostgreSQL و migration `018` اضافه شده، اما inventory ظرفیت host، TTL/reconciliation عملیاتی و اتصال آن به مسیر اجرای واقعی Product Runner هنوز گیت مستقل می‌خواهند؛ guard process-local فقط fallback همان process است. موارد زیر برای ادامهٔ PF-2 باقی هستند: configure کردن executor فقط در مسیر اجرای مجاز، ساخت workspace و Compose نمونه روی host Test، capacity inventory و reconciliation، build/test در sandbox، اجرای یک image نمونه در Product Test، health/readiness، rollback و آزمایش عدم‌اختلال Hero Test و یک سرویس کنترل‌شدهٔ دیگر. برای start واقعی باید authorization جداگانه با operationهای `product-test-*`، Step ID و نسخهٔ سند دقیق صادر شود؛ authorization انتشار Hero یا مجوز AI به‌تنهایی کافی نیست.
+این زیرگام هنوز هیچ محصول هدفی را build یا start نکرده است. store پایدار رزرو منابع در runtime PostgreSQL و migration `018` اضافه و در rc.12 روی Hero Test منتشر شده، اما inventory ظرفیت host، TTL/reconciliation عملیاتی و اتصال آن به مسیر اجرای واقعی Product Runner هنوز گیت مستقل می‌خواهند؛ guard process-local فقط fallback همان process است. موارد زیر برای بستن Exit Gate PF-2 باقی هستند: configure کردن executor فقط در مسیر اجرای مجاز، ساخت workspace و Compose نمونه روی host Test، capacity inventory و reconciliation، build/test در sandbox، اجرای یک image نمونه در Product Test، health/readiness، rollback و آزمایش عدم‌اختلال Hero Test و یک سرویس کنترل‌شدهٔ دیگر. برای start واقعی باید authorization جداگانه با operationهای `product-test-*`، Step ID و نسخهٔ سند دقیق صادر شود؛ authorization انتشار Hero یا مجوز AI به‌تنهایی کافی نیست.
 
 Production، Pilot، Secret Store، Secretهای Provider، فراخوانی زندهٔ Provider، external spend، سرور خارجی و اپلیکیشن‌های دیگر ParsPack در این گام لمس نشدند.
