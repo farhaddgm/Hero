@@ -89,6 +89,14 @@ test("global navigation never sends an unscoped project action to a 400 route", 
   assert.doesNotMatch(html, /href="\/project-control"/);
 });
 
+test("project control room exposes a project-scoped Test target selector without dispatch", () => {
+  const html = getProjectControlRoomHtml({ initialData: { controlRoom: { project: { projectId: "project-vpn", name: "VPN", lifecycle: "draft" }, infrastructure: { items: [], servers: [{ serverId: "test-server", address: "185.204.168.171", environment: "test", state: "planned-no-connection" }], targetSelections: [] }, metrics: {}, collaboration: { teams: [] }, commands: { items: [] }, catalog: { items: [] }, performance: { items: [] }, observability: { items: [] }, delivery: { items: [] }, hardening: { items: [] }, readiness: { items: [] } } } });
+  assert.match(html, /id="target-selection-form"/);
+  assert.match(html, /ثبت Target برای این پروژه/);
+  assert.match(html, /action: 'select-target'/);
+  assert.match(html, /اجرای محصول هنوز جداگانه نیازمند مجوز Test است/);
+});
+
 test("the project Walk-Through covers the real setup path, all management surfaces and explicit gated work", () => {
   assert.equal(HERO_PROJECT_WALKTHROUGH_VERSION, "1.8.0");
   assert.equal(HERO_PROJECT_WALKTHROUGH_STATE_VERSION, 1);
