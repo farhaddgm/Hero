@@ -10,6 +10,7 @@ import {
 } from "../packages/contracts/src/product-runner.mjs";
 import { createProductRuntimePlan } from "../packages/domain/src/product-factory.mjs";
 import { createDockerProductExecutor, createDockerProductRunner } from "../packages/adapters/src/product-runner.mjs";
+import { createProductRuntimeReservationRegistry } from "../packages/adapters/src/product-runtime-reservations.mjs";
 
 const projectId = "project-safe";
 const runId = "run-product-001";
@@ -263,4 +264,27 @@ test("sensitive inputs are rejected while policy metadata remains allowed", asyn
 test("Docker executor is explicitly shell-free and returns process data only to the redacting runner", () => {
   const executor = createDockerProductExecutor();
   assert.equal(typeof executor, "function");
+});
+
+test("resource reservations prevent a second Product Test from reusing the same plan resources", async () => {
+  const calls = [];
+  const data = fixture();
+  const secondWorkspace = path.join(data.root, "product-workspaces", projectId, "run-product-002");
+  mkdirSync(secondWorkspace, { recursive: true });
+  writeFileSync(path.join(secondWorkspace, "compose.yaml"), "services:\n  app:\n    image: " + artifact + "\n    user: \"1000:1000\"\n    read_only: true\n    security_opt:\n      - no-new-privileges:true\n    cap_drop:\n      - ALL\n    cpus: 1\n    mem_limit: 1024m\n    pids_limit: 256\n    network_mode: none\n");
+  const registry = createProductRuntimeReservationRegistry({ now: () => "2026-09-18T00:00:00.000Z" });
+  const runner = createDockerProductRunner({ workspaceRoot: data.root, executor: async request => { calls.push(request); return { exitCode: 0, stdout: "safe", stderr: "" }; }, reservationRegistry: registry });
+  try {
+    const first = await runner.execute({ ...data.base, action: "start", dispatchDecision: data.dispatch("test"), runtimeAuthorization: data.runtimeAuthorization("product-test-start") });
+    assert.equal(first.status, "completed");
+    assert.equal(first.reservation.state, "held");
+    const second = await runner.execute({ ...data.base, runId: "run-product-002", action: "start", runtimeSpec: { ...data.base.runtimeSpec, workspaceKey: `product-workspaces/${projectId}/run-product-002` }, dispatchDecision: { ...data.dispatch("test"), runId: "run-product-002" }, runtimeAuthorization: { ...data.runtimeAuthorization("product-test-start"), runId: "run-product-002" } });
+    assert.equal(second.status, "blocked");
+    assert.equal(second.code, "PRODUCT_RUNNER_RESOURCE_CONFLICT");
+    assert.equal(registry.snapshot().reservations.length, 1);
+    const stopped = await runner.execute({ ...data.base, action: "stop", runtimeAuthorization: data.runtimeAuthorization("product-test-stop") });
+    assert.equal(stopped.status, "completed");
+    assert.equal(registry.snapshot().reservations.length, 0);
+    assert.equal(calls.length, 4);
+  } finally { cleanup(data); }
 });

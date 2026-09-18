@@ -188,9 +188,10 @@ export function createDockerProductExecutor() {
   };
 }
 
-export function createDockerProductRunner({ workspaceRoot, executor = null, now = () => Date.now() } = {}) {
+export function createDockerProductRunner({ workspaceRoot, executor = null, reservationRegistry = null, now = () => Date.now() } = {}) {
   const root = assertAbsoluteDirectory("workspaceRoot", workspaceRoot);
   if (executor !== null && typeof executor !== "function") throw new Error("executor must be a function when configured.");
+  if (reservationRegistry !== null && (typeof reservationRegistry.reserve !== "function" || typeof reservationRegistry.release !== "function" || typeof reservationRegistry.inspect !== "function")) throw new Error("reservationRegistry is invalid.");
   const activeRuns = new Set();
 
   function normalize(input = {}) {
@@ -270,10 +271,27 @@ export function createDockerProductRunner({ workspaceRoot, executor = null, now 
       return blocked("PRODUCT_RUNNER_AUTHORIZATION_REQUIRED", input);
     }
     if (executor === null) return blocked("PRODUCT_RUNNER_EXECUTOR_NOT_CONFIGURED", input);
+    let reservation = null;
+    const persistentReservation = input.action === "start";
+    if (reservationRegistry && ["stop", "cleanup"].includes(input.action) && !reservationRegistry.inspect({ projectId: normalized.projectId, runId: normalized.runId })) {
+      return blocked("PRODUCT_RUNNER_RESOURCE_RESERVATION_REQUIRED", input);
+    }
+    if (reservationRegistry && !["stop", "cleanup"].includes(input.action)) {
+      const reservationResult = reservationRegistry.reserve({
+        projectId: normalized.projectId,
+        runId: normalized.runId,
+        plan: normalized.plan,
+        ports: input.runtimeSpec?.ports ?? normalized.plan.isolation.ports,
+        resourceNames: input.runtimeSpec?.resourceNames ?? [normalized.plan.isolation.composeProject, normalized.plan.isolation.database, normalized.plan.isolation.volume, normalized.plan.isolation.network]
+      });
+      if (!["reserved", "replayed"].includes(reservationResult.status)) return blocked("PRODUCT_RUNNER_RESOURCE_CONFLICT", input, { reservation: reservationResult });
+      reservation = reservationResult.reservation;
+    }
     const runKey = `${normalized.projectId}:${normalized.runId}`;
     if (activeRuns.has(runKey)) return blocked("PRODUCT_RUNNER_CONCURRENCY_LIMIT", input);
     activeRuns.add(runKey);
 
+    let completed = false;
     try {
       const commands = input.action === "preflight" ? [commandFor("preflight", input, normalized.workspacePath, normalized.composePath)] : [commandFor("preflight", input, normalized.workspacePath, normalized.composePath), commandFor(input.action, input, normalized.workspacePath, normalized.composePath)];
       const startedAt = now();
@@ -288,9 +306,13 @@ export function createDockerProductRunner({ workspaceRoot, executor = null, now 
           return failed("PRODUCT_RUNNER_EXECUTOR_FAILED", input, { steps: results.length, last: { exitCode: null, durationMs: safeDuration(now() - startedAt), timedOut: false, outputRedacted: true } });
         }
       }
-      return immutableCopy({ status: "completed", code: "PRODUCT_RUNNER_OUTPUT_REDACTED", action: input.action, projectId: normalized.projectId, runId: normalized.runId, sideEffects: "bounded-product-scope", result: { steps: results.length, last: results.at(-1) } });
+      completed = true;
+      return immutableCopy({ status: "completed", code: "PRODUCT_RUNNER_OUTPUT_REDACTED", action: input.action, projectId: normalized.projectId, runId: normalized.runId, sideEffects: "bounded-product-scope", reservation: reservation ? { reservationId: reservation.reservationId, state: persistentReservation ? "held" : "released-after-action" } : null, result: { steps: results.length, last: results.at(-1) } });
     } finally {
       activeRuns.delete(runKey);
+      if (reservationRegistry && reservation && !persistentReservation) reservationRegistry.release({ projectId: normalized.projectId, runId: normalized.runId, reservationId: reservation.reservationId });
+      if (reservationRegistry && completed && ["stop", "cleanup"].includes(input.action)) reservationRegistry.release({ projectId: normalized.projectId, runId: normalized.runId });
+      if (reservationRegistry && !completed && persistentReservation && reservation) reservationRegistry.release({ projectId: normalized.projectId, runId: normalized.runId, reservationId: reservation.reservationId });
     }
   }
 

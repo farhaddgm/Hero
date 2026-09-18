@@ -118,3 +118,7 @@ export {
   createDockerProductExecutor,
   createDockerProductRunner
 } from "./product-runner.mjs";
+
+export {
+  createProductRuntimeReservationRegistry
+} from "./product-runtime-reservations.mjs";
