@@ -495,6 +495,22 @@ export function getBackofficeHtml({ initialData = null, dataEndpoint = "/backoff
           show(error.code === 'STEP_UP_REQUIRED' ? 'نشست شما قدیمی است؛ کد ۶ رقمی MFA را وارد و دوباره ذخیره کنید.' : (error.message || 'ثبت کلید انجام نشد.'), 'error');
         } finally { submit.disabled = false; }
       }
+      async function advisorReadinessNotice(template) {
+        const projectId = aiAssignmentProjectId() || currentData?.projects?.[0]?.projectId || '';
+        const url = new URL('/api/smart-tester/options', location.origin);
+        if (projectId) url.searchParams.set('projectId', projectId);
+        try {
+          const payload = await requestJson(url.pathname + url.search);
+          const options = payload?.smartTester?.options || {};
+          const profile = (options.profiles || []).find(item => item.providerId === template.providerId);
+          const model = (options.models || []).find(item => item.providerId === template.providerId);
+          if (profile?.selectable === true) return template.brand + ' سالم است و برای انتخاب در Smart Tester آماده شد.';
+          const reason = profile?.selectionNotice || model?.selectionNotice || 'Profile فعال، Binding پروژه یا مجوز نسخه‌دار کامل نیست.';
+          return template.brand + ' از نظر اتصال سالم است، اما هنوز قابل انتخاب نیست: ' + reason;
+        } catch {
+          return 'آزمون اتصال موفق بود؛ برای تشخیص آماده‌بودن انتخاب‌گر، فهرست AIها را دوباره بارگذاری کنید.';
+        }
+      }
       async function testProviderConnection(template, button) {
         const credential = (currentData?.ai?.credentials || []).find(item => item.providerId === template.providerId);
         const provider = (currentData?.ai?.providers || []).find(item => item.providerId === template.providerId);
@@ -524,7 +540,7 @@ export function getBackofficeHtml({ initialData = null, dataEndpoint = "/backoff
           const response = await requestJson('/api/ai/providers/' + encodeURIComponent(template.providerId) + '/health', testInput);
           const result = response.result || {};
           await refresh('آزمون امن آماده‌بودن ' + template.brand + ' ثبت شد: ' + connectionStateLabel(result.status) + '.');
-          setNotice(result.status === 'healthy' ? 'آزمون امن آماده‌بودن موفق بود. این نتیجه Secret reference و policy را تأیید می‌کند، نه مصرف Token یا Dispatch بیرونی.' : 'آزمون اتصال نیازمند رسیدگی است: ' + (result.code || 'UNKNOWN') + '.');
+          setNotice(result.status === 'healthy' ? await advisorReadinessNotice(template) : 'آزمون اتصال نیازمند رسیدگی است: ' + (result.code || 'UNKNOWN') + '.');
         } catch (error) { setNotice(error.message || 'آزمون اتصال انجام نشد.'); } finally { button.disabled = false; }
       }
       function renderAiConnections(data) {

@@ -95,6 +95,7 @@ import { createOperationalHardening, HardeningError } from "../../../packages/do
 import { createFinalReadiness, FinalReadinessError } from "../../../packages/domain/src/final-readiness.mjs";
 import { createBackofficeCompletion, BackofficeCompletionError } from "../../../packages/domain/src/backoffice-completion.mjs";
 import { AiOrchestrationError } from "../../../packages/domain/src/ai-orchestration.mjs";
+import { evaluateAiAdvisorReadiness } from "../../../packages/domain/src/ai-advisor-readiness.mjs";
 import { FormSuggestionsError, FORM_PROVIDER_SUGGESTIONS_SCHEMA, FORM_SUGGESTIONS_VERSION, createFormSuggestions, createProviderFormSuggestions, prepareFormSuggestionRequest } from "../../../packages/domain/src/form-suggestions.mjs";
 import { rebuildPortfolioReadModel, rebuildProjectReadModel } from "../../../packages/domain/src/backoffice-read-models.mjs";
 import { ProductDevelopmentError, createProductDevelopmentCatalog } from "../../../packages/domain/src/product-development.mjs";
@@ -983,8 +984,6 @@ export function createHeroServer(options = {}) {
   function walkthroughAdvisorOptions(projectId, { includeUnbound = false, purpose = "walkthrough-guide" } = {}) {
     const ai = dashboard.aiOrchestrationSnapshot();
     const projectScope = (ai.projectScopes ?? []).find(scope => scope.projectId === projectId) ?? null;
-    const scopeAllowsCapability = !projectScope
-      || (projectScope.mode !== "disabled" && (projectScope.capabilities ?? []).includes(purpose));
     const latestHealth = new Map();
     for (const event of dashboard.aiOrchestrationEvents(0)) {
       if (event.type !== "ai.provider-health-checked" || !event.data?.providerId) continue;
@@ -1029,7 +1028,11 @@ export function createHeroServer(options = {}) {
     });
     const providerById = new Map(providers.map(provider => [provider.providerId, provider]));
     const modelByKey = new Map((ai.models ?? []).map(model => [`${model.providerId}:${model.modelId}`, model]));
-    const profileIdsBoundToProject = new Set((ai.bindings ?? []).filter(binding => binding.projectId === projectId && !binding.teamId && !binding.skillId).map(binding => binding.profileId));
+    const bindingsByProfile = new Map();
+    for (const binding of ai.bindings ?? []) {
+      if (binding.projectId !== projectId || binding.teamId || binding.skillId) continue;
+      if (!bindingsByProfile.has(binding.profileId)) bindingsByProfile.set(binding.profileId, binding);
+    }
     const profiles = (ai.profiles ?? [])
       // Walk-Through and Smart Tester are advisor surfaces, not a general
       // role picker.  Other role Profiles may legitimately share the same
@@ -1039,28 +1042,38 @@ export function createHeroServer(options = {}) {
         && profile.role === LIVE_ADVISOR_ROLE
         && profile.outputSchema === LIVE_ADVISOR_OUTPUT_SCHEMA
         && profile.toolPolicy === "read-only"
-        && (includeUnbound || profileIdsBoundToProject.has(profile.profileId)))
+        && (includeUnbound || bindingsByProfile.has(profile.profileId)))
       .map(profile => {
         const provider = providerById.get(profile.providerId);
         const model = modelByKey.get(`${profile.providerId}:${profile.modelId}`);
-        let liveAuthorization = null;
-        let authorizationError = null;
+        const binding = bindingsByProfile.get(profile.profileId) ?? null;
+        let liveAuthorization = provider?.mode === "deterministic"
+          ? { authorized: true, code: "LOCAL_PROVIDER", expiresAtMs: Number.POSITIVE_INFINITY }
+          : null;
         if (provider?.mode === "live") {
           try {
-            liveAuthorization = activeLiveAdvisorAuthorization({
+            liveAuthorization = { ...activeLiveAdvisorAuthorization({
               purpose,
               projectId,
               providerId: profile.providerId,
               modelId: profile.modelId,
               role: profile.role
-            });
+            }), expiresAtMs: Number.POSITIVE_INFINITY };
           } catch (error) {
-            authorizationError = error?.code ?? "LIVE_ADVISOR_AUTHORIZATION_UNAVAILABLE";
+            liveAuthorization = { authorized: false, code: error?.code ?? "LIVE_ADVISOR_AUTHORIZATION_UNAVAILABLE", expiresAtMs: 0 };
           }
         }
-        const selectable = scopeAllowsCapability
-          && provider?.advisorCompatible === true
-          && (provider?.mode === "deterministic" || (provider?.mode === "live" && projectScope?.mode !== "local-only" && provider.connection.state === "healthy" && liveAuthorization?.authorized === true));
+        const readiness = evaluateAiAdvisorReadiness({
+          purpose,
+          projectId,
+          provider: provider ? { ...provider, advisorCompatible: provider.advisorCompatible } : null,
+          model,
+          profile,
+          binding,
+          projectScope,
+          health: provider?.mode === "deterministic" ? { status: "healthy", code: "LOCAL_PROVIDER_READY" } : provider?.connection?.latestHealth,
+          authorization: liveAuthorization
+        });
         return Object.freeze({
           profileId: profile.profileId,
           role: profile.role,
@@ -1071,20 +1084,13 @@ export function createHeroServer(options = {}) {
           profileVersion: profile.profileVersion,
           outputSchema: profile.outputSchema,
           connectionState: provider?.connection.state ?? "not-registered",
-          selectable,
-          selectionNotice: selectable
+          selectable: readiness.selectable,
+          ...(readiness.selectable ? {} : { readiness }),
+          selectionNotice: readiness.selectable
             ? provider.mode === "deterministic"
               ? "پاسخ deterministic و بدون هزینهٔ Provider خارجی است."
-              : "برای فراخوانی زنده، مجوز هزینهٔ جداگانه و سقف مصرف معتبر نیز باید برقرار باشد."
-            : provider?.advisorCompatible === false
-              ? "Cursor در Hero فعلاً یک Coding Agent جداگانه است و برای گفت‌وگوی مستقیم Walk-Through/Smart Tester انتخاب نمی‌شود."
-            : authorizationError
-                ? "این Profile از نظر اتصال آماده است، اما مجوز هزینهٔ زندهٔ همین Project/Role/Model معتبر نیست (" + authorizationError + ")."
-              : !scopeAllowsCapability
-                ? "AI برای این پروژه یا این قابلیت در Back Office فعال نشده است. ابتدا Scope پروژه را فعال کنید."
-              : projectScope?.mode === "local-only"
-                ? "این پروژه فقط از پاسخ محلی استفاده می‌کند؛ برای Provider زنده باید Scope را روی حالت فعال بگذارید و مجوز هزینهٔ جداگانه داشته باشید."
-              : "این Profile هنوز برای مشاورهٔ Walk-Through آماده نیست؛ وضعیت اتصال، Binding یا گیت هزینه را بررسی کنید."
+              : "برای فراخوانی زنده آماده است؛ سقف مصرف و مجوز نسخه‌دار همچنان اعمال می‌شود."
+            : `${readiness.selectionNotice} (${readiness.code})`
         });
       });
     // Multiple advisor Profiles may still point at one Provider/Model (for
@@ -1119,7 +1125,8 @@ export function createHeroServer(options = {}) {
       note: "Profile فقط در مرز همین پروژه انتخاب می‌شود؛ پاسخ زنده تنها با Role، Binding، Policy، Health و مجوز هزینهٔ معتبر ممکن است.",
       models: Object.freeze(options.models.map(model => Object.freeze({
         ...model,
-        selectable: options.providers.some(provider => provider.providerId === model.providerId && provider.advisorCompatible === true && ["local-ready", "healthy"].includes(provider.connection.state))
+        selectable: options.profiles.some(profile => profile.providerId === model.providerId && profile.modelId === model.modelId && profile.selectable === true),
+        selectionNotice: options.profiles.find(profile => profile.providerId === model.providerId && profile.modelId === model.modelId)?.selectionNotice ?? "Profile سازگار و آماده‌ای برای این Model وجود ندارد."
       })))
     });
   }
@@ -1131,7 +1138,11 @@ export function createHeroServer(options = {}) {
       projectId,
       localAdvisor: options.localAdvisor,
       providers: options.providers,
-      models: options.models,
+      models: Object.freeze(options.models.map(model => Object.freeze({
+        ...model,
+        selectable: options.profiles.some(profile => profile.providerId === model.providerId && profile.modelId === model.modelId && profile.selectable === true),
+        selectionNotice: options.profiles.find(profile => profile.providerId === model.providerId && profile.modelId === model.modelId)?.selectionNotice ?? "Profile سازگار و آماده‌ای برای این Model وجود ندارد."
+      }))),
       profiles: options.profiles,
       note: "پیشنهاد فرم به‌صورت محلی همیشه در دسترس است؛ Profile خارجی فقط وقتی قابل انتخاب است که Binding سالم، Scope پروژه و مجوز هزینهٔ form-suggestions هر سه فعال باشند."
     });
