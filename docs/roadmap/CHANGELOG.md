@@ -1,5 +1,11 @@
 # تغییرات رودمپ شرکت
 
+# ۲۰۲۶-۰۹-۱۸ — promotion موفق rc.10 روی Hero Test
+
+- `v1.1.4-rc.10` با digest immutable `sha256:496d740ce2d650c1a02d1fb3f22e2f67f1f8373ec47e6fa528cd2b8a1f6b2257`، run `35292057200` و runtime commit `3fabefe15ff10926d60b804c2deace63fc936397` فقط روی Hero Test promote و verify شد.
+- پس از restart، `/health` و `/ready` موفق و `Hero Test smoke check: PASS` ثبت شد؛ rollback point metadata-only در `/etc/hero/hero-test.env.release-state.before-496d740ce2d650c1a02d1fb3f22e2f67f1f8373ec47e6fa528cd2b8a1f6b2257.json` ثبت است. خطای موقت connection reset در لحظهٔ restart با شواهد نهایی سلامت دنبال شد.
+- این release اجرای Product Test یا محصول هدف نیست؛ Production، Pilot، Secret Store/Secret، Provider زنده و external spend لمس نشدند.
+
 # ۲۰۲۶-۰۹-۱۸ — candidate rc.10 برای بررسی PF-2
 
 - ساخته و منتشر شد: `v1.1.4-rc.10` از commit `3fabefe15ff10926d60b804c2deace63fc936397` با run `35292057200` و digest immutable `sha256:496d740ce2d650c1a02d1fb3f22e2f67f1f8373ec47e6fa528cd2b8a1f6b2257`؛ workflow verification، build، GHCR publish، tag و manifest همگی موفق شدند.
