@@ -6,7 +6,7 @@
 > Type: evidence
 > Scope: hero
 > Status: active
-> Version: 1.9.0
+> Version: 1.10.0
 > Owner: hero-product
 > Review cadence: per-change
 > Supersedes: none
@@ -24,6 +24,7 @@
 | مسیر میزبان | با `hostMounts=false` هر مسیر host رد می‌شود؛ مسیرهای absolute، traversal و `.hero` نیز رد می‌شوند. |
 | منابع | CPU، حافظه، PID، timeout و هم‌زمانی نمی‌توانند از سقف همان plan عبور کنند. |
 | منابع نام‌گذاری‌شده | فقط namespace `hero-product-*` پذیرفته می‌شود و collision پورت/منبع رد می‌شود؛ در PostgreSQL، reservation فعال بین processها نیز با advisory transaction lock بررسی می‌شود. |
+| ظرفیت host | migration `019` و قرارداد Capacity snapshot، CPU/RAM/PID و تعداد اجرای هم‌زمان را قبل از reservation پایدار بررسی می‌کنند؛ ظرفیت مشاهده‌نشده یا lease قدیمی با quota نامعلوم fail-closed است. |
 | malformed input | plan یا limits ناقص/نامعتبر، بدون exception قابل‌مشاهده و بدون side effect، پاسخ `reject` می‌دهد. |
 | side effect | خروجی admission همیشه `sideEffects: none` است؛ این مرحله کانتینر، repository، database، network یا volume نمی‌سازد. |
 | اجرای کنترل‌شده | actionهای build/test/start/stop/cleanup فقط با executor صریح، plan تأییدشده، dispatch decision دقیق و authorization جداگانهٔ `product-test-*` پذیرفته می‌شوند؛ اجرای پیش‌فرض خاموش است. |
@@ -34,10 +35,10 @@
 
 | بررسی | نتیجه |
 |---|---:|
-| تست هدفمند PF-2 (`product-runner-adapter`، reservation guard، PostgreSQL store و schema) | ۲۶ تست موفق، ۰ شکست |
+| تست هدفمند PF-2 (`product-runner-adapter`، reservation guard، Capacity contract، PostgreSQL store و schema) | ۳۲ تست موفق، ۰ شکست |
 | سناریوهای جدید | شبکهٔ ممنوع، host path/symlink/socket، image mutable، Compose security/quota، authorization، executor خاموش، redaction، failure، concurrency، replay، تعارض پایدار و release/reuse تراکنشی |
-| اجرای کامل زنجیرهٔ `pnpm check` در Linux container | ۴۲۹ تست موفق، ۰ شکست؛ یک هشدار مورد انتظار دربارهٔ نبود Docker socket در clean-room |
-| Build | ۲۷۲ module و ۴۹ JSON معتبر |
+| اجرای کامل زنجیرهٔ `pnpm check` در Linux container | ۴۳۵ تست موفق، ۰ شکست؛ یک هشدار مورد انتظار دربارهٔ نبود Docker socket در clean-room |
+| Build | ۲۷۴ module و ۴۹ JSON معتبر |
 | Documentation check | ۱۴۱ سند، ۲ محصول، ۰ خطا |
 | Roadmap/Back Office checks | PASS؛ ۱۷۰ گام، verified=۲۰، remaining=۱۵۰؛ implemented=۵، partial=۷۶، missing=۰ |
 
@@ -49,8 +50,10 @@
 
 rc.11 با digest `sha256:7a42b5592e60ae5d8b61c10040ee20d56a22a276bae76e3258920e76ed51bba2` به‌عنوان rollback قبلی pull و قابل‌بازگشت بودن آن تأیید شد. promotion rc.12 شامل migration `018` و store پایدار reservation است؛ با این حال این شواهد هنوز اجرای محصول هدف، Product Test یا اثبات عدم‌اختلال یک محصول جدا را نشان نمی‌دهد.
 
+candidate بعدی `v1.1.4-rc.13` با run `35310489330`، commit `71d26feda8a5736301d47fcfa95dfff85d18c95b` و digest `ghcr.io/farhaddgm/hero@sha256:1a3b7727c2b969bf80e21f9a41351a05eaeb0e7e27fd06aaacab1e72e0800ebe` با workflow موفق ساخته و منتشر شده است، اما هنوز روی Test promote نشده؛ rc.12 همچنان runtime فعال است.
+
 ## آنچه هنوز انجام نشده است
 
-این زیرگام هنوز هیچ محصول هدفی را build یا start نکرده است. store پایدار رزرو منابع در runtime PostgreSQL و migration `018` اضافه و در rc.12 روی Hero Test منتشر شده، اما inventory ظرفیت host، TTL/reconciliation عملیاتی و اتصال آن به مسیر اجرای واقعی Product Runner هنوز گیت مستقل می‌خواهند؛ guard process-local فقط fallback همان process است. موارد زیر برای بستن Exit Gate PF-2 باقی هستند: configure کردن executor فقط در مسیر اجرای مجاز، ساخت workspace و Compose نمونه روی host Test، capacity inventory و reconciliation، build/test در sandbox، اجرای یک image نمونه در Product Test، health/readiness، rollback و آزمایش عدم‌اختلال Hero Test و یک سرویس کنترل‌شدهٔ دیگر. برای start واقعی باید authorization جداگانه با operationهای `product-test-*`، Step ID و نسخهٔ سند دقیق صادر شود؛ authorization انتشار Hero یا مجوز AI به‌تنهایی کافی نیست.
+این زیرگام هنوز هیچ محصول هدفی را build یا start نکرده است. store پایدار رزرو منابع در runtime PostgreSQL، migration `018` و قرارداد ظرفیت/migration `019` در source حاضرند؛ rc.12 روی Hero Test فعال است و rc.13 شامل این تغییرات ساخته شده، اما هنوز promote نشده است. TTL/reconciliation عملیاتی و اتصال executor به مسیر اجرای واقعی Product Runner هنوز گیت مستقل می‌خواهند؛ guard process-local فقط fallback همان process است. موارد زیر برای بستن Exit Gate PF-2 باقی هستند: configure کردن executor فقط در مسیر اجرای مجاز، ثبت ظرفیت واقعی host، reconciliation، ساخت workspace و Compose نمونه روی host Test، build/test در sandbox، اجرای یک image نمونه در Product Test، health/readiness، rollback و آزمایش عدم‌اختلال Hero Test و یک سرویس کنترل‌شدهٔ دیگر. برای start واقعی باید authorization جداگانه با operationهای `product-test-*`، Step ID و نسخهٔ سند دقیق صادر شود؛ authorization انتشار Hero یا مجوز AI به‌تنهایی کافی نیست.
 
 Production، Pilot، Secret Store، Secretهای Provider، فراخوانی زندهٔ Provider، external spend، سرور خارجی و اپلیکیشن‌های دیگر ParsPack در این گام لمس نشدند.

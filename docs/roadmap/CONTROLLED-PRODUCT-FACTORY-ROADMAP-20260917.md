@@ -6,7 +6,7 @@
 > Type: roadmap
 > Scope: hero
 > Status: active
-> Version: 2.7.0
+> Version: 2.8.0
 > Owner: hero-product
 > Review cadence: per-change
 > Supersedes: `HERO-ROADMAP-NEXT-100-STEPS-20260904`, `HERO-ROADMAP-NEXT-20-STEPS-20260904`, `HERO-ROADMAP-NEXT-20-STEPS-20260911-WORKSPACE-PERSISTENCE`, `HERO-ROADMAP-NEXT-100-STEPS-20260911-PROJECT-CONTROL`
@@ -22,17 +22,17 @@
 
 | موضوع | واقعیت تأییدشده | مرز صریح |
 |---|---|---|
-| source Hero | branch `codex/test-release-reliability-20260916`، commit `d1b4d0600c4a2d360ec4e94266b63efb439cc380`؛ شامل قرارداد/admission، adapter کنترل‌شدهٔ PF-2، guard process-local و store پایدار PostgreSQL رزرو منابع | `v1.1.4-rc.12` با digest immutable روی Hero Test promote و verify شده؛ Product Test هنوز اجرا نشده است. |
-| Test Hero | فعال: `v1.1.4-rc.11`، digest `ghcr.io/farhaddgm/hero@sha256:7a42b5592e60ae5d8b61c10040ee20d56a22a276bae76e3258920e76ed51bba2` | فقط Hero Test است؛ Product Test نیست؛ `/health` و `/ready` موفق، `Hero Test smoke check: PASS` و rollback point metadata-only ثبت شده است. |
-| آخرین promotion Test | `v1.1.4-rc.11`، run `35307457878`، runtime commit `dd95723f6cbd5d4ec75aafb59e72941b185e2e2f` | manifest و digest immutable روی host Test promote و verify شدند؛ خطای موقت connection reset هنگام restart با health/readiness و smoke موفق نهایی شد. |
+| source Hero | branch `codex/test-release-reliability-20260916`، commit `71d26feda8a5736301d47fcfa95dfff85d18c95b`؛ شامل قرارداد/admission، adapter کنترل‌شدهٔ PF-2، guard process-local، store پایدار و capacity enforcement رزرو منابع | `v1.1.4-rc.12` با digest immutable روی Hero Test promote و verify شده؛ `v1.1.4-rc.13` برای همین تغییرات ساخته شده ولی هنوز promote نشده؛ Product Test هنوز اجرا نشده است. |
+| Test Hero | فعال: `v1.1.4-rc.12`، digest `ghcr.io/farhaddgm/hero@sha256:a9caf69e2240ec0a211325b1269e8213924eba673b67d039857a3cb17606d39e` | فقط Hero Test است؛ Product Test نیست؛ `/health` و `/ready` موفق، `Hero Test smoke check: PASS` و rollback point metadata-only ثبت شده است. |
+| آخرین promotion Test | `v1.1.4-rc.12`، run `35309418424`، runtime commit `d1b4d0600c4a2d360ec4e94266b63efb439cc380` | manifest و digest immutable روی host Test promote و verify شدند؛ خطای موقت connection reset هنگام restart با health/readiness و smoke موفق نهایی شد. |
 | شواهد rollback | قبل از promotion، rc.10 با digest `sha256:496d740ce2d650c1a02d1fb3f22e2f67f1f8373ec47e6fa528cd2b8a1f6b2257` pull شد | rollback point metadata-only در `/etc/hero/hero-test.env.release-state.before-7a42b5592e60ae5d8b61c10040ee20d56a22a276bae76e3258920e76ed51bba2.json` ثبت شد. |
 | رخداد اصلاح‌شده | rc.6 بعد از restart با `Product request metadata is invalid` crash-loop شد | علت و اصلاح در source ثبت شده؛ rc.8 همان مسیر را سالم کرده است. |
-| کیفیت source | اجرای معادل `pnpm check` در Linux container: ۴۲۴ pass، ۰ fail؛ build: ۲۷۰ module و ۴۹ JSON | به‌علت نبودن Node/pnpm روی host و نبودن Docker socket داخل check container، check در Docker مرجع با snapshot source اجرا شد؛ این نتیجه جای acceptance محصول هدف را نمی‌گیرد. |
+| کیفیت source | اجرای معادل `pnpm check` در Linux container: ۴۳۵ pass، ۰ fail؛ build: ۲۷۴ module و ۴۹ JSON | به‌علت نبودن Node/pnpm روی host و نبودن Docker socket داخل check container، check در Docker مرجع با snapshot source اجرا شد؛ این نتیجه جای acceptance محصول هدف را نمی‌گیرد. |
 | AI | مسیر provider-agnostic، policy، redaction و result ساخت‌یافته در source/Test حاضر است | evidence تازه‌ای از فراخوانی زندهٔ OpenAI در این baseline ثبت نشده است؛ provider و هزینه fail-closed هستند. |
 | Back Office | ممیزی مرجع: ۲۰/۱۷۰ گام verified، ۱۵۰ گام نیازمند evidence کامل؛ ۵/۸۱ requirement implemented، ۷۶ partial | UI یا قرارداد موجود به معنی کارخانهٔ خودکار محصول نیست. |
 | اجرای محصول | قراردادهای Web Factory، Provider Agent و Infrastructure Plan وجود دارند | هنوز اجرای کد در مخزن محصول، ساخت container محصول، deploy هدف یا Node Agent عملیاتی نشده است. |
 
-مرجع جزئی شواهد جاری: `HERO-ROADMAP-STATUS-20260917@2.8.0` و `HERO-OPS-HERO-TEST-RELEASE-RELIABILITY@1.5.0`.
+مرجع جزئی شواهد جاری: `HERO-ROADMAP-STATUS-20260917@2.9.0` و `HERO-OPS-HERO-TEST-RELEASE-RELIABILITY@1.5.0`.
 
 ## ۳. هدف نهایی و معیار موفقیت
 
@@ -143,7 +143,7 @@ Product Test:       hero-product-<slug>-test-*
 **نگاشت:** BO-075..088، BO-121..134.
 **Exit Gate:** یک image نمونهٔ بی‌خطر در Product Test با container جدا اجرا، healthcheck و rollback شود؛ آزمایش نشان دهد Hero Test و یک سرویس کنترل‌شدهٔ دیگر دست‌نخورده‌اند. این gate مجوز Product Production نیست.
 
-**وضعیت اجرای PF-2 در ۲۰۲۶-۰۹-۱۸:** قرارداد و admission اولیه در commit `788746c` بود و در commit `c22d556` به adapter واقعیِ گیت‌دار ارتقا یافت؛ commit `dd95723` guard رزرو process-local منابع Product Test را به Runner وصل کرد و commit `73a7b45` store پایدار PostgreSQL، migration `018` و تست‌های replay/تعارض/release را اضافه کرد. adapter اکنون workspace مستقل، Compose config پیش از اجرا، دستورهای argv-only بدون shell، digest immutable، network `none`، non-root، read-only، no-new-privileges، cap drop، CPU/RAM/PID quota، رزرو هم‌زمانی، timeout و redaction خروجی را کنترل می‌کند؛ خطاهای path/symlink، host mount/socket، image mutable، plan تأییدنشده، نبود authorization، تعارض منابع یا نبود executor fail-closed هستند. قرارداد Product Runner در `/runner-contract` نیز به‌صورت metadata-only منتشر می‌شود. candidate `v1.1.4-rc.12` از commit `d1b4d06` با run `35309418424` و digest immutable `sha256:a9caf69e2240ec0a211325b1269e8213924eba673b67d039857a3cb17606d39e` روی Hero Test promote و verify شده و rollback point metadata-only برای rc.11 ثبت شده است. رزرو PostgreSQL بین processها و پس از restart قابل بازیابی است، اما inventory ظرفیت host، TTL/reconciliation و اتصال عملیاتی executor هنوز باقی است. Product Runner در Control Plane هنوز executor را به‌طور پیش‌فرض configure نمی‌کند؛ بنابراین start واقعی کانتینر محصول، Product Test، health/rollback محصول و اثبات عدم‌اختلال host هنوز انجام نشده‌اند و Exit Gate PF-2 همچنان `open` است. Evidence جاری در `HERO-EVIDENCE-PRODUCT-FACTORY-PF2-RUNNER-CONTRACT-20260918@1.9.0` ثبت می‌شود.
+**وضعیت اجرای PF-2 در ۲۰۲۶-۰۹-۱۸:** قرارداد و admission اولیه در commit `788746c` بود و در commit `c22d556` به adapter واقعیِ گیت‌دار ارتقا یافت؛ commit `dd95723` guard رزرو process-local منابع Product Test را به Runner وصل کرد، commit `73a7b45` store پایدار PostgreSQL و migration `018` را اضافه کرد و commit `71d26fe` قرارداد ظرفیت، migration `019` و enforcement CPU/RAM/PID/concurrency را اضافه کرد. adapter اکنون workspace مستقل، Compose config پیش از اجرا، دستورهای argv-only بدون shell، digest immutable، network `none`، non-root، read-only، no-new-privileges، cap drop، CPU/RAM/PID quota، رزرو هم‌زمانی، timeout و redaction خروجی را کنترل می‌کند؛ خطاهای path/symlink، host mount/socket، image mutable، plan تأییدنشده، نبود authorization، تعارض منابع، ظرفیت exhausted/unknown یا نبود executor fail-closed هستند. candidate `v1.1.4-rc.13` از commit `71d26fe` با run `35310489330` و digest immutable `sha256:1a3b7727c2b969bf80e21f9a41351a05eaeb0e7e27fd06aaacab1e72e0800ebe` ساخته و verify شده، اما هنوز promote نشده و rc.12 نسخهٔ فعال Test است. رزرو PostgreSQL بین processها و پس از restart قابل بازیابی است، اما ثبت ظرفیت واقعی host، TTL/reconciliation و اتصال عملیاتی executor هنوز باقی است. Product Runner در Control Plane هنوز executor را به‌طور پیش‌فرض configure نمی‌کند؛ بنابراین start واقعی کانتینر محصول، Product Test، health/rollback محصول و اثبات عدم‌اختلال host هنوز انجام نشده‌اند و Exit Gate PF-2 همچنان `open` است. Evidence جاری در `HERO-EVIDENCE-PRODUCT-FACTORY-PF2-RUNNER-CONTRACT-20260918@1.10.0` ثبت می‌شود.
 
 ### PF-3 — Artifact محصول، Product Test و پذیرش کیفیت
 

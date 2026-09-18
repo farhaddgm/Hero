@@ -1,5 +1,12 @@
 # تغییرات رودمپ شرکت
 
+# ۲۰۲۶-۰۹-۱۸ — capacity enforcement و candidate rc.13
+
+- قرارداد Capacity snapshot و migration `019` اضافه شد؛ reservation پایدار اکنون CPU، RAM، PID و تعداد اجرای هم‌زمان را با ظرفیت مشاهده‌شده مقایسه می‌کند و ظرفیت ناشناخته یا lease قدیمی ناقص را fail-closed رد می‌کند.
+- تست هدفمند PF-2 برابر `32 pass / 0 fail` و معادل کامل `pnpm check` برابر `435 pass / 0 fail` است؛ build برابر `274 module / 49 JSON` است.
+- candidate `v1.1.4-rc.13` با run `35310489330` و digest `sha256:1a3b7727c2b969bf80e21f9a41351a05eaeb0e7e27fd06aaacab1e72e0800ebe` ساخته و منتشر شد؛ promotion آن pending است و rc.12 روی Test فعال است.
+- Product Test، Production، Pilot، Secret Store/Secret، Provider زنده و external spend لمس نشدند.
+
 # ۲۰۲۶-۰۹-۱۸ — promotion موفق rc.12 روی Hero Test
 
 - `v1.1.4-rc.12` با run `35309418424`، commit runtime `d1b4d0600c4a2d360ec4e94266b63efb439cc380` و digest immutable `sha256:a9caf69e2240ec0a211325b1269e8213924eba673b67d039857a3cb17606d39e` فقط روی Hero Test promote و verify شد.
