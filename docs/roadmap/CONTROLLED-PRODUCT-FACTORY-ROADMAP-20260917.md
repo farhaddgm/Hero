@@ -6,7 +6,7 @@
 > Type: roadmap
 > Scope: hero
 > Status: active
-> Version: 1.7.0
+> Version: 1.8.0
 > Owner: hero-product
 > Review cadence: per-change
 > Supersedes: `HERO-ROADMAP-NEXT-100-STEPS-20260904`, `HERO-ROADMAP-NEXT-20-STEPS-20260904`, `HERO-ROADMAP-NEXT-20-STEPS-20260911-WORKSPACE-PERSISTENCE`, `HERO-ROADMAP-NEXT-100-STEPS-20260911-PROJECT-CONTROL`
@@ -22,9 +22,10 @@
 
 | موضوع | واقعیت تأییدشده | مرز صریح |
 |---|---|---|
-| source Hero | branch `codex/test-release-reliability-20260916`، commit `788746c` (`feat: harden product runner admission boundaries`) | این source قراردادهای PF-2 را نیز دارد؛ اسناد مستندات بعدی ممکن است commit جدا داشته باشند. |
+| source Hero | branch `codex/test-release-reliability-20260916`، commit `e8de500e4278b1f4cf805e87c02d62ce05847709`؛ شامل اصلاح PF-2 در `788746c` | candidate بعدی Test از همین source ساخته شده است؛ اسناد مستندات بعدی ممکن است commit جدا داشته باشند. |
 | Test Hero | `v1.1.4-rc.8`، digest `ghcr.io/farhaddgm/hero@sha256:e87e6063975fdea86d81682f19668a6458209afc3aeaff77cfeb896478d1d8ee` | فقط Hero Test است؛ Product Test نیست؛ container running/healthy و persistence PostgreSQL است. |
-| شواهد انتشار | run `35287418094`، promotion مالک و smoke واقعی موفق | `/health` و `/ready` هر دو ۲۰۰، restart count صفر و rollback point metadata-only ثبت شده است. |
+| candidate PF-2 | `v1.1.4-rc.9`، run `35289669314`، artifact `ghcr.io/farhaddgm/hero@sha256:499d00f88ac705f2b47d221d4396887291f7293c4d8c6ca7b67dff764b7c0b12` | workflow و `pnpm check` موفق؛ promotion به Test هنوز انجام نشده است. |
+| شواهد انتشار | run `35287418094`، promotion مالک و smoke واقعی موفق | `/health` و `/ready` هر دو ۲۰۰، restart count صفر و rollback point metadata-only برای rc.8 ثبت شده است. |
 | رخداد اصلاح‌شده | rc.6 بعد از restart با `Product request metadata is invalid` crash-loop شد | علت و اصلاح در source ثبت شده؛ rc.8 همان مسیر را سالم کرده است. |
 | کیفیت source | اجرای معادل `pnpm check` در Linux container: ۴۰۶ pass، ۰ fail؛ build: ۲۶۵ module و ۴۹ JSON | به‌علت نبودن Node/pnpm روی host و نبودن Docker socket داخل check container، check در Docker مرجع با snapshot source اجرا شد؛ این نتیجه جای acceptance محصول هدف را نمی‌گیرد. |
 | AI | مسیر provider-agnostic، policy، redaction و result ساخت‌یافته در source/Test حاضر است | evidence تازه‌ای از فراخوانی زندهٔ OpenAI در این baseline ثبت نشده است؛ provider و هزینه fail-closed هستند. |
