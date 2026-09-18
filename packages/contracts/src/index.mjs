@@ -525,6 +525,18 @@ export { SYSTEM_CATALOG_CONTRACT_VERSION, SYSTEM_ENTITY_TYPES, SYSTEM_ENTITY_LIF
 export { PERFORMANCE_INTELLIGENCE_CONTRACT_VERSION, USAGE_EVENT_FIELDS, HEALTH_STATUSES, getPerformanceIntelligenceContractSummary, validatePerformanceIntelligenceContract } from "./performance-intelligence.mjs";
 export { NOTIFICATION_OBSERVABILITY_CONTRACT_VERSION, NOTIFICATION_SEVERITIES, NOTIFICATION_STATES, getNotificationObservabilityContractSummary, validateNotificationObservabilityContract } from "./notification-observability.mjs";
 export { INFRASTRUCTURE_CONTROL_CONTRACT_VERSION, HERO_ENVIRONMENTS, NODE_STATES, SECRET_STATES, getInfrastructureControlContractSummary, validateInfrastructureControlContract } from "./infrastructure-control.mjs";
+export {
+  REMOTE_AGENT_CONTRACT_VERSION,
+  REMOTE_TARGET_STATES,
+  REMOTE_AGENT_STATES,
+  REMOTE_AGENT_OPERATIONS,
+  REMOTE_AGENT_TRANSPORTS,
+  REMOTE_AGENT_CAPABILITIES,
+  REMOTE_AGENT_SIGNATURE_ALGORITHM,
+  REMOTE_ARTIFACT_DIGEST_PATTERN,
+  getRemoteAgentContractSummary,
+  validateRemoteAgentContract
+} from "./remote-agent.mjs";
 export { DELIVERY_CONTROL_CONTRACT_VERSION, DELIVERY_RELEASE_STATES, DELIVERY_TARGETS, getDeliveryControlContractSummary, validateDeliveryControlContract } from "./delivery-control.mjs";
 export { OPERATIONAL_HARDENING_CONTRACT_VERSION, SUPPORTED_LOCALES, RETENTION_MINIMUMS, getOperationalHardeningContractSummary, validateOperationalHardeningContract } from "./operational-hardening.mjs";
 export { FINAL_READINESS_CONTRACT_VERSION, READINESS_STATES, getFinalReadinessContractSummary, validateFinalReadinessContract } from "./final-readiness.mjs";
