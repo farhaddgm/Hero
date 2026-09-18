@@ -403,6 +403,17 @@ test("all back-office surfaces expose their required feature help without nestin
   assert.equal((backoffice.match(/class="capability-info"/g) ?? []).length, 12);
 });
 
+test("Project Workspace makes project inputs explicitly optional", () => {
+  const html = getProjectWorkspaceHtml({ projectId: "project-vpn" });
+  assert.match(html, /ورودی پروژه <span class="optional-badge">اختیاری<\/span>/);
+  assert.match(html, /نداشتن ورودی مانع ادامهٔ پروژه نیست/);
+  assert.match(html, /name="content" maxlength="524288" placeholder=/);
+  assert.match(html, /name="url" type="url" placeholder=/);
+  assert.doesNotMatch(html, /name="content"[^>]*required/);
+  assert.doesNotMatch(html, /name="url"[^>]*required/);
+  assert.match(html, /ورودی پروژه اختیاری است؛ بدون نمونه می‌توانید پروژه را ادامه دهید/);
+});
+
 test("Identity separates the three Test login gates with plain-language field guidance", () => {
   const html = getIdentityHtml();
   assert.match(html, /Gate 1 — Network Basic Auth/);

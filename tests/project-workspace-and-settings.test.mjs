@@ -45,6 +45,16 @@ test("project registry creates isolated projects, safe intake, proposal and clon
   assert.throws(() => workspace.createProject({ actor: owner, projectId: "project-bad", name: "Bad", intake: { intent: "a", goal: "b", users: "c", secret: "never" } }), error => error.code === "SENSITIVE_INPUT_FORBIDDEN");
 });
 
+test("project inputs are optional and an empty workspace remains valid", () => {
+  const { workspace } = setup();
+  const created = workspace.createProject({ actor: owner, projectId: "project-empty", name: "Empty brief" });
+  assert.equal(created.project.lifecycle, "draft");
+  assert.equal(typeof created.project.intake.goal, "string");
+  assert.ok(created.project.intake.goal.length > 0, "safe intake defaults remain available without a sample input");
+  assert.deepEqual(workspace.listInputs({ projectId: "project-empty" }), []);
+  assert.doesNotThrow(() => workspace.foundationProposal({ projectId: "project-empty" }));
+});
+
 test("product factory classifies risk conservatively and keeps runtime effects fail-closed", () => {
   const assessment = classifyProductRisk({ projectType: "security-tool", requestedLevel: "low", riskFlags: { internetFacing: true, securitySensitive: true } });
   assert.equal(assessment.level, "critical");
