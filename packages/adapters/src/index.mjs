@@ -113,3 +113,8 @@ export {
   HeroSecretStoreError,
   createHeroSecretStore
 } from "./hero-secret-store.mjs";
+
+export {
+  createDockerProductExecutor,
+  createDockerProductRunner
+} from "./product-runner.mjs";

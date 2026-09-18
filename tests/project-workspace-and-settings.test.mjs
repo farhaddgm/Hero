@@ -179,6 +179,8 @@ test("Foundation approval applies a policy pack, owner can return to Draft with 
   const created = workspace.createProject({ actor: owner, projectId: "project-vpn", name: "VPN" });
   const approved = workspace.approveFoundation({ actor: admin, projectId: "project-vpn", proposalId: created.foundationProposal.proposalId, expectedVersion: 1 });
   assert.equal(approved.state, "approved");
+  assert.equal(approved.suggested.runtimePlan.state, "approved");
+  assert.deepEqual(validateProductRuntimePlan(approved.suggested.runtimePlan), []);
   assert.equal(settings.effective({ projectId: "project-vpn", path: "ai.defaultModel" }).value, "luna");
   const imported = workspace.importGithubReadOnly({ actor: admin, projectId: "project-vpn", repositoryUrl: "https://github.com/acme/vpn", inventory: { branches: ["main"] } });
   assert.equal(imported.state, "awaiting-separate-fetch-authorization");

@@ -205,6 +205,8 @@ test("runner endpoint exposes only the isolated execution contract", async t => 
   assert.equal(payload.runnerContract.defaultLimits.network, "disabled");
   assert.equal(payload.runnerContract.defaultLimits.maxConcurrentRunners, 1);
   assert.ok(payload.runnerContract.states.includes("checkpointed"));
+  assert.equal(payload.productRunnerContract.defaults.networkMode, "none");
+  assert.equal(payload.productRunnerContract.defaults.shell, false);
 });
 
 test("fake agent endpoint exposes deterministic no-provider scenarios only", async t => {

@@ -5,6 +5,7 @@ export const PRODUCT_RISK_LEVELS = Object.freeze(["low", "standard", "high", "cr
 export const PRODUCT_AUTONOMY_MODES = Object.freeze(["approval-each-stage", "approved-autonomous"]);
 export const PRODUCT_TARGET_KINDS = Object.freeze(["product-test-local-isolated", "remote-product-target"]);
 export const PRODUCT_EXECUTION_MODES = Object.freeze(["plan-only", "isolated-test", "remote-agent"]);
+export const PRODUCT_RUNTIME_STATES = Object.freeze(["proposed", "approved"]);
 export const PRODUCT_NETWORK_POLICIES = Object.freeze(["disabled", "egress-allowlist"]);
 export const PRODUCT_RUNTIME_NETWORK_MODES = Object.freeze(["none", "bridge"]);
 
@@ -46,6 +47,7 @@ export function getProductFactoryContractSummary() {
     autonomyModes: PRODUCT_AUTONOMY_MODES,
     targetKinds: PRODUCT_TARGET_KINDS,
     executionModes: PRODUCT_EXECUTION_MODES,
+    runtimeStates: PRODUCT_RUNTIME_STATES,
     networkPolicies: PRODUCT_NETWORK_POLICIES,
     runtimeNetworkModes: PRODUCT_RUNTIME_NETWORK_MODES,
     runtimeDefaults: PRODUCT_RUNTIME_DEFAULTS,
@@ -60,6 +62,7 @@ export function validateProductFactoryContract() {
   if (!PRODUCT_TYPES.includes("security-tool")) errors.push("Security-sensitive product type is required.");
   if (!PRODUCT_RISK_LEVELS.includes("critical")) errors.push("Critical risk level is required.");
   if (PRODUCT_RUNTIME_DEFAULTS.executionMode !== "plan-only") errors.push("Factory runtime must default to plan-only.");
+  if (!PRODUCT_RUNTIME_STATES.includes("proposed") || !PRODUCT_RUNTIME_STATES.includes("approved")) errors.push("Runtime plans must have proposed and approved states.");
   if (PRODUCT_RUNTIME_DEFAULTS.network !== "disabled") errors.push("Factory runtime must default to disabled network.");
   if (!PRODUCT_RUNTIME_NETWORK_MODES.includes("none") || PRODUCT_RUNTIME_NETWORK_MODES.includes("host")) errors.push("Runtime network modes must exclude host network.");
   if (PRODUCT_RUNTIME_DEFAULTS.privileged || PRODUCT_RUNTIME_DEFAULTS.hostNetwork || PRODUCT_RUNTIME_DEFAULTS.dockerSocket || PRODUCT_RUNTIME_DEFAULTS.hostMounts) errors.push("Factory runtime must deny privileged and host escape controls by default.");
@@ -72,6 +75,7 @@ export function validateProductRuntimePlan(plan) {
   if (!plan || typeof plan !== "object" || Array.isArray(plan)) return ["runtime plan must be an object."];
   if (plan.schemaVersion !== PRODUCT_FACTORY_CONTRACT_VERSION) errors.push("runtime plan schemaVersion is invalid.");
   if (typeof plan.projectId !== "string" || !/^[a-z][a-z0-9-]{2,62}$/.test(plan.projectId)) errors.push("runtime plan projectId is invalid.");
+  if (!PRODUCT_RUNTIME_STATES.includes(plan.state)) errors.push("runtime plan state is invalid.");
   if (!PRODUCT_TARGET_KINDS.includes(plan.target?.kind)) errors.push("runtime plan target kind is invalid.");
   if (plan.target?.environment !== "test") errors.push("runtime plan must target Test.");
   if (!PRODUCT_EXECUTION_MODES.includes(plan.execution?.mode)) errors.push("runtime plan execution mode is invalid.");

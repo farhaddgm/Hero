@@ -45,6 +45,7 @@ import {
   getProjectSettingsContractSummary,
   getProjectWorkspaceContractSummary,
   getProductFactoryContractSummary,
+  getProductRunnerContractSummary,
   getBackofficeCollaborationContractSummary,
   getBackofficeCommandCenterContractSummary,
   getSystemCatalogContractSummary,
@@ -3233,7 +3234,8 @@ export function createHeroServer(options = {}) {
     if (request.method === "GET" && url.pathname === "/runner-contract") {
       return json(response, 200, {
         service: HERO_SERVICE,
-        runnerContract: getRunnerContractSummary()
+        runnerContract: getRunnerContractSummary(),
+        productRunnerContract: getProductRunnerContractSummary()
       });
     }
 
