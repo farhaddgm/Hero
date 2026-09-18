@@ -96,8 +96,13 @@ export function evaluateProductRuntimeAdmission({ plan, networkMode = "none", po
   if (!Array.isArray(resourceNames) || requestedNames.some(name => typeof name !== "string" || !/^hero-product-[a-z0-9-]+$/.test(name))) errors.push("runtime resource names must use the hero-product namespace.");
   if (!Array.isArray(reservedResourceNames) || requestedNames.some(name => occupiedNames.includes(name))) errors.push("a runtime resource name is already reserved or reservation data is invalid.");
   if (!Array.isArray(hostPaths) || requestedPaths.some(path => typeof path !== "string" || path.startsWith("/") || path.split("/").includes("..") || path === ".hero" || path.startsWith(".hero/"))) errors.push("host paths must not escape the product workspace.");
-  if (limits.cpuLimit !== undefined && (!Number.isFinite(limits.cpuLimit) || limits.cpuLimit <= 0 || limits.cpuLimit > PRODUCT_RUNTIME_DEFAULTS.cpuLimit)) errors.push("cpu limit exceeds the product default quota.");
-  if (limits.memoryMiB !== undefined && (!Number.isInteger(limits.memoryMiB) || limits.memoryMiB <= 0 || limits.memoryMiB > PRODUCT_RUNTIME_DEFAULTS.memoryMiB)) errors.push("memory limit exceeds the product default quota.");
+  if (plan.execution?.network === "disabled" && networkMode !== "none") errors.push("runtime network mode must be none when the plan disables network access.");
+  if (plan.security?.hostMounts === false && requestedPaths.length > 0) errors.push("host paths are forbidden when host mounts are disabled.");
+  if (limits.cpuLimit !== undefined && (!Number.isFinite(limits.cpuLimit) || limits.cpuLimit <= 0 || limits.cpuLimit > (plan.resources?.cpuLimit ?? 0))) errors.push("cpu limit exceeds the product plan quota.");
+  if (limits.memoryMiB !== undefined && (!Number.isInteger(limits.memoryMiB) || limits.memoryMiB <= 0 || limits.memoryMiB > (plan.resources?.memoryMiB ?? 0))) errors.push("memory limit exceeds the product plan quota.");
+  if (limits.pidsLimit !== undefined && (!Number.isInteger(limits.pidsLimit) || limits.pidsLimit < 1 || limits.pidsLimit > (plan.resources?.pidsLimit ?? 0))) errors.push("process limit exceeds the product plan quota.");
+  if (limits.timeoutSeconds !== undefined && (!Number.isInteger(limits.timeoutSeconds) || limits.timeoutSeconds < 1 || limits.timeoutSeconds > (plan.execution?.timeoutSeconds ?? 0))) errors.push("runtime timeout exceeds the product plan quota.");
+  if (limits.maxConcurrentRuns !== undefined && (!Number.isInteger(limits.maxConcurrentRuns) || limits.maxConcurrentRuns < 1 || limits.maxConcurrentRuns > (plan.execution?.maxConcurrentRuns ?? 0))) errors.push("concurrency exceeds the product plan quota.");
   return copy({ decision: errors.length ? "reject" : "admit", errors, sideEffects: "none" });
 }
 

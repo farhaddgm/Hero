@@ -76,6 +76,13 @@ export function validateProductRuntimePlan(plan) {
   if (plan.target?.environment !== "test") errors.push("runtime plan must target Test.");
   if (!PRODUCT_EXECUTION_MODES.includes(plan.execution?.mode)) errors.push("runtime plan execution mode is invalid.");
   if (!PRODUCT_NETWORK_POLICIES.includes(plan.execution?.network)) errors.push("runtime plan network policy is invalid.");
+  if (!Number.isInteger(plan.execution?.timeoutSeconds) || plan.execution.timeoutSeconds < 30 || plan.execution.timeoutSeconds > PRODUCT_RUNTIME_DEFAULTS.timeoutSeconds) errors.push("runtime plan timeout exceeds the Test quota.");
+  if (!Number.isInteger(plan.execution?.maxConcurrentRuns) || plan.execution.maxConcurrentRuns < 1 || plan.execution.maxConcurrentRuns > PRODUCT_RUNTIME_DEFAULTS.maxConcurrentRuns) errors.push("runtime plan concurrency exceeds the Test quota.");
+  if (!Number.isFinite(plan.resources?.cpuLimit) || plan.resources.cpuLimit <= 0 || plan.resources.cpuLimit > PRODUCT_RUNTIME_DEFAULTS.cpuLimit) errors.push("runtime plan CPU quota is invalid.");
+  if (!Number.isInteger(plan.resources?.memoryMiB) || plan.resources.memoryMiB <= 0 || plan.resources.memoryMiB > PRODUCT_RUNTIME_DEFAULTS.memoryMiB) errors.push("runtime plan memory quota is invalid.");
+  if (!Number.isInteger(plan.resources?.pidsLimit) || plan.resources.pidsLimit < 32 || plan.resources.pidsLimit > PRODUCT_RUNTIME_DEFAULTS.pidsLimit) errors.push("runtime plan process quota is invalid.");
+  if (!Array.isArray(plan.isolation?.ports) || plan.isolation.ports.some(port => !Number.isInteger(port) || port < 1024 || port > 65535)) errors.push("runtime plan ports are invalid.");
+  if (!Array.isArray(plan.isolation?.hostMounts) || plan.isolation.hostMounts.length > 0) errors.push("runtime plan host mounts must remain empty.");
   for (const effect of PRODUCT_RUNTIME_EFFECTS) {
     if (plan.effects?.[effect] !== false) errors.push(`runtime plan effect must remain false before authorization: ${effect}.`);
   }

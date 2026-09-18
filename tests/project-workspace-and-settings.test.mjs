@@ -109,6 +109,35 @@ test("product runtime admission rejects host escape, collisions and quota violat
   assert.deepEqual(admitted, { decision: "admit", errors: [], sideEffects: "none" });
 });
 
+test("product runtime admission enforces the plan network, host-mount and quota boundaries", () => {
+  const plan = createProductRuntimePlan({ projectId: "project-safe" });
+  const rejected = evaluateProductRuntimeAdmission({
+    plan,
+    networkMode: "bridge",
+    hostPaths: ["workspace/input"],
+    resourceNames: [],
+    reservedResourceNames: [],
+    resourceLimits: { cpuLimit: 1, memoryMiB: 1024, pidsLimit: 257, timeoutSeconds: 1801, maxConcurrentRuns: 2 }
+  });
+  assert.equal(rejected.decision, "reject");
+  assert.ok(rejected.errors.some(error => error.includes("network mode must be none")));
+  assert.ok(rejected.errors.some(error => error.includes("host paths are forbidden")));
+  assert.ok(rejected.errors.some(error => error.includes("process limit")));
+  assert.ok(rejected.errors.some(error => error.includes("timeout")));
+  assert.ok(rejected.errors.some(error => error.includes("concurrency")));
+  assert.equal(rejected.sideEffects, "none");
+});
+
+test("tampered product runtime plans fail validation before admission", () => {
+  const plan = createProductRuntimePlan({ projectId: "project-safe" });
+  assert.ok(validateProductRuntimePlan({ ...plan, execution: { ...plan.execution, maxConcurrentRuns: 2 } }).some(error => error.includes("concurrency")));
+  assert.ok(validateProductRuntimePlan({ ...plan, resources: { ...plan.resources, pidsLimit: 257 } }).some(error => error.includes("process quota")));
+  assert.ok(validateProductRuntimePlan({ ...plan, isolation: { ...plan.isolation, hostMounts: ["workspace/input"] } }).some(error => error.includes("host mounts")));
+  const malformed = evaluateProductRuntimeAdmission({ plan: { schemaVersion: "invalid" }, resourceLimits: { cpuLimit: 1 } });
+  assert.equal(malformed.decision, "reject");
+  assert.equal(malformed.sideEffects, "none");
+});
+
 test("private input pipeline validates signatures, scan, zip safety, instruction isolation and SSRF", () => {
   const { workspace } = setup();
   workspace.createProject({ actor: owner, projectId: "project-vpn", name: "VPN" });
