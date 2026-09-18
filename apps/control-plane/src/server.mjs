@@ -95,6 +95,7 @@ import { createOperationalHardening, HardeningError } from "../../../packages/do
 import { createFinalReadiness, FinalReadinessError } from "../../../packages/domain/src/final-readiness.mjs";
 import { createBackofficeCompletion, BackofficeCompletionError } from "../../../packages/domain/src/backoffice-completion.mjs";
 import { AiOrchestrationError } from "../../../packages/domain/src/ai-orchestration.mjs";
+import { FormSuggestionsError, FORM_SUGGESTIONS_VERSION, createFormSuggestions } from "../../../packages/domain/src/form-suggestions.mjs";
 import { rebuildPortfolioReadModel, rebuildProjectReadModel } from "../../../packages/domain/src/backoffice-read-models.mjs";
 import { ProductDevelopmentError, createProductDevelopmentCatalog } from "../../../packages/domain/src/product-development.mjs";
 import { HeroSecretStoreError, createConfiguredAiProviderAdapters, createHeroSecretStore, createNotionApiAdapter, createPostgresRuntime, createPricingCatalogRegistry, createRuntimeExternalSpendAuthorizer, readRuntimeExternalSpendPolicy } from "../../../packages/adapters/src/index.mjs";
@@ -178,7 +179,8 @@ const ADMIN_ALLOWED_MUTATIONS = new Set([
   "/api/ai/project-scopes",
   "/api/ai/skills",
   "/api/ai/skill-bindings",
-  "/api/ai/role-policies"
+  "/api/ai/role-policies",
+  "/api/form-suggestions"
 ]);
 // Human Identity is the browser-facing authority. Global AI catalog entries
 // affect the whole private Hero installation, so they remain Owner-only.
@@ -1117,6 +1119,19 @@ export function createHeroServer(options = {}) {
     });
   }
 
+  function formSuggestionOptions(projectId = null) {
+    const options = walkthroughAdvisorOptions(projectId, { includeUnbound: projectId === null, purpose: "form-suggestions" });
+    return Object.freeze({
+      version: FORM_SUGGESTIONS_VERSION,
+      projectId,
+      localAdvisor: options.localAdvisor,
+      providers: options.providers,
+      models: options.models,
+      profiles: options.profiles,
+      note: "پیشنهادهای فرم در وضعیت فعلی محلی و بدون هزینه‌اند؛ Profile خارجی فقط با مجوز مستقل قابلیت form-suggestions قابل انتخاب است."
+    });
+  }
+
   function activeLiveAdvisorAuthorization({ purpose, projectId, providerId, modelId, role }) {
     const projectScope = (dashboard.aiOrchestrationSnapshot().projectScopes ?? []).find(scope => scope.projectId === projectId) ?? null;
     if (projectScope && (projectScope.mode !== "enabled" || !(projectScope.capabilities ?? []).includes(purpose))) {
@@ -1752,6 +1767,17 @@ export function createHeroServer(options = {}) {
         if (projectId) projectAccessMiddleware.requireProject({ principal, projectId, action: "project.read" });
         return;
       }
+      if (url.pathname.startsWith("/api/form-suggestions") && ["GET", "POST"].includes(request.method)) {
+        if (!principal || !["human-identity", "admin"].includes(principal.source)) {
+          throw new HumanIdentityError("IDENTITY_AUTH_REQUIRED", "Human or admin authentication is required for form suggestions.", 401);
+        }
+        if (!["project-owner", "admin"].includes(principal.role)) {
+          throw new ProjectAccessError("ADMIN_REQUIRED", "پیشنهاد فرم فقط برای Owner یا Admin مجاز است.", 403);
+        }
+        const scopedProjectId = url.searchParams.get("projectId");
+        if (scopedProjectId) projectAccessMiddleware.requireProject({ principal, projectId: scopedProjectId, action: request.method === "GET" ? "project.read" : "project.write" });
+        return;
+      }
       if (url.pathname === "/api/projects" && request.method === "POST") {
         projectAccessRegistry.authorize({ principal, projectId: "hero", action: "project.create" });
         return;
@@ -2277,6 +2303,44 @@ export function createHeroServer(options = {}) {
           await persistIdentityAudit({ userId: authenticatedOwner.subject, eventType: "ai.credential-health-checked", outcome: "rejected", data: { providerId, status: status.configured ? "blocked" : "not-configured", code: error?.code ?? "CREDENTIAL_HEALTH_FAILED" } });
           return json(response, 503, { service: HERO_SERVICE, credential: Object.freeze({ ...status, state: status.configured ? "blocked" : "not-configured", code: error?.code ?? "CREDENTIAL_HEALTH_FAILED", secretValueExposed: false }) });
         }
+      }
+
+      if (request.method === "GET" && url.pathname === "/api/form-suggestions/options") {
+        const queryProjectId = url.searchParams.get("projectId");
+        if (queryProjectId !== null && !/^[a-z][a-z0-9-]{2,62}$/.test(queryProjectId)) {
+          throw new FormSuggestionsError("FORM_SUGGESTION_PROJECT_INVALID", "شناسهٔ پروژه برای پیشنهاد فرم معتبر نیست.", 400);
+        }
+        return json(response, 200, { service: HERO_SERVICE, formSuggestions: formSuggestionOptions(queryProjectId) });
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/form-suggestions") {
+        if (!authenticatedOwner || !["human-identity", "admin"].includes(authenticatedOwner.source)) {
+          throw new HumanIdentityError("IDENTITY_AUTH_REQUIRED", "برای پیشنهاد فرم ورود انسانی یا نشست Admin لازم است.", 401);
+        }
+        const input = await readJson(request, 16 * 1024);
+        const queryProjectId = url.searchParams.get("projectId");
+        if (input.projectId !== undefined && (input.projectId ?? null) !== (queryProjectId ?? null)) {
+          throw new FormSuggestionsError("FORM_SUGGESTION_SCOPE_MISMATCH", "Scope پروژهٔ پیشنهاد فرم معتبر نیست.", 400);
+        }
+        const projectId = queryProjectId || null;
+        const options = formSuggestionOptions(projectId);
+        const selectedAdvisor = input.selectedAdvisor === undefined || input.selectedAdvisor === null || input.selectedAdvisor === "" ? "local" : input.selectedAdvisor;
+        if (selectedAdvisor !== "local" && !options.profiles.some(profile => profile.profileId === selectedAdvisor && profile.selectable === true)) {
+          throw new FormSuggestionsError("FORM_SUGGESTION_ADVISOR_UNAVAILABLE", "AI انتخاب‌شده برای پیشنهاد فرم آماده یا مجاز نیست.", 403);
+        }
+        let authoritativeGoal = input.softwareGoal;
+        if (projectId) authoritativeGoal = projectOverview(projectId).intake?.goal || authoritativeGoal;
+        const formSuggestions = createFormSuggestions({
+          actor: authenticatedOwner,
+          projectId,
+          formId: input.formId,
+          formTitle: input.formTitle,
+          softwareGoal: authoritativeGoal,
+          boxDescription: input.boxDescription,
+          fields: input.fields,
+          selectedAdvisor
+        });
+        return json(response, 200, { service: HERO_SERVICE, formSuggestions });
       }
 
       if (request.method === "POST" && url.pathname === "/api/walkthrough/advice") {
@@ -3424,7 +3488,7 @@ export function createHeroServer(options = {}) {
       if (error instanceof OwnerAuthError && rejectedReadResource) {
         await recordReadAccess(rejectedReadResource, "rejected");
       }
-      const known = error instanceof DashboardCommandError || error instanceof ProductDevelopmentError || error instanceof ProjectAccessError || error instanceof ProjectWorkspaceError || error instanceof ProjectSettingsError || error instanceof CollaborationError || error instanceof CommandCenterError || error instanceof SystemCatalogError || error instanceof PerformanceError || error instanceof NotificationError || error instanceof InfrastructureError || error instanceof DeliveryError || error instanceof HardeningError || error instanceof FinalReadinessError || error instanceof BackofficeCompletionError || error instanceof HeroSecretStoreError || error instanceof AiOrchestrationError;
+      const known = error instanceof DashboardCommandError || error instanceof ProductDevelopmentError || error instanceof ProjectAccessError || error instanceof ProjectWorkspaceError || error instanceof ProjectSettingsError || error instanceof CollaborationError || error instanceof CommandCenterError || error instanceof SystemCatalogError || error instanceof PerformanceError || error instanceof NotificationError || error instanceof InfrastructureError || error instanceof DeliveryError || error instanceof HardeningError || error instanceof FinalReadinessError || error instanceof BackofficeCompletionError || error instanceof HeroSecretStoreError || error instanceof AiOrchestrationError || error instanceof FormSuggestionsError;
       const auth = error instanceof OwnerAuthError || error instanceof HumanIdentityError;
       const statusCode = auth ? error.statusCode : known ? (error.statusCode ?? error.status ?? 409) : 500;
       if (statusCode >= 500) console.error(JSON.stringify({ level: "error", event: "hero.request-failed", method: request.method, path: url.pathname, status: statusCode, code: auth || known ? error.code : "INTERNAL_ERROR" }));

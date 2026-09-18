@@ -41,6 +41,11 @@ test("the shared Hero shell provides accessible project-aware navigation", () =>
   assert.match(getHeroShellScript(), /hero\.active-project-id/);
   assert.match(html, /data-hero-command-dialog/);
   assert.match(html, /data-hero-smart-tester-toggle/);
+  assert.match(html, /data-hero-form-suggestions-toggle/);
+  assert.match(getHeroShellScript(), /hero-form-suggestion-trigger/);
+  assert.match(getHeroShellScript(), /اعلام پیشنهاد/);
+  assert.match(getHeroShellScript(), /انتخاب این پیشنهاد/);
+  assert.match(getHeroShellStyles(), /hero-form-suggestion-dialog/);
   assert.match(html, /Portfolio/);
   assert.match(html, /انتخاب پروژه/);
   assert.match(html, /class="hero-side-nav"/);

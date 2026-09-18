@@ -318,6 +318,43 @@ export function getHeroShellStyles() {
     .hero-info-trigger:hover, .hero-info-trigger:focus-visible, .hero-info-trigger[aria-expanded="true"] { border-color: var(--hero-brand); outline: 0; background: var(--hero-brand-soft); color: var(--hero-brand); box-shadow: 0 0 0 3px color-mix(in srgb, var(--hero-brand) 16%, transparent); }
     .hero-feature-tooltip { position: fixed; z-index: 12000; width: min(330px, calc(100vw - 24px)); padding: 11px 13px; border: 1px solid var(--hero-line-strong); border-radius: 12px; background: var(--hero-surface-raised); color: var(--hero-ink); box-shadow: var(--hero-shadow-lg); font: 650 .82rem/1.8 Vazirmatn, sans-serif; text-align: start; direction: rtl; pointer-events: none; opacity: 0; transform: translateY(4px); transition: opacity .12s ease, transform .12s ease; }
     .hero-feature-tooltip[data-open="true"] { opacity: 1; transform: translateY(0); }
+    .hero-form-suggestion-trigger { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; margin: 0 0 10px; padding: 6px 10px; border: 1px solid color-mix(in srgb, var(--hero-brand) 42%, var(--hero-line)); border-radius: 9px; background: var(--hero-brand-soft); color: var(--hero-brand); cursor: pointer; font: 800 .72rem/1.2 Vazirmatn, sans-serif; }
+    .hero-form-suggestion-trigger:hover, .hero-form-suggestion-trigger:focus-visible { border-color: var(--hero-brand); outline: 0; background: var(--hero-brand); color: #fff; box-shadow: 0 0 0 3px color-mix(in srgb, var(--hero-brand) 16%, transparent); }
+    .hero-form-suggestion-dialog { width: min(720px, calc(100% - 28px)); max-height: min(760px, calc(100vh - 34px)); box-sizing: border-box; padding: 0; border: 1px solid var(--hero-line); border-radius: 17px; background: var(--hero-surface-raised); color: var(--hero-ink); box-shadow: var(--hero-shadow-lg); direction: rtl; }
+    .hero-form-suggestion-dialog::backdrop { background: rgba(8, 15, 30, .56); backdrop-filter: blur(3px); }
+    .hero-form-suggestion-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 15px 17px; border-bottom: 1px solid var(--hero-line); }
+    .hero-form-suggestion-head h2 { margin: 0; color: var(--hero-brand); font-size: .95rem; line-height: 1.6; }
+    .hero-form-suggestion-head p { margin: 3px 0 0; color: var(--hero-muted); font-size: .69rem; line-height: 1.7; }
+    .hero-form-suggestion-close { width: 30px; height: 30px; padding: 0; border: 1px solid var(--hero-line-strong); border-radius: 8px; background: var(--hero-surface); color: var(--hero-muted); cursor: pointer; font: 900 1rem/1 system-ui, sans-serif; }
+    .hero-form-suggestion-close:hover, .hero-form-suggestion-close:focus-visible { border-color: var(--hero-brand); outline: 0; color: var(--hero-brand); }
+    .hero-form-suggestion-body { display: grid; gap: 11px; padding: 14px 17px 17px; }
+    .hero-form-suggestion-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+    .hero-form-suggestion-fields label { display: grid; gap: 4px; min-width: 0; color: var(--hero-muted); font-size: .68rem; font-weight: 800; }
+    .hero-form-suggestion-fields label.full { grid-column: 1 / -1; }
+    .hero-form-suggestion-fields select, .hero-form-suggestion-fields textarea { width: 100%; min-width: 0; box-sizing: border-box; padding: 7px 9px; border: 1px solid var(--hero-line-strong); border-radius: 8px; background: var(--hero-surface); color: var(--hero-ink); font: 700 .72rem/1.7 Vazirmatn, sans-serif; }
+    .hero-form-suggestion-fields textarea { min-height: 48px; resize: vertical; }
+    .hero-form-suggestion-fields textarea[readonly] { color: var(--hero-muted); }
+    .hero-form-suggestion-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .hero-form-suggestion-actions button, .hero-form-suggestion-card button { min-height: 33px; padding: 7px 11px; border: 1px solid var(--hero-line-strong); border-radius: 8px; background: var(--hero-surface); color: var(--hero-brand); cursor: pointer; font: 800 .72rem/1.3 Vazirmatn, sans-serif; }
+    .hero-form-suggestion-actions button[type="submit"], .hero-form-suggestion-card button { border-color: var(--hero-brand); background: var(--hero-brand); color: #fff; }
+    .hero-form-suggestion-actions button:hover, .hero-form-suggestion-actions button:focus-visible, .hero-form-suggestion-card button:hover, .hero-form-suggestion-card button:focus-visible { outline: 0; box-shadow: 0 0 0 3px color-mix(in srgb, var(--hero-brand) 16%, transparent); }
+    .hero-form-suggestion-actions button[disabled], .hero-form-suggestion-card button[disabled] { opacity: .55; cursor: wait; }
+    .hero-form-suggestion-status { min-height: 1.2em; margin: 0; color: var(--hero-muted); font-size: .69rem; line-height: 1.7; }
+    .hero-form-suggestion-status[data-state="error"] { color: var(--hero-danger); }
+    .hero-form-suggestion-results { display: grid; gap: 10px; max-height: 390px; overflow: auto; padding: 1px 2px 2px; overscroll-behavior: contain; scrollbar-gutter: stable; }
+    .hero-form-suggestion-results:empty { display: none; }
+    .hero-form-suggestion-card { display: grid; gap: 8px; padding: 11px; border: 1px solid var(--hero-line); border-radius: 11px; background: var(--hero-surface); }
+    .hero-form-suggestion-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 9px; }
+    .hero-form-suggestion-card-head strong { color: var(--hero-ink); font-size: .76rem; }
+    .hero-form-suggestion-card-head small { color: var(--hero-muted); font-size: .64rem; line-height: 1.6; }
+    .hero-form-suggestion-card button { flex: 0 0 auto; }
+    .hero-form-suggestion-card-fields { display: grid; gap: 6px; max-height: 220px; overflow: auto; padding: 1px; }
+    .hero-form-suggestion-card-field { display: grid; grid-template-columns: minmax(100px, .35fr) minmax(0, 1fr); align-items: center; gap: 7px; min-width: 0; }
+    .hero-form-suggestion-card-field > span { color: var(--hero-muted); font-size: .65rem; font-weight: 800; overflow-wrap: anywhere; }
+    .hero-form-suggestion-card-field input, .hero-form-suggestion-card-field textarea { width: 100%; min-width: 0; box-sizing: border-box; padding: 5px 7px; border: 1px solid var(--hero-line); border-radius: 7px; background: var(--hero-canvas); color: var(--hero-ink); font: 650 .66rem/1.6 Vazirmatn, sans-serif; }
+    .hero-form-suggestion-card-field textarea { min-height: 38px; resize: vertical; }
+    .hero-form-suggestion-card-field input[type="checkbox"], .hero-form-suggestion-card-field input[type="radio"] { width: 16px; min-width: 16px; justify-self: start; }
+    @media (max-width: 600px) { .hero-form-suggestion-fields { grid-template-columns: 1fr; } .hero-form-suggestion-fields label.full { grid-column: auto; } .hero-form-suggestion-card-head, .hero-form-suggestion-card-field { grid-template-columns: 1fr; display: grid; } .hero-form-suggestion-card button { width: 100%; } }
     .hero-smart-testable { position: relative; }
     .hero-smart-tester-trigger { position: absolute; z-index: 5; top: 8px; inset-inline-end: 8px; display: grid; place-items: center; width: 24px; height: 24px; min-width: 24px; padding: 0; border: 1px solid color-mix(in srgb, var(--hero-brand) 42%, var(--hero-line)); border-radius: 999px; background: var(--hero-surface-raised); color: var(--hero-brand); box-shadow: 0 4px 10px rgba(29,36,79,.14); cursor: pointer; font: 900 .86rem/1 system-ui, sans-serif; direction: ltr; }
     .hero-smart-tester-trigger:hover, .hero-smart-tester-trigger:focus-visible { border-color: var(--hero-brand); outline: 0; background: var(--hero-brand); color: #fff; box-shadow: 0 0 0 3px color-mix(in srgb, var(--hero-brand) 18%, transparent); }
@@ -350,7 +387,7 @@ export function getHeroShellStyles() {
     @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .001ms !important; animation-duration: .001ms !important; animation-iteration-count: 1 !important; } }
     .hero-side-nav ~ #hero-main { max-width: calc(100% - 296px); margin-inline-start: auto !important; margin-inline-end: 278px !important; }
     @media (max-width: 1160px) { .hero-app-actions { display: none; } .hero-side-nav { width: 222px; }.hero-side-nav ~ #hero-main { max-width: calc(100% - 268px); margin-inline-end: 254px !important; } }
-    @media (max-width: 760px) { .hero-appbar { position: static; } .hero-appbar-inner { width: min(100% - 20px, 740px); grid-template-columns: 1fr; gap: 7px; padding: 10px 0; } .hero-app-brand { justify-self: start; } .hero-side-nav { position: static; width: min(100% - 20px, 740px); max-height: 254px; margin: 10px auto 0; border-radius: 13px; } .hero-side-nav ~ #hero-main { max-width: none; margin-inline: auto !important; } .hero-global-nav a { min-height: 40px; } .hero-nav-copy small { display: none; } .hero-walkthrough-coach, .hero-walkthrough-advisor, .hero-smart-tester-panel, .hero-action-feedback { top: auto; right: 10px; bottom: 10px; left: 10px; width: auto; max-height: min(62vh, 540px); } .hero-walkthrough-coach[data-hero-walkthrough-side="left"], .hero-walkthrough-coach[data-hero-walkthrough-side="right"], .hero-walkthrough-advisor[data-hero-walkthrough-side="left"], .hero-walkthrough-advisor[data-hero-walkthrough-side="right"], .hero-smart-tester-panel[data-hero-smart-tester-side="left"], .hero-smart-tester-panel[data-hero-smart-tester-side="right"], .hero-action-feedback[data-hero-action-feedback-side="left"], .hero-action-feedback[data-hero-action-feedback-side="right"] { right: 10px; left: 10px; } .hero-walkthrough-launcher { top:auto; bottom:10px; } .hero-walkthrough-launcher[data-hero-walkthrough-side="left"] { left:10px; }.hero-walkthrough-launcher[data-hero-walkthrough-side="right"] { right:10px; } }
+    @media (max-width: 760px) { .hero-appbar { position: static; } .hero-appbar-inner { width: min(100% - 20px, 740px); grid-template-columns: 1fr; gap: 7px; padding: 10px 0; } .hero-app-brand { justify-self: start; } .hero-side-nav { position: static; width: min(100% - 20px, 740px); max-height: 254px; margin: 10px auto 0; border-radius: 13px; } .hero-side-nav ~ #hero-main { max-width: none; margin-inline: auto !important; } .hero-global-nav a { min-height: 40px; } .hero-nav-copy small { display: none; } .hero-walkthrough-coach, .hero-walkthrough-advisor, .hero-smart-tester-panel, .hero-action-feedback { top: auto; right: 10px; bottom: 10px; left: 10px; width: auto; max-height: min(62vh, 540px); } .hero-form-suggestion-dialog { width: calc(100% - 20px); max-height: calc(100vh - 20px); } .hero-walkthrough-coach[data-hero-walkthrough-side="left"], .hero-walkthrough-coach[data-hero-walkthrough-side="right"], .hero-walkthrough-advisor[data-hero-walkthrough-side="left"], .hero-walkthrough-advisor[data-hero-walkthrough-side="right"], .hero-smart-tester-panel[data-hero-smart-tester-side="left"], .hero-smart-tester-panel[data-hero-smart-tester-side="right"], .hero-action-feedback[data-hero-action-feedback-side="left"], .hero-action-feedback[data-hero-action-feedback-side="right"] { right: 10px; left: 10px; } .hero-walkthrough-launcher { top:auto; bottom:10px; } .hero-walkthrough-launcher[data-hero-walkthrough-side="left"] { left:10px; }.hero-walkthrough-launcher[data-hero-walkthrough-side="right"] { right:10px; } }
   `;
 }
 
@@ -393,6 +430,7 @@ export function getHeroGlobalNavigation({ active = "portfolio", projectId = null
           ${projectId ? `<a class="hero-project-context" href="${portalHref("portfolio", { select: "project" })}" title="تغییر پروژهٔ فعال"><em aria-hidden="true">◈</em><span><small>پروژهٔ فعال / Active project</small><b>${escapeHtml(projectId)}</b></span></a>` : ""}
           <span class="hero-environment" title="محیط خصوصی و محافظت‌شده">${escapeHtml(environment)}</span>
           <button class="hero-shell-button" type="button" data-hero-smart-tester-toggle aria-pressed="false" aria-label="روشن کردن اسمارت تستر"><span aria-hidden="true">✦</span><span>اسمارت تستر</span></button>
+          <button class="hero-shell-button" type="button" data-hero-form-suggestions-toggle aria-pressed="true" aria-label="خاموش کردن پیشنهاد فرم"><span aria-hidden="true">✎</span><span>پیشنهاد فرم</span></button>
           <button class="hero-shell-button" type="button" data-hero-theme-button aria-label="تغییر پوسته">${icon("theme")}<span>پوسته</span></button>
           <button class="hero-shell-button" type="button" data-hero-command-button aria-haspopup="dialog">${icon("search")}<span>جست‌وجو</span><kbd>⌘K</kbd></button>
         </div>
@@ -483,7 +521,7 @@ export function getHeroShellScript() {
     const heroActionIsProcess = node => {
       const button = heroActionButton(node);
       if (!button || !button.isConnected || button.closest(heroActionExcluded)) return false;
-      if (button.matches('[data-hero-info-trigger],[data-hero-smart-tester-trigger],[data-hero-theme-button],[data-hero-command-button],[data-hero-process-ignore]')) return false;
+      if (button.matches('[data-hero-info-trigger],[data-hero-smart-tester-trigger],[data-hero-form-suggestion-trigger],[data-hero-theme-button],[data-hero-command-button],[data-hero-process-ignore]')) return false;
       if (button.closest('nav')) return false;
       const label = heroActionText(button);
       if (!label || heroActionReadOnly.test(label)) return false;
@@ -820,6 +858,142 @@ export function getHeroShellScript() {
       }
     });
     syncSmartTesterToggle(); installSmartTesterTriggers(document);
+    // Form Suggestions is an advisory, browser-local assistant. It injects a
+    // trigger into safe content forms, never reads current values, and never
+    // stores prompts, suggestions or secrets. Sensitive/auth forms are kept
+    // outside this feature by both the browser and the server.
+    const formSuggestionEnabledKey = 'hero.form-suggestions.enabled.v1';
+    const formSuggestionExcludedSelector = '.hero-global-nav,.hero-command-dialog,.hero-smart-tester-panel,.hero-walkthrough-coach,.hero-walkthrough-advisor,.hero-form-suggestion-dialog,[data-hero-no-form-suggestion]';
+    const formSuggestionSensitive = /login|mfa|password|credential|secret|token|api.?key|grant|access|identity/i;
+    let activeFormSuggestionDialog = null;
+    const formSuggestionEnabled = () => { try { return localStorage.getItem(formSuggestionEnabledKey) !== 'false'; } catch { return true; } };
+    const formSuggestionFieldText = control => {
+      const label = control.labels?.[0]?.textContent || control.closest('label')?.textContent || control.name || control.id || 'فیلد';
+      return String(label).trim().slice(0, 180);
+    };
+    const formSuggestionEligible = form => {
+      if (!form || !form.isConnected || form.closest(formSuggestionExcludedSelector) || form.matches('[data-hero-no-form-suggestion]')) return false;
+      if (formSuggestionSensitive.test(String(form.id || '') + ' ' + String(form.getAttribute('name') || ''))) return false;
+      const controls = [...(form.elements || [])];
+      if (controls.some(control => ['password', 'file'].includes(String(control.type).toLowerCase()))) return false;
+      if (controls.some(control => formSuggestionSensitive.test(String(control.name || control.id || '') + ' ' + formSuggestionFieldText(control)))) return false;
+      return controls.some(control => !control.disabled && ['text', 'search', 'email', 'url', 'number', 'date', 'textarea', 'select-one', 'checkbox', 'radio'].includes(String(control.type || control.tagName).toLowerCase()) && (control.name || control.id));
+    };
+    const serializeFormSuggestionFields = form => [...(form.elements || [])].filter(control => {
+      const type = String(control.type || control.tagName || '').toLowerCase();
+      return !control.disabled && Boolean(control.name || control.id) && !['submit', 'button', 'reset', 'hidden', 'password', 'file'].includes(type);
+    }).map(control => {
+      const type = String(control.type || control.tagName || '').toLowerCase();
+      const normalizedType = type === 'select-one' || type === 'select-multiple' ? 'select' : type;
+      return {
+        name: control.name || control.id,
+        id: control.id || undefined,
+        type: normalizedType,
+        label: formSuggestionFieldText(control),
+        value: normalizedType === 'checkbox' || normalizedType === 'radio' ? (control.value || 'on') : undefined,
+        required: control.required === true,
+        options: normalizedType === 'select' ? [...control.options].map(option => ({ value: option.value, label: option.textContent.trim() })) : undefined
+      };
+    });
+    const formSuggestionTitle = form => {
+      const scope = form.closest('section,dialog,fieldset,.panel,.card,.section,.hero') || form.parentElement;
+      const heading = scope?.querySelector('h1,h2,h3,h4,legend,[data-hero-info-key]');
+      return String(heading?.textContent || form.id || 'تکمیل اطلاعات').trim().slice(0, 180) || 'تکمیل اطلاعات';
+    };
+    const formSuggestionDescription = form => {
+      const scope = form.closest('section,dialog,fieldset,.panel,.card,.section,.hero') || form.parentElement;
+      const heading = scope?.querySelector('h1,h2,h3,h4,legend,[data-hero-info-key]');
+      const paragraph = [...(scope?.querySelectorAll('p') || [])].find(item => !item.closest(formSuggestionExcludedSelector));
+      return String((heading?.textContent || '') + (paragraph?.textContent ? ' · ' + paragraph.textContent : '')).replace(/\\s+/g, ' ').trim().slice(0, 520) || 'این فرم برای ثبت اطلاعات پروژه است.';
+    };
+    const formSuggestionGoal = async () => {
+      if (!projectId) return 'هدف نرم‌افزار هنوز در پروژه ثبت نشده است؛ پیشنهادها را قبل از ثبت بررسی کنید.';
+      try {
+        const response = await fetch('/api/projects/' + encodeURIComponent(projectId) + '/workspace-overview', { credentials: 'same-origin', cache: 'no-store' });
+        const body = await response.json().catch(() => null);
+        const goal = body?.overview?.intake?.goal;
+        return response.ok && typeof goal === 'string' && goal.trim() ? goal.trim().slice(0, 700) : 'هدف نرم‌افزار از اطلاعات فعلی پروژه قابل خواندن نیست؛ پیشنهادها را قبل از ثبت بررسی کنید.';
+      } catch { return 'هدف نرم‌افزار از اطلاعات فعلی پروژه قابل خواندن نیست؛ پیشنهادها را قبل از ثبت بررسی کنید.'; }
+    };
+    const closeFormSuggestionDialog = restoreFocus => {
+      const dialog = activeFormSuggestionDialog || document.querySelector('[data-hero-form-suggestion-dialog]');
+      if (!dialog) return;
+      const trigger = dialog._heroFormSuggestionTrigger;
+      if (dialog.open) dialog.close();
+      dialog.remove();
+      if (activeFormSuggestionDialog === dialog) activeFormSuggestionDialog = null;
+      if (restoreFocus && trigger?.isConnected) trigger.focus({ preventScroll: true });
+    };
+    const applyFormSuggestion = (form, entries) => {
+      for (const entry of Array.isArray(entries) ? entries : []) {
+        const controls = [...(form.elements || [])].filter(control => (control.name || control.id) === entry.name);
+        if (!controls.length) continue;
+        const type = String(controls[0].type || '').toLowerCase();
+        if (type === 'checkbox' || type === 'radio') {
+          const matched = controls.filter(control => String(control.value || 'on') === String(entry.value || 'on'));
+          matched.forEach(control => { control.checked = entry.checked === true; control.dispatchEvent(new Event('input', { bubbles: true })); control.dispatchEvent(new Event('change', { bubbles: true })); });
+          continue;
+        }
+        const control = controls.find(item => !item.disabled) || controls[0];
+        control.value = String(entry.value ?? '');
+        control.dispatchEvent(new Event('input', { bubbles: true }));
+        control.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    };
+    const renderFormSuggestionEntry = (entry, label) => {
+      const row = document.createElement('div'); row.className = 'hero-form-suggestion-card-field';
+      const title = document.createElement('span'); title.textContent = label || entry.name; row.append(title);
+      const type = entry.type === 'checkbox' || entry.type === 'radio' ? entry.type : entry.type === 'select' ? 'select' : (String(entry.value || '').length > 120 ? 'textarea' : 'text');
+      const control = document.createElement(type === 'textarea' ? 'textarea' : type === 'select' ? 'select' : 'input');
+      control.disabled = true; control.value = String(entry.value ?? '');
+      if (type === 'select') { const option = document.createElement('option'); option.value = String(entry.value ?? ''); option.textContent = String(entry.value ?? ''); option.selected = true; control.append(option); }
+      if (type === 'checkbox' || type === 'radio') { control.type = type; control.checked = entry.checked === true; control.value = String(entry.value || 'on'); }
+      row.append(control); return row;
+    };
+    const renderFormSuggestionCard = (container, suggestion, fields, form) => {
+      const card = document.createElement('article'); card.className = 'hero-form-suggestion-card';
+      const head = document.createElement('header'); head.className = 'hero-form-suggestion-card-head';
+      const copy = document.createElement('div'); const title = document.createElement('strong'); title.textContent = suggestion.title || 'پیشنهاد'; const rationale = document.createElement('small'); rationale.textContent = suggestion.rationale || ''; copy.append(title, rationale);
+      const select = document.createElement('button'); select.type = 'button'; select.textContent = 'انتخاب این پیشنهاد'; select.addEventListener('click', () => { applyFormSuggestion(form, suggestion.entries); closeFormSuggestionDialog(true); }); head.append(copy, select); card.append(head);
+      const values = document.createElement('div'); values.className = 'hero-form-suggestion-card-fields';
+      const fieldLabels = new Map(fields.map(field => [field.name, field.label]));
+      for (const entry of Array.isArray(suggestion.entries) ? suggestion.entries : []) values.append(renderFormSuggestionEntry(entry, fieldLabels.get(entry.name)));
+      card.append(values); container.append(card);
+    };
+    const openFormSuggestion = async (form, trigger) => {
+      if (!formSuggestionEnabled() || !formSuggestionEligible(form)) return;
+      closeFormSuggestionDialog(false);
+      const fields = serializeFormSuggestionFields(form);
+      if (!fields.length) return;
+      const titleText = formSuggestionTitle(form); const description = formSuggestionDescription(form);
+      const dialog = document.createElement('dialog'); dialog.className = 'hero-form-suggestion-dialog'; dialog.dataset.heroFormSuggestionDialog = 'true'; dialog.setAttribute('aria-labelledby', 'hero-form-suggestion-title'); dialog._heroFormSuggestionTrigger = trigger;
+      const head = document.createElement('header'); head.className = 'hero-form-suggestion-head'; const headCopy = document.createElement('div'); const heading = document.createElement('h2'); heading.id = 'hero-form-suggestion-title'; heading.textContent = 'پیشنهاد AI برای «' + titleText + '»'; const intro = document.createElement('p'); intro.textContent = 'یک گزینه را انتخاب کنید؛ مقدارها فقط در فرم واقعی قرار می‌گیرند و ثبت نهایی با شماست.'; headCopy.append(heading, intro); const close = document.createElement('button'); close.type = 'button'; close.className = 'hero-form-suggestion-close'; close.textContent = '×'; close.setAttribute('aria-label', 'بستن'); close.addEventListener('click', () => closeFormSuggestionDialog(true)); head.append(headCopy, close); dialog.append(head);
+      const body = document.createElement('div'); body.className = 'hero-form-suggestion-body'; const fieldGrid = document.createElement('div'); fieldGrid.className = 'hero-form-suggestion-fields';
+      const advisorLabel = document.createElement('label'); advisorLabel.className = 'full'; advisorLabel.textContent = 'AI و مدل پیشنهاددهنده'; const advisor = document.createElement('select'); advisor.name = 'advisor'; advisor.setAttribute('aria-label', 'انتخاب AI و مدل پیشنهاددهنده'); const local = document.createElement('option'); local.value = 'local'; local.textContent = 'راهنمای محلی Hero · بدون هزینه'; advisor.append(local); advisorLabel.append(advisor);
+      const goalLabel = document.createElement('label'); goalLabel.className = 'full'; goalLabel.textContent = 'هدف کوتاه نرم‌افزار'; const goal = document.createElement('textarea'); goal.readOnly = true; goal.setAttribute('aria-label', 'هدف کوتاه نرم‌افزار'); goalLabel.append(goal);
+      const boxLabel = document.createElement('label'); boxLabel.className = 'full'; boxLabel.textContent = 'هدف این باکس'; const box = document.createElement('textarea'); box.readOnly = true; box.value = description; box.setAttribute('aria-label', 'هدف این باکس'); boxLabel.append(box); fieldGrid.append(advisorLabel, goalLabel, boxLabel);
+      const requestForm = document.createElement('form'); const actions = document.createElement('div'); actions.className = 'hero-form-suggestion-actions'; const announce = document.createElement('button'); announce.type = 'submit'; announce.textContent = 'اعلام پیشنهاد'; const cancel = document.createElement('button'); cancel.type = 'button'; cancel.textContent = 'انصراف'; cancel.addEventListener('click', () => closeFormSuggestionDialog(true)); actions.append(announce, cancel); requestForm.append(fieldGrid, actions);
+      const status = document.createElement('p'); status.className = 'hero-form-suggestion-status'; status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite'); status.textContent = 'در حال آماده‌سازی پیشنهاد محلی…'; const results = document.createElement('section'); results.className = 'hero-form-suggestion-results'; results.setAttribute('aria-label', 'پیشنهادهای تکمیل فرم'); body.append(requestForm, status, results); dialog.append(body); document.body.append(dialog); activeFormSuggestionDialog = dialog;
+      goal.value = projectId ? 'در حال دریافت هدف ثبت‌شدهٔ پروژه…' : 'هدف نرم‌افزار هنوز در پروژه ثبت نشده است؛ پیشنهادها را قبل از ثبت بررسی کنید.';
+      const loadOptions = async () => { try { const url = new URL('/api/form-suggestions/options', location.origin); if (projectId) url.searchParams.set('projectId', projectId); const response = await fetch(url.pathname + url.search, { credentials: 'same-origin', cache: 'no-store' }); const payload = await response.json().catch(() => null); if (!response.ok) throw new Error(apiErrorMessage(response, payload, 'فهرست AIهای پیشنهاد فرم دریافت نشد')); const options = payload?.formSuggestions || {}; for (const profile of Array.isArray(options.profiles) ? options.profiles : []) { const option = document.createElement('option'); option.value = profile.profileId; option.textContent = (profile.providerName || profile.providerId) + ' / ' + (profile.modelName || profile.modelId) + ' · v' + (profile.profileVersion || '?') + (profile.selectable ? '' : ' · فعلاً غیرفعال'); option.disabled = profile.selectable !== true; advisor.append(option); } status.textContent = 'AI و مدل انتخاب شد؛ برای دریافت پیشنهاد «اعلام پیشنهاد» را بزنید.'; } catch (error) { status.dataset.state = 'error'; status.textContent = error.message || 'راهنمای محلی همچنان قابل استفاده است.'; } };
+      requestForm.addEventListener('submit', async event => { event.preventDefault(); announce.disabled = true; cancel.disabled = true; status.dataset.state = ''; status.textContent = 'در حال ساخت پیشنهادهای قابل بررسی…'; results.replaceChildren(); try { const response = await fetch('/api/form-suggestions' + (projectId ? '?projectId=' + encodeURIComponent(projectId) : ''), { method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ projectId: projectId || null, formId: form.id || 'form-content', formTitle: titleText, softwareGoal: goal.value, boxDescription: description, selectedAdvisor: advisor.value, fields }) }); const payload = await response.json().catch(() => null); if (!response.ok) throw new Error(apiErrorMessage(response, payload, 'پیشنهاد فرم دریافت نشد')); const suggestionData = payload?.formSuggestions; for (const suggestion of Array.isArray(suggestionData?.suggestions) ? suggestionData.suggestions.slice(0, 3) : []) renderFormSuggestionCard(results, suggestion, fields, form); status.textContent = results.children.length ? 'پیشنهادها آماده‌اند؛ یکی را انتخاب کنید.' : 'پیشنهادی برای این فرم ساخته نشد.'; } catch (error) { status.dataset.state = 'error'; status.textContent = error.message || 'ساخت پیشنهاد ناموفق بود.'; } finally { announce.disabled = false; cancel.disabled = false; } });
+      dialog.addEventListener('cancel', event => { event.preventDefault(); closeFormSuggestionDialog(true); }); dialog.addEventListener('click', event => { if (event.target === dialog) closeFormSuggestionDialog(true); }); dialog.showModal(); void (async () => { goal.value = await formSuggestionGoal(); await loadOptions(); })();
+    };
+    const uninstallFormSuggestionTriggers = () => { closeFormSuggestionDialog(false); document.querySelectorAll('[data-hero-form-suggestion-trigger]').forEach(trigger => trigger.remove()); };
+    const installFormSuggestionTriggers = container => {
+      if (!formSuggestionEnabled()) return;
+      const forms = []; if (container?.nodeType === 1 && container.matches?.('form')) forms.push(container); container?.querySelectorAll?.('form').forEach(form => forms.push(form));
+      for (const form of forms) { if (!formSuggestionEligible(form) || form.querySelector(':scope > [data-hero-form-suggestion-trigger]')) continue; const trigger = document.createElement('button'); trigger.type = 'button'; trigger.className = 'hero-form-suggestion-trigger'; trigger.dataset.heroFormSuggestionTrigger = 'true'; trigger.textContent = '✦ پیشنهاد AI'; trigger.title = 'پیشنهاد مقدار برای این فرم'; trigger.setAttribute('aria-label', 'پیشنهاد AI برای این فرم'); trigger.addEventListener('click', event => { event.preventDefault(); event.stopPropagation(); void openFormSuggestion(form, trigger); }); form.prepend(trigger); }
+    };
+    const formSuggestionToggle = document.querySelector('[data-hero-form-suggestions-toggle]');
+    const syncFormSuggestionToggle = () => { const enabled = formSuggestionEnabled(); formSuggestionToggle?.setAttribute('aria-pressed', String(enabled)); if (formSuggestionToggle) { formSuggestionToggle.title = enabled ? 'خاموش کردن پیشنهادهای فرم' : 'روشن کردن پیشنهادهای فرم'; formSuggestionToggle.setAttribute('aria-label', formSuggestionToggle.title); } };
+    const setFormSuggestionEnabled = enabled => { try { localStorage.setItem(formSuggestionEnabledKey, String(enabled === true)); } catch { /* current page still updates */ } if (enabled) installFormSuggestionTriggers(document); else uninstallFormSuggestionTriggers(); syncFormSuggestionToggle(); };
+    formSuggestionToggle?.addEventListener('click', () => setFormSuggestionEnabled(!formSuggestionEnabled()));
+    const formSuggestionObserver = new MutationObserver(records => { if (!formSuggestionEnabled()) return; for (const record of records) for (const node of record.addedNodes) installFormSuggestionTriggers(node); });
+    formSuggestionObserver.observe(document.body, { childList: true, subtree: true });
+    document.addEventListener('keydown', event => { if (event.key === 'Escape' && activeFormSuggestionDialog?.open) closeFormSuggestionDialog(true); });
+    window.heroFormSuggestions = Object.freeze({ enable: () => setFormSuggestionEnabled(true), disable: () => setFormSuggestionEnabled(false), isEnabled: formSuggestionEnabled, openForForm: form => { if (form?.matches?.('form')) void openFormSuggestion(form, form.querySelector('[data-hero-form-suggestion-trigger]')); } });
+    syncFormSuggestionToggle(); installFormSuggestionTriggers(document);
     const walkthroughStateKey = 'hero.project-walkthrough.state.v1';
     const walkthroughServicePrefix = 'hero.project-walkthrough.enabled.';
     const walkthroughCoachSideKey = 'hero.project-walkthrough.coach-side.v1';

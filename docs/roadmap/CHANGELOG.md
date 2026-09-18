@@ -1,5 +1,12 @@
 # تغییرات رودمپ شرکت
 
+# ۲۰۲۶-۰۹-۱۸ — دستیار پیشنهاد AI برای فرم‌های محتوایی
+
+- دکمهٔ مشترک «پیشنهاد AI» برای فرم‌های امن محتوایی به همهٔ سطوح Back Office اضافه شد و با کلید هدر قابل خاموش/روشن‌کردن است؛ فرم‌های هویت، ورود، MFA، Grant، Credential، Secret و فیلدهای حساس از ابتدا مستثنا هستند.
+- Popup شامل انتخاب AI/Model، هدف کوتاه نرم‌افزار، هدف باکس، «اعلام پیشنهاد» و حداکثر سه کارت پیشنهاد قابل اسکرول است. انتخاب ادمین فقط مقدارهای فرم واقعی را پر می‌کند و ثبت نهایی خودکار نیست.
+- موتور `hero-local` بدون هزینه و بدون Provider call، با validation، redaction boundary، عدم خواندن مقدارهای فعلی فرم و رد فیلدهای حساس اضافه شد. مسیرهای API project-scoped و admin/owner-gated هستند و پیشنهادها persist نمی‌شوند.
+- تست هدفمند UI/domain برابر `22 pass / 0 fail` و syntax هر سه ماژول موفق است؛ `docs/registry/document-registry.json` و `hero-release-manifest.json` عمداً در این تغییر وارد نشده‌اند.
+
 # ۲۰۲۶-۰۹-۱۸ — انتخاب Target پروژه‌ای برای محیط Test
 
 - commit `be9ee96` قرارداد infrastructure-control را به `1.1` رساند و انتخاب Target را فقط برای `test`، با project scope، نسخهٔ موردانتظار و conflict guard اضافه کرد؛ سرور revoked قابل انتخاب نیست.

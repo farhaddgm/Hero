@@ -289,6 +289,27 @@ test("Human Identity issues a six-hour HttpOnly browser session that survives re
   const smartTesterOptions = await fetch(`${base}/api/smart-tester/options?projectId=project-vpn`, { headers: { cookie } });
   assert.equal(smartTesterOptions.status, 200);
   assert.equal((await smartTesterOptions.json()).smartTester.options.localAdvisor.id, "local");
+  const formSuggestionOptions = await fetch(`${base}/api/form-suggestions/options`, { headers: { cookie } });
+  assert.equal(formSuggestionOptions.status, 200);
+  assert.equal((await formSuggestionOptions.json()).formSuggestions.localAdvisor.id, "local");
+  const formSuggestion = await fetch(`${base}/api/form-suggestions`, {
+    method: "POST",
+    headers: { cookie, origin: base, "content-type": "application/json" },
+    body: JSON.stringify({
+      projectId: null,
+      formId: "safe-form",
+      formTitle: "فرم نمونه",
+      softwareGoal: "ساخت یک محصول آزمایشی قابل انتقال",
+      boxDescription: "ثبت هدف کوتاه فرم",
+      selectedAdvisor: "local",
+      fields: [{ name: "goal", type: "textarea", label: "هدف" }, { name: "riskLevel", type: "select", label: "ریسک", options: [{ value: "low", label: "کم" }, { value: "medium", label: "متوسط" }] }]
+    })
+  });
+  assert.equal(formSuggestion.status, 200);
+  const formSuggestionPayload = (await formSuggestion.json()).formSuggestions;
+  assert.equal(formSuggestionPayload.providerInvoked, false);
+  assert.equal(formSuggestionPayload.externalSpend, "none");
+  assert.equal(formSuggestionPayload.suggestions.length, 3);
   const smartTesterDiagnosis = await fetch(`${base}/api/smart-tester/diagnose?${smartTesterQuery}`, {
     method: "POST",
     headers: { cookie, origin: base, "content-type": "application/json" },
