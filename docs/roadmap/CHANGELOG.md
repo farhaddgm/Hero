@@ -1,5 +1,14 @@
 # تغییرات رودمپ شرکت
 
+# ۲۰۲۶-۰۹-۱۸ — lease lifecycle، capacity probe، immutable artifact و candidate rc.14
+
+- migration `020` و قرارداد lease اضافه شد؛ reservation پایدار و process-local اکنون TTL، heartbeat و reconciliation report-only دارند و expiry بدون تأیید صریح mutation نمی‌کند.
+- probe ظرفیت Docker با argv ثابت اضافه شد؛ فقط CPU/RAM metadata امن را مشاهده می‌کند و در خطای Docker یا خروجی نامعتبر fail-closed است.
+- قرارداد immutable product artifact برای Test شامل source commit، OCI digest، SBOM، attestation و test-evidence digest اضافه شد و Runner تطبیق digest را enforce می‌کند.
+- تست هدفمند برابر `44 pass / 0 fail` و معادل کامل `pnpm check` برابر `447 pass / 0 fail` است؛ build برابر `280 module / 49 JSON` است.
+- candidate `v1.1.4-rc.14` با run `35311782701`، commit `c3d1334c03a291baf804ccc190fb75a8f719fd76` و digest `sha256:6fba080967039dde9e884e5c8ca86e8343b6512577061bde55cfdd5dcb006228` با workflow کامل موفق ساخته و منتشر شد؛ promotion آن pending است و rc.12 روی Test فعال است.
+- PF-3 از نظر قرارداد source آمادهٔ ورود است، اما Product Test واقعی، artifact واقعی محصول، health/rollback و Owner acceptance هنوز اجرا نشده‌اند؛ Production/Pilot/Secrets و external spend لمس نشدند.
+
 # ۲۰۲۶-۰۹-۱۸ — capacity enforcement و candidate rc.13
 
 - قرارداد Capacity snapshot و migration `019` اضافه شد؛ reservation پایدار اکنون CPU، RAM، PID و تعداد اجرای هم‌زمان را با ظرفیت مشاهده‌شده مقایسه می‌کند و ظرفیت ناشناخته یا lease قدیمی ناقص را fail-closed رد می‌کند.
