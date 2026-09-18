@@ -1,7 +1,7 @@
 # اسمارت تستر Back Office Hero
 
 - Document ID: `HERO-OPS-SMART-TESTER`
-- Version: `1.5.1`
+- Version: `1.6.0`
 - Status: `active`
 - Owner: `hero-quality`
 - Scope: `hero`
@@ -31,7 +31,9 @@
 
 ## مشاورهٔ زمینه‌مند و انتخاب AI
 
-پنل، route، Project ID انتخاب‌شده، کلید قابلیت، metadata امن پروژه (lifecycle، کامل‌بودن Intake، وضعیت Foundation، شمار ورودی/حافظه و مسیرهای تنظیم) و نقشهٔ source fileهای همان surface را به endpoint داخلی محدود می‌فرستد. متن حافظه، ورودی خصوصی، مقدار تنظیم و فایل کد خام به پنل یا گزارش منتقل نمی‌شود. مسیر فقط این contextهای allowlist را می‌پذیرد؛ URL یا فایل دلخواه از مرورگر پذیرفته نمی‌شود.
+پنل، route، Project ID انتخاب‌شده، کلید قابلیت، metadata امن پروژه (lifecycle، کامل‌بودن Intake، وضعیت Foundation، شمار ورودی/حافظه و مسیرهای تنظیم) و نقشهٔ source fileهای همان surface را به endpoint داخلی محدود می‌فرستد. متن حافظه، ورودی خصوصی و مقدار تنظیم به پنل یا گزارش منتقل نمی‌شود. مسیر فقط این contextهای allowlist را می‌پذیرد؛ URL یا فایل دلخواه از مرورگر پذیرفته نمی‌شود.
+
+در فراخوانی زندهٔ مجاز Smart Tester، Control Plane علاوه بر این metadata یک `repositoryContext` خواندنی به Provider می‌دهد: فهرست فایل‌های متنیِ مجاز در ریشهٔ پروژه و محتوای محدود و مرتبطِ فایل‌های کد/سند. انتخاب با source map همان سطح و سؤال انجام می‌شود و payload سقف نسخه‌دار دارد؛ بنابراین «دسترسی read» به معنی mount کردن دیسک یا دادن filesystem tool نیست. `.env`، Secret/Credential، `.git`، `node_modules`، دادهٔ runtime، symlink، مسیر میزبان و فایل باینری هرگز وارد Context نمی‌شوند. این بسته فقط برای تحلیل است و `shell`، tool action، mutation، deploy و fetch خارجی ندارد.
 
 - پاسخ‌گو در حالت پیش‌فرض تحلیلگر محلی و deterministic Hero است (`local-contextual-development-assistant`). فهرست امن Provider، Model و Profileهای فعال در پنجره نمایش داده می‌شود و Owner می‌تواند AI و نسخهٔ Profile را انتخاب کند. اگر Profile فعال، project-bound، سالم و مشمول authorization دقیقِ external-spend باشد، source فعلی می‌تواند پاسخ ساخت‌یافتهٔ زنده (`analysis-v1`) را از همان Provider بگیرد؛ در غیر این صورت بدون dispatch به پاسخ محلی برمی‌گردد و fail-closed می‌ماند.
 - انتخاب‌گر فقط Profile سازگار با نقش `analyst`، schema `analysis-v1` و policy ابزار `read-only` را نشان می‌دهد و Provider/Model تکراری را deduplicate می‌کند؛ Profile ناسازگار یا آماده‌نشده قابل انتخاب نیست. این رفتار از تکرار ظاهری جلوگیری می‌کند، اما گیت authorization/health/budget را دور نمی‌زند.
@@ -90,6 +92,6 @@
 
 گزارش به‌تنهایی Evidence انتشار، approval، acceptance یا Done نیست. برای رفع یک مشکل واقعی، Owner باید تغییر را از مسیر توسعه، review، test و گیت مستقل همان قابلیت انجام دهد.
 
-## مرز نسخهٔ ۱.۵.۰
+## مرز نسخهٔ ۱.۶.۰
 
-این نسخه علاوه بر پنل شناور، روشن/خاموش‌سازی، نشان در Boxها، گفت‌وگوی context-aware و گزارش محدود UI/UX/Backend/Code، انتخاب امن AI/نسخه، خطایاب مستقل و ثبت تأییدشدهٔ سند خطا را دارد. تشخیص خطا اکنون نتیجهٔ خلاصه و قابل‌اقدام تولید می‌کند و پس از تأیید Owner در سند project-scoped به‌صورت append-only ثبت می‌شود. مسیر live Provider در source پیاده‌سازی و با fake adapter آزموده شده، اما تا وقتی Test Profile/Binding و authorization runtime منطبق نداشته باشد اجرا نمی‌شود. اجرای جامع browser automation، تست بصری خودکار، اجرای تمام suiteها، lint خارجی، GitHub، Server یا عملیات Production درون این ابزار قرار نگرفته‌اند و گیت مستقل دارند.
+این نسخه علاوه بر پنل شناور، روشن/خاموش‌سازی، نشان در Boxها، گفت‌وگوی context-aware و گزارش محدود UI/UX/Backend/Code، انتخاب امن AI/نسخه، خطایاب مستقل، ثبت تأییدشدهٔ سند خطا و Context خواندنیِ محدود از کد و اسناد پروژه را دارد. تشخیص خطا اکنون نتیجهٔ خلاصه و قابل‌اقدام تولید می‌کند و پس از تأیید Owner در سند project-scoped به‌صورت append-only ثبت می‌شود. مسیر live Provider در source پیاده‌سازی و با fake adapter آزموده شده، اما تا وقتی Test Profile/Binding و authorization runtime منطبق نداشته باشد اجرا نمی‌شود. اجرای جامع browser automation، تست بصری خودکار، اجرای تمام suiteها، lint خارجی، GitHub، Server یا عملیات Production درون این ابزار قرار نگرفته‌اند و گیت مستقل دارند.

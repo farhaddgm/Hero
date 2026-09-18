@@ -42,4 +42,7 @@ test("Docker-only Test hosts use jq or Python for release metadata, never host N
   assert.match(helper, /command -v python3/);
   assert.match(helper, /fsync/);
   assert.doesNotMatch(verify, /\bnode\b/);
+  assert.match(verify, /smartTesterRepositoryContext/);
+  assert.match(verify, /walkthroughGuideRepositoryContext/);
+  assert.match(verify, /read-only\/1\.0\.0/);
 });

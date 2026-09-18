@@ -40,7 +40,9 @@ test("build-info exposes the exact release identity without changing health cont
     releaseVersion: "1.2.3",
     sourceCommit: "0123456",
     imageDigest,
-    serviceVersion: "0.1.0"
+    serviceVersion: "0.1.0",
+    smartTesterRepositoryContext: "read-only/1.0.0",
+    walkthroughGuideRepositoryContext: "read-only/1.0.0"
   });
 });
 

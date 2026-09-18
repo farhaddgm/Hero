@@ -1,7 +1,7 @@
 # پایایی انتشار Hero در محیط Test
 
 - Document ID: `HERO-OPS-HERO-TEST-RELEASE-RELIABILITY`
-- Version: `1.5.0`
+- Version: `1.5.1`
 - Status: `active`
 - Owner: `hero-operations`
 - Scope: `hero`
@@ -104,7 +104,7 @@ sudo bash tools/promote-test-immutable.sh \
 sudo bash tools/verify-test-release.sh --manifest /opt/hero/hero-release-manifest.json
 ```
 
-`/health` و `/ready` باید ۲۰۰ باشند، image container باید همان digest باشد، `/build-info` باید digest یکسان گزارش کند و routeهای Back Office بدون Basic Auth باید ۴۰۱ بمانند.
+`/health` و `/ready` باید ۲۰۰ باشند، image container باید همان digest باشد، `/build-info` باید digest یکسان و قابلیت‌های `smartTesterRepositoryContext=read-only/1.0.0` و `walkthroughGuideRepositoryContext=read-only/1.0.0` را گزارش کند و routeهای Back Office بدون Basic Auth باید ۴۰۱ بمانند. این دو marker تضمین می‌کنند candidate منتشرشده شامل اتصال read-only هر دو مشاور است، نه فقط source workspace.
 
 ## بازیابی ساده
 
@@ -128,7 +128,9 @@ Rollback فقط وقتی انجام می‌شود که state وضعیت `promote
   "releaseVersion": "1.2.3",
   "sourceCommit": "0123456",
   "imageDigest": "ghcr.io/farhaddgm/hero@sha256:…",
-  "serviceVersion": "0.1.0"
+  "serviceVersion": "0.1.0",
+  "smartTesterRepositoryContext": "read-only/1.0.0",
+  "walkthroughGuideRepositoryContext": "read-only/1.0.0"
 }
 ```
 

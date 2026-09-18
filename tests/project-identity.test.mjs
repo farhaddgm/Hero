@@ -433,13 +433,14 @@ test("Project-bound live advisor profiles invoke through the bounded authorizati
   const owner = ownerLogin(identity);
   let providerCalls = 0;
   let dispatchedMaxCostUnits = null;
+  let lastProviderInput = null;
   let liveAdvisorPolicy = { active: true, authorizationId: "AUTH-AI-TEST-001", projectId: "project-vpn", stepId: "HERO-AI-TEST-001", documentVersion: "v1.0", providerId: "openai", modelIds: ["gpt-5.6-luna"], roleIds: ["analyst"], maxCostUnits: 50000, expiresAtMs: Date.parse("2027-02-23T23:59:59Z"), globalStop: false };
   const adapter = {
     providerId: "openai",
     mode: "live",
     async validateConnection() { return { status: "ok" }; },
     async assertDispatchReady(input) { dispatchedMaxCostUnits = input.maxCostUnits; return { status: "ok", pricing: { catalogVersion: "test", currency: "USD", inputPricePer1mTokens: 0.2, outputPricePer1mTokens: 1.2, cachedInputPricePer1mTokens: 0.02 } }; },
-    async generate(input) { providerCalls += 1; return { output: { schema: input.outputSchema, answer: "پاسخ زنده و محدود برای همین Project آماده شد." }, usage: { inputTokens: 12, outputTokens: 8, totalTokens: 20, costUnits: 1 } }; },
+    async generate(input) { providerCalls += 1; lastProviderInput = structuredClone(input); return { output: { schema: input.outputSchema, answer: "پاسخ زنده و محدود برای همین Project آماده شد." }, usage: { inputTokens: 12, outputTokens: 8, totalTokens: 20, costUnits: 1 } }; },
     listCapabilities() { return []; }
   };
   const externalSpendAuthorizer = async input => ({ authorized: true, code: "AUTHORIZED", action: "external-spend", authorizationId: input.authorizationId, projectId: input.projectId, stepId: input.stepId, documentVersion: input.documentVersion, providerId: input.providerId, modelId: input.modelId, role: input.role, maxCostUnits: 50000, globalStop: false, safeCheckpointRequired: false });
@@ -488,6 +489,13 @@ test("Project-bound live advisor profiles invoke through the bounded authorizati
   assert.equal(walkthroughAdvisor.evidence.resultSchema, "analysis-v1");
   assert.equal(dispatchedMaxCostUnits, 100, "the Test advisor must clamp a stale higher Profile ceiling to its versioned per-request limit");
   assert.doesNotMatch(JSON.stringify(walkthroughAdvisor.evidence), /(?:credential|secret|prompt|response)/i);
+  assert.equal(lastProviderInput.context.repositoryContext.access.mode, "read-only");
+  assert.equal(lastProviderInput.context.repositoryContext.access.codeMutation, false);
+  assert.equal(lastProviderInput.context.repositoryContext.selection.surface, "/walkthrough");
+  assert.equal(lastProviderInput.context.repositoryContext.selection.featureKey, "guide.walkthrough");
+  assert.ok(lastProviderInput.context.repositoryContext.files.some(file => file.path === "apps/control-plane/src/project-walkthrough.mjs"));
+  assert.ok(lastProviderInput.context.repositoryContext.files.some(file => file.path === "apps/control-plane/src/project-walkthrough-view.mjs"));
+  assert.ok(lastProviderInput.context.repositoryContext.availableFiles.some(file => file.path === "docs/operations/HERO-PROJECT-WALKTHROUGH.md"));
   const smart = await fetch(`${base}/api/smart-tester/advice?projectId=project-vpn&surface=%2Fworkspace&featureKey=workspace.intake&boxId=intake-card`, { method: "POST", headers, body: JSON.stringify({ surface: "/workspace", featureKey: "workspace.intake", boxId: "intake-card", projectId: "project-vpn", advisorProfileId: "live-advisor-profile", question: "چه چیزی را بررسی کنم؟" }) });
   assert.equal(smart.status, 200);
   const smartAdvisor = (await smart.json()).smartTester.advisor;
@@ -496,6 +504,15 @@ test("Project-bound live advisor profiles invoke through the bounded authorizati
   assert.equal(smartAdvisor.result.schema, "analysis-v1");
   assert.equal(smartAdvisor.evidence.capability, "smart-tester");
   assert.equal(smartAdvisor.evidence.bindingId, "live-advisor-binding");
+  assert.equal(lastProviderInput.context.repositoryContext.access.mode, "read-only");
+  assert.equal(lastProviderInput.context.repositoryContext.access.codeMutation, false);
+  assert.ok(lastProviderInput.context.repositoryContext.files.some(file => file.path === "apps/control-plane/src/smart-tester.mjs"));
+  assert.ok(lastProviderInput.context.repositoryContext.availableFiles.some(file => file.path === "docs/operations/HERO-SMART-TESTER.md"));
+  const repositoryPaths = JSON.stringify([
+    ...lastProviderInput.context.repositoryContext.availableFiles.map(file => file.path),
+    ...lastProviderInput.context.repositoryContext.files.map(file => file.path)
+  ]);
+  assert.doesNotMatch(repositoryPaths, /\/opt\/hero|(?:^|[\\/])\.env(?:\.|$)|(?:^|[\\/])node_modules(?:[\\/]|$)/i);
   const callsBeforeDeniedRequest = providerCalls;
   liveAdvisorPolicy = { ...liveAdvisorPolicy, roleIds: ["evaluator"] };
   const unavailableOptions = await fetch(`${base}/api/smart-tester/options?projectId=project-vpn`, { headers });

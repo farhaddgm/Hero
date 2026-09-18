@@ -76,6 +76,7 @@ import {
   resolveSmartTesterContext
 } from "./smart-tester.mjs";
 import { createPrivateObjectStore } from "../../../packages/adapters/src/private-object-store.mjs";
+import { createRepositoryReadContext, HERO_REPOSITORY_READ_CONTEXT_VERSION } from "./repository-read-context.mjs";
 import { OwnerAuthError, createOwnerAuth } from "../../../packages/domain/src/owner-auth.mjs";
 import { AdminAuthError, createAdminAuth } from "../../../packages/domain/src/admin-auth.mjs";
 import { createHumanIdentity, HumanIdentityError, HUMAN_IDENTITY_SESSION_TTL_SECONDS } from "../../../packages/domain/src/human-identity.mjs";
@@ -476,8 +477,13 @@ export function createHeroServer(options = {}) {
   const externalSpendAuthorizer = options.externalSpendAuthorizer ?? createRuntimeExternalSpendAuthorizer();
   const liveAdvisorPolicy = options.liveAdvisorPolicy ?? (() => readRuntimeExternalSpendPolicy());
   const dashboard = options.dashboard ?? createControlDashboard({ now: options.now, providerAdapters, externalSpendAuthorizer });
+  const repositoryRoot = options.repositoryRoot ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
+  const repositoryReadContext = options.repositoryReadContext ?? createRepositoryReadContext({
+    root: repositoryRoot,
+    now: options.now ?? (() => new Date().toISOString())
+  });
   const productDevelopment = options.productDevelopment ?? createProductDevelopmentCatalog({
-    root: options.repositoryRoot ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../.."),
+    root: repositoryRoot,
     sourceCommit,
     now: options.now ?? (() => new Date().toISOString())
   });
@@ -1181,6 +1187,24 @@ export function createHeroServer(options = {}) {
       throw new ProjectWorkspaceError("LIVE_ADVISOR_BINDING_MISMATCH", "Binding فعال این Project با Profile انتخاب‌شده هم‌خوان نیست.", 403);
     }
     const authorization = activeLiveAdvisorAuthorization({ purpose, projectId, providerId: selectedProfile.providerId, modelId: selectedProfile.modelId, role: selectedProfile.role });
+    const repositoryContext = ["smart-tester", "walkthrough-guide"].includes(purpose)
+      ? repositoryReadContext.build({
+        sourceFiles: [
+          ...(Array.isArray(context?.sourceFiles) ? context.sourceFiles : []),
+          ...(purpose === "smart-tester" ? [
+            "apps/control-plane/src/smart-tester.mjs",
+            "apps/control-plane/src/repository-read-context.mjs"
+          ] : [
+            "apps/control-plane/src/project-walkthrough.mjs",
+            "apps/control-plane/src/project-walkthrough-view.mjs",
+            "apps/control-plane/src/hero-shell.mjs"
+          ])
+        ],
+        surface: context?.pathname ?? (purpose === "walkthrough-guide" ? "/walkthrough" : null),
+        featureKey: context?.featureKey ?? (purpose === "walkthrough-guide" ? "guide.walkthrough" : null),
+        question
+      })
+      : null;
     const dispatch = () => dashboard.invokeAi({
       invocationId: `advisor-${purpose}-${crypto.randomUUID()}`,
       projectId,
@@ -1197,7 +1221,15 @@ export function createHeroServer(options = {}) {
         localGuidance: localResponse,
         constraints: Object.freeze(["Return only JSON.", "Set schema exactly to analysis-v1.", "Use concise Persian.", "Do not include secrets, credentials, host paths, tools, or executable actions."])
       }),
-      context: Object.freeze({ advisor: purpose, projectId, bindingId: binding.bindingId, surface: context?.pathname ?? null, featureKey: context?.featureKey ?? null, stepId: context?.stepId ?? null }),
+      context: Object.freeze({
+        advisor: purpose,
+        projectId,
+        bindingId: binding.bindingId,
+        surface: context?.pathname ?? null,
+        featureKey: context?.featureKey ?? null,
+        stepId: context?.stepId ?? null,
+        ...(repositoryContext ? { repositoryContext } : {})
+      }),
       requireHealthyProvider: true,
       externalSpendAuthorization: authorization
     });
@@ -3181,7 +3213,9 @@ export function createHeroServer(options = {}) {
         releaseVersion,
         sourceCommit,
         imageDigest,
-        serviceVersion: HERO_VERSION
+        serviceVersion: HERO_VERSION,
+        smartTesterRepositoryContext: `read-only/${HERO_REPOSITORY_READ_CONTEXT_VERSION}`,
+        walkthroughGuideRepositoryContext: `read-only/${HERO_REPOSITORY_READ_CONTEXT_VERSION}`
       });
     }
 
