@@ -1,11 +1,17 @@
 # تغییرات رودمپ شرکت
 
+# ۲۰۲۶-۰۹-۱۸ — promotion موفق rc.11 روی Hero Test
+
+- `v1.1.4-rc.11` با digest immutable `sha256:7a42b5592e60ae5d8b61c10040ee20d56a22a276bae76e3258920e76ed51bba2`، run `35307457878` و runtime commit `dd95723f6cbd5d4ec75aafb59e72941b185e2e2f` فقط روی Hero Test promote و verify شد.
+- پس از restart، `/health` و `/ready` موفق و `Hero Test smoke check: PASS` ثبت شد؛ rollback point metadata-only در `/etc/hero/hero-test.env.release-state.before-7a42b5592e60ae5d8b61c10040ee20d56a22a276bae76e3258920e76ed51bba2.json` ثبت است. خطای موقت connection reset در لحظهٔ restart با شواهد نهایی سلامت دنبال شد.
+- این release اجرای Product Test یا محصول هدف نیست؛ Production، Pilot، Secret Store/Secret، Provider زنده و external spend لمس نشدند.
+
 # ۲۰۲۶-۰۹-۱۸ — guard رزرو منابع Product Test و candidate rc.11
 
 - افزوده‌شده: reservation guard process-local برای Product Runner؛ تعارض namespace، port و resource پیش از executor fail-closed می‌شود، replay/release کنترل‌شده است و stop/cleanup رزرو held را آزاد می‌کند. این guard جایگزین inventory پایدار host یا رزرو cross-process نیست.
 - تست‌شده: تست هدفمند برابر `18/18` و اجرای معادل `pnpm check` برابر `424 pass / 0 fail`؛ build برابر `270 module / 49 JSON` است. یک هشدار مورد انتظار دربارهٔ نبود Docker socket در clean-room باقی است.
 - ساخته و منتشر شد: `v1.1.4-rc.11` از commit `dd95723f6cbd5d4ec75aafb59e72941b185e2e2f` با run `35307457878` و digest immutable `sha256:7a42b5592e60ae5d8b61c10040ee20d56a22a276bae76e3258920e76ed51bba2`؛ verification، build، GHCR publish، tag، prerelease، manifest و artifact upload موفق شدند.
-- وضعیت: Hero Test همچنان روی rc.10 است؛ promotion rc.11 هنوز انجام نشده. Product Test، Production، Pilot، Secret Store/Secret، Provider زنده و external spend لمس نشدند.
+- وضعیت هنگام ساخت candidate: Hero Test روی rc.10 بود؛ promotion rc.11 بعداً در entry بالاتر ثبت شد. Product Test، Production، Pilot، Secret Store/Secret، Provider زنده و external spend لمس نشدند.
 
 # ۲۰۲۶-۰۹-۱۸ — promotion موفق rc.10 روی Hero Test
 

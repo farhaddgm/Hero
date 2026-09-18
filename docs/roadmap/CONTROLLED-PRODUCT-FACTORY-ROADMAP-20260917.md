@@ -6,7 +6,7 @@
 > Type: roadmap
 > Scope: hero
 > Status: active
-> Version: 2.3.0
+> Version: 2.4.0
 > Owner: hero-product
 > Review cadence: per-change
 > Supersedes: `HERO-ROADMAP-NEXT-100-STEPS-20260904`, `HERO-ROADMAP-NEXT-20-STEPS-20260904`, `HERO-ROADMAP-NEXT-20-STEPS-20260911-WORKSPACE-PERSISTENCE`, `HERO-ROADMAP-NEXT-100-STEPS-20260911-PROJECT-CONTROL`
@@ -23,10 +23,9 @@
 | موضوع | واقعیت تأییدشده | مرز صریح |
 |---|---|---|
 | source Hero | branch `codex/test-release-reliability-20260916`، commit `dd95723f6cbd5d4ec75aafb59e72941b185e2e2f`؛ شامل قرارداد/admission، adapter کنترل‌شدهٔ PF-2 و guard رزرو منابع | candidate `v1.1.4-rc.11` از همین source ساخته و در GHCR منتشر شده؛ Product Test هنوز اجرا نشده است. |
-| Test Hero | فعال: `v1.1.4-rc.10`، digest `ghcr.io/farhaddgm/hero@sha256:496d740ce2d650c1a02d1fb3f22e2f67f1f8373ec47e6fa528cd2b8a1f6b2257` | فقط Hero Test است؛ Product Test نیست؛ `/health` و `/ready` موفق، `Hero Test smoke check: PASS` و rollback point metadata-only ثبت شده است. |
-| آخرین promotion Test | `v1.1.4-rc.10`، run `35292057200`، runtime commit `3fabefe15ff10926d60b804c2deace63fc936397` | manifest و digest immutable روی host Test promote و verify شدند؛ خطای موقت connection reset هنگام restart با health/readiness و smoke موفق نهایی شد. |
-| شواهد rollback | قبل از promotion، rc.9 با digest `sha256:499d00f88ac705f2b47d221d4396887291f7293c4d8c6ca7b67dff764b7c0b12` pull شد | rollback point metadata-only در `/etc/hero/hero-test.env.release-state.before-496d740ce2d650c1a02d1fb3f22e2f67f1f8373ec47e6fa528cd2b8a1f6b2257.json` ثبت شد. |
-| candidate بعدی Test | `v1.1.4-rc.11`، run `35307457878`، artifact `ghcr.io/farhaddgm/hero@sha256:7a42b5592e60ae5d8b61c10040ee20d56a22a276bae76e3258920e76ed51bba2` | workflow verification، build، GHCR publish، tag، prerelease، manifest و artifact upload موفق؛ promotion به host Test هنوز جداگانه pending است. |
+| Test Hero | فعال: `v1.1.4-rc.11`، digest `ghcr.io/farhaddgm/hero@sha256:7a42b5592e60ae5d8b61c10040ee20d56a22a276bae76e3258920e76ed51bba2` | فقط Hero Test است؛ Product Test نیست؛ `/health` و `/ready` موفق، `Hero Test smoke check: PASS` و rollback point metadata-only ثبت شده است. |
+| آخرین promotion Test | `v1.1.4-rc.11`، run `35307457878`، runtime commit `dd95723f6cbd5d4ec75aafb59e72941b185e2e2f` | manifest و digest immutable روی host Test promote و verify شدند؛ خطای موقت connection reset هنگام restart با health/readiness و smoke موفق نهایی شد. |
+| شواهد rollback | قبل از promotion، rc.10 با digest `sha256:496d740ce2d650c1a02d1fb3f22e2f67f1f8373ec47e6fa528cd2b8a1f6b2257` pull شد | rollback point metadata-only در `/etc/hero/hero-test.env.release-state.before-7a42b5592e60ae5d8b61c10040ee20d56a22a276bae76e3258920e76ed51bba2.json` ثبت شد. |
 | رخداد اصلاح‌شده | rc.6 بعد از restart با `Product request metadata is invalid` crash-loop شد | علت و اصلاح در source ثبت شده؛ rc.8 همان مسیر را سالم کرده است. |
 | کیفیت source | اجرای معادل `pnpm check` در Linux container: ۴۲۴ pass، ۰ fail؛ build: ۲۷۰ module و ۴۹ JSON | به‌علت نبودن Node/pnpm روی host و نبودن Docker socket داخل check container، check در Docker مرجع با snapshot source اجرا شد؛ این نتیجه جای acceptance محصول هدف را نمی‌گیرد. |
 | AI | مسیر provider-agnostic، policy، redaction و result ساخت‌یافته در source/Test حاضر است | evidence تازه‌ای از فراخوانی زندهٔ OpenAI در این baseline ثبت نشده است؛ provider و هزینه fail-closed هستند. |

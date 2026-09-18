@@ -6,7 +6,7 @@
 > Type: evidence
 > Scope: hero
 > Status: active
-> Version: 1.5.0
+> Version: 1.6.0
 > Owner: hero-product
 > Review cadence: per-change
 > Supersedes: none
@@ -47,7 +47,7 @@
 
 ## انتشار و تأیید Test
 
-نسخهٔ فعال Hero Test همچنان `v1.1.4-rc.10` از run `35292057200` با commit `3fabefe15ff10926d60b804c2deace63fc936397` و digest `ghcr.io/farhaddgm/hero@sha256:496d740ce2d650c1a02d1fb3f22e2f67f1f8373ec47e6fa528cd2b8a1f6b2257` است. candidate بعدی `v1.1.4-rc.11` از run `35307457878` با commit `dd95723f6cbd5d4ec75aafb59e72941b185e2e2f` و digest `ghcr.io/farhaddgm/hero@sha256:7a42b5592e60ae5d8b61c10040ee20d56a22a276bae76e3258920e76ed51bba2` ساخته و منتشر شد؛ verification، build، GHCR publish، tag، prerelease، manifest و artifact upload موفق‌اند و promotion روی host Test هنوز pending است. این تأییدها مربوط به خود Hero Test هستند، نه اجرای محصول هدف.
+نسخهٔ فعال Hero Test اکنون `v1.1.4-rc.11` از run `35307457878` با commit `dd95723f6cbd5d4ec75aafb59e72941b185e2e2f` و digest `ghcr.io/farhaddgm/hero@sha256:7a42b5592e60ae5d8b61c10040ee20d56a22a276bae76e3258920e76ed51bba2` است. مالک روی host Test promotion را انجام داد؛ container شروع شد، `/health` و `/ready` موفق بودند و `Hero Test smoke check: PASS` ثبت شد. خطای موقت `curl: (56) Recv failure: Connection reset by peer` در زمان restart رخ داد و با بررسی‌های نهایی سلامت دنبال شد. rollback point metadata-only در `/etc/hero/hero-test.env.release-state.before-7a42b5592e60ae5d8b61c10040ee20d56a22a276bae76e3258920e76ed51bba2.json` ثبت شده است. این تأییدها مربوط به خود Hero Test هستند، نه اجرای محصول هدف.
 
 ## آنچه هنوز انجام نشده است
 
