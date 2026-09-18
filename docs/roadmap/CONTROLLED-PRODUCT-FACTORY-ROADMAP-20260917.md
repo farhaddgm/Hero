@@ -6,7 +6,7 @@
 > Type: roadmap
 > Scope: hero
 > Status: active
-> Version: 3.1.0
+> Version: 3.2.0
 > Owner: hero-product
 > Review cadence: per-change
 > Supersedes: `HERO-ROADMAP-NEXT-100-STEPS-20260904`, `HERO-ROADMAP-NEXT-20-STEPS-20260904`, `HERO-ROADMAP-NEXT-20-STEPS-20260911-WORKSPACE-PERSISTENCE`, `HERO-ROADMAP-NEXT-100-STEPS-20260911-PROJECT-CONTROL`
@@ -175,6 +175,8 @@ Product Test:       hero-product-<slug>-test-*
 
 **وضعیت اجرای PF-4 در ۲۰۲۶-۰۹-۱۸:** قرارداد `HERO-OPS-REMOTE-PRODUCT-TARGET-AND-NODE-AGENT@1.0.0` و evidence `HERO-EVIDENCE-PRODUCT-FACTORY-PF4-REMOTE-AGENT-20260918@1.0.0` در source اضافه شد. inventory، enrollment، fingerprint، heartbeat، امضای Ed25519، allowlist، digest immutable، replay/expiry/scope rejection، redaction و revoke در شبیه‌سازی local/Test PASS شدند. Target خارجی واقعی، connector شبکه و credential/Secret عمداً اجرا نشده‌اند؛ بنابراین Exit Gate PF-4 هنوز `blocked-for-real-target` است، نه completed.
 
+**وضعیت اجرای PF-5 در ۲۰۲۶-۰۹-۱۸:** قرارداد `HERO-OPS-PRODUCT-DELIVERY-BUNDLE-AND-CLEAN-TARGET@1.0.0`، Delivery Bundle immutable، schema پیکربندی بدون Secret، migration/backup/restore و compatibility matrix در source اضافه شد. تمرین رسمی `pf5-rehearsal-20260918a` با digest evidence `sha256:30814f40287ed355b0988664a6c9384f5a8c02e765cddaa2cfa68b2c7960e87c`، `networkCalls=0`، clean-target phases، recovery proof و `PORTABILITY_VERIFIED` PASS شد. انتقال واقعی به مقصد Test جدا، backup/restore واقعی و Owner acceptance هنوز اجرا نشده‌اند؛ Exit Gate PF-5 بنابراین `blocked-for-real-target` است.
+
 ### PF-5 — portability، recovery و تمرین انتقال
 
 **هدف:** محصول از روز اول قابل جابه‌جایی باشد، نه اینکه بعداً به host وابسته شود.
@@ -197,6 +199,8 @@ Product Test:       hero-product-<slug>-test-*
 
 **نگاشت:** BO-053..062، BO-099..120، BO-147..168.
 **Exit Gate:** هر تصمیم مهم به evidence، owner، policy و rollback مرتبط باشد و در حالت failure یک پیام فارسی ساده و غیرحساس نمایش داده شود.
+
+**وضعیت اجرای PF-6 در ۲۰۲۶-۰۹-۱۸:** harness رسمی `pf6-simulation-20260918a` روی دو project scope با `102` trace، deduplication، correlation، stale/recovery SLI، retention/cleanup hold، isolation و auditهای accessibility/security/load/backup-restore/secret-dependency/role-regression PASS شد؛ evidence digest برابر `sha256:fb5d1766f5dcc930c2682c19c3a42f351bb17cf2ff85aac4731d9c75cfee0962` است. Browser E2E واقعی، axe/screen-reader و load/soak روی deployment واقعی در این محیط اجرا نشده‌اند؛ Exit Gate PF-6 هنوز `blocked-for-real-runtime-evidence` است.
 
 ### PF-7 — Pilot و Production (عمداً خارج از batchهای بعدی)
 

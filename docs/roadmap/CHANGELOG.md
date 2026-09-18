@@ -1,5 +1,12 @@
 # تغییرات رودمپ شرکت
 
+# ۲۰۲۶-۰۹-۱۸ — PF-5 portability/recovery و PF-6 hardening evidence
+
+- قرارداد `hero.product-delivery-bundle/v1` برای artifact immutable، SBOM/attestation/test/quality digest، config schema بدون Secret، migration، backup/restore و compatibility matrix اضافه شد؛ منبع در `HERO-OPS-PRODUCT-DELIVERY-BUNDLE-AND-CLEAN-TARGET@1.0.0` ثبت است.
+- harness `pf5-rehearsal-20260918a` با Clean Target و Recovery Proof در clean-room اجرا شد؛ `PORTABILITY_VERIFIED`، network calls صفر و evidence digest `sha256:30814f40287ed355b0988664a6c9384f5a8c02e765cddaa2cfa68b2c7960e87c` ثبت شد. انتقال واقعی به Target جدا عمداً انجام نشد.
+- harness `pf6-simulation-20260918a` روی دو project scope با ۱۰۲ trace و auditهای correlation، deduplication، stale/recovery، retention، isolation، accessibility، security، load، backup/restore و role regression PASS شد؛ evidence digest `sha256:fb5d1766f5dcc930c2682c19c3a42f351bb17cf2ff85aac4731d9c75cfee0962` است.
+- Browser E2E واقعی، screen-reader/axe و load/soak روی deployment واقعی هنوز گیت‌های باقی‌ماندهٔ PF-6 هستند؛ Production، Pilot، Secret، Provider زنده و external spend لمس نشدند.
+
 # ۲۰۲۶-۰۹-۱۸ — PF-4 قرارداد Node Agent کم‌اختیار و شبیه‌سازی امن
 
 - قرارداد versioned `remote-agent` و registry provider-agnostic اضافه شد: Test-only target inventory، outbound-only transport، Ed25519 signed dispatch، allowlist عملیات، immutable digest، expiry، replay guard، redaction، heartbeat و revoke.
