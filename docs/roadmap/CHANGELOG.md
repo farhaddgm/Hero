@@ -1,5 +1,12 @@
 # تغییرات رودمپ شرکت
 
+# ۲۰۲۶-۰۹-۱۸ — PF-4 قرارداد Node Agent کم‌اختیار و شبیه‌سازی امن
+
+- قرارداد versioned `remote-agent` و registry provider-agnostic اضافه شد: Test-only target inventory، outbound-only transport، Ed25519 signed dispatch، allowlist عملیات، immutable digest، expiry، replay guard، redaction، heartbeat و revoke.
+- تست‌های PF-4 شامل enrollment، fingerprint، tamper، shell-field rejection، replay، expiry، scope، mutable artifact، sensitive input و revoke هستند؛ ترکیب آن با regression زیرگام infrastructure برابر `9 pass / 0 fail` شد.
+- harness رسمی `tools/run-pf4-remote-agent-simulation.mjs` با run `pf4-simulation-20260918b` اجرا شد؛ evidence digest برابر `sha256:837c46fc39fafaea36d00ad561e6ac9651ff021203111c9494499ba315f27b4b` است؛ network calls صفر و side effect واقعی صفر ثبت شد.
+- PF-4 واقعی هنوز blocked است: target owner، authorization مستقل، key/Secret channel و connector واقعی در اختیار اجرا نبود و عمداً هیچ remote server، Production، Pilot، Secret یا external spend لمس نشد.
+
 # ۲۰۲۶-۰۹-۱۸ — PF-3 رسمی: executor، quality/security evidence و cleanup کامل
 
 - commit جاری `2b4ec6ae389f059cc7eee7cd3b39529fe7f4874e` چرخهٔ `stop`/`cleanup` را اصلاح کرد؛ cleanup پس از stop idempotent است و فقط در project/run مجاز عمل می‌کند.

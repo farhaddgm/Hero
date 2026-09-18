@@ -6,7 +6,7 @@
 > Type: roadmap
 > Scope: hero
 > Status: active
-> Version: 3.0.0
+> Version: 3.1.0
 > Owner: hero-product
 > Review cadence: per-change
 > Supersedes: `HERO-ROADMAP-NEXT-100-STEPS-20260904`, `HERO-ROADMAP-NEXT-20-STEPS-20260904`, `HERO-ROADMAP-NEXT-20-STEPS-20260911-WORKSPACE-PERSISTENCE`, `HERO-ROADMAP-NEXT-100-STEPS-20260911-PROJECT-CONTROL`
@@ -172,6 +172,8 @@ Product Test:       hero-product-<slug>-test-*
 
 **نگاشت:** BO-121..134، BO-163.
 **Exit Gate:** یک Target Test پاک با command harmless و revoke/timeout test؛ Secret یا Production در scope نیست.
+
+**وضعیت اجرای PF-4 در ۲۰۲۶-۰۹-۱۸:** قرارداد `HERO-OPS-REMOTE-PRODUCT-TARGET-AND-NODE-AGENT@1.0.0` و evidence `HERO-EVIDENCE-PRODUCT-FACTORY-PF4-REMOTE-AGENT-20260918@1.0.0` در source اضافه شد. inventory، enrollment، fingerprint، heartbeat، امضای Ed25519، allowlist، digest immutable، replay/expiry/scope rejection، redaction و revoke در شبیه‌سازی local/Test PASS شدند. Target خارجی واقعی، connector شبکه و credential/Secret عمداً اجرا نشده‌اند؛ بنابراین Exit Gate PF-4 هنوز `blocked-for-real-target` است، نه completed.
 
 ### PF-5 — portability، recovery و تمرین انتقال
 
