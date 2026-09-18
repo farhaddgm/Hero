@@ -6,7 +6,7 @@
 > Type: evidence
 > Scope: hero
 > Status: active
-> Version: 1.2.0
+> Version: 1.3.0
 > Owner: hero-product
 > Review cadence: per-change
 > Supersedes: none
@@ -46,7 +46,7 @@
 
 ## انتشار و تأیید Test
 
-پس از تأیید source، candidate `v1.1.4-rc.9` از run `35289669314` با commit `e8de500e4278b1f4cf805e87c02d62ce05847709` و digest `ghcr.io/farhaddgm/hero@sha256:499d00f88ac705f2b47d221d4396887291f7293c4d8c6ca7b67dff764b7c0b12` فقط روی Hero Test promote شد. container `running/healthy`، restart count صفر، `/health` و `/ready` هر دو ۲۰۰ و rollback point metadata-only ثبت شده است. این تأیید مربوط به خود Hero Test است، نه اجرای محصول هدف.
+آخرین نسخهٔ فعال Hero Test همچنان candidate `v1.1.4-rc.9` از run `35289669314` با commit `e8de500e4278b1f4cf805e87c02d62ce05847709` و digest `ghcr.io/farhaddgm/hero@sha256:499d00f88ac705f2b47d221d4396887291f7293c4d8c6ca7b67dff764b7c0b12` است؛ container `running/healthy`، restart count صفر، `/health` و `/ready` هر دو ۲۰۰ و rollback point metadata-only ثبت شده است. candidate بعدی `v1.1.4-rc.10` از run `35292057200` با commit `3fabefe15ff10926d60b804c2deace63fc936397` و digest `ghcr.io/farhaddgm/hero@sha256:496d740ce2d650c1a02d1fb3f22e2f67f1f8373ec47e6fa528cd2b8a1f6b2257` کامل publish و manifest شد، اما به‌علت نبود SSH key از این محیط هنوز روی Test promote نشده است. این تأییدها مربوط به خود Hero Test هستند، نه اجرای محصول هدف.
 
 ## آنچه هنوز انجام نشده است
 

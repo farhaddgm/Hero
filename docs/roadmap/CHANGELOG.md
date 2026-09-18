@@ -1,5 +1,11 @@
 # تغییرات رودمپ شرکت
 
+# ۲۰۲۶-۰۹-۱۸ — candidate rc.10 برای بررسی PF-2
+
+- ساخته و منتشر شد: `v1.1.4-rc.10` از commit `3fabefe15ff10926d60b804c2deace63fc936397` با run `35292057200` و digest immutable `sha256:496d740ce2d650c1a02d1fb3f22e2f67f1f8373ec47e6fa528cd2b8a1f6b2257`؛ workflow verification، build، GHCR publish، tag و manifest همگی موفق شدند.
+- وضعیت: Hero Test فعلاً روی rc.9 است؛ promotion rc.10 به‌علت نبود دسترسی SSH از محیط Codex انجام نشد و باید با همان manifest روی host Test اجرا شود.
+- مرز: این candidate فقط برای Test است؛ Product container/Product Test، Production، Pilot، Secret، Provider live، external spend و سرویس‌های دیگر host لمس نشدند.
+
 # ۲۰۲۶-۰۹-۱۸ — adapter گیت‌دار Product Runner در PF-2
 
 - افزوده‌شده: قرارداد نسخه‌دار Product Runner و endpoint metadata-only برای actions، authorization operationهای جدا و decision codeهای قابل‌ردگیری.
