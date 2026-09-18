@@ -518,6 +518,16 @@ export {
   validateProductArtifactManifest,
   validateProductArtifactContract
 } from "./product-artifact.mjs";
+export {
+  PRODUCT_DELIVERY_BUNDLE_SCHEMA,
+  PRODUCT_DELIVERY_BUNDLE_CONTRACT_VERSION,
+  PRODUCT_DELIVERY_BUNDLE_ENVIRONMENTS,
+  PRODUCT_DELIVERY_BUNDLE_COMPATIBILITY_FIELDS,
+  createProductDeliveryBundle,
+  getProductDeliveryBundleContractSummary,
+  validateProductDeliveryBundle,
+  validateProductDeliveryBundleContract
+} from "./product-delivery-bundle.mjs";
 
 export { BACKOFFICE_COLLABORATION_CONTRACT_VERSION, CONVERSATION_CONTEXTS, MEMORY_LEVELS, MEMORY_SENSITIVITIES, getBackofficeCollaborationContractSummary, validateBackofficeCollaborationContract } from "./backoffice-collaboration.mjs";
 export { BACKOFFICE_COMMAND_CENTER_CONTRACT_VERSION, COMMAND_RISKS, COMMAND_STATES, getBackofficeCommandCenterContractSummary, validateBackofficeCommandCenterContract } from "./backoffice-command-center.mjs";
