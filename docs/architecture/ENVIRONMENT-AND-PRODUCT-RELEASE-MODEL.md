@@ -59,7 +59,7 @@ hero-product-<slug>-production-*    → فقط Product Production همان مح�
 - capacity و port collision پیش از dispatch بررسی و در ابهام fail-closed شوند؛
 - build/test workspace محصول از repository Hero جدا باشد و هیچ local-path dependency به Hero نداشته باشد.
 
-این بخش قرارداد معماری است. Hero فعلی هنوز Product Runner یا اجرای خودکار Compose محصول را ندارد؛ تا زمانی که runbook و Exit Gate مربوط evidence واقعی ندارند، هیچ container محصولی نباید از UI Hero ساخته یا start شود.
+این بخش قرارداد معماری است. Hero اکنون قرارداد و adapter امن Product Runner را در source دارد، اما Control Plane executor را پیش‌فرض configure نمی‌کند و اجرای خودکار Compose محصول هنوز operational نیست؛ تا زمانی که runbook و Exit Gate مربوط evidence واقعی ندارند، هیچ container محصولی نباید از UI Hero ساخته یا start شود.
 
 ## Target خارجی و انتقال‌پذیری محصول
 

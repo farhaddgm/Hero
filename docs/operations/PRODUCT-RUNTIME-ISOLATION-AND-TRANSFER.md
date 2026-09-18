@@ -6,7 +6,7 @@
 > Type: operation
 > Scope: cross-project
 > Status: proposed
-> Version: 1.0.0
+> Version: 1.1.0
 > Owner: hero-operations
 > Review cadence: per-change
 > Supersedes: none
@@ -14,7 +14,7 @@
 
 ## هدف و وضعیت
 
-این runbook معیار پذیرش برای اجرای محصولی است که Hero مدیریت می‌کند، چه روی همان host ParsPack و چه روی سرور Test دیگر. این سند **دستور اجرای خودکار نیست** و در وضعیت `proposed` قرار دارد: Hero فعلی هنوز container محصول، target خارجی یا انتقال را خودکار اجرا نمی‌کند. شروع هر دستور واقعی به authorization جدا، Step ID معتبر، Global Stop خاموش و مالک target نیاز دارد.
+این runbook معیار پذیرش برای اجرای محصولی است که Hero مدیریت می‌کند، چه روی همان host ParsPack و چه روی سرور Test دیگر. این سند **دستور اجرای خودکار نیست** و در وضعیت `proposed` قرار دارد: adapter امن Product Runner در source حاضر است، اما Hero فعلی هنوز executor را به‌صورت پیش‌فرض configure نمی‌کند و container محصول، target خارجی یا انتقال را خودکار اجرا نمی‌کند. شروع هر دستور واقعی به authorization جدا، Step ID معتبر، Global Stop خاموش و مالک target نیاز دارد.
 
 Hero Test با Product Test یکی نیست. هیچ‌یک از مراحل این سند نباید runtime، volume، database، network، Secret، پورت، Caddy یا container Hero و اپلیکیشن دیگری را تغییر دهد مگر اینکه همان target به‌طور صریح در authorization آمده باشد.
 
@@ -37,9 +37,10 @@ Hero Test با Product Test یکی نیست. هیچ‌یک از مراحل ای�
 2. policy محصول، Compose plan، resource names و artifact digest را بدون start کردن بررسی کنید.
 3. runner باید workspace مستقل از repository Hero داشته باشد؛ از `/opt/hero` برای checkout/build محصول استفاده نمی‌شود.
 4. `docker compose config` و ruleهای isolation باید پیش از start، موارد ناامن/متعارض را reject کنند.
-5. فقط پس از authorization همان Product Test، Compose project اختصاصی شروع می‌شود.
-6. health/readiness، consumption quota، network boundary و عدم‌تغییر Hero Test/سرویس کنترل‌شدهٔ دیگر ثبت می‌شود.
-7. در شکست، فقط Compose project/volumeهای دقیق همان محصول و همان محیط طبق rollback plan هدف گرفته می‌شوند؛ عملیات broad یا حدسی ممنوع است.
+5. برای start، Compose باید image digest، `network_mode: none`، non-root، read-only، no-new-privileges، cap-drop و resource limit منطبق با plan داشته باشد.
+6. فقط پس از authorization همان Product Test و executor صریح، Compose project اختصاصی شروع می‌شود.
+7. health/readiness، consumption quota، network boundary و عدم‌تغییر Hero Test/سرویس کنترل‌شدهٔ دیگر ثبت می‌شود.
+8. در شکست، فقط Compose project/volumeهای دقیق همان محصول و همان محیط طبق rollback plan هدف گرفته می‌شوند؛ عملیات broad یا حدسی ممنوع است.
 
 ## بستهٔ قابل‌انتقال
 

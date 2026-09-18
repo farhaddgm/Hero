@@ -1,5 +1,14 @@
 # تغییرات رودمپ شرکت
 
+# ۲۰۲۶-۰۹-۱۸ — adapter گیت‌دار Product Runner در PF-2
+
+- افزوده‌شده: قرارداد نسخه‌دار Product Runner و endpoint metadata-only برای actions، authorization operationهای جدا و decision codeهای قابل‌ردگیری.
+- افزوده‌شده: adapter Docker برای workspace مستقل محصول با Compose preflight، argv-only/shell-free، digest immutable، network `none`، non-root، read-only، no-new-privileges، cap-drop، quotaهای CPU/RAM/PID، timeout، concurrency و redaction خروجی.
+- اصلاح‌شده: approval Foundation اکنون وضعیت `runtimePlan` را نیز از `proposed` به `approved` می‌برد؛ مسیر معتبر دیگر به‌اشتباه برای Runner غیرقابل‌اجرا نمی‌ماند. بررسی زنجیرهٔ workspace و Compose security نیز fail-closed شد.
+- تست: `tests/product-runner-adapter.test.mjs` برابر ۱۲/۱۲ و regression ترکیبی برابر ۴۴/۴۴ موفق شد؛ full check معادل `pnpm check` برابر ۴۱۸/۴۱۸، build برابر ۲۶۸ module و ۴۹ JSON، و documentation برابر ۱۴۱ سند و ۰ خطا ثبت شد.
+- مرز: executor در Control Plane پیش‌فرض خاموش است؛ هیچ Product container، Product Test، host reservation، Secret، Provider live، external spend، Pilot، Production یا سرویس دیگر host لمس نشد.
+- commit کد: `c22d556c2bb08d10e160dbdd1536a4eb1870965c`؛ این تغییر هنوز به‌عنوان Product Test اجرا نشده است.
+
 # ۲۰۲۶-۰۹-۱۸ — سخت‌گیری قرارداد و admission در PF-2
 
 - افزوده‌شده: اعتبارسنجی نسخه‌دار برای timeout، هم‌زمانی، CPU، حافظه، PID، پورت و host-mount در runtime plan محصول؛ سقف‌ها به‌صورت fail-closed به Test محدود هستند.

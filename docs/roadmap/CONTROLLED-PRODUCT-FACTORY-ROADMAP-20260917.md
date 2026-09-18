@@ -6,7 +6,7 @@
 > Type: roadmap
 > Scope: hero
 > Status: active
-> Version: 1.9.0
+> Version: 2.0.0
 > Owner: hero-product
 > Review cadence: per-change
 > Supersedes: `HERO-ROADMAP-NEXT-100-STEPS-20260904`, `HERO-ROADMAP-NEXT-20-STEPS-20260904`, `HERO-ROADMAP-NEXT-20-STEPS-20260911-WORKSPACE-PERSISTENCE`, `HERO-ROADMAP-NEXT-100-STEPS-20260911-PROJECT-CONTROL`
@@ -22,7 +22,7 @@
 
 | موضوع | واقعیت تأییدشده | مرز صریح |
 |---|---|---|
-| source Hero | branch `codex/test-release-reliability-20260916`، commit `e8de500e4278b1f4cf805e87c02d62ce05847709`؛ شامل اصلاح PF-2 در `788746c` | candidate بعدی Test از همین source ساخته شده است؛ اسناد مستندات بعدی ممکن است commit جدا داشته باشند. |
+| source Hero | branch `codex/test-release-reliability-20260916`، commit `c22d556c2bb08d10e160dbdd1536a4eb1870965c`؛ شامل قرارداد/admission و adapter کنترل‌شدهٔ PF-2 | candidate بعدی Test باید از همین source ساخته شود؛ این commit هنوز به‌عنوان Product Test اجرا نشده است. |
 | Test Hero | `v1.1.4-rc.9`، digest `ghcr.io/farhaddgm/hero@sha256:499d00f88ac705f2b47d221d4396887291f7293c4d8c6ca7b67dff764b7c0b12` | فقط Hero Test است؛ Product Test نیست؛ container running/healthy، restart count صفر و persistence PostgreSQL است. |
 | شواهد انتشار | run `35289669314`، promotion مالک و smoke واقعی موفق | `/health` و `/ready` هر دو ۲۰۰ و rollback point metadata-only ثبت شده است؛ runtime commit `e8de500e4278b1f4cf805e87c02d62ce05847709` است. |
 | رخداد اصلاح‌شده | rc.6 بعد از restart با `Product request metadata is invalid` crash-loop شد | علت و اصلاح در source ثبت شده؛ rc.8 همان مسیر را سالم کرده است. |
@@ -142,7 +142,7 @@ Product Test:       hero-product-<slug>-test-*
 **نگاشت:** BO-075..088، BO-121..134.
 **Exit Gate:** یک image نمونهٔ بی‌خطر در Product Test با container جدا اجرا، healthcheck و rollback شود؛ آزمایش نشان دهد Hero Test و یک سرویس کنترل‌شدهٔ دیگر دست‌نخورده‌اند. این gate مجوز Product Production نیست.
 
-**وضعیت اجرای PF-2 در ۲۰۲۶-۰۹-۱۸:** زیرگام قرارداد و admission در commit `788746c` پیاده و در source تأیید شد. طرح runtime اکنون timeout، هم‌زمانی، CPU، حافظه، PID، پورت و host-mount را validate می‌کند؛ admission شبکهٔ `bridge` را برای طرح network-disabled، هر host path با host-mount خاموش، quota بالاتر از plan، collision و namespace نامعتبر را fail-closed رد می‌کند. ۴۰۶ تست، شامل تست‌های منفی جدید، موفق شدند. Product Runner واقعی، start کانتینر محصول، Product Test و اثبات عدم‌اختلال host هنوز انجام نشده‌اند و Exit Gate PF-2 همچنان `open` است. Evidence این زیرگام در `HERO-EVIDENCE-PRODUCT-FACTORY-PF2-RUNNER-CONTRACT-20260918@1.0.0` ثبت شده است.
+**وضعیت اجرای PF-2 در ۲۰۲۶-۰۹-۱۸:** قرارداد و admission اولیه در commit `788746c` بود و در commit `c22d556` به adapter واقعیِ گیت‌دار ارتقا یافت. adapter اکنون workspace مستقل، Compose config پیش از اجرا، دستورهای argv-only بدون shell، digest immutable، network `none`، non-root، read-only، no-new-privileges، cap drop، CPU/RAM/PID quota، رزرو هم‌زمانی، timeout و redaction خروجی را کنترل می‌کند؛ خطاهای path/symlink، host mount/socket، image mutable، plan تأییدنشده، نبود authorization یا نبود executor fail-closed هستند. قرارداد Product Runner در `/runner-contract` نیز به‌صورت metadata-only منتشر می‌شود. Product Runner در Control Plane هنوز executor را به‌طور پیش‌فرض configure نمی‌کند؛ بنابراین start واقعی کانتینر، Product Test، رزرو منابع در host، health/rollback و اثبات عدم‌اختلال host هنوز انجام نشده‌اند و Exit Gate PF-2 همچنان `open` است. Evidence جاری در `HERO-EVIDENCE-PRODUCT-FACTORY-PF2-RUNNER-CONTRACT-20260918@1.2.0` ثبت می‌شود.
 
 ### PF-3 — Artifact محصول، Product Test و پذیرش کیفیت
 
