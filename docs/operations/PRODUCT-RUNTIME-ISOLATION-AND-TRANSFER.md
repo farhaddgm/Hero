@@ -6,7 +6,7 @@
 > Type: operation
 > Scope: cross-project
 > Status: proposed
-> Version: 1.1.0
+> Version: 1.2.0
 > Owner: hero-operations
 > Review cadence: per-change
 > Supersedes: none
@@ -16,7 +16,7 @@
 
 این runbook معیار پذیرش برای اجرای محصولی است که Hero مدیریت می‌کند، چه روی همان host ParsPack و چه روی سرور Test دیگر. این سند **دستور اجرای خودکار نیست** و در وضعیت `proposed` قرار دارد: adapter امن Product Runner در source حاضر است، اما Hero فعلی هنوز executor را به‌صورت پیش‌فرض configure نمی‌کند و container محصول، target خارجی یا انتقال را خودکار اجرا نمی‌کند. شروع هر دستور واقعی به authorization جدا، Step ID معتبر، Global Stop خاموش و مالک target نیاز دارد.
 
-Hero Test با Product Test یکی نیست. هیچ‌یک از مراحل این سند نباید runtime، volume، database، network، Secret، پورت، Caddy یا container Hero و اپلیکیشن دیگری را تغییر دهد مگر اینکه همان target به‌طور صریح در authorization آمده باشد.
+Hero Test با Product Test یکی نیست. هیچ‌یک از مراحل این سند نباید runtime، volume، database، network، Secret، پورت، Caddy یا container Hero و اپلیکیشن دیگری را تغییر دهد مگر اینکه همان target به‌طور صریح در authorization آمده باشد. Runner اکنون guard رزرو process-local منابع دارد؛ این guard برای هم‌زمانی داخل همان process است و جایگزین inventory پایدار host یا رزرو cross-process پس از restart نیست.
 
 ## اطلاعات اجباری پیش از پذیرش یک Product Runtime
 
