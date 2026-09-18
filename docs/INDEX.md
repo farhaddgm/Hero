@@ -1,7 +1,7 @@
 # فهرست مرکزی مستندات Hero
 
 - Document ID: `HERO-DOC-INDEX`
-- Version: `1.7.0`
+- Version: `1.8.0`
 - Status: `active`
 - Owner: `hero-documentation`
 - Scope: `hero`
@@ -157,6 +157,7 @@ Product ابتدا با owner و Evidence در Product registry ثبت می‌ش
 | `HERO-EVIDENCE-BACKOFFICE-ENVIRONMENT-DELIVERY-HARDENING-FINAL-BO-121-170` | `active` | [Evidence Environment تا Final Readiness — BO-121 تا BO-170](roadmap/BACKOFFICE-ENVIRONMENT-DELIVERY-HARDENING-FINAL-BO-121-170.md) |
 | `HERO-EVIDENCE-BACKOFFICE-DELIVERY-AUDIT-20260911` | `active` | [ممیزی واقعی تحویل Back Office — ۲۰۲۶-۰۹-۱۱](roadmap/BACKOFFICE-DELIVERY-AUDIT-20260911.md) |
 | `HERO-EVIDENCE-PRODUCT-FACTORY-PF1-20260917` | `active` | [Evidence برش اول کارخانهٔ کنترل‌شدهٔ محصول — PF-1](evidence/PRODUCT-FACTORY-PF1-IMPLEMENTATION-20260917.md) |
+| `HERO-EVIDENCE-PRODUCT-FACTORY-PF2-RUNNER-CONTRACT-20260918` | `active` | [Evidence قرارداد و admission ایزولهٔ Product Runner — PF-2](evidence/PRODUCT-FACTORY-PF2-RUNNER-CONTRACT-20260918.md) |
 | `HERO-EVIDENCE-BACKOFFICE-PARTIAL-COMPLETION-20260911` | `active` | [بستهٔ تکمیل محلی الزامات Partial بک‌آفیس — ۲۰۲۶-۰۹-۱۱](roadmap/BACKOFFICE-PARTIAL-COMPLETION-20260911.md) |
 | `HERO-EVIDENCE-BACKOFFICE-UI-UX-20260911` | `active` | [Evidence طراحی، پیاده‌سازی و استقرار Test رابط Back Office](roadmap/BACKOFFICE-UI-UX-EVIDENCE-20260911.md) |
 | `HERO-EVIDENCE-BACKOFFICE-IDENTITY-INFOTIP-TEST-20260911` | `active` | [Evidence رفع ورود انسانی و راهنمای قابلیت‌های Back Office در Test](roadmap/BACKOFFICE-IDENTITY-INFOTIP-TEST-EVIDENCE-20260911.md) |

@@ -1,5 +1,12 @@
 # تغییرات رودمپ شرکت
 
+# ۲۰۲۶-۰۹-۱۸ — سخت‌گیری قرارداد و admission در PF-2
+
+- افزوده‌شده: اعتبارسنجی نسخه‌دار برای timeout، هم‌زمانی، CPU، حافظه، PID، پورت و host-mount در runtime plan محصول؛ سقف‌ها به‌صورت fail-closed به Test محدود هستند.
+- اصلاح‌شده: admission دیگر `bridge` را برای طرح network-disabled، مسیر میزبان با host-mount خاموش یا quota بالاتر از plan نمی‌پذیرد؛ malformed plan نیز بدون exception و بدون side effect رد می‌شود.
+- Evidence: targeted PF-2 برابر `20/20` و اجرای معادل `pnpm check` در Linux container برابر `406 pass / 0 fail`، build برابر `265 module / 49 JSON`؛ زیرگام contract/admission ثبت شد، اما Product Runner واقعی، Product Test و start کانتینر هنوز باز هستند.
+- commit کد: `788746c`. این تغییر فقط روی source/تست اعمال شد؛ Production، Pilot، Secret، Provider زنده، external spend و اپ‌های دیگر host لمس نشدند.
+
 # ۲۰۲۶-۰۹-۱۸ — تأیید نهایی PF-1 روی Test
 
 - `v1.1.4-rc.8` با digest `sha256:e87e6063975fdea86d81682f19668a6458209afc3aeaff77cfeb896478d1d8ee` از run `35287418094` روی Hero Test promote و smoke شد؛ container `healthy`، restart count صفر، `/health` و `/ready` هر دو ۲۰۰ و PostgreSQL آماده است.

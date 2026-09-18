@@ -6,7 +6,7 @@
 > Type: roadmap
 > Scope: hero
 > Status: active
-> Version: 1.6.0
+> Version: 1.7.0
 > Owner: hero-product
 > Review cadence: per-change
 > Supersedes: `HERO-ROADMAP-NEXT-100-STEPS-20260904`, `HERO-ROADMAP-NEXT-20-STEPS-20260904`, `HERO-ROADMAP-NEXT-20-STEPS-20260911-WORKSPACE-PERSISTENCE`, `HERO-ROADMAP-NEXT-100-STEPS-20260911-PROJECT-CONTROL`
@@ -22,11 +22,11 @@
 
 | موضوع | واقعیت تأییدشده | مرز صریح |
 |---|---|---|
-| source Hero | branch `codex/test-release-reliability-20260916`، commit `790bfe8097236e285fcf9cb8f6699dc62f5e07b4` | این همان source کاندیدای بعدی Test است؛ اسناد مستندات بعدی ممکن است commit جدا داشته باشند. |
+| source Hero | branch `codex/test-release-reliability-20260916`، commit `788746c` (`feat: harden product runner admission boundaries`) | این source قراردادهای PF-2 را نیز دارد؛ اسناد مستندات بعدی ممکن است commit جدا داشته باشند. |
 | Test Hero | `v1.1.4-rc.8`، digest `ghcr.io/farhaddgm/hero@sha256:e87e6063975fdea86d81682f19668a6458209afc3aeaff77cfeb896478d1d8ee` | فقط Hero Test است؛ Product Test نیست؛ container running/healthy و persistence PostgreSQL است. |
 | شواهد انتشار | run `35287418094`، promotion مالک و smoke واقعی موفق | `/health` و `/ready` هر دو ۲۰۰، restart count صفر و rollback point metadata-only ثبت شده است. |
 | رخداد اصلاح‌شده | rc.6 بعد از restart با `Product request metadata is invalid` crash-loop شد | علت و اصلاح در source ثبت شده؛ rc.8 همان مسیر را سالم کرده است. |
-| کیفیت source | `pnpm check`: ۴۰۴ pass، ۰ fail؛ build: ۲۶۵ module و ۴۹ JSON | این نتیجه جای acceptance محصول هدف را نمی‌گیرد. |
+| کیفیت source | اجرای معادل `pnpm check` در Linux container: ۴۰۶ pass، ۰ fail؛ build: ۲۶۵ module و ۴۹ JSON | به‌علت نبودن Node/pnpm روی host و نبودن Docker socket داخل check container، check در Docker مرجع با snapshot source اجرا شد؛ این نتیجه جای acceptance محصول هدف را نمی‌گیرد. |
 | AI | مسیر provider-agnostic، policy، redaction و result ساخت‌یافته در source/Test حاضر است | evidence تازه‌ای از فراخوانی زندهٔ OpenAI در این baseline ثبت نشده است؛ provider و هزینه fail-closed هستند. |
 | Back Office | ممیزی مرجع: ۲۰/۱۷۰ گام verified، ۱۵۰ گام نیازمند evidence کامل؛ ۵/۸۱ requirement implemented، ۷۶ partial | UI یا قرارداد موجود به معنی کارخانهٔ خودکار محصول نیست. |
 | اجرای محصول | قراردادهای Web Factory، Provider Agent و Infrastructure Plan وجود دارند | هنوز اجرای کد در مخزن محصول، ساخت container محصول، deploy هدف یا Node Agent عملیاتی نشده است. |
@@ -141,6 +141,8 @@ Product Test:       hero-product-<slug>-test-*
 
 **نگاشت:** BO-075..088، BO-121..134.
 **Exit Gate:** یک image نمونهٔ بی‌خطر در Product Test با container جدا اجرا، healthcheck و rollback شود؛ آزمایش نشان دهد Hero Test و یک سرویس کنترل‌شدهٔ دیگر دست‌نخورده‌اند. این gate مجوز Product Production نیست.
+
+**وضعیت اجرای PF-2 در ۲۰۲۶-۰۹-۱۸:** زیرگام قرارداد و admission در commit `788746c` پیاده و در source تأیید شد. طرح runtime اکنون timeout، هم‌زمانی، CPU، حافظه، PID، پورت و host-mount را validate می‌کند؛ admission شبکهٔ `bridge` را برای طرح network-disabled، هر host path با host-mount خاموش، quota بالاتر از plan، collision و namespace نامعتبر را fail-closed رد می‌کند. ۴۰۶ تست، شامل تست‌های منفی جدید، موفق شدند. Product Runner واقعی، start کانتینر محصول، Product Test و اثبات عدم‌اختلال host هنوز انجام نشده‌اند و Exit Gate PF-2 همچنان `open` است. Evidence این زیرگام در `HERO-EVIDENCE-PRODUCT-FACTORY-PF2-RUNNER-CONTRACT-20260918@1.0.0` ثبت شده است.
 
 ### PF-3 — Artifact محصول، Product Test و پذیرش کیفیت
 
