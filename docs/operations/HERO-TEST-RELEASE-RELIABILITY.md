@@ -13,17 +13,17 @@
 
 ## Snapshot جاری source و Test — ۲۰۲۶-۰۹-۱۹
 
-- source مرجع branch `codex/test-release-reliability-20260916`، commit `286ec555ff2ff385162efe8443552ec3902f7f0e` است.
+- source مرجع branch `codex/test-release-reliability-20260916`، commit `e52e437ddc33395afbf177b345c6e9e3d2cc6654` است.
 - Runtime Test طبق آخرین promotion ثبت‌شده روی `v1.1.5-rc.5` و artifact immutable `ghcr.io/farhaddgm/hero@sha256:0860c09fbd815ef381690ff354e68dee185786279ed34499cf7a5a3bdf1e2bf3` اجرا می‌شود؛ candidateهای بعدی تا promotion جداگانه وارد runtime نمی‌شوند.
 - GitHub Actions run `35287418094` موفق بود؛ promotion مالک، rollback point metadata-only، `/health` و `/ready` هر دو ۲۰۰ و persistence PostgreSQL تأیید شدند.
 - rc.6 رخداد crash-loop ناشی از hydration داشت؛ rc.8 با read model اصلاح‌شده و persistence atomic جایگزین و smoke شد.
-- Candidate `v1.1.5-rc.8` در CI برابر ۴۷۴ pass، ۰ fail و ۰ skipped بود؛ build برابر ۲۹۸ module و ۵۰ JSON و Documentation check برابر ۱۴۸ سند، ۲ محصول و ۰ خطا بود. این runbook دربارهٔ انتشار Hero است؛ scenario زندهٔ Provider evidence جداگانه می‌خواهد.
+- Candidate `v1.1.5-rc.10` در CI برابر ۴۷۴ pass، ۰ fail و ۰ skipped بود؛ build برابر ۲۹۸ module و ۵۰ JSON و Documentation check برابر ۱۴۸ سند، ۲ محصول و ۰ خطا بود. این runbook دربارهٔ انتشار Hero است؛ scenario زندهٔ Provider evidence جداگانه می‌خواهد.
 
 ## رخداد و اصلاح ۲۰۲۶-۰۹-۱۸
 
 - علت crash-loop: `listProjects()` فیلد `productRequest.projectId` را در read model برنمی‌گرداند و hydration fail-closed با `Product request metadata is invalid` متوقف می‌شد.
 - اصلاح‌های هم‌زمان: read model اکنون scope درخواست را کامل برمی‌گرداند؛ ثبت اولیهٔ Product Request، Project و Foundation در یک تراکنش انجام می‌شود؛ replay رکورد قدیمی نیمه‌ثبت‌شده Foundation گمشده را بدون درج دوباره repair می‌کند.
-- candidate `v1.1.5-rc.8` همهٔ checkهای منبع، build و workflow انتشار را گذرانده اما هنوز روی Test promote نشده است. این runbook دربارهٔ انتشار Hero است؛ سناریوی زندهٔ Provider evidence جداگانه می‌خواهد.
+- candidate `v1.1.5-rc.10` همهٔ checkهای منبع، build و workflow انتشار را گذرانده اما هنوز روی Test promote نشده است. این candidate علاوه بر اصلاح Advisor، promotion را در برابر duplicate keyهای فایل env نیز fail-closed می‌کند. این runbook دربارهٔ انتشار Hero است؛ سناریوی زندهٔ Provider evidence جداگانه می‌خواهد.
 
 ## اجرای پیشین — ۲۰۲۶-۰۹-۱۷
 

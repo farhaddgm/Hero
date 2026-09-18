@@ -872,3 +872,8 @@
 - سخت‌سازی شد: خواندن وضعیت اتصال Provider در گزینه‌های Advisor در برابر دادهٔ ناقص null-safe شد.
 - تست‌های افزوده‌شده: readiness بدون Profile، Planner با Health تأییدنشده و assertion رابط کاربری برای مسیر پیشنهاد تخصیص؛ اجرای کامل نهایی باید در CI انجام شود.
 - شواهد انتشار پس از این batch: Candidate `v1.1.5-rc.8` در run `35401564319` با `474/474` تست موفق، `0` شکست، build برابر `298` ماژول و `50` فایل JSON و documentation برابر `148` سند و `0` خطا ساخته شد؛ promotion روی Runtime Test هنوز انجام نشده است.
+
+# ۲۰۲۶-۰۹-۱۹ — سخت‌سازی promotion محیط Test در برابر duplicate env key
+
+- اصلاح شد: `promote-test-immutable.sh` پیش از هر pull، تغییر env یا recreate کانتینر، فایل env Test را از نظر کلیدهای تکراری بررسی می‌کند و در صورت ابهام fail-closed متوقف می‌شود؛ فقط نام کلید گزارش می‌شود و مقدار Secret هرگز چاپ نمی‌شود.
+- شواهد: Candidate `v1.1.5-rc.10` از commit `e52e437` با run `35402316316` و digest immutable `sha256:e808aedc95075a3af4270aaaf971281de14a5a05c40570511ecd3948c6efb225` ساخته شد؛ `474/474` تست، build و documentation check موفق بودند. این candidate هنوز روی Runtime Test promote نشده است.
