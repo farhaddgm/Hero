@@ -62,6 +62,16 @@ function assertRegularPath(label, value) {
   if (!stat.isFile() || stat.isSymbolicLink()) throw new Error(`${label} must be a regular file.`);
 }
 
+function assertTestCommand(value) {
+  if (value === undefined) return null;
+  if (!Array.isArray(value) || value.length < 1 || value.length > 16) throw new Error("testCommand must be a non-empty argv array.");
+  for (const item of value) {
+    if (typeof item !== "string" || item.length < 1 || item.length > 240 || /[\u0000\r\n;&|<>`$]/.test(item)) throw new Error("testCommand contains an unsafe argv item.");
+    if (/^(?:-c|--command|-e|--eval)$/.test(item) || /(?:^|\/)(?:sh|ash|bash|dash|zsh)$/.test(item)) throw new Error("testCommand must not invoke a shell.");
+  }
+  return Object.freeze([...value]);
+}
+
 function scalar(source, key) {
   return source.match(new RegExp(`^\\s+${key}:\\s*["']?([^\\s#"']+)`, "mi"))?.[1] ?? null;
 }
@@ -85,8 +95,22 @@ function assertImmutableComposeStart(composePath, artifact, plan) {
   const pidsLimit = Number(scalar(source, "pids_limit"));
   const expectedMemory = plan.resources.memoryMiB * 1_048_576;
   if (!Number.isFinite(cpuLimit) || cpuLimit <= 0 || cpuLimit > plan.resources.cpuLimit || !Number.isFinite(memoryLimit) || memoryLimit <= 0 || memoryLimit > expectedMemory || !Number.isInteger(pidsLimit) || pidsLimit < 1 || pidsLimit > plan.resources.pidsLimit) throw new Error("start Compose resource limits exceed the product plan.");
-  if (!/^\s+network_mode:\s+none\s*$/mi.test(source) || !/^\s+read_only:\s+true\s*$/mi.test(source) || !/^\s+user:\s*["']?(?!0(?:["']?$|:)|root(?:["']?$))[^\s#"']+/mi.test(source) || !/^\s+security_opt:\s*$/mi.test(source) || !/no-new-privileges(?::|=)true/i.test(source) || !/^\s+cap_drop:\s*$/mi.test(source) || !/^\s+-\s+ALL\s*$/mi.test(source) || /^(?:\s*)(?:privileged|pid|ipc|uts|network_mode):\s*(?:true|host)\s*$/mi.test(source) || source.includes("/var/run/docker.sock")) throw new Error("start Compose security boundary is invalid.");
+  assertComposeIsolation(source);
   if (/^\s+(?:volumes|devices):\s*$/mi.test(source) && /(?:^|\n)\s+-\s+(?:[.~\/]|[A-Za-z]:[\\/])/.test(source)) throw new Error("start Compose host mount boundary is invalid.");
+}
+
+function assertComposeIsolation(source) {
+  if (!/^\s+network_mode:\s+none\s*$/mi.test(source) || !/^\s+read_only:\s+true\s*$/mi.test(source) || !/^\s+user:\s*["']?(?!0(?:["']?$|:)|root(?:["']?$))[^\s#"']+/mi.test(source) || !/^\s+security_opt:\s*$/mi.test(source) || !/no-new-privileges(?::|=)true/i.test(source) || !/^\s+cap_drop:\s*$/mi.test(source) || !/^\s+-\s+ALL\s*$/mi.test(source) || /^(?:\s*)(?:privileged|pid|ipc|uts|network_mode):\s*(?:true|host)\s*$/mi.test(source) || source.includes("/var/run/docker.sock")) throw new Error("Compose security boundary is invalid.");
+}
+
+function assertImmutableComposeBuild(composePath) {
+  if (lstatSync(composePath).size > 1_000_000) throw new Error("build Compose file exceeds the safe inspection limit.");
+  const source = readFileSync(composePath, "utf8");
+  const lines = source.split(/\r?\n/);
+  const buildLine = lines.findIndex(line => /^\s{4}build:\s*$/.test(line));
+  const nextServiceKey = buildLine < 0 ? -1 : lines.findIndex((line, index) => index > buildLine && /^\s{4}\S/.test(line));
+  const buildBlock = buildLine < 0 ? [] : lines.slice(buildLine + 1, nextServiceKey < 0 ? lines.length : nextServiceKey);
+  if (!buildBlock.some(line => /^\s{6}network:\s+none\s*$/.test(line))) throw new Error("build requires Compose build.network=none.");
 }
 
 function assertNoSensitiveInput(value, key = "input") {
@@ -173,9 +197,9 @@ function commandBase({ project, workspacePath, composePath }) {
 function commandFor(action, input, workspacePath, composePath) {
   const base = commandBase({ project: input.plan.isolation.composeProject, workspacePath, composePath });
   if (action === "preflight") return [...base, "config", "--quiet"];
-  if (action === "build") return [...base, "build", "--pull=never", "--network", "none"];
-  if (action === "test") return [...base, "run", "--rm", "--no-deps", "--no-build", "--network", "none", input.runtimeSpec.serviceName];
-  if (action === "start") return [...base, "up", "--detach", "--no-build", "--remove-orphans"];
+  if (action === "build") return [...base, "build"];
+  if (action === "test") return [...base, "run", "--rm", "--no-deps", "--pull", "never", input.runtimeSpec.serviceName, ...(input.runtimeSpec.testCommand ?? [])];
+  if (action === "start") return [...base, "up", "--detach", "--no-build", "--pull", "never", "--remove-orphans"];
   if (action === "stop" || action === "cleanup") return [...base, "down", "--remove-orphans"];
   throw new Error("Unsupported Product Runner action.");
 }
@@ -244,15 +268,18 @@ export function createDockerProductRunner({ workspaceRoot, executor = null, rese
     if (!composePath.startsWith(`${workspacePath}${path.sep}`)) throw new Error("composeFile escaped the workspace.");
     assertRegularPath("composeFile", composePath);
     const serviceName = assertText("serviceName", input.runtimeSpec?.serviceName, 64);
+    const testCommand = assertTestCommand(input.runtimeSpec?.testCommand);
     if (!SAFE_SERVICE.test(serviceName)) throw new Error("serviceName is invalid.");
     if (input.action === "start" && (!DIGEST_ARTIFACT.test(input.runtimeSpec?.artifact ?? ""))) throw new Error("start requires an immutable image digest.");
     if (input.runtimeSpec?.artifactManifest !== undefined) {
       const artifactErrors = validateProductArtifactManifest(input.runtimeSpec.artifactManifest);
       if (artifactErrors.length || input.runtimeSpec.artifactManifest.artifact !== input.runtimeSpec.artifact) throw new Error("artifact manifest does not match the requested immutable artifact.");
     }
+    if (input.action === "build") assertImmutableComposeBuild(composePath);
+    if (input.action === "test") assertComposeIsolation(readFileSync(composePath, "utf8"));
     if (input.action === "start") assertImmutableComposeStart(composePath, input.runtimeSpec.artifact, plan);
-    if (admission.decision !== "admit") return { projectId, runId, plan, workspaceKey, workspacePath, composePath, serviceName, admission };
-    return { projectId, runId, plan, workspaceKey, workspacePath, composePath, serviceName, admission };
+    if (admission.decision !== "admit") return { projectId, runId, plan, workspaceKey, workspacePath, composePath, serviceName, testCommand, admission };
+    return { projectId, runId, plan, workspaceKey, workspacePath, composePath, serviceName, testCommand, admission };
   }
 
   function preflight(input = {}) {

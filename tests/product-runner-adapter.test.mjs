@@ -24,7 +24,7 @@ function fixture({ executor = null, planState = "approved", executionMode = "iso
   const workspaceKey = `product-workspaces/${projectId}/${runId}`;
   const workspacePath = path.join(root, workspaceKey);
   mkdirSync(workspacePath, { recursive: true });
-  writeFileSync(path.join(workspacePath, "compose.yaml"), "services:\n  app:\n    image: " + artifact + "\n    user: \"1000:1000\"\n    read_only: true\n    security_opt:\n      - no-new-privileges:true\n    cap_drop:\n      - ALL\n    cpus: 1\n    mem_limit: 1024m\n    pids_limit: 256\n    network_mode: none\n");
+  writeFileSync(path.join(workspacePath, "compose.yaml"), "services:\n  app:\n    image: " + artifact + "\n    build:\n      context: .\n      network: none\n    user: \"1000:1000\"\n    read_only: true\n    security_opt:\n      - no-new-privileges:true\n    cap_drop:\n      - ALL\n    cpus: 1\n    mem_limit: 1024m\n    pids_limit: 256\n    network_mode: none\n");
   const plan = structuredClone(createProductRuntimePlan({ projectId }));
   plan.state = planState;
   plan.execution.mode = executionMode;
@@ -167,10 +167,45 @@ test("successful build uses argv-only Docker commands and returns only redacted 
     for (const call of calls) {
       assert.equal(call.argv[0], "compose");
       assert.equal(call.cwd, path.join(data.root, data.base.runtimeSpec.workspaceKey));
-      assert.equal(call.argv.includes("--network"), call.argv.includes("build"));
+      assert.equal(call.argv.includes("--network"), false);
+      assert.equal(call.argv.includes("--pull=false"), false);
       assert.equal(call.argv.includes("host"), false);
       assert.equal(call.shell, undefined);
     }
+  } finally { cleanup(data); }
+});
+
+test("test can use a bounded in-container executable without invoking a shell", async () => {
+  const calls = [];
+  const data = fixture({ executor: async request => { calls.push(request); return { exitCode: 0, stdout: "safe", stderr: "" }; } });
+  try {
+    const result = await data.runner.execute({
+      ...data.base,
+      action: "test",
+      runtimeSpec: { ...data.base.runtimeSpec, testCommand: ["/opt/product/test"] },
+      dispatchDecision: data.dispatch("test"),
+      runtimeAuthorization: data.runtimeAuthorization("product-test-test")
+    });
+    assert.equal(result.status, "completed");
+    assert.deepEqual(calls.at(-1).argv.slice(-2), ["app", "/opt/product/test"]);
+    assert.equal(calls.at(-1).shell, undefined);
+  } finally { cleanup(data); }
+});
+
+test("test command rejects shell escape attempts before execution", async () => {
+  const calls = [];
+  const data = fixture({ executor: async request => { calls.push(request); return { exitCode: 0 }; } });
+  try {
+    const result = await data.runner.execute({
+      ...data.base,
+      action: "test",
+      runtimeSpec: { ...data.base.runtimeSpec, testCommand: ["/bin/sh", "-c", "cat /secret"] },
+      dispatchDecision: data.dispatch("test"),
+      runtimeAuthorization: data.runtimeAuthorization("product-test-test")
+    });
+    assert.equal(result.status, "blocked");
+    assert.equal(result.code, "PRODUCT_RUNNER_ADMISSION_REJECTED");
+    assert.equal(calls.length, 0);
   } finally { cleanup(data); }
 });
 
@@ -283,7 +318,7 @@ test("resource reservations prevent a second Product Test from reusing the same 
   const data = fixture();
   const secondWorkspace = path.join(data.root, "product-workspaces", projectId, "run-product-002");
   mkdirSync(secondWorkspace, { recursive: true });
-  writeFileSync(path.join(secondWorkspace, "compose.yaml"), "services:\n  app:\n    image: " + artifact + "\n    user: \"1000:1000\"\n    read_only: true\n    security_opt:\n      - no-new-privileges:true\n    cap_drop:\n      - ALL\n    cpus: 1\n    mem_limit: 1024m\n    pids_limit: 256\n    network_mode: none\n");
+  writeFileSync(path.join(secondWorkspace, "compose.yaml"), "services:\n  app:\n    image: " + artifact + "\n    build:\n      context: .\n      network: none\n    user: \"1000:1000\"\n    read_only: true\n    security_opt:\n      - no-new-privileges:true\n    cap_drop:\n      - ALL\n    cpus: 1\n    mem_limit: 1024m\n    pids_limit: 256\n    network_mode: none\n");
   const registry = createProductRuntimeReservationRegistry({ now: () => "2026-09-18T00:00:00.000Z" });
   const runner = createDockerProductRunner({ workspaceRoot: data.root, executor: async request => { calls.push(request); return { exitCode: 0, stdout: "safe", stderr: "" }; }, reservationRegistry: registry });
   try {

@@ -1,0 +1,24 @@
+services:
+  sample:
+    image: ${SAMPLE_IMAGE:?SAMPLE_IMAGE is required}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      network: none
+    user: "65532:65532"
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cpus: 0.25
+    mem_limit: 128m
+    pids_limit: 64
+    network_mode: none
+    command: ["sleep", "3600"]
+    healthcheck:
+      test: ["CMD", "/bin/sh", "-c", "test -r /opt/product/READY"]
+      interval: 1s
+      timeout: 1s
+      retries: 10
+      start_period: 1s

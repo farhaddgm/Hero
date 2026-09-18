@@ -96,6 +96,7 @@ Product ابتدا با owner و Evidence در Product registry ثبت می‌ش
 | `HERO-OPS-HERO-TEST-ENVIRONMENT` | `active` | [محیط Test برای خود Hero](operations/HERO-TEST-ENVIRONMENT.md) |
 | `HERO-OPS-HERO-TEST-RELEASE-RELIABILITY` | `active` | [پایایی انتشار Hero در محیط Test](operations/HERO-TEST-RELEASE-RELIABILITY.md) |
 | `HERO-OPS-PRODUCT-RUNTIME-ISOLATION-AND-TRANSFER` | `proposed` | [Runbook ایزولاسیون و انتقال runtime محصول](operations/PRODUCT-RUNTIME-ISOLATION-AND-TRANSFER.md) |
+| `HERO-OPS-PRODUCT-TEST-SAFE-SAMPLE` | `active` | [Runbook چرخهٔ امن Product Test برای نمونهٔ بی‌خطر](operations/PRODUCT-TEST-SAFE-SAMPLE-RUNBOOK-20260918.md) |
 | `HERO-OPS-HERO-TEST-AI-SECRET-STORE` | `active` | [راهنمای ثبت امن کلیدهای AI در Hero Test](operations/HERO-TEST-AI-SECRET-STORE.md) |
 | `HERO-OPS-PROJECT-WALKTHROUGH` | `active` | [راهنمای جامع گام‌به‌گام ساخت محصول با Hero](operations/HERO-PROJECT-WALKTHROUGH.md) |
 | `HERO-OPS-SMART-TESTER` | `active` | [اسمارت تستر Back Office Hero](operations/HERO-SMART-TESTER.md) |
@@ -158,6 +159,7 @@ Product ابتدا با owner و Evidence در Product registry ثبت می‌ش
 | `HERO-EVIDENCE-BACKOFFICE-DELIVERY-AUDIT-20260911` | `active` | [ممیزی واقعی تحویل Back Office — ۲۰۲۶-۰۹-۱۱](roadmap/BACKOFFICE-DELIVERY-AUDIT-20260911.md) |
 | `HERO-EVIDENCE-PRODUCT-FACTORY-PF1-20260917` | `active` | [Evidence برش اول کارخانهٔ کنترل‌شدهٔ محصول — PF-1](evidence/PRODUCT-FACTORY-PF1-IMPLEMENTATION-20260917.md) |
 | `HERO-EVIDENCE-PRODUCT-FACTORY-PF2-RUNNER-CONTRACT-20260918` | `active` | [Evidence قرارداد و admission ایزولهٔ Product Runner — PF-2](evidence/PRODUCT-FACTORY-PF2-RUNNER-CONTRACT-20260918.md) |
+| `HERO-EVIDENCE-PRODUCT-FACTORY-PF3-20260918` | `active` | [Evidence اجرای Product Test نمونهٔ بی‌خطر — PF-3](evidence/PRODUCT-FACTORY-PF3-20260918.md) |
 | `HERO-EVIDENCE-BACKOFFICE-PARTIAL-COMPLETION-20260911` | `active` | [بستهٔ تکمیل محلی الزامات Partial بک‌آفیس — ۲۰۲۶-۰۹-۱۱](roadmap/BACKOFFICE-PARTIAL-COMPLETION-20260911.md) |
 | `HERO-EVIDENCE-BACKOFFICE-UI-UX-20260911` | `active` | [Evidence طراحی، پیاده‌سازی و استقرار Test رابط Back Office](roadmap/BACKOFFICE-UI-UX-EVIDENCE-20260911.md) |
 | `HERO-EVIDENCE-BACKOFFICE-IDENTITY-INFOTIP-TEST-20260911` | `active` | [Evidence رفع ورود انسانی و راهنمای قابلیت‌های Back Office در Test](roadmap/BACKOFFICE-IDENTITY-INFOTIP-TEST-EVIDENCE-20260911.md) |

@@ -1,0 +1,5 @@
+safe-sample-1.0.0-test.1
+test-command=/opt/product/test
+network=none
+secrets=false
+live-provider=false

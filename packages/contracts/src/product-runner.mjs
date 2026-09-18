@@ -37,7 +37,8 @@ export const PRODUCT_RUNNER_DEFAULTS = Object.freeze({
   composeFile: "compose.yaml",
   networkMode: "none",
   shell: false,
-  output: "metadata-only"
+  output: "metadata-only",
+  testCommand: "optional immutable in-container executable argv"
 });
 
 export function getProductRunnerContractSummary() {
