@@ -805,3 +805,11 @@
 - اصلاح‌شده: مسیر انتخاب Advisor و اجرای live اکنون Scope پروژه را قبل از authorization هزینه و Provider call بررسی می‌کند و برای پروژهٔ نامجاز fail-closed است؛
 - شواهد: تست‌های هدفمند AI و Back Office برابر ۳۰/۳۰ موفق و full check برابر ۴۶۲/۴۶۲ تست موفق؛
 - مرز: Provider، Secret، هزینهٔ خارجی، Pilot و Production تغییر نکردند. برای اجرای زنده روی پروژهٔ جدید، authorization مستقل و دقیق همان پروژه همچنان الزامی است.
+
+# ۲۰۲۶-۰۹-۱۸ — Preflight سرور Test جدا
+
+- شواهد: اتصال SSH بدون رمز به `185.204.168.171` با `id -u=0` موفق شد؛ سیستم Ubuntu 24.04.4، دو CPU، حدود ۴ GiB RAM و حدود ۲۵ GiB فضای آزاد دارد؛
+- آماده‌سازی: Docker `29.1.3` و Docker Compose `2.40.3` فقط روی همین Target Test نصب و سرویس Docker فعال شد؛
+- preflight: تعداد container و image برابر صفر بود؛ فقط شبکه‌های پیش‌فرض Docker و سرویس‌های پایهٔ SSH/DNS/containerd مشاهده شدند؛
+- مرز: هیچ محصول، image، Secret، Provider زنده، Port اختصاصی Hero، Production یا Pilot روی Target اجرا نشد؛
+- گیت بعدی: ثبت Target/Agent و heartbeat واقعی فقط پس از تعیین `projectId`، `targetId` و authorization نسخه‌دار مخصوص همان Target مجاز است؛ هیچ شناسه‌ای حدس زده نمی‌شود.
