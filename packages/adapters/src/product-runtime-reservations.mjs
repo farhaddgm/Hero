@@ -81,6 +81,7 @@ export function createProductRuntimeReservationRegistry({ now = () => new Date()
       key,
       projectId: safeProjectId,
       runId: safeRunId,
+      state: "active",
       ports: requestedPorts,
       resourceNames: requestedNames,
       reservedAt: now()

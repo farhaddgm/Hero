@@ -122,3 +122,7 @@ export {
 export {
   createProductRuntimeReservationRegistry
 } from "./product-runtime-reservations.mjs";
+
+export {
+  createPostgresProductRuntimeReservationStore
+} from "./postgresql-product-runtime-reservation-store.mjs";

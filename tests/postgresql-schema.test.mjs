@@ -57,6 +57,7 @@ test("PostgreSQL schema contract covers append-only audit and release boundaries
     "project_setting_versions",
     "project_import_plans",
     "product_request_versions",
+    "product_runtime_reservations",
     "smart_tester_error_documents",
     "collaboration_records",
     "command_decision_records",
@@ -139,6 +140,10 @@ test("PostgreSQL schema contract covers append-only audit and release boundaries
   assert.match(aiCredentialAuditSql, /ai\.credential-stored/);
   assert.match(aiCredentialAuditSql, /ai\.credential-health-checked/);
   assert.match(smartTesterSql, /smart_tester_error_documents_append_only_guard/);
+  const productRuntimeReservationSql = readPostgresMigration("018");
+  assert.match(productRuntimeReservationSql, /CREATE TABLE IF NOT EXISTS product_runtime_reservations/);
+  assert.match(productRuntimeReservationSql, /plan_fingerprint text NOT NULL/);
+  assert.match(productRuntimeReservationSql, /UNIQUE \(project_id, run_id\)/);
 });
 
 test("PostgreSQL migration runner is transaction-bound and requires an injected client", async () => {

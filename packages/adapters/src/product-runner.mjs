@@ -1,4 +1,5 @@
 import { execFile as execFileCallback } from "node:child_process";
+import { createHash } from "node:crypto";
 import { lstatSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { promisify } from "node:util";
@@ -19,6 +20,21 @@ const SECRET_KEY = /(?:api[_-]?key|access[_-]?token|refresh[_-]?token|password|c
 const SECRET_VALUE = /(?:\bsk-[A-Za-z0-9_-]{12,}\b|\bBearer\s+[A-Za-z0-9._-]{12,}\b|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----)/i;
 
 function immutableCopy(value) { return Object.freeze(structuredClone(value)); }
+
+function planFingerprint(plan, runtimeSpec) {
+  const stable = {
+    schemaVersion: plan?.schemaVersion,
+    projectId: plan?.projectId,
+    state: plan?.state,
+    target: plan?.target,
+    execution: plan?.execution,
+    isolation: plan?.isolation,
+    resources: plan?.resources,
+    security: plan?.security,
+    artifact: runtimeSpec?.artifact ?? null
+  };
+  return createHash("sha256").update(JSON.stringify(stable)).digest("hex");
+}
 
 function assertText(label, value, maximum = 128) {
   if (typeof value !== "string" || value.length < 3 || value.length > maximum) throw new Error(`${label} is invalid.`);
@@ -273,13 +289,14 @@ export function createDockerProductRunner({ workspaceRoot, executor = null, rese
     if (executor === null) return blocked("PRODUCT_RUNNER_EXECUTOR_NOT_CONFIGURED", input);
     let reservation = null;
     const persistentReservation = input.action === "start";
-    if (reservationRegistry && ["stop", "cleanup"].includes(input.action) && !reservationRegistry.inspect({ projectId: normalized.projectId, runId: normalized.runId })) {
+    if (reservationRegistry && ["stop", "cleanup"].includes(input.action) && !((await reservationRegistry.inspect({ projectId: normalized.projectId, runId: normalized.runId }))?.state === "active")) {
       return blocked("PRODUCT_RUNNER_RESOURCE_RESERVATION_REQUIRED", input);
     }
     if (reservationRegistry && !["stop", "cleanup"].includes(input.action)) {
-      const reservationResult = reservationRegistry.reserve({
+      const reservationResult = await reservationRegistry.reserve({
         projectId: normalized.projectId,
         runId: normalized.runId,
+        planFingerprint: planFingerprint(normalized.plan, input.runtimeSpec),
         plan: normalized.plan,
         ports: input.runtimeSpec?.ports ?? normalized.plan.isolation.ports,
         resourceNames: input.runtimeSpec?.resourceNames ?? [normalized.plan.isolation.composeProject, normalized.plan.isolation.database, normalized.plan.isolation.volume, normalized.plan.isolation.network]
@@ -310,9 +327,9 @@ export function createDockerProductRunner({ workspaceRoot, executor = null, rese
       return immutableCopy({ status: "completed", code: "PRODUCT_RUNNER_OUTPUT_REDACTED", action: input.action, projectId: normalized.projectId, runId: normalized.runId, sideEffects: "bounded-product-scope", reservation: reservation ? { reservationId: reservation.reservationId, state: persistentReservation ? "held" : "released-after-action" } : null, result: { steps: results.length, last: results.at(-1) } });
     } finally {
       activeRuns.delete(runKey);
-      if (reservationRegistry && reservation && !persistentReservation) reservationRegistry.release({ projectId: normalized.projectId, runId: normalized.runId, reservationId: reservation.reservationId });
-      if (reservationRegistry && completed && ["stop", "cleanup"].includes(input.action)) reservationRegistry.release({ projectId: normalized.projectId, runId: normalized.runId });
-      if (reservationRegistry && !completed && persistentReservation && reservation) reservationRegistry.release({ projectId: normalized.projectId, runId: normalized.runId, reservationId: reservation.reservationId });
+      if (reservationRegistry && reservation && !persistentReservation) await reservationRegistry.release({ projectId: normalized.projectId, runId: normalized.runId, reservationId: reservation.reservationId });
+      if (reservationRegistry && completed && ["stop", "cleanup"].includes(input.action)) await reservationRegistry.release({ projectId: normalized.projectId, runId: normalized.runId });
+      if (reservationRegistry && !completed && persistentReservation && reservation) await reservationRegistry.release({ projectId: normalized.projectId, runId: normalized.runId, reservationId: reservation.reservationId });
     }
   }
 
