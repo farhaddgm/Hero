@@ -332,6 +332,25 @@ test("resource reservations prevent a second Product Test from reusing the same 
     const stopped = await runner.execute({ ...data.base, action: "stop", runtimeAuthorization: data.runtimeAuthorization("product-test-stop") });
     assert.equal(stopped.status, "completed");
     assert.equal(registry.snapshot().reservations.length, 0);
-    assert.equal(calls.length, 4);
+    const cleaned = await runner.execute({ ...data.base, action: "cleanup", runtimeAuthorization: data.runtimeAuthorization("product-test-cleanup") });
+    assert.equal(cleaned.status, "completed");
+    assert.equal(calls.length, 6);
+  } finally { cleanup(data); }
+});
+
+test("cleanup is idempotent after stop and does not require a stale reservation", async () => {
+  const calls = [];
+  const data = fixture();
+  const registry = createProductRuntimeReservationRegistry({ now: () => "2026-09-18T00:00:00.000Z" });
+  const executingRunner = createDockerProductRunner({ workspaceRoot: data.root, executor: async request => { calls.push(request); return { exitCode: 0, stdout: "safe", stderr: "" }; }, reservationRegistry: registry });
+  try {
+    const started = await executingRunner.execute({ ...data.base, action: "start", dispatchDecision: data.dispatch("test"), runtimeAuthorization: data.runtimeAuthorization("product-test-start") });
+    assert.equal(started.status, "completed");
+    const stopped = await executingRunner.execute({ ...data.base, action: "stop", runtimeAuthorization: data.runtimeAuthorization("product-test-stop") });
+    assert.equal(stopped.status, "completed");
+    assert.equal(registry.snapshot().reservations.length, 0);
+    const cleaned = await executingRunner.execute({ ...data.base, action: "cleanup", runtimeAuthorization: data.runtimeAuthorization("product-test-cleanup") });
+    assert.equal(cleaned.status, "completed");
+    assert.equal(calls.length, 6);
   } finally { cleanup(data); }
 });

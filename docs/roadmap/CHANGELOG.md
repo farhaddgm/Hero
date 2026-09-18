@@ -1,5 +1,13 @@
 # تغییرات رودمپ شرکت
 
+# ۲۰۲۶-۰۹-۱۸ — PF-3 رسمی: executor، quality/security evidence و cleanup کامل
+
+- commit جاری `5c7291e069cddef935d269690fcd37e8891d0121` چرخهٔ `stop`/`cleanup` را اصلاح کرد؛ cleanup پس از stop idempotent است و فقط در project/run مجاز عمل می‌کند.
+- harness رسمی `tools/run-product-test-official.mjs` با `createDockerProductRunner` و `createDockerProductExecutor` اجرا شد؛ run `official-pf3-20260918e` برای safe sample در Test، build/test/start/health/stop/cleanup/rollback و no-impact را PASS کرد.
+- artifact immutable برابر `hero-product-official-sample@sha256:873bb0e4f49fb8d875232e6478e2a6847c02e3a645b85342c1407b6c858dc884` است؛ SBOM، attestation، test evidence و quality/security evidence در manifest validate شدند.
+- quality/security sample gate شامل network `none`، non-root، read-only، no-new-privileges، cap-drop، نبود host escape/secret و redacted output PASS شد؛ browser E2E و dependency scan برای safe sample صادقانه not-applicable ثبت شدند.
+- PF-3 sample اکنون `ready-for-owner-acceptance` است. Product واقعی، clean-target portability/recovery، ظرفیت پایدار/reconciliation host، Node Agent، Pilot و Production خارج از این batch باقی ماندند.
+
 # ۲۰۲۶-۰۹-۱۸ — Product Test نمونهٔ بی‌خطر، evidence واقعی و گیت‌های Compose
 
 - authorization جداگانهٔ `PRODUCT-TEST-20260918-001` فقط برای Test ثبت شد؛ Production، Pilot، Secret، Provider زنده و external spend در scope نیستند.

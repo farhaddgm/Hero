@@ -321,7 +321,12 @@ export function createDockerProductRunner({ workspaceRoot, executor = null, rese
     if (executor === null) return blocked("PRODUCT_RUNNER_EXECUTOR_NOT_CONFIGURED", input);
     let reservation = null;
     const persistentReservation = input.action === "start";
-    if (reservationRegistry && ["stop", "cleanup"].includes(input.action) && !((await reservationRegistry.inspect({ projectId: normalized.projectId, runId: normalized.runId }))?.state === "active")) {
+    // stop must have an active lease because it terminates a live Product Test;
+    // cleanup is intentionally idempotent so it can recover after stop, a
+    // partial start, or a previously interrupted runner process. The compose
+    // project is still derived from the approved plan and the cleanup action
+    // still requires its own runtime authorization below.
+    if (reservationRegistry && input.action === "stop" && !((await reservationRegistry.inspect({ projectId: normalized.projectId, runId: normalized.runId }))?.state === "active")) {
       return blocked("PRODUCT_RUNNER_RESOURCE_RESERVATION_REQUIRED", input);
     }
     if (reservationRegistry && !["stop", "cleanup"].includes(input.action)) {
