@@ -6,7 +6,7 @@
 - اصلاح‌شده: admission دیگر `bridge` را برای طرح network-disabled، مسیر میزبان با host-mount خاموش یا quota بالاتر از plan نمی‌پذیرد؛ malformed plan نیز بدون exception و بدون side effect رد می‌شود.
 - Evidence: targeted PF-2 برابر `20/20` و اجرای معادل `pnpm check` در Linux container برابر `406 pass / 0 fail`، build برابر `265 module / 49 JSON`؛ زیرگام contract/admission ثبت شد، اما Product Runner واقعی، Product Test و start کانتینر هنوز باز هستند.
 - commit کد: `788746c`. این تغییر فقط روی source/تست اعمال شد؛ Production، Pilot، Secret، Provider زنده، external spend و اپ‌های دیگر host لمس نشدند.
-- candidate Test `v1.1.4-rc.9` از run `35289669314` با commit `e8de500e4278b1f4cf805e87c02d62ce05847709` و digest `sha256:499d00f88ac705f2b47d221d4396887291f7293c4d8c6ca7b67dff764b7c0b12` ساخته شد؛ promotion آن هنوز pending است و rc.8 نسخهٔ فعال Test باقی مانده است.
+- candidate Test `v1.1.4-rc.9` از run `35289669314` با commit `e8de500e4278b1f4cf805e87c02d62ce05847709` و digest `sha256:499d00f88ac705f2b47d221d4396887291f7293c4d8c6ca7b67dff764b7c0b12` promote و verify شد؛ container healthy، restart count صفر، `/health` و `/ready` هر دو ۲۰۰ و rc.9 نسخهٔ فعال Test است.
 
 # ۲۰۲۶-۰۹-۱۸ — تأیید نهایی PF-1 روی Test
 

@@ -6,7 +6,7 @@
 > Type: evidence
 > Scope: hero
 > Status: active
-> Version: 1.0.0
+> Version: 1.1.0
 > Owner: hero-product
 > Review cadence: per-change
 > Supersedes: none
@@ -39,6 +39,10 @@
 | Roadmap/Back Office checks | PASS؛ ۱۷۰ گام، verified=۲۰، remaining=۱۵۰؛ implemented=۵، partial=۷۶، missing=۰ |
 
 در اجرای containerized source، `HERO_SOURCE_SNAPSHOT=1` برای تست clean-room استفاده شد، چون checkout mount‌شده مسیر Git متفاوتی نسبت به `/workspace` دارد. تنها هشدار check، نبودن Docker socket در clean-room بود و شکست محسوب نمی‌شود. host ابزار Node/pnpm ندارد؛ CI و container مرجع برای زنجیرهٔ کامل استفاده شدند.
+
+## انتشار و تأیید Test
+
+پس از تأیید source، candidate `v1.1.4-rc.9` از run `35289669314` با commit `e8de500e4278b1f4cf805e87c02d62ce05847709` و digest `ghcr.io/farhaddgm/hero@sha256:499d00f88ac705f2b47d221d4396887291f7293c4d8c6ca7b67dff764b7c0b12` فقط روی Hero Test promote شد. container `running/healthy`، restart count صفر، `/health` و `/ready` هر دو ۲۰۰ و rollback point metadata-only ثبت شده است. این تأیید مربوط به خود Hero Test است، نه اجرای محصول هدف.
 
 ## آنچه هنوز انجام نشده است
 
