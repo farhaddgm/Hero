@@ -105,4 +105,18 @@ test("HTTP proposal and one-confirmation apply are authenticated, version-aware 
   assert.equal(bindings.filter(item => item.projectId === "hero" && !item.teamId && !item.skillId).length, 8);
   const profiles = (await (await fetch(`${baseUrl}/api/ai-orchestration`, { headers })).json()).aiOrchestration.profiles;
   assert.equal(profiles.filter(item => item.role === "evaluator" && item.providerId === "openai" && item.modelId === "chatgpt" && item.status === "active").length, 1);
+
+  const scope = await fetch(`${baseUrl}/api/ai/project-scopes`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ projectId: "hero", mode: "local-only", capabilities: ["walkthrough-guide", "smart-tester"], expectedVersion: 0, idempotencyKey: "assignment-project-scope-v1" })
+  });
+  assert.equal(scope.status, 201);
+  const scopePayload = await scope.json();
+  assert.equal(scopePayload.result.projectScope.projectId, "hero");
+  assert.equal(scopePayload.result.projectScope.mode, "local-only");
+  assert.equal(scopePayload.result.projectScope.externalSpendBoundary, "separate-authorization-required");
+  const stateWithScope = await fetch(`${baseUrl}/api/ai-orchestration`, { headers });
+  const projectScopes = (await stateWithScope.json()).aiOrchestration.projectScopes;
+  assert.equal(projectScopes.find(item => item.projectId === "hero").mode, "local-only");
 });

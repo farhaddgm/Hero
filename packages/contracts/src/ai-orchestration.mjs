@@ -26,6 +26,16 @@ export const AI_PROFILE_STATUSES = Object.freeze(["draft", "active", "disabled",
 
 export const AI_TOOL_POLICIES = Object.freeze(["read-only", "development", "owner-gated"]);
 
+// A project AI scope controls where the already-approved AI catalog may be
+// used. It never creates an external-spend authorization by itself.
+export const AI_PROJECT_SCOPE_MODES = Object.freeze(["enabled", "local-only", "disabled"]);
+
+export const AI_PROJECT_SCOPE_CAPABILITIES = Object.freeze([
+  "walkthrough-guide",
+  "smart-tester",
+  "invocation"
+]);
+
 export const AI_INVOCATION_STATUSES = Object.freeze(["completed", "blocked", "failed"]);
 
 export const AI_EVALUATION_VERDICTS = Object.freeze(["approved", "needs_revision", "rejected"]);
@@ -150,6 +160,8 @@ export function getAiOrchestrationContractSummary() {
     providerModes: AI_PROVIDER_MODES,
     profileStatuses: AI_PROFILE_STATUSES,
     toolPolicies: AI_TOOL_POLICIES,
+    projectScopeModes: AI_PROJECT_SCOPE_MODES,
+    projectScopeCapabilities: AI_PROJECT_SCOPE_CAPABILITIES,
     invocationStatuses: AI_INVOCATION_STATUSES,
     evaluationVerdicts: AI_EVALUATION_VERDICTS,
     decisionStates: AI_DECISION_STATES,
@@ -167,6 +179,7 @@ export function getAiOrchestrationContractSummary() {
       "Provider and model changes never rewrite prior invocations or memory",
   "Live provider invocation requires a separate active version-bound external-spend authorization",
   "External-spend reservations are cumulative, conservative and persisted across invocations",
+  "Project AI scope is versioned and never grants external spend by itself",
   "Timeout, retry and cost limits are evaluated before an invocation can be accepted",
   "Repeated provider failures open a bounded circuit; recovery requires a half-open probe",
   "Evaluator and read-only profiles cannot execute tools or mutate code/data"

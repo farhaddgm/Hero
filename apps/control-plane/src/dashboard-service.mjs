@@ -828,6 +828,16 @@ export function createControlDashboard(options = {}) {
           profileVersion: binding.profileVersion,
           boundAt: binding.boundAt
         }))),
+        projectScopes: Object.freeze((aiConfiguration.projectScopes ?? []).map(scope => Object.freeze({
+          scopeId: scope.scopeId,
+          projectId: scope.projectId,
+          mode: scope.mode,
+          capabilities: Object.freeze([...(scope.capabilities ?? [])]),
+          version: scope.version,
+          configuredAt: scope.configuredAt,
+          configuredBy: scope.configuredBy?.id ?? scope.configuredBy?.subject ?? null,
+          externalSpendBoundary: scope.externalSpendBoundary
+        }))),
         activity: current.aiOrchestration.activity,
         usageByProvider: current.aiOrchestration.usageByProvider ?? [],
         providerMode: current.providerMode,
@@ -1400,6 +1410,11 @@ export function createControlDashboard(options = {}) {
     return runAiCommand(aiOrchestration.bindRole, payload, inputActor ?? { kind: "project-owner", id: "hero-owner" });
   }
 
+  function configureAiProjectScope(input = {}) {
+    const { actor: inputActor, ...payload } = input;
+    return runAiCommand(aiOrchestration.configureProjectScope, payload, inputActor ?? { kind: "project-owner", id: "hero-owner" });
+  }
+
   function registerAiSkill(input = {}) {
     const { actor: inputActor, ...payload } = input;
     return runSkillCommand(skillRegistry.register, payload, inputActor ?? { kind: "project-owner", id: "hero-owner" });
@@ -1823,6 +1838,7 @@ export function createControlDashboard(options = {}) {
     registerAiModel,
     registerAiProfile,
     bindAiRole,
+    configureAiProjectScope,
     registerAiSkill,
     bindAiSkill,
     setAiRolePolicy,

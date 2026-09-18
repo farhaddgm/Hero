@@ -70,6 +70,9 @@ test("AI Connections exposes safe provider setup, readiness checks and a project
   assert.match(html, /پاسخ عملیات قابل خواندن نیست \(HTTP/);
   assert.match(html, /نشست انسانی یا دسترسی Proxy محیط Test را بررسی کنید/);
   assert.match(html, /ai-assignment-project/);
+  assert.match(html, /project-scope/);
+  assert.match(html, /\/api\/ai\/project-scopes/);
+  assert.match(html, /Scope پروژه/);
   assert.match(html, /Walk-Through Guide/);
   assert.match(html, /Smart Tester/);
   assert.match(html, /vault:hero\/test\/cursor\/default/);

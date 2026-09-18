@@ -175,6 +175,7 @@ const ADMIN_ALLOWED_MUTATIONS = new Set([
   "/api/ai/models",
   "/api/ai/profiles",
   "/api/ai/bindings",
+  "/api/ai/project-scopes",
   "/api/ai/skills",
   "/api/ai/skill-bindings",
   "/api/ai/role-policies"
@@ -653,7 +654,20 @@ export function createHeroServer(options = {}) {
     }));
     return Object.freeze({
       ...snapshot,
-      ai: Object.freeze({ ...snapshot.ai, credentials }),
+      ai: Object.freeze({
+        ...snapshot.ai,
+        credentials,
+        projectScopes: Object.freeze((snapshot.ai?.projectScopes ?? []).map(scope => Object.freeze({
+          scopeId: scope.scopeId,
+          projectId: scope.projectId,
+          mode: scope.mode,
+          capabilities: Object.freeze([...(scope.capabilities ?? [])]),
+          version: scope.version,
+          configuredAt: scope.configuredAt,
+          configuredBy: scope.configuredBy?.id ?? scope.configuredBy?.subject ?? null,
+          externalSpendBoundary: scope.externalSpendBoundary
+        })))
+      }),
       projects: Object.freeze(projectWorkspace.listProjects().map(project => Object.freeze({
         projectId: project.projectId,
         name: project.name,
@@ -961,6 +975,9 @@ export function createHeroServer(options = {}) {
    */
   function walkthroughAdvisorOptions(projectId, { includeUnbound = false, purpose = "walkthrough-guide" } = {}) {
     const ai = dashboard.aiOrchestrationSnapshot();
+    const projectScope = (ai.projectScopes ?? []).find(scope => scope.projectId === projectId) ?? null;
+    const scopeAllowsCapability = !projectScope
+      || (projectScope.mode !== "disabled" && (projectScope.capabilities ?? []).includes(purpose));
     const latestHealth = new Map();
     for (const event of dashboard.aiOrchestrationEvents(0)) {
       if (event.type !== "ai.provider-health-checked" || !event.data?.providerId) continue;
@@ -1034,8 +1051,9 @@ export function createHeroServer(options = {}) {
             authorizationError = error?.code ?? "LIVE_ADVISOR_AUTHORIZATION_UNAVAILABLE";
           }
         }
-        const selectable = provider?.advisorCompatible === true
-          && (provider?.mode === "deterministic" || (provider?.mode === "live" && provider.connection.state === "healthy" && liveAuthorization?.authorized === true));
+        const selectable = scopeAllowsCapability
+          && provider?.advisorCompatible === true
+          && (provider?.mode === "deterministic" || (provider?.mode === "live" && projectScope?.mode !== "local-only" && provider.connection.state === "healthy" && liveAuthorization?.authorized === true));
         return Object.freeze({
           profileId: profile.profileId,
           role: profile.role,
@@ -1053,8 +1071,12 @@ export function createHeroServer(options = {}) {
               : "برای فراخوانی زنده، مجوز هزینهٔ جداگانه و سقف مصرف معتبر نیز باید برقرار باشد."
             : provider?.advisorCompatible === false
               ? "Cursor در Hero فعلاً یک Coding Agent جداگانه است و برای گفت‌وگوی مستقیم Walk-Through/Smart Tester انتخاب نمی‌شود."
-              : authorizationError
+            : authorizationError
                 ? "این Profile از نظر اتصال آماده است، اما مجوز هزینهٔ زندهٔ همین Project/Role/Model معتبر نیست (" + authorizationError + ")."
+              : !scopeAllowsCapability
+                ? "AI برای این پروژه یا این قابلیت در Back Office فعال نشده است. ابتدا Scope پروژه را فعال کنید."
+              : projectScope?.mode === "local-only"
+                ? "این پروژه فقط از پاسخ محلی استفاده می‌کند؛ برای Provider زنده باید Scope را روی حالت فعال بگذارید و مجوز هزینهٔ جداگانه داشته باشید."
               : "این Profile هنوز برای مشاورهٔ Walk-Through آماده نیست؛ وضعیت اتصال، Binding یا گیت هزینه را بررسی کنید."
         });
       });
@@ -1070,6 +1092,7 @@ export function createHeroServer(options = {}) {
     });
     return Object.freeze({
       projectId,
+      projectScope: projectScope ?? Object.freeze({ projectId, mode: "implicit", capabilities: [purpose], version: 0, externalSpendBoundary: "separate-authorization-required" }),
       localAdvisor: Object.freeze({ id: "local", label: "راهنمای محلی Hero", mode: "local-contextual-guidance", selectable: true, notice: "بدون اتصال خارجی، بدون هزینه و بدون ذخیرهٔ متن گفتگو." }),
       providers: Object.freeze(providers),
       models: Object.freeze((ai.models ?? []).map(model => Object.freeze({ providerId: model.providerId, modelId: model.modelId, displayName: model.displayName }))),
@@ -1095,6 +1118,10 @@ export function createHeroServer(options = {}) {
   }
 
   function activeLiveAdvisorAuthorization({ purpose, projectId, providerId, modelId, role }) {
+    const projectScope = (dashboard.aiOrchestrationSnapshot().projectScopes ?? []).find(scope => scope.projectId === projectId) ?? null;
+    if (projectScope && (projectScope.mode !== "enabled" || !(projectScope.capabilities ?? []).includes(purpose))) {
+      throw new ProjectWorkspaceError("AI_PROJECT_SCOPE_DISABLED", "AI برای این پروژه یا این قابلیت فعال نیست.", 403);
+    }
     let policy;
     try { policy = typeof liveAdvisorPolicy === "function" ? liveAdvisorPolicy() : liveAdvisorPolicy; } catch (error) {
       throw new ProjectWorkspaceError("LIVE_ADVISOR_AUTHORIZATION_UNAVAILABLE", `مجوز هزینهٔ AI قابل‌خواندن نیست: ${error?.code ?? "CONFIGURATION_INVALID"}.`, 503);
@@ -1684,6 +1711,12 @@ export function createHeroServer(options = {}) {
       if ((HUMAN_OWNER_GLOBAL_AI_MUTATIONS.has(url.pathname) || /^\/api\/ai\/providers\/[a-z][a-z0-9-]{2,63}\/health$/.test(url.pathname)) && request.method === "POST") {
         if (principal.role !== "project-owner") {
           throw new ProjectAccessError("OWNER_REQUIRED", "تنظیم اتصال و کاتالوگ سراسری AI فقط با دسترسی مالک مجاز است.", 403);
+        }
+        return;
+      }
+      if (url.pathname === "/api/ai/project-scopes" && request.method === "POST") {
+        if (!["project-owner", "admin"].includes(principal.role)) {
+          throw new ProjectAccessError("ADMIN_REQUIRED", "تنظیم Scope پروژهٔ AI فقط برای Owner یا Admin مجاز است.", 403);
         }
         return;
       }
@@ -2871,6 +2904,7 @@ export function createHeroServer(options = {}) {
         "/api/ai/models": ["registerAiModel", 201, "ai.model-register"],
         "/api/ai/profiles": ["registerAiProfile", 201, "ai.profile-register"],
         "/api/ai/bindings": ["bindAiRole", 201, "ai.binding-create"],
+        "/api/ai/project-scopes": ["configureAiProjectScope", 201, "ai.project-scope-configure"],
         "/api/ai/skills": ["registerAiSkill", 201, "ai.skill-register"],
         "/api/ai/skill-bindings": ["bindAiSkill", 201, "ai.skill-binding-create"],
         "/api/ai/role-policies": ["setAiRolePolicy", 201, "ai.role-policy-update"],

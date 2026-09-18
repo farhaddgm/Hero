@@ -796,3 +796,12 @@
 - افزوده‌شده: تست‌های hydration، store read، HTTP snapshot و حذف محتوای حساس از read model؛
 - شواهد: build لینوکس با ۲۲۵ ماژول و ۳۱۶ تست موفق؛ `check:docs` و `pnpm check` باید روی commit تحویلی دوباره اجرا شوند؛
 - مرز: private object storage، malware scanner/parser واقعی، browser acceptance، Provider، Secret، هزینه، Production و Pilot در این بسته فعال نشده‌اند.
+
+# ۲۰۲۶-۰۹-۱۸ — Scope نسخه‌دار AI برای پروژه‌های متعدد
+
+- افزوده‌شده: مدل provider-agnostic برای تنظیم Scope هر Project در Back Office با حالت‌های `enabled`، `local-only` و `disabled`؛
+- افزوده‌شده: capabilityهای نسخه‌دار `walkthrough-guide`، `smart-tester` و `invocation` با کنترل optimistic-concurrency و event append-only؛
+- افزوده‌شده: انتخاب Project و ثبت Scope از فرم «ثبت تغییر نسخه‌دار»، نمایش Scopeهای موجود و اعلام صریح اینکه Scope به‌تنهایی مجوز هزینهٔ خارجی نیست؛
+- اصلاح‌شده: مسیر انتخاب Advisor و اجرای live اکنون Scope پروژه را قبل از authorization هزینه و Provider call بررسی می‌کند و برای پروژهٔ نامجاز fail-closed است؛
+- شواهد: تست‌های هدفمند AI و Back Office برابر ۳۰/۳۰ موفق و full check برابر ۴۶۲/۴۶۲ تست موفق؛
+- مرز: Provider، Secret، هزینهٔ خارجی، Pilot و Production تغییر نکردند. برای اجرای زنده روی پروژهٔ جدید، authorization مستقل و دقیق همان پروژه همچنان الزامی است.

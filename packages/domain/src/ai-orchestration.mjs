@@ -5,6 +5,8 @@ import {
   AI_EVALUATION_VERDICTS,
   AI_CONTEXT_RECIPIENT_ROLES,
   AI_OUTPUT_SCHEMAS,
+  AI_PROJECT_SCOPE_CAPABILITIES,
+  AI_PROJECT_SCOPE_MODES,
   AI_PROFILE_STATUSES,
   AI_PROVIDER_IDS,
   AI_PROVIDER_MODES,
@@ -260,6 +262,12 @@ function roleBindingKey({ projectId, teamId = null, skillId = null, role }) {
   return [projectId, teamId ?? "*", skillId ?? "*", role].join("\u0000");
 }
 
+function projectScopeAllows(scope, capability) {
+  if (!scope) return true;
+  if (scope.mode === "disabled") return false;
+  return scope.capabilities.includes(capability);
+}
+
 export class AiOrchestrationError extends Error {
   constructor(code, message) {
     super(message);
@@ -322,6 +330,7 @@ export function createAiOrchestration(options = {}) {
   const invocations = new Map();
   const evaluations = new Map();
   const decisions = new Map();
+  const projectScopes = new Map();
   const circuitStates = new Map();
   const externalSpendBudgets = new Map();
   const rolePolicies = new Map(Object.entries(options.defaultRolePolicies ?? AI_DEFAULT_ROLE_POLICIES).map(([role, policy]) => [role, { ...policy, role, policyVersion: policy.policyVersion ?? 1 }]));
@@ -701,6 +710,57 @@ export function createAiOrchestration(options = {}) {
     bindings.set(bindingId, binding);
     currentBindings.set(key, binding);
     return remember(scope, value, { binding, idempotent: false });
+  }
+
+  function configureProjectScope(input = {}) {
+    const actor = assertActor(input.actor);
+    if (!["project-owner", "admin"].includes(actor.kind)) {
+      throw new AiOrchestrationError("ADMIN_APPROVAL_REQUIRED", "AI project scope changes require the project owner or an admin.");
+    }
+    const projectId = assertIdentifier("projectId", input.projectId);
+    const mode = assertEnum("mode", input.mode ?? "enabled", AI_PROJECT_SCOPE_MODES);
+    const capabilities = input.capabilities === undefined
+      ? [...AI_PROJECT_SCOPE_CAPABILITIES]
+      : input.capabilities;
+    if (!Array.isArray(capabilities) || capabilities.length < 1 || capabilities.length > AI_PROJECT_SCOPE_CAPABILITIES.length) {
+      throw new AiOrchestrationError("INVALID_PROJECT_SCOPE_CAPABILITIES", "capabilities must contain at least one approved AI capability.");
+    }
+    const uniqueCapabilities = [...new Set(capabilities)];
+    uniqueCapabilities.forEach((capability, index) => assertEnum(`capabilities[${index}]`, capability, AI_PROJECT_SCOPE_CAPABILITIES));
+    const expectedVersion = input.expectedVersion === undefined || input.expectedVersion === null ? null : input.expectedVersion;
+    if (expectedVersion !== null && (!Number.isInteger(expectedVersion) || expectedVersion < 0)) {
+      throw new AiOrchestrationError("INVALID_VERSION", "expectedVersion must be a non-negative integer.");
+    }
+    const current = projectScopes.get(projectId) ?? null;
+    if (expectedVersion !== null && expectedVersion !== (current?.version ?? 0)) {
+      throw new AiOrchestrationError("VERSION_CONFLICT", "AI project scope is stale; reload it before saving.");
+    }
+    const idempotencyKey = assertIdentifier("idempotencyKey", input.idempotencyKey);
+    const value = { projectId, mode, capabilities: uniqueCapabilities };
+    const scope = commandScope("project-scope", projectId, idempotencyKey);
+    const replay = replayOrThrow(scope, value);
+    if (replay) return replay;
+    const version = (current?.version ?? 0) + 1;
+    const event = appendEvent({
+      aggregateType: "ai-project-scope",
+      aggregateId: projectId,
+      type: "ai.project-scope-configured",
+      actor,
+      data: { projectId, mode, capabilities: uniqueCapabilities, version }
+    });
+    const projectScope = immutableCopy({
+      scopeId: `ai-scope-${projectId}`,
+      projectId,
+      mode,
+      capabilities: uniqueCapabilities,
+      version,
+      configuredAt: event.occurredAt,
+      configuredBy: actor,
+      eventId: event.eventId,
+      externalSpendBoundary: "separate-authorization-required"
+    });
+    projectScopes.set(projectId, projectScope);
+    return remember(scope, value, { projectScope, idempotent: false });
   }
 
   function assembleContext(input = {}) {
@@ -1293,11 +1353,12 @@ export function createAiOrchestration(options = {}) {
       models: [...models.values()],
       profiles: [...profiles.values()],
       bindings: [...currentBindings.values()],
+      projectScopes: [...projectScopes.values()],
       defaultRolePolicies: [...rolePolicies.values()],
       circuitBreaker: circuitBreaker ? { ...circuitBreaker, states: [...circuitStates.entries()].map(([providerId, state]) => ({ providerId, ...circuitSnapshot(providerId) })) } : { enabled: false, states: [] },
       externalSpendBudgets: [...externalSpendBudgets.values()].map(budget => ({ ...budget })),
       usageByProvider: usageByProvider(),
-      counts: { providers: providers.size, models: models.size, profiles: profiles.size, bindings: currentBindings.size, rolePolicies: rolePolicies.size, invocations: invocations.size, evaluations: evaluations.size, decisions: decisions.size },
+      counts: { providers: providers.size, models: models.size, profiles: profiles.size, bindings: currentBindings.size, projectScopes: projectScopes.size, rolePolicies: rolePolicies.size, invocations: invocations.size, evaluations: evaluations.size, decisions: decisions.size },
       activity: activitySnapshot()
     });
   }
@@ -1356,6 +1417,7 @@ export function createAiOrchestration(options = {}) {
       profiles: [...profiles.values()],
       bindings: [...bindings.values()],
       currentBindings: [...currentBindings.values()],
+      projectScopes: [...projectScopes.values()],
       rolePolicies: [...rolePolicies.values()],
       circuitBreaker: circuitBreaker ? { ...circuitBreaker, states: [...circuitStates.entries()].map(([providerId, state]) => ({ providerId, ...circuitSnapshot(providerId) })) } : { enabled: false, states: [] },
       externalSpendBudgets: [...externalSpendBudgets.values()].map(budget => ({ ...budget })),
@@ -1370,7 +1432,7 @@ export function createAiOrchestration(options = {}) {
     if (!state || typeof state !== "object" || Array.isArray(state)) throw new AiOrchestrationError("HYDRATION_INVALID", "AI orchestration hydration requires an object.");
     assertSafePayload(state, "hydratedState");
     if (Array.isArray(input.events)) eventLog.load(input.events.filter(event => event.aggregateType.startsWith("ai-")));
-    for (const map of [providers, models, profiles, bindings, currentBindings, rolePolicies, invocations, evaluations, decisions]) map.clear();
+    for (const map of [providers, models, profiles, bindings, currentBindings, projectScopes, rolePolicies, invocations, evaluations, decisions]) map.clear();
     circuitStates.clear();
     externalSpendBudgets.clear();
     for (const provider of state.providers ?? []) {
@@ -1385,6 +1447,12 @@ export function createAiOrchestration(options = {}) {
       if (typeof policy?.role === "string") rolePolicies.set(policy.role, immutableCopy(policy));
     }
     for (const binding of state.currentBindings ?? state.bindings ?? []) currentBindings.set(roleBindingKey(binding), immutableCopy(binding));
+    for (const projectScope of state.projectScopes ?? []) {
+      if (projectScope?.projectId && AI_PROJECT_SCOPE_MODES.includes(projectScope.mode) && Array.isArray(projectScope.capabilities)) {
+        const capabilities = [...new Set(projectScope.capabilities)].filter(capability => AI_PROJECT_SCOPE_CAPABILITIES.includes(capability));
+        if (capabilities.length > 0) projectScopes.set(projectScope.projectId, immutableCopy({ ...projectScope, capabilities }));
+      }
+    }
     for (const invocation of state.invocations ?? []) invocations.set(invocation.invocationId, immutableCopy(invocation));
     for (const evaluation of state.evaluations ?? []) evaluations.set(evaluation.evaluationId, immutableCopy(evaluation));
     for (const decision of state.decisions ?? []) decisions.set(decision.decisionId, immutableCopy(decision));
@@ -1420,7 +1488,7 @@ export function createAiOrchestration(options = {}) {
         }
       }
     }
-    return immutableCopy({ registryId: "ai-orchestration", hydrated: true, providers: providers.size, models: models.size, profiles: profiles.size, bindings: currentBindings.size, rolePolicies: rolePolicies.size, invocations: invocations.size, evaluations: evaluations.size, decisions: decisions.size });
+    return immutableCopy({ registryId: "ai-orchestration", hydrated: true, providers: providers.size, models: models.size, profiles: profiles.size, bindings: currentBindings.size, projectScopes: projectScopes.size, rolePolicies: rolePolicies.size, invocations: invocations.size, evaluations: evaluations.size, decisions: decisions.size });
   }
 
   return Object.freeze({
@@ -1431,6 +1499,7 @@ export function createAiOrchestration(options = {}) {
     rolePolicyHistory,
     rollbackRolePolicy,
     bindRole,
+    configureProjectScope,
     invoke,
     recordEvaluation,
     evaluateInvocation,
@@ -1457,6 +1526,9 @@ export function createAiOrchestration(options = {}) {
     readInvocation: invocationId => invocations.has(invocationId) ? immutableCopy(invocations.get(invocationId)) : null,
     readEvaluation: evaluationId => evaluations.has(evaluationId) ? immutableCopy(evaluations.get(evaluationId)) : null,
     readDecision: decisionId => decisions.has(decisionId) ? immutableCopy(decisions.get(decisionId)) : null,
+    readProjectScope: projectId => projectScopes.has(projectId) ? immutableCopy(projectScopes.get(projectId)) : null,
+    listProjectScopes: () => Object.freeze([...projectScopes.values()].map(immutableCopy)),
+    projectScopeAllows: (projectId, capability) => projectScopeAllows(projectScopes.get(projectId) ?? null, capability),
     snapshot,
     activitySnapshot,
     usageByProvider,

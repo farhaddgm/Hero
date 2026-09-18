@@ -1,6 +1,6 @@
 import { validateOperationalEvent } from "../../contracts/src/operational-data.mjs";
 
-const AI_AGGREGATE_TYPES = new Set(["ai-provider", "ai-model", "ai-profile", "ai-binding", "ai-invocation", "ai-evaluation", "ai-decision"]);
+const AI_AGGREGATE_TYPES = new Set(["ai-provider", "ai-model", "ai-profile", "ai-binding", "ai-project-scope", "ai-invocation", "ai-evaluation", "ai-decision"]);
 const IDENTIFIER = /^[A-Za-z][A-Za-z0-9._:-]{2,127}$/;
 
 function copy(value) {
