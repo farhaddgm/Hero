@@ -1,5 +1,13 @@
 # تغییرات رودمپ شرکت
 
+# ۲۰۲۶-۰۹-۱۸ — Product Test نمونهٔ بی‌خطر، evidence واقعی و گیت‌های Compose
+
+- authorization جداگانهٔ `PRODUCT-TEST-20260918-001` فقط برای Test ثبت شد؛ Production، Pilot، Secret، Provider زنده و external spend در scope نیستند.
+- Product Runner به `testCommand` اجراییِ بدون shell، build network=`none` و flagهای سازگار با نسخهٔ Compose میزبان مجهز شد؛ shell escape و Compose isolation قبل از executor رد می‌شوند.
+- نمونهٔ `safe-sample` با run `20260918061633`، source commit `000389632db4644c9288afe69acea42b42383dc1` و artifact immutable `hero-product-safe-sample@sha256:5190827dfc642ffc4d97518de450083890eb3c50f6ac91e3eda18a772d921ef7` چرخهٔ build/test/start/health/stop/cleanup/rollback را با no-impact روی Hero Test و Production با موفقیت گذراند.
+- SBOM SPDX، attestation in-toto/SLSA و test evidence redacted تولید و manifest با قرارداد `hero.product-artifact/v1` validate شد؛ evidence در `HERO-EVIDENCE-PRODUCT-FACTORY-PF3-20260918@1.1.0` است.
+- گیت باقی‌مانده: official Control Plane executor، ظرفیت پایدار/reconciliation، security/quality gate کامل، promotion commit جدید به Hero Test و Owner acceptance؛ Pilot/Production همچنان جدا و خارج از scope هستند.
+
 # ۲۰۲۶-۰۹-۱۸ — lease lifecycle، capacity probe، immutable artifact و candidate rc.14
 
 - migration `020` و قرارداد lease اضافه شد؛ reservation پایدار و process-local اکنون TTL، heartbeat و reconciliation report-only دارند و expiry بدون تأیید صریح mutation نمی‌کند.

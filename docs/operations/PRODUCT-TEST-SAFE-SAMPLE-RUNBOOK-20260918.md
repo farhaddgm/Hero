@@ -40,4 +40,4 @@ Step scope: `PF3-PRODUCT-TEST-001` through `PF3-PRODUCT-TEST-005`
 6. Stop the sample, then clean up only its own project resources.
 7. Verify no sample container, network or volume remains and re-check Hero health without restarting it.
 
-Rollback for this Test-only sample is fail-safe: stop and remove only the sample project. No Hero or external target rollback is implied or authorized.
+Rollback for this Test-only sample is fail-safe: stop and remove only the sample project. The final immutable image and its redacted evidence bundle are retained as Test artifacts; failed/obsolete local build tags may be removed by the same scoped cleanup. No Hero or external target rollback is implied or authorized.
