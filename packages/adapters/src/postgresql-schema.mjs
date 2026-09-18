@@ -63,6 +63,7 @@ const PROJECT_WORKSPACE_TABLES = Object.freeze([
 ]);
 const PRODUCT_REQUEST_TABLES = Object.freeze(["product_request_versions"]);
 const PRODUCT_RUNTIME_RESERVATION_TABLES = Object.freeze(["product_runtime_reservations"]);
+const PRODUCT_RUNTIME_CAPACITY_TABLES = Object.freeze(["product_runtime_capacity_snapshots"]);
 const SMART_TESTER_TABLES = Object.freeze(["smart_tester_error_documents"]);
 const COLLABORATION_COMMAND_CATALOG_TABLES = Object.freeze(["collaboration_records", "command_decision_records", "approval_records", "system_catalog_entities", "system_catalog_dependencies"]);
 const INTELLIGENCE_NOTIFICATION_TABLES = Object.freeze(["usage_events", "evaluation_records", "health_records", "notification_records", "observability_audit_records", "catalog_drift_proposals"]);
@@ -82,6 +83,7 @@ export const POSTGRES_TABLES = Object.freeze([
   ...PROJECT_WORKSPACE_TABLES,
   ...PRODUCT_REQUEST_TABLES,
   ...PRODUCT_RUNTIME_RESERVATION_TABLES,
+  ...PRODUCT_RUNTIME_CAPACITY_TABLES,
   ...SMART_TESTER_TABLES,
   ...COLLABORATION_COMMAND_CATALOG_TABLES,
   ...INTELLIGENCE_NOTIFICATION_TABLES,
@@ -196,6 +198,12 @@ export const POSTGRES_MIGRATIONS = Object.freeze([
     name: "product-runtime-reservations",
     file: "018_product_runtime_reservations.sql",
     tables: PRODUCT_RUNTIME_RESERVATION_TABLES
+  }),
+  Object.freeze({
+    id: "019",
+    name: "product-runtime-capacity",
+    file: "019_product_runtime_capacity.sql",
+    tables: PRODUCT_RUNTIME_CAPACITY_TABLES
   })
 ]);
 

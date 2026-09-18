@@ -296,10 +296,17 @@ export function createDockerProductRunner({ workspaceRoot, executor = null, rese
       const reservationResult = await reservationRegistry.reserve({
         projectId: normalized.projectId,
         runId: normalized.runId,
+        targetId: input.runtimeSpec?.targetId,
+        capacitySnapshotId: input.runtimeSpec?.capacitySnapshotId,
         planFingerprint: planFingerprint(normalized.plan, input.runtimeSpec),
         plan: normalized.plan,
         ports: input.runtimeSpec?.ports ?? normalized.plan.isolation.ports,
-        resourceNames: input.runtimeSpec?.resourceNames ?? [normalized.plan.isolation.composeProject, normalized.plan.isolation.database, normalized.plan.isolation.volume, normalized.plan.isolation.network]
+        resourceNames: input.runtimeSpec?.resourceNames ?? [normalized.plan.isolation.composeProject, normalized.plan.isolation.database, normalized.plan.isolation.volume, normalized.plan.isolation.network],
+        resourceLimits: input.runtimeSpec?.resourceLimits ?? {
+          cpuLimit: normalized.plan.resources.cpuLimit,
+          memoryMiB: normalized.plan.resources.memoryMiB,
+          pidsLimit: normalized.plan.resources.pidsLimit
+        }
       });
       if (!["reserved", "replayed"].includes(reservationResult.status)) return blocked("PRODUCT_RUNNER_RESOURCE_CONFLICT", input, { reservation: reservationResult });
       reservation = reservationResult.reservation;

@@ -46,7 +46,7 @@ export function getProductRunnerContractSummary() {
     authorizationOperations: PRODUCT_RUNNER_AUTH_OPERATIONS,
     decisionCodes: PRODUCT_RUNNER_DECISION_CODES,
     defaults: PRODUCT_RUNNER_DEFAULTS,
-    boundary: "Product Runner uses a separate workspace, process-local resource reservations, argv-only Docker commands and a separate version-bound Product Test authorization.",
+    boundary: "Product Runner uses a separate workspace, capacity-aware persistent reservations when PostgreSQL is attached (with a process-local fallback), argv-only Docker commands and a separate version-bound Product Test authorization.",
     output: "stdout/stderr are never returned; only exit code, duration and byte counts are retained."
   });
 }
