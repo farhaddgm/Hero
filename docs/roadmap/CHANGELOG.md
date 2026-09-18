@@ -1,5 +1,13 @@
 # تغییرات رودمپ شرکت
 
+# ۲۰۲۶-۰۹-۱۸ — فعال‌شدن واقعی OpenAI برای Smart Tester و Walk-Through در Test
+
+- ریشهٔ خطا مشخص و اصلاح شد: سقف محافظه‌کارانهٔ `100` واحد پیش از dispatch، برای Context محدودِ خواندنی و خروجی ساخت‌یافته کافی نبود و با `COST_POLICY_INSUFFICIENT` جلوی فراخوانی مجاز را می‌گرفت؛ سقف هر درخواست به `10,000` افزایش یافت و سقف تجمعی authorization بدون تغییر روی `50,000` باقی ماند.
+- candidate `v1.1.5-rc.5` از workflow `35393885561`، commit `4527bd73c0b078313867be9d9a142b1bb189cde5` و digest `sha256:0860c09fbd815ef381690ff354e68dee185786279ed34499cf7a5a3bdf1e2bf3` فقط روی Test promote و verify شد؛ `/health`، `/ready` و smoke موفق و کانتینر healthy بود.
+- Evidence زندهٔ redacted: Smart Tester با `200`، OpenAI / `gpt-5.6-luna` / `analyst`، Profile `hero-profile-v1`، `providerInvoked=true`، schema `analysis-v1`، latency `4291ms` و `57` cost units؛ Walk-Through با `200`، همان Provider/Model/Role/Profile، `providerInvoked=true`، schema `analysis-v1`، latency `4310ms` و `53` cost units. مجموع `110/50000` ثبت شد؛ prompt، response و Secret ثبت یا چاپ نشدند.
+- فهرست Smart Tester در Test فقط یک Profile فعال و قابل‌انتخاب برای Hero برگرداند؛ گزینه‌های تکراری/غیرفعال ناشی از دادهٔ ناسازگار در این مسیر مشاهده نشدند. Provider-agnostic boundary، policy، role، scope، timeout، redaction و fail-closed حفظ شده‌اند.
+- مرز: فقط Test تغییر کرد؛ Production، Pilot، Secret Store/Secret و Providerهای دیگر لمس نشدند. مستندات وضعیت و Catalog evidence با نتیجهٔ واقعی همگام شدند.
+
 # ۲۰۲۶-۰۹-۱۸ — رفع گیت هزینهٔ اشتباه در مشاورهٔ زندهٔ Smart Tester
 
 - بررسی runtime Test نشان داد Provider `openai`، مدل `gpt-5.6-luna`، Profile تحلیلگر، Binding پروژهٔ `hero`، Credential و authorization معتبر بودند و گزینهٔ Smart Tester با `selectable=true` برمی‌گشت؛ مشکل از اتصال یا کلید نبود.

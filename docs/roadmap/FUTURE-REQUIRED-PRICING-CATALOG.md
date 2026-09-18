@@ -1,9 +1,9 @@
 # قابلیت ضروری آینده: Pricing Catalog نسخه‌دار Hero
 
-وضعیت: `implemented-test-released-live-evidence-pending`
+وضعیت: `implemented-test-released-live-evidence-verified`
 
 - Document ID: `HERO-ROADMAP-FUTURE-REQUIRED-PRICING-CATALOG`
-- Version: `1.3.0`
+- Version: `1.4.0`
 
 این قابلیت پیش از فعال‌سازی Provider پولی و هر استفادهٔ عملیاتی واقعی از محاسبهٔ
 هزینه تکمیل شده است. قرارداد، migration، Adapterها و تست‌های بدون شبکه اجرا شده‌اند.
@@ -21,11 +21,11 @@ orchestration روی Test منتشر شده است. با این حال فراخ�
 - نرخ قیمت قابل ویرایش دستی در Environment نیست؛ نرخ فقط از Catalog معتبر و منبع رسمی Provider پذیرفته می‌شود.
 - Secret، API Key، مقدار خام credential و محتوای درخواست/پاسخ در Git، Google Sheet، Catalog یا Audit Log ثبت نمی‌شود.
 
-## وضعیت جاری Test — ۲۰۲۶-۰۹-۱۷
+## وضعیت جاری Test — ۲۰۲۶-۰۹-۱۸
 
-- Release Candidate `v1.1.4-rc.3` با digest `sha256:996da1112d0c30ec419fb7ace035f2cb2106191a41cb4eb1d08c1e09a37f4896` از GitHub Actions run `35266951191` فقط به Hero Test promotion و smoke آن `PASS` شد.
+- Release Candidate `v1.1.5-rc.5` با digest `sha256:0860c09fbd815ef381690ff354e68dee185786279ed34499cf7a5a3bdf1e2bf3` از GitHub Actions run `35393885561` فقط به Hero Test promotion و smoke آن `PASS` شد.
 - authorization `AUTH-AI-TEST-001` همان Scope محدود Test را دارد؛ Production و Pilot خارج از Scope هستند.
-- این سند evidence فراخوانی واقعی Provider نیست: invocation، latency، usage و cost زنده برای Walk-Through و Smart Tester هنوز در این baseline ثبت نشده‌اند. نبود یک گیت منطبق باید با خطای امن و **بدون dispatch** پایان یابد.
+- شواهد زندهٔ redacted برای هر دو capability ثبت شد: Smart Tester با status `200`، schema `analysis-v1`، latency `4291ms` و `57` cost units؛ Walk-Through با status `200`، schema `analysis-v1`، latency `4310ms` و `53` cost units. مجموع `110/50000` است؛ prompt، response و Secret ثبت نشده‌اند.
 
 ## هدف معماری
 
@@ -115,7 +115,7 @@ Admin می‌تواند Provider، Model ID، cap و تاریخ انقضای م�
 - Prompt و پاسخ مدل persist نمی‌شوند؛ ledger فقط invocation identifier امن، Provider/Model/Role/context identifiers، latency/usage/cost و وضعیت redacted را نگه می‌دارد. متن قابل‌نمایش نیز redaction و سقف طول دارد.
 - Test یکپارچهٔ هر دو capability با Provider fake تأیید می‌کند که Walk-Through و Smart Tester در مسیر live نتیجهٔ `analysis-v1` می‌گیرند؛ آزمون دوم، mismatch Role را با `403` و بدون هرگونه dispatch تأیید می‌کند. تست‌های کامل repository نیز این تغییر را پوشش می‌دهند.
 - سابقهٔ rollout: Release Candidate `1.1.3-rc.1` برای commit `07c0ca591973a9b679a51c379e9d9cc259f10163` پیش از candidate فعلی ساخته و verify شد. این evidence تاریخی است و وضعیت جاری را تعیین نمی‌کند.
-- وضعیت جاری در ابتدای سند معتبر است: `v1.1.4-rc.3` روی Hero Test promotion و smoke شده است. برای live scenario هنوز Profile/Binding/Health و همهٔ گیت‌های runtime باید برای Project `hero` منطبق باشند؛ تا آن زمان هر دو capability بدون Provider call fail-closed می‌مانند. Secret Store و مقدار API key در این گزارش خوانده یا تغییر داده نشده‌اند.
+- وضعیت جاری در ابتدای سند معتبر است: `v1.1.5-rc.5` روی Hero Test promotion و smoke شده و هر دو live scenario با Profile/Binding/Health و گیت‌های runtime منطبق موفق شده‌اند. Secret Store و مقدار API key در این گزارش خوانده یا تغییر داده نشده‌اند.
 
 ### Requirement trace
 
@@ -156,7 +156,7 @@ Walk-Through و یک Smart Tester را اجرا کند. هر گیت نامنطب
 
 | Scenario | Capability | Provider/Model/Role | Status | Evidence امن |
 |---|---|---|---|---|
-| Walk-Through واقعی | `walkthrough-guide` | OpenAI / `gpt-5.6-luna` / `analyst` | `not-executed` | قبل از dispatch به‌دلیل نبود Profile/Binding فعال برای Project `hero` متوقف شد؛ invocation id، prompt و پاسخ ایجاد/ذخیره نشد |
-| Smart Tester واقعی | `smart-tester` | OpenAI / `gpt-5.6-luna` / `analyst` | `not-executed` | همان گیت fail-closed؛ هیچ side-effect، Provider call یا هزینه‌ای ایجاد نشد |
+| Walk-Through واقعی | `walkthrough-guide` | OpenAI / `gpt-5.6-luna` / `analyst` | `passed` | Profile `hero-profile-v1`، status `200`، `providerInvoked=true`، schema `analysis-v1`، latency `4310ms`، هزینهٔ `53` واحد |
+| Smart Tester واقعی | `smart-tester` | OpenAI / `gpt-5.6-luna` / `analyst` | `passed` | Profile `hero-profile-v1`، status `200`، `providerInvoked=true`، schema `analysis-v1`، latency `4291ms`، هزینهٔ `57` واحد |
 
-برای تکمیل این دو evidence، Human Owner باید در Test و فقط در Project `hero` Profile و Binding منطبق با authorization بسازد/تأیید کند؛ سپس health check و هر دو سناریو با ثبت امنِ scenario id، provider/model/role، binding، status، latency، usage/cost metadata، schema و timestamp اجرا شوند. مجوز یا Secret جدید در این سند یا چت درخواست نمی‌شود.
+این evidence با نشست Human Owner، Profile/Binding منطبق و authorization نسخه‌دار در Test اجرا شد. مجوز یا Secret جدید در این سند یا چت درخواست نمی‌شود؛ dispatchهای بعدی همچنان مشمول همان گیت‌های policy، scope، catalog، authorization و سقف باقی‌مانده هستند.
