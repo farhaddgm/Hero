@@ -1,5 +1,12 @@
 # تغییرات رودمپ شرکت
 
+# ۲۰۲۶-۰۹-۱۸ — رزرو پایدار منابع Product Test در PF-2
+
+- migration `018_product_runtime_reservations` و store PostgreSQL اضافه شد؛ رزروها فقط metadata امن دارند، با advisory transaction lock سریال می‌شوند و replay، تعارض پورت/منبع، release و reuse رکورد را کنترل می‌کنند.
+- Runner اکنون storeهای async را پشتیبانی می‌کند و stop/cleanup فقط reservation فعال را می‌پذیرد؛ guard process-local نیز برای fallback وضعیت `active` صریح دارد.
+- تست هدفمند PF-2 برابر `26 pass / 0 fail` و معادل کامل `pnpm check` برابر `429 pass / 0 fail` است؛ build برابر `272 module / 49 JSON` و documentation برابر `141 document / 0 error` است.
+- commit کد: `73a7b453306d2aa6a467766bfd6c34b99a68e216`. این تغییر هنوز candidate جدیدی روی Test نیست؛ Product Test، Production، Pilot، Secret Store/Secret، Provider زنده و external spend لمس نشدند.
+
 # ۲۰۲۶-۰۹-۱۸ — promotion موفق rc.11 روی Hero Test
 
 - `v1.1.4-rc.11` با digest immutable `sha256:7a42b5592e60ae5d8b61c10040ee20d56a22a276bae76e3258920e76ed51bba2`، run `35307457878` و runtime commit `dd95723f6cbd5d4ec75aafb59e72941b185e2e2f` فقط روی Hero Test promote و verify شد.
