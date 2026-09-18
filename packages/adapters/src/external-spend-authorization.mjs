@@ -1,7 +1,11 @@
+import { AI_PROJECT_SCOPE_CAPABILITIES } from "../../contracts/src/ai-orchestration.mjs";
+
 const SAFE_ID = /^[A-Za-z][A-Za-z0-9._:-]{2,127}$/;
 const SAFE_VERSION = /^[A-Za-z0-9][A-Za-z0-9._:-]{1,47}$/;
 const SAFE_ROLE = /^[a-z][a-z0-9-]{2,63}$/;
+const SAFE_CAPABILITY = /^[a-z][a-z0-9-]{2,63}$/;
 const MAX_COST_UNITS = 100_000;
+const LEGACY_CAPABILITIES = Object.freeze(["smart-tester", "walkthrough-guide"]);
 
 function immutable(value) {
   return Object.freeze(structuredClone(value));
@@ -55,6 +59,18 @@ function allowList(env, name, pattern) {
   return Object.freeze(values);
 }
 
+function capabilityAllowList(env) {
+  // Keep existing v1.0 Test authorization compatible during migration, but
+  // require an explicit environment allowlist before any new capability such
+  // as form-suggestions can be used.
+  if (env.HERO_EXTERNAL_SPEND_CAPABILITIES === undefined || env.HERO_EXTERNAL_SPEND_CAPABILITIES.trim() === "") return LEGACY_CAPABILITIES;
+  const values = allowList(env, "HERO_EXTERNAL_SPEND_CAPABILITIES", SAFE_CAPABILITY);
+  if (values.some(value => !AI_PROJECT_SCOPE_CAPABILITIES.includes(value))) {
+    throw new ExternalSpendAuthorizationError("EXTERNAL_SPEND_CONFIGURATION_INVALID", "HERO_EXTERNAL_SPEND_CAPABILITIES contains an unsupported capability.");
+  }
+  return values;
+}
+
 function expiry(env) {
   const value = env.HERO_EXTERNAL_SPEND_EXPIRES_AT;
   if (typeof value !== "string" || value.trim() === "" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value)) {
@@ -80,6 +96,7 @@ export function readRuntimeExternalSpendPolicy({ env = process.env } = {}) {
     providerId: required(env, "HERO_EXTERNAL_SPEND_PROVIDER_ID", SAFE_ROLE),
     modelIds: allowList(env, "HERO_EXTERNAL_SPEND_MODEL_IDS", SAFE_ID),
     roleIds: allowList(env, "HERO_EXTERNAL_SPEND_ROLE_IDS", SAFE_ROLE),
+    capabilities: capabilityAllowList(env),
     maxCostUnits: boundedInteger(env, "HERO_EXTERNAL_SPEND_MAX_COST_UNITS"),
     expiresAt: expiresAt.value,
     expiresAtMs: expiresAt.timestamp,
@@ -114,6 +131,7 @@ export function createRuntimeExternalSpendAuthorizer({ env = process.env, clock 
       && input.providerId === policy.providerId
       && policy.modelIds.includes(input.modelId)
       && policy.roleIds.includes(input.role)
+      && policy.capabilities.includes(input.capability)
       && Number.isSafeInteger(requestedCost)
       && requestedCost >= 0
       && requestedCost <= policy.maxCostUnits;

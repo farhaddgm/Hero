@@ -53,6 +53,8 @@ test("the shared Hero shell provides accessible project-aware navigation", () =>
   assert.match(getHeroShellStyles(), /prefers-reduced-motion: reduce/);
   assert.match(getHeroShellStyles(), /--hero-danger/);
   assert.match(getHeroShellStyles(), /hero-smart-tester-panel/);
+  assert.match(getBackofficeHtml({ initialData: null }), /پیشنهاد فرم/);
+  assert.match(getBackofficeHtml({ initialData: null }), /form-suggestions/);
   assert.ok(getHeroShellStyles().includes(".hero-side-nav { position: fixed;"));
   assert.ok(getHeroShellStyles().includes(".hero-global-nav { display: grid; align-content: start; min-width: 0; gap: 4px; overflow-y: auto;"));
   const script = getHeroShellScript().match(/<script>([\s\S]*?)<\/script>/)?.[1];

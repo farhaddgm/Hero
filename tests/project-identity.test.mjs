@@ -5,6 +5,7 @@ import { validateProjectIdentityContract } from "../packages/contracts/src/proje
 import { createHumanIdentity, createTotpCode, HumanIdentityError, HUMAN_IDENTITY_SESSION_TTL_SECONDS } from "../packages/domain/src/human-identity.mjs";
 import { createProjectAccessMiddleware } from "../packages/domain/src/project-access-middleware.mjs";
 import { createProjectAccessRegistry, ProjectAccessError } from "../packages/domain/src/project-access.mjs";
+import { createProjectWorkspace } from "../packages/domain/src/project-workspace.mjs";
 import { createHeroServer } from "../apps/control-plane/src/server.mjs";
 import { createControlDashboard } from "../apps/control-plane/src/dashboard-service.mjs";
 
@@ -455,18 +456,20 @@ test("Project-bound live advisor profiles invoke through the bounded authorizati
   let providerCalls = 0;
   let dispatchedMaxCostUnits = null;
   let lastProviderInput = null;
-  let liveAdvisorPolicy = { active: true, authorizationId: "AUTH-AI-TEST-001", projectId: "project-vpn", stepId: "HERO-AI-TEST-001", documentVersion: "v1.0", providerId: "openai", modelIds: ["gpt-5.6-luna"], roleIds: ["analyst"], maxCostUnits: 50000, expiresAtMs: Date.parse("2027-02-23T23:59:59Z"), globalStop: false };
+  let liveAdvisorPolicy = { active: true, authorizationId: "AUTH-AI-TEST-001", projectId: "project-vpn", stepId: "HERO-AI-TEST-001", documentVersion: "v1.0", providerId: "openai", modelIds: ["gpt-5.6-luna"], roleIds: ["analyst"], capabilities: ["smart-tester", "walkthrough-guide", "form-suggestions"], maxCostUnits: 50000, expiresAtMs: Date.parse("2027-02-23T23:59:59Z"), globalStop: false };
   const adapter = {
     providerId: "openai",
     mode: "live",
     async validateConnection() { return { status: "ok" }; },
     async assertDispatchReady(input) { dispatchedMaxCostUnits = input.maxCostUnits; return { status: "ok", pricing: { catalogVersion: "test", currency: "USD", inputPricePer1mTokens: 0.2, outputPricePer1mTokens: 1.2, cachedInputPricePer1mTokens: 0.02 } }; },
-    async generate(input) { providerCalls += 1; lastProviderInput = structuredClone(input); return { output: { schema: input.outputSchema, answer: "پاسخ زنده و محدود برای همین Project آماده شد." }, usage: { inputTokens: 12, outputTokens: 8, totalTokens: 20, costUnits: 1 } }; },
+    async generate(input) { providerCalls += 1; lastProviderInput = structuredClone(input); const answer = input.request?.purpose === "form-suggestions" ? JSON.stringify({ schema: "form-suggestions-v1", suggestions: [{ title: "پیشنهاد فرم Test", rationale: "مقدارهای کم‌ریسک و قابل بازبینی.", entries: [{ name: "goal", type: "textarea", value: "هدف نمونهٔ Test", checked: false }, { name: "riskLevel", type: "select", value: "low", checked: false }, { name: "constraints", type: "textarea", value: "فقط Test و بدون هزینهٔ خارجی", checked: false }, { name: "approved", type: "checkbox", value: "approved", checked: false }] }] }) : "پاسخ زنده و محدود برای همین Project آماده شد."; return { output: { schema: input.outputSchema, answer }, usage: { inputTokens: 12, outputTokens: 8, totalTokens: 20, costUnits: 1 } }; },
     listCapabilities() { return []; }
   };
-  const externalSpendAuthorizer = async input => ({ authorized: true, code: "AUTHORIZED", action: "external-spend", authorizationId: input.authorizationId, projectId: input.projectId, stepId: input.stepId, documentVersion: input.documentVersion, providerId: input.providerId, modelId: input.modelId, role: input.role, maxCostUnits: 50000, globalStop: false, safeCheckpointRequired: false });
+  const externalSpendAuthorizer = async input => ({ authorized: true, code: "AUTHORIZED", action: "external-spend", authorizationId: input.authorizationId, projectId: input.projectId, stepId: input.stepId, documentVersion: input.documentVersion, providerId: input.providerId, modelId: input.modelId, role: input.role, capability: input.capability, maxCostUnits: 50000, globalStop: false, safeCheckpointRequired: false });
   const dashboard = createControlDashboard({ now, providerAdapters: { openai: adapter }, externalSpendAuthorizer });
   const actor = { kind: "project-owner", id: "hero-owner" };
+  const projectWorkspace = createProjectWorkspace({ now });
+  projectWorkspace.createProject({ actor: { role: "project-owner", subject: "hero-owner" }, projectId: "project-vpn", name: "VPN sample", intake: { intent: "نمونهٔ بی‌خطر برای تست فرم", goal: "هدف نمونهٔ Test" }, idempotencyKey: "live-form-project" });
   dashboard.registerAiProvider({ providerId: "openai", mode: "live", displayName: "OpenAI Test", capabilities: [], idempotencyKey: "live-advisor-provider", actor });
   dashboard.registerAiModel({ providerId: "openai", modelId: "gpt-5.6-luna", displayName: "GPT-5.6 Luna", metadata: {}, idempotencyKey: "live-advisor-model", actor });
   dashboard.registerAiProfile({ profileId: "live-advisor-profile", role: "analyst", providerId: "openai", modelId: "gpt-5.6-luna", credentialRef: "vault:hero/test/openai/default", promptVersion: "live-advisor-v1", contextPolicy: "redacted-project-context", toolPolicy: "read-only", outputSchema: "analysis-v1", status: "active", timeoutMs: 1000, maxRetries: 0, maxOutputTokens: 128, maxCostUnits: 100000, costLatencyPriority: "cost", idempotencyKey: "live-advisor-profile-key", actor });
@@ -479,7 +482,7 @@ test("Project-bound live advisor profiles invoke through the bounded authorizati
   await dashboard.checkAiProviderHealth({ providerId: "openai", profileId: "live-advisor-profile", actor });
   const app = createHeroServer({
     host: "127.0.0.1", port: 0, now, dashboard, projectAccessRegistry: access, humanIdentity: identity,
-    liveAdvisorPolicy: () => liveAdvisorPolicy
+    liveAdvisorPolicy: () => liveAdvisorPolicy, projectWorkspace
   });
   const address = await app.start();
   t.after(() => app.stop());
@@ -534,6 +537,21 @@ test("Project-bound live advisor profiles invoke through the bounded authorizati
     ...lastProviderInput.context.repositoryContext.files.map(file => file.path)
   ]);
   assert.doesNotMatch(repositoryPaths, /\/opt\/hero|(?:^|[\\/])\.env(?:\.|$)|(?:^|[\\/])node_modules(?:[\\/]|$)/i);
+  const formSuggestion = await fetch(`${base}/api/form-suggestions?projectId=project-vpn`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ projectId: "project-vpn", formId: "intake-form", formTitle: "Intake پروژه", softwareGoal: "هدف فعلی فرم", boxDescription: "ثبت هدف و محدودیت‌ها", selectedAdvisor: "live-advisor-profile", fields: [{ name: "goal", type: "textarea", label: "هدف", value: "مقدار قبلی محرمانه نیست اما نباید به Provider ارسال شود" }, { name: "riskLevel", type: "select", label: "ریسک", options: [{ value: "low", label: "کم" }, { value: "high", label: "زیاد" }] }, { name: "constraints", type: "textarea", label: "محدودیت" }, { name: "approved", type: "checkbox", label: "تأیید", value: "approved" }] })
+  });
+  assert.equal(formSuggestion.status, 200);
+  const formPayload = await formSuggestion.json();
+  assert.equal(formPayload.formSuggestions.providerInvoked, true);
+  assert.equal(formPayload.formSuggestions.providerSchema, "form-suggestions-v1");
+  assert.equal(formPayload.formSuggestions.suggestions.length, 1);
+  assert.equal(formPayload.formSuggestions.suggestions[0].entries[1].value, "low");
+  assert.equal(formPayload.providerInvocation.status, "completed");
+  assert.equal(formPayload.evidence.capability, "form-suggestions");
+  assert.equal(lastProviderInput.context.formSuggestion.fields[0].value, undefined, "existing form values must not enter the Provider context");
+  assert.doesNotMatch(JSON.stringify(formPayload), /مقدار قبلی محرمانه/);
   const callsBeforeDeniedRequest = providerCalls;
   liveAdvisorPolicy = { ...liveAdvisorPolicy, roleIds: ["evaluator"] };
   const unavailableOptions = await fetch(`${base}/api/smart-tester/options?projectId=project-vpn`, { headers });

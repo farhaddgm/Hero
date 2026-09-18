@@ -1,5 +1,12 @@
 # تغییرات رودمپ شرکت
 
+# ۲۰۲۶-۰۹-۱۸ — اتصال امن API Provider به ماژول پیشنهاد فرم
+
+- backend ماژول پیشنهاد فرم از حالت محلیِ اجباری خارج شد و با همان مسیر انتخاب Profile، Binding، Health، Scope، Role، Tool Policy، timeout، cost cap و external-spend authorization کار می‌کند؛ رابط کاربری به Provider خاصی وابسته نشده است.
+- پاسخ زنده با قرارداد بیرونی `analysis-v1` و Schema داخلی `form-suggestions-v1` پذیرفته می‌شود؛ تعداد پیشنهادها یک تا سه، هر پیشنهاد دقیقاً یک مقدار برای هر field، گزینه‌های select/radio فقط از گزینه‌های فرم، و فیلد/مقدار حساس یا مسیر میزبان fail-closed رد می‌شود.
+- در جدول «نقشهٔ تخصیص AI در پروژه» ردیف «پیشنهاد فرم» و در فرم Scope پروژه قابلیت `form-suggestions` اضافه شد. حالت local همچنان بدون هزینه و بدون Provider باقی می‌ماند.
+- authorization مستقل و نسخه‌دار `config/authorizations/AUTH-AI-TEST-001-v1.1.json` برای Test ثبت شد؛ شامل همان سقف `50,000` و پایان `2027-02-23T23:59:59Z` و فقط capability افزودهٔ `form-suggestions` است. تا promotion و اعمال تنظیم غیرمحرمانهٔ v1.1 در Test، اجرای زنده عمداً blocked می‌ماند.
+
 # ۲۰۲۶-۰۹-۱۸ — فعال‌شدن واقعی OpenAI برای Smart Tester و Walk-Through در Test
 
 - ریشهٔ خطا مشخص و اصلاح شد: سقف محافظه‌کارانهٔ `100` واحد پیش از dispatch، برای Context محدودِ خواندنی و خروجی ساخت‌یافته کافی نبود و با `COST_POLICY_INSUFFICIENT` جلوی فراخوانی مجاز را می‌گرفت؛ سقف هر درخواست به `10,000` افزایش یافت و سقف تجمعی authorization بدون تغییر روی `50,000` باقی ماند.

@@ -14,7 +14,7 @@ orchestration روی Test منتشر شده است. با این حال فراخ�
 ## تصمیم و مرز فعلی
 
 - مسیر Provider-agnostic برای Smart Tester و Walk-Through Guide فقط در صورت انتخاب یک Profile فعالِ bound به همان Project می‌تواند Provider را فراخوانی کند؛ در نبود آن، پاسخ محلی و بدون dispatch ارائه می‌شود.
-- authorization `AUTH-AI-TEST-001` فقط برای `test`، Project `hero`، OpenAI Model `gpt-5.6-luna`، Role `analyst`، دو capability `smart-tester` و `walkthrough-guide`، سقف تجمعی `50,000` Hero cost units و پایان `2027-02-23T23:59:59Z` است. این record هیچ Secretی ندارد و Production/Pilot را در scope نمی‌آورد.
+- authorization نسخهٔ پایهٔ `AUTH-AI-TEST-001-v1.0` فقط برای `test`، Project `hero`، OpenAI Model `gpt-5.6-luna`، Role `analyst` و دو capability `smart-tester` و `walkthrough-guide` است. برای اتصال ماژول پیشنهاد فرم، snapshot مستقل `AUTH-AI-TEST-001-v1.1` با capability افزودهٔ `form-suggestions` ثبت شده است؛ هر دو سقف تجمعی `50,000` Hero cost units و پایان `2027-02-23T23:59:59Z` دارند و هیچ‌کدام Secret یا Production/Pilot را در scope نمی‌آورند.
 - نرخ Test از منبع رسمی OpenAI با Catalog نسخه‌دار `openai-gpt-5.6-luna-20260916-v1` می‌آید: input `0.20 USD/1M`، cached input `0.02 USD/1M` و output `1.20 USD/1M`. Catalog در `2026-10-16T00:00:00Z` منقضی می‌شود تا review نرخ الزامی و fail-closed باشد.
 - پیکربندی runtime، Project، Provider، Model، Profile و Binding باید جداگانه و در محیط Test برقرار باشند. هیچ API Key، مقدار خام credential، محتوای درخواست/پاسخ یا مسیر host در Git، Catalog یا Evidence ثبت نمی‌شود.
 - شناسهٔ مدل، Provider، سقف هزینه و زمان انقضای مجوز باید بعداً توسط Admin در پیکربندی نسخه‌دار تغییرپذیر باشند.
@@ -24,8 +24,9 @@ orchestration روی Test منتشر شده است. با این حال فراخ�
 ## وضعیت جاری Test — ۲۰۲۶-۰۹-۱۸
 
 - Release Candidate `v1.1.5-rc.5` با digest `sha256:0860c09fbd815ef381690ff354e68dee185786279ed34499cf7a5a3bdf1e2bf3` از GitHub Actions run `35393885561` فقط به Hero Test promotion و smoke آن `PASS` شد.
-- authorization `AUTH-AI-TEST-001` همان Scope محدود Test را دارد؛ Production و Pilot خارج از Scope هستند.
+- authorization `AUTH-AI-TEST-001-v1.1` برای اتصال form-suggestions باید با همین Document Version در runtime Test فعال شود؛ تا آن زمان، فرم فقط از راهنمای محلی استفاده می‌کند. Production و Pilot خارج از Scope هستند.
 - شواهد زندهٔ redacted برای هر دو capability ثبت شد: Smart Tester با status `200`، schema `analysis-v1`، latency `4291ms` و `57` cost units؛ Walk-Through با status `200`، schema `analysis-v1`، latency `4310ms` و `53` cost units. مجموع `110/50000` است؛ prompt، response و Secret ثبت نشده‌اند.
+- ماژول `form-suggestions` اکنون مسیر Provider-agnostic، Schema داخلی `form-suggestions-v1`، validation مقدارها و گزینه‌ها، redaction و evidence امن دارد؛ اجرای زندهٔ آن بعد از promotion کد و فعال‌شدن capability نسخهٔ `v1.1` در Test انجام می‌شود.
 
 ## هدف معماری
 

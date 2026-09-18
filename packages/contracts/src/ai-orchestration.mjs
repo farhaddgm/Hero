@@ -33,6 +33,7 @@ export const AI_PROJECT_SCOPE_MODES = Object.freeze(["enabled", "local-only", "d
 export const AI_PROJECT_SCOPE_CAPABILITIES = Object.freeze([
   "walkthrough-guide",
   "smart-tester",
+  "form-suggestions",
   "invocation"
 ]);
 

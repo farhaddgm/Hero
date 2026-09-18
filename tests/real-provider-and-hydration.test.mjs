@@ -37,6 +37,7 @@ function liveAuthorization() {
     projectId: "hero",
     stepId: "HERO-021",
     documentVersion: "v1.0",
+    capability: "smart-tester",
     globalStop: false,
     safeCheckpointRequired: false
   };
@@ -141,6 +142,7 @@ test("runtime external-spend authorization is exact, time-bound, cost-bound and 
     HERO_EXTERNAL_SPEND_PROVIDER_ID: "openai",
     HERO_EXTERNAL_SPEND_MODEL_IDS: "gpt-approved,codex-approved",
     HERO_EXTERNAL_SPEND_ROLE_IDS: "analyst,executor",
+    HERO_EXTERNAL_SPEND_CAPABILITIES: "smart-tester,walkthrough-guide,form-suggestions",
     HERO_EXTERNAL_SPEND_MAX_COST_UNITS: "50000",
     HERO_EXTERNAL_SPEND_EXPIRES_AT: "2026-09-11T00:00:00.000Z",
     HERO_EXTERNAL_SPEND_GLOBAL_STOP: "false"
@@ -149,12 +151,12 @@ test("runtime external-spend authorization is exact, time-bound, cost-bound and 
   assert.equal(policy.active, true);
   assert.equal(policy.maxCostUnits, 50_000);
   const authorizer = createRuntimeExternalSpendAuthorizer({ env, clock: () => Date.parse("2026-09-10T12:00:00.000Z") });
-  const approved = await authorizer({ authorizationId: "AUTH-PILOT-001", projectId: "hero", stepId: "HERO-021", documentVersion: "v1.0", operation: "external-spend", providerId: "openai", modelId: "gpt-approved", role: "analyst", maxCostUnits: 10_000 });
+  const approved = await authorizer({ authorizationId: "AUTH-PILOT-001", projectId: "hero", stepId: "HERO-021", documentVersion: "v1.0", operation: "external-spend", providerId: "openai", modelId: "gpt-approved", role: "analyst", capability: "form-suggestions", maxCostUnits: 10_000 });
   assert.equal(approved.authorized, true);
   assert.equal(approved.code, "AUTHORIZED");
-  const wrongModel = await authorizer({ authorizationId: "AUTH-PILOT-001", projectId: "hero", stepId: "HERO-021", documentVersion: "v1.0", operation: "external-spend", providerId: "openai", modelId: "not-approved", role: "analyst", maxCostUnits: 10_000 });
+  const wrongModel = await authorizer({ authorizationId: "AUTH-PILOT-001", projectId: "hero", stepId: "HERO-021", documentVersion: "v1.0", operation: "external-spend", providerId: "openai", modelId: "not-approved", role: "analyst", capability: "form-suggestions", maxCostUnits: 10_000 });
   assert.equal(wrongModel.code, "EXTERNAL_SPEND_SCOPE_MISMATCH");
-  const overBudget = await authorizer({ authorizationId: "AUTH-PILOT-001", projectId: "hero", stepId: "HERO-021", documentVersion: "v1.0", operation: "external-spend", providerId: "openai", modelId: "gpt-approved", role: "analyst", maxCostUnits: 50_001 });
+  const overBudget = await authorizer({ authorizationId: "AUTH-PILOT-001", projectId: "hero", stepId: "HERO-021", documentVersion: "v1.0", operation: "external-spend", providerId: "openai", modelId: "gpt-approved", role: "analyst", capability: "form-suggestions", maxCostUnits: 50_001 });
   assert.equal(overBudget.code, "EXTERNAL_SPEND_SCOPE_MISMATCH");
   const expired = createRuntimeExternalSpendAuthorizer({ env, clock: () => Date.parse("2026-09-11T00:00:00.000Z") });
   assert.equal((await expired({})).code, "EXTERNAL_SPEND_AUTHORIZATION_EXPIRED");

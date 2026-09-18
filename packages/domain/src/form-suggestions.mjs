@@ -1,4 +1,5 @@
 export const FORM_SUGGESTIONS_VERSION = "1.0.0";
+export const FORM_PROVIDER_SUGGESTIONS_SCHEMA = "form-suggestions-v1";
 export const FORM_SUGGESTION_MAX_FIELDS = 32;
 export const FORM_SUGGESTION_MAX_SUGGESTIONS = 3;
 
@@ -123,7 +124,7 @@ function suggestionEntries(fields, variant, context) {
   });
 }
 
-export function createFormSuggestions({ actor, projectId = null, formId, formTitle, softwareGoal, boxDescription, fields, selectedAdvisor = "local" } = {}) {
+function normalizeFormInput({ actor, projectId = null, formId, formTitle, softwareGoal, boxDescription, fields, selectedAdvisor = "local" } = {}) {
   assertActor(actor);
   if (projectId !== null && (!IDENTIFIER.test(projectId) || projectId.length > 63)) throw new FormSuggestionsError("FORM_SUGGESTION_PROJECT_INVALID", "Project scope is invalid.", 400);
   const safeFormId = text("formId", formId, { minimum: 1, maximum: 128 });
@@ -131,8 +132,77 @@ export function createFormSuggestions({ actor, projectId = null, formId, formTit
   const safeTitle = text("formTitle", formTitle, { minimum: 1, maximum: 220 });
   const safeGoal = text("softwareGoal", softwareGoal || "هدف نرم‌افزار هنوز در پروژه ثبت نشده است", { minimum: 1, maximum: 700 });
   const safeDescription = text("boxDescription", boxDescription || safeTitle, { minimum: 1, maximum: 700 });
-  if (selectedAdvisor !== "local") throw new FormSuggestionsError("FORM_SUGGESTION_ADVISOR_UNAVAILABLE", "فقط راهنمای محلی Hero برای این قابلیت مجاز است؛ Provider زنده نیازمند مجوز مستقل همین قابلیت است.", 403);
   const safeFields = normalizeFields(fields);
+  return Object.freeze({ projectId, formId: safeFormId, formTitle: safeTitle, softwareGoal: safeGoal, boxDescription: safeDescription, fields: safeFields, selectedAdvisor });
+}
+
+export function prepareFormSuggestionRequest(input = {}) {
+  const normalized = normalizeFormInput(input);
+  if (normalized.selectedAdvisor !== "local" && (typeof normalized.selectedAdvisor !== "string" || !IDENTIFIER.test(normalized.selectedAdvisor))) {
+    throw new FormSuggestionsError("FORM_SUGGESTION_ADVISOR_INVALID", "Advisor profile is invalid.", 400);
+  }
+  return copy({
+    projectId: normalized.projectId,
+    formId: normalized.formId,
+    formTitle: normalized.formTitle,
+    softwareGoal: normalized.softwareGoal,
+    boxDescription: normalized.boxDescription,
+    // Existing values are intentionally omitted from the Provider context.
+    fields: normalized.fields.map(field => ({ name: field.name, type: field.type, label: field.label, options: field.options, required: field.required }))
+  });
+}
+
+function providerEntry(field, candidate, index) {
+  if (!candidate || candidate.name !== field.name || candidate.type !== field.type || typeof candidate.value !== "string") {
+    throw new FormSuggestionsError("FORM_SUGGESTION_PROVIDER_OUTPUT_INVALID", `Provider suggestion ${index + 1} does not match the form fields.`, 502);
+  }
+  const value = text(`provider entry ${index + 1} value`, candidate.value, { maximum: 700 });
+  if (["select", "radio"].includes(field.type) && field.options.length > 0 && !field.options.some(option => option.value === value)) {
+    throw new FormSuggestionsError("FORM_SUGGESTION_PROVIDER_OPTION_INVALID", `Provider suggestion ${index + 1} selected an option that is not in the form.`, 502);
+  }
+  if (!["checkbox", "radio"].includes(field.type) && candidate.checked !== undefined && typeof candidate.checked !== "boolean") {
+    throw new FormSuggestionsError("FORM_SUGGESTION_PROVIDER_OUTPUT_INVALID", `Provider suggestion ${index + 1} has an invalid checked value.`, 502);
+  }
+  return { name: field.name, type: field.type, value, checked: candidate.checked === true };
+}
+
+export function createProviderFormSuggestions({ actor, projectId = null, formId, formTitle, softwareGoal, boxDescription, fields, selectedAdvisor, providerOutput } = {}) {
+  const normalized = normalizeFormInput({ actor, projectId, formId, formTitle, softwareGoal, boxDescription, fields, selectedAdvisor });
+  if (normalized.selectedAdvisor === "local") throw new FormSuggestionsError("FORM_SUGGESTION_ADVISOR_INVALID", "A live Provider profile is required for Provider suggestions.", 400);
+  if (!providerOutput || providerOutput.schema !== FORM_PROVIDER_SUGGESTIONS_SCHEMA || !Array.isArray(providerOutput.suggestions) || providerOutput.suggestions.length < 1 || providerOutput.suggestions.length > FORM_SUGGESTION_MAX_SUGGESTIONS) {
+    throw new FormSuggestionsError("FORM_SUGGESTION_PROVIDER_OUTPUT_INVALID", "Provider did not return the required form-suggestions schema.", 502);
+  }
+  const suggestions = providerOutput.suggestions.map((suggestion, suggestionIndex) => {
+    const title = text(`provider suggestion ${suggestionIndex + 1} title`, suggestion?.title, { minimum: 1, maximum: 220 });
+    const rationale = text(`provider suggestion ${suggestionIndex + 1} rationale`, suggestion?.rationale, { minimum: 1, maximum: 500 });
+    if (!Array.isArray(suggestion?.entries) || suggestion.entries.length !== normalized.fields.length) {
+      throw new FormSuggestionsError("FORM_SUGGESTION_PROVIDER_OUTPUT_INVALID", `Provider suggestion ${suggestionIndex + 1} does not contain one entry per form field.`, 502);
+    }
+    return copy({
+      suggestionId: `provider-form-suggestion-${suggestionIndex + 1}`,
+      title,
+      source: "provider",
+      rationale,
+      entries: normalized.fields.map((field, fieldIndex) => providerEntry(field, suggestion.entries[fieldIndex], fieldIndex)),
+      fieldCount: normalized.fields.length
+    });
+  });
+  return copy({
+    version: FORM_SUGGESTIONS_VERSION,
+    providerSchema: FORM_PROVIDER_SUGGESTIONS_SCHEMA,
+    projectId: normalized.projectId,
+    formId: normalized.formId,
+    selectedAdvisor: normalized.selectedAdvisor,
+    providerInvoked: true,
+    externalSpend: "accounted",
+    suggestions
+  });
+}
+
+export function createFormSuggestions({ actor, projectId = null, formId, formTitle, softwareGoal, boxDescription, fields, selectedAdvisor = "local" } = {}) {
+  const normalized = normalizeFormInput({ actor, projectId, formId, formTitle, softwareGoal, boxDescription, fields, selectedAdvisor });
+  const { projectId: safeProjectId, formId: safeFormId, formTitle: safeTitle, softwareGoal: safeGoal, boxDescription: safeDescription, fields: safeFields } = normalized;
+  if (selectedAdvisor !== "local") throw new FormSuggestionsError("FORM_SUGGESTION_ADVISOR_UNAVAILABLE", "فقط راهنمای محلی Hero برای این قابلیت مجاز است؛ Provider زنده نیازمند مجوز مستقل همین قابلیت است.", 403);
   const variants = ["محافظه‌کارانه", "استاندارد", "کامل و قابل انتقال"];
   const suggestions = variants.map((variant, index) => copy({
     suggestionId: `local-form-suggestion-${index + 1}`,

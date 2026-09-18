@@ -201,6 +201,7 @@ function hasSeparateExternalSpendAuthorization(input, projectId) {
   if (typeof authorization.authorizationId !== "string" || !/^[A-Za-z][A-Za-z0-9._:-]{2,127}$/.test(authorization.authorizationId)) return false;
   if (typeof authorization.stepId !== "string" || !/^[A-Za-z][A-Za-z0-9._:-]{2,127}$/.test(authorization.stepId)) return false;
   if (typeof authorization.documentVersion !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._:-]{1,47}$/.test(authorization.documentVersion)) return false;
+  if (!AI_PROJECT_SCOPE_CAPABILITIES.includes(authorization.capability)) return false;
   if (authorization.projectId !== undefined && authorization.projectId !== projectId) return false;
   return true;
 }
@@ -981,6 +982,7 @@ export function createAiOrchestration(options = {}) {
           providerId: provider.providerId,
           modelId: profile.modelId,
           role,
+          capability: input.externalSpendAuthorization.capability,
           maxCostUnits: requestedMaxCostUnits,
           globalStop: input.externalSpendAuthorization.globalStop
         });
@@ -1000,6 +1002,7 @@ export function createAiOrchestration(options = {}) {
         || authorization?.providerId !== provider.providerId
         || authorization?.modelId !== profile.modelId
         || authorization?.role !== role
+        || authorization?.capability !== input.externalSpendAuthorization.capability
         || !Number.isInteger(authorization?.maxCostUnits)
         || authorization.maxCostUnits < requestedMaxCostUnits
       ) {

@@ -19,6 +19,7 @@ HERO_EXTERNAL_SPEND_DOCUMENT_VERSION=v1.0
 HERO_EXTERNAL_SPEND_PROVIDER_ID=openai
 HERO_EXTERNAL_SPEND_MODEL_IDS=<comma-separated-exact-model-ids>
 HERO_EXTERNAL_SPEND_ROLE_IDS=analyst,evaluator,decision-maker,planner,researcher,executor,verifier,code-reviewer
+HERO_EXTERNAL_SPEND_CAPABILITIES=smart-tester,walkthrough-guide,form-suggestions
 HERO_EXTERNAL_SPEND_MAX_COST_UNITS=50000
 HERO_EXTERNAL_SPEND_EXPIRES_AT=<short-lived-UTC-timestamp>
 HERO_EXTERNAL_SPEND_GLOBAL_STOP=false

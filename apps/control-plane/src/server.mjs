@@ -95,7 +95,7 @@ import { createOperationalHardening, HardeningError } from "../../../packages/do
 import { createFinalReadiness, FinalReadinessError } from "../../../packages/domain/src/final-readiness.mjs";
 import { createBackofficeCompletion, BackofficeCompletionError } from "../../../packages/domain/src/backoffice-completion.mjs";
 import { AiOrchestrationError } from "../../../packages/domain/src/ai-orchestration.mjs";
-import { FormSuggestionsError, FORM_SUGGESTIONS_VERSION, createFormSuggestions } from "../../../packages/domain/src/form-suggestions.mjs";
+import { FormSuggestionsError, FORM_PROVIDER_SUGGESTIONS_SCHEMA, FORM_SUGGESTIONS_VERSION, createFormSuggestions, createProviderFormSuggestions, prepareFormSuggestionRequest } from "../../../packages/domain/src/form-suggestions.mjs";
 import { rebuildPortfolioReadModel, rebuildProjectReadModel } from "../../../packages/domain/src/backoffice-read-models.mjs";
 import { ProductDevelopmentError, createProductDevelopmentCatalog } from "../../../packages/domain/src/product-development.mjs";
 import { HeroSecretStoreError, createConfiguredAiProviderAdapters, createHeroSecretStore, createNotionApiAdapter, createPostgresRuntime, createPricingCatalogRegistry, createRuntimeExternalSpendAuthorizer, readRuntimeExternalSpendPolicy } from "../../../packages/adapters/src/index.mjs";
@@ -1133,7 +1133,7 @@ export function createHeroServer(options = {}) {
       providers: options.providers,
       models: options.models,
       profiles: options.profiles,
-      note: "پیشنهادهای فرم در وضعیت فعلی محلی و بدون هزینه‌اند؛ Profile خارجی فقط با مجوز مستقل قابلیت form-suggestions قابل انتخاب است."
+      note: "پیشنهاد فرم به‌صورت محلی همیشه در دسترس است؛ Profile خارجی فقط وقتی قابل انتخاب است که Binding سالم، Scope پروژه و مجوز هزینهٔ form-suggestions هر سه فعال باشند."
     });
   }
 
@@ -1149,7 +1149,7 @@ export function createHeroServer(options = {}) {
     if (!policy?.active || policy.globalStop === true) {
       throw new ProjectWorkspaceError("LIVE_ADVISOR_AUTHORIZATION_UNAVAILABLE", "مجوز هزینهٔ AI فعال نیست یا توقف اضطراری برقرار است.", 503);
     }
-    if (Date.now() >= policy.expiresAtMs || policy.projectId !== projectId || policy.providerId !== providerId || !policy.modelIds?.includes(modelId) || !policy.roleIds?.includes(role) || (Array.isArray(policy.capabilities) && !policy.capabilities.includes(purpose))) {
+    if (Date.now() >= policy.expiresAtMs || policy.projectId !== projectId || policy.providerId !== providerId || !policy.modelIds?.includes(modelId) || !policy.roleIds?.includes(role) || !policy.capabilities?.includes(purpose)) {
       throw new ProjectWorkspaceError("LIVE_ADVISOR_AUTHORIZATION_SCOPE_MISMATCH", "مجوز هزینهٔ AI با Project، Provider، Model یا Role انتخاب‌شده هم‌خوان نیست.", 403);
     }
     return Object.freeze({
@@ -1266,7 +1266,13 @@ export function createHeroServer(options = {}) {
         locale: "fa-IR",
         question: typeof question === "string" ? question : "",
         localGuidance: localResponse,
-        constraints: Object.freeze(["Return only JSON.", "Set schema exactly to analysis-v1.", "Use concise Persian.", "Do not include secrets, credentials, host paths, tools, or executable actions."])
+        constraints: Object.freeze([
+          "Return only JSON.",
+          "Set the outer schema exactly to analysis-v1.",
+          ...(purpose === "form-suggestions" ? ["Set the answer field to a JSON string whose parsed object schema is form-suggestions-v1.", "Return one to three suggestions and one entry per supplied field."] : []),
+          "Use concise Persian.",
+          "Do not include secrets, credentials, host paths, tools, or executable actions."
+        ])
       }),
       context: Object.freeze({
         advisor: purpose,
@@ -1275,6 +1281,7 @@ export function createHeroServer(options = {}) {
         surface: context?.pathname ?? null,
         featureKey: context?.featureKey ?? null,
         stepId: context?.stepId ?? null,
+        ...(context?.formSuggestion ? { formSuggestion: context.formSuggestion } : {}),
         ...(repositoryContext ? { repositoryContext } : {})
       }),
       requireHealthyProvider: true,
@@ -2335,7 +2342,7 @@ export function createHeroServer(options = {}) {
         }
         let authoritativeGoal = input.softwareGoal;
         if (projectId) authoritativeGoal = projectOverview(projectId).intake?.goal || authoritativeGoal;
-        const formSuggestions = createFormSuggestions({
+        const formRequest = prepareFormSuggestionRequest({
           actor: authenticatedOwner,
           projectId,
           formId: input.formId,
@@ -2345,7 +2352,32 @@ export function createHeroServer(options = {}) {
           fields: input.fields,
           selectedAdvisor
         });
-        return json(response, 200, { service: HERO_SERVICE, formSuggestions });
+        if (selectedAdvisor === "local") {
+          const formSuggestions = createFormSuggestions({ ...formRequest, actor: authenticatedOwner, selectedAdvisor: "local" });
+          return json(response, 200, { service: HERO_SERVICE, formSuggestions });
+        }
+        const selectedProfile = options.profiles.find(profile => profile.profileId === selectedAdvisor);
+        const live = await invokeSelectedLiveAdvisor({
+          purpose: "form-suggestions",
+          projectId,
+          selectedProfile,
+          question: "برای باکس مشخص‌شده، یک تا سه پیشنهاد قابل بازبینی تولید کن. فقط JSON معتبر با schema form-suggestions-v1 برگردان؛ برای هر پیشنهاد دقیقاً یک entry برای هر field و فقط مقدارهای مجاز همان field بده.",
+          context: { pathname: "/form-suggestions", featureKey: "form.suggestions", formSuggestion: formRequest },
+          localResponse: `Generate ${FORM_PROVIDER_SUGGESTIONS_SCHEMA} only; no prose, secrets, paths, tools, or executable actions.`
+        });
+        let providerOutput;
+        try {
+          providerOutput = JSON.parse(live.response);
+        } catch {
+          throw new FormSuggestionsError("FORM_SUGGESTION_PROVIDER_OUTPUT_INVALID", "Provider پاسخ JSON معتبر برای پیشنهاد فرم برنگرداند.", 502);
+        }
+        const formSuggestions = createProviderFormSuggestions({ ...formRequest, actor: authenticatedOwner, selectedAdvisor, providerOutput });
+        return json(response, 200, {
+          service: HERO_SERVICE,
+          formSuggestions,
+          providerInvocation: Object.freeze({ invocationId: live.invocationId, providerInvoked: true, costUnits: live.costUnits, status: "completed" }),
+          evidence: live.evidence
+        });
       }
 
       if (request.method === "POST" && url.pathname === "/api/walkthrough/advice") {
