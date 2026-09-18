@@ -1,5 +1,12 @@
 # تغییرات رودمپ شرکت
 
+# ۲۰۲۶-۰۹-۱۸ — انتخاب Target پروژه‌ای برای محیط Test
+
+- commit `be9ee96` قرارداد infrastructure-control را به `1.1` رساند و انتخاب Target را فقط برای `test`، با project scope، نسخهٔ موردانتظار و conflict guard اضافه کرد؛ سرور revoked قابل انتخاب نیست.
+- اتاق کنترل پروژه اکنون فهرست سرورهای Test را به‌صورت redacted نشان می‌دهد و Admin/Owner می‌تواند Target انتخاب‌شده را ثبت کند؛ وضعیت صریح `selected-not-dispatched` است و این مسیر build، start، stop، cleanup یا dispatch انجام نمی‌دهد.
+- مسیر POST project-scoped برای `select-target` و regressionهای domain/UI اضافه شد؛ تست هدفمند `23/23` موفق است و هیچ Secret، Provider زنده، هزینهٔ خارجی، Pilot یا Production لمس نشد.
+- preflight سرور Test `185.204.168.171` قبلاً با SSH بدون رمز و Docker `29.1.3`/Compose `2.40.3` موفق شده بود؛ تا تعیین شناسهٔ دقیق پروژه، Target/Agent واقعی در registry ثبت نشد و هیچ شناسه‌ای حدس زده نشد.
+
 # ۲۰۲۶-۰۹-۱۸ — PF-5 portability/recovery و PF-6 hardening evidence
 
 - قرارداد `hero.product-delivery-bundle/v1` برای artifact immutable، SBOM/attestation/test/quality digest، config schema بدون Secret، migration، backup/restore و compatibility matrix اضافه شد؛ منبع در `HERO-OPS-PRODUCT-DELIVERY-BUNDLE-AND-CLEAN-TARGET@1.0.0` ثبت است.

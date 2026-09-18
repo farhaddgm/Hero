@@ -6,7 +6,7 @@
 > Type: roadmap
 > Scope: hero
 > Status: active
-> Version: 3.2.0
+> Version: 3.3.0
 > Owner: hero-product
 > Review cadence: per-change
 > Supersedes: `HERO-ROADMAP-NEXT-100-STEPS-20260904`, `HERO-ROADMAP-NEXT-20-STEPS-20260904`, `HERO-ROADMAP-NEXT-20-STEPS-20260911-WORKSPACE-PERSISTENCE`, `HERO-ROADMAP-NEXT-100-STEPS-20260911-PROJECT-CONTROL`
@@ -22,8 +22,8 @@
 
 | موضوع | واقعیت تأییدشده | مرز صریح |
 |---|---|---|
-| source Hero | branch `codex/test-release-reliability-20260916`، commit `2b4ec6ae389f059cc7eee7cd3b39529fe7f4874e`؛ شامل قرارداد/admission، adapter رسمی گیت‌دار، stop/cleanup idempotent، capacity/lease lifecycle، probe ظرفیت، artifact contract و harness رسمی PF-3 است | کاندیدای `v1.1.4-rc.15` از run `35314609142` با workflow کامل ساخته و فقط روی Hero Test promote/verify شده است؛ Product Test نمونهٔ رسمی روی commit جاری نیز در Test اجرا و evidence شد. |
-| Test Hero | فعال: `v1.1.4-rc.15`، digest `ghcr.io/farhaddgm/hero@sha256:bec56ba76d8b70e3a704bfc05d5d349abe1abe1a60bd35674f63bea4f94221b0` | فقط Hero Test است؛ `/health`، `/ready` و `build-info` با release/commit/digest منطبق موفق‌اند؛ rollback point metadata-only ثبت شده است. |
+| source Hero | branch `codex/test-release-reliability-20260916`، commit `be9ee96`؛ شامل قرارداد/admission، adapter رسمی گیت‌دار، stop/cleanup idempotent، capacity/lease lifecycle، probe ظرفیت، artifact contract، harness رسمی PF-3 و انتخاب project-scoped Target Test است | کاندیدای `v1.1.5-rc.1` از commit پیشین `fb6b8a3` با digest `sha256:a4d6a59893cb3a65816221ecc17a4dfb4c66c44f959e1fa824ee99fc37a70a21` فقط روی Hero Test promote/verify شده است؛ تغییر انتخاب Target هنوز نیازمند candidate جدید است. |
+| Test Hero | فعال: `v1.1.5-rc.1`، digest `ghcr.io/farhaddgm/hero@sha256:a4d6a59893cb3a65816221ecc17a4dfb4c66c44f959e1fa824ee99fc37a70a21` | فقط Hero Test است؛ `/health`، `/ready` و smoke موفق‌اند؛ rollback point metadata-only ثبت شده است. |
 | آخرین promotion Test | `v1.1.4-rc.15`، run `35314609142`، runtime commit `5c7291e069cddef935d269690fcd37e8891d0121` | manifest و digest immutable روی host Test promote و verify شدند؛ خطای موقت connection reset هنگام restart با health/readiness و smoke موفق نهایی شد. |
 | شواهد rollback | قبل از promotion، rc.14 با digest `sha256:6fba080967039dde9e884e5c8ca86e8343b6512577061bde55cfdd5dcb006228` pull شد | rollback point metadata-only در `/etc/hero/hero-test.env.release-state.before-bec56ba76d8b70e3a704bfc05d5d349abe1abe1a60bd35674f63bea4f94221b0.json` ثبت شد. |
 | رخداد اصلاح‌شده | rc.6 بعد از restart با `Product request metadata is invalid` crash-loop شد | علت و اصلاح در source ثبت شده؛ rc.8 همان مسیر را سالم کرده است. |
@@ -96,6 +96,8 @@ Product Test:       hero-product-<slug>-test-*
 ### ۵.۳. انتقال به سرور دیگر
 
 قابل‌انتقال‌بودن با کپی runtime زنده اثبات نمی‌شود. محصول باید release bundle بدون Secret داشته باشد: digest image، SBOM/attestation، migration contract، schema/config version، checksum backup رمزگذاری‌شده و runbook restore. مقصد جدید فقط با secret channel مستقل، host identity، agent enrollment و authorization همان Target شروع می‌شود. clone کردن `.env`، volume یا network از host مبدا ممنوع است.
+
+در source، انتخاب Target برای هر Project در اتاق کنترل پروژه به‌صورت Test-only و نسخه‌دار اضافه شده است. این قابلیت فقط از بین سرورهای Test ثبت‌شده انتخاب می‌کند و نتیجه را `selected-not-dispatched` نگه می‌دارد؛ ثبت سرور واقعی، Agent enrollment، snapshot ظرفیت و dispatch واقعی هنوز گیت‌های جداگانه‌اند.
 
 ## ۶. Workstreamها و خروجی‌های گیت‌دار
 
