@@ -484,7 +484,14 @@ export function createHeroServer(options = {}) {
     ? createConfiguredAiProviderAdapters(providerAdapterOptions)
     : Object.freeze({}));
   const externalSpendAuthorizer = options.externalSpendAuthorizer ?? createRuntimeExternalSpendAuthorizer();
-  const liveAdvisorPolicy = options.liveAdvisorPolicy ?? (() => readRuntimeExternalSpendPolicy());
+  // The picker/preflight path and the orchestration authorizer must evaluate
+  // the same immutable Test authorization snapshot. Reading them separately
+  // allowed a version/step/capability rotation to pass one gate and fail the
+  // next one as ACTIVE_AUTHORIZATION_SNAPSHOT_REJECTED.
+  const liveAdvisorPolicy = options.liveAdvisorPolicy
+    ?? (typeof externalSpendAuthorizer?.policySnapshot === "function"
+      ? externalSpendAuthorizer.policySnapshot
+      : (() => readRuntimeExternalSpendPolicy()));
   const dashboard = options.dashboard ?? createControlDashboard({ now: options.now, providerAdapters, externalSpendAuthorizer });
   const repositoryRoot = options.repositoryRoot ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
   const repositoryReadContext = options.repositoryReadContext ?? createRepositoryReadContext({
@@ -1250,7 +1257,7 @@ export function createHeroServer(options = {}) {
       COST_POLICY_INSUFFICIENT: "سقف هزینهٔ هر درخواست برای Context فعلی کافی نیست.",
       PROVIDER_UNHEALTHY: "بررسی سلامت Provider ناموفق بود.",
       PROVIDER_CIRCUIT_OPEN: "Provider پس از خطاهای مکرر موقتاً متوقف شده است.",
-      ACTIVE_AUTHORIZATION_SNAPSHOT_REJECTED: "مجوز نسخه‌دار هزینه با درخواست فعلی هم‌خوان نیست."
+      ACTIVE_AUTHORIZATION_SNAPSHOT_REJECTED: "مجوز نسخه‌دار هزینه با درخواست فعلی هم‌خوان نیست؛ تنظیمات نسخه، Step، Provider، Model، Role و قابلیت باید از یک snapshot واحد خوانده شوند."
     };
     return messages[code] ?? "فراخوانی Provider کامل نشد.";
   }

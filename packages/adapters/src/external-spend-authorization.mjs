@@ -118,7 +118,7 @@ export function createRuntimeExternalSpendAuthorizer({ env = process.env, clock 
   const policy = readRuntimeExternalSpendPolicy({ env });
   if (typeof clock !== "function") throw new ExternalSpendAuthorizationError("EXTERNAL_SPEND_CONFIGURATION_INVALID", "clock must be a function.");
 
-  return Object.freeze(async function authorizeExternalSpend(input = {}) {
+  const authorizeExternalSpend = async function authorizeExternalSpend(input = {}) {
     if (!policy.active) return rejection(policy, "EXTERNAL_SPEND_AUTHORIZATION_INACTIVE", "External spend authorization is inactive.");
     if (policy.globalStop) return rejection(policy, "GLOBAL_STOP_ACTIVE", "External spend Global Stop is active.");
     if (clock() >= policy.expiresAtMs) return rejection(policy, "EXTERNAL_SPEND_AUTHORIZATION_EXPIRED", "External spend authorization has expired.");
@@ -152,5 +152,17 @@ export function createRuntimeExternalSpendAuthorizer({ env = process.env, clock 
       globalStop: false,
       safeCheckpointRequired: false
     });
+  };
+
+  // Keep advisor preflight and invocation verification on one immutable,
+  // non-sensitive authorization snapshot. A rotated Test env is adopted on
+  // restart, never half-way through a running process.
+  Object.defineProperty(authorizeExternalSpend, "policySnapshot", {
+    value: () => policy,
+    enumerable: false,
+    configurable: false,
+    writable: false
   });
+
+  return Object.freeze(authorizeExternalSpend);
 }

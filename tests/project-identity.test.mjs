@@ -466,6 +466,7 @@ test("Project-bound live advisor profiles invoke through the bounded authorizati
     listCapabilities() { return []; }
   };
   const externalSpendAuthorizer = async input => ({ authorized: true, code: "AUTHORIZED", action: "external-spend", authorizationId: input.authorizationId, projectId: input.projectId, stepId: input.stepId, documentVersion: input.documentVersion, providerId: input.providerId, modelId: input.modelId, role: input.role, capability: input.capability, maxCostUnits: 50000, globalStop: false, safeCheckpointRequired: false });
+  Object.defineProperty(externalSpendAuthorizer, "policySnapshot", { value: () => liveAdvisorPolicy });
   const dashboard = createControlDashboard({ now, providerAdapters: { openai: adapter }, externalSpendAuthorizer });
   const actor = { kind: "project-owner", id: "hero-owner" };
   const projectWorkspace = createProjectWorkspace({ now });
@@ -481,8 +482,8 @@ test("Project-bound live advisor profiles invoke through the bounded authorizati
   // bootstrap its fixed redacted context anchor, then invoke once.
   await dashboard.checkAiProviderHealth({ providerId: "openai", profileId: "live-advisor-profile", actor });
   const app = createHeroServer({
-    host: "127.0.0.1", port: 0, now, dashboard, projectAccessRegistry: access, humanIdentity: identity,
-    liveAdvisorPolicy: () => liveAdvisorPolicy, projectWorkspace
+    host: "127.0.0.1", port: 0, now, dashboard, externalSpendAuthorizer, projectAccessRegistry: access, humanIdentity: identity,
+    projectWorkspace
   });
   const address = await app.start();
   t.after(() => app.stop());

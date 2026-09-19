@@ -989,6 +989,9 @@ export function createAiOrchestration(options = {}) {
       } catch (error) {
         return blockedInvocation({ input, actor, profile, provider, code: "ACTIVE_AUTHORIZATION_SNAPSHOT_REJECTED", reason: safeErrorMessage(error, "The active authorization snapshot could not be verified."), idempotencyKey, value });
       }
+      const authorizationRejection = authorization?.authorized === false && typeof authorization.code === "string"
+        ? authorization.code
+        : null;
       if (
         authorization?.authorized !== true
         || authorization?.code !== "AUTHORIZED"
@@ -1006,7 +1009,18 @@ export function createAiOrchestration(options = {}) {
         || !Number.isInteger(authorization?.maxCostUnits)
         || authorization.maxCostUnits < requestedMaxCostUnits
       ) {
-        return blockedInvocation({ input, actor, profile, provider, code: "ACTIVE_AUTHORIZATION_SNAPSHOT_REJECTED", reason: "The active authorization snapshot does not exactly match the live invocation.", idempotencyKey, value });
+        return blockedInvocation({
+          input,
+          actor,
+          profile,
+          provider,
+          code: "ACTIVE_AUTHORIZATION_SNAPSHOT_REJECTED",
+          reason: authorizationRejection
+            ? `The active authorization snapshot was rejected: ${authorizationRejection}.`
+            : "The active authorization snapshot does not exactly match the live invocation.",
+          idempotencyKey,
+          value
+        });
       }
       verifiedExternalAuthorization = authorization;
       effectiveMaxCostUnits = requestedMaxCostUnits;

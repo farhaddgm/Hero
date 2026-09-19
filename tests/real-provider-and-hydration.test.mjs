@@ -191,6 +191,42 @@ test("runtime external-spend authorization is exact, time-bound, cost-bound and 
   assert.equal((await inactive({})).code, "EXTERNAL_SPEND_AUTHORIZATION_INACTIVE");
 });
 
+test("runtime authorization exposes one immutable snapshot for selection and dispatch", async () => {
+  const env = {
+    HERO_EXTERNAL_SPEND_AUTHORIZATION_ACTIVE: "true",
+    HERO_EXTERNAL_SPEND_AUTHORIZATION_ID: "AUTH-SNAPSHOT-001",
+    HERO_EXTERNAL_SPEND_PROJECT_ID: "hero",
+    HERO_EXTERNAL_SPEND_STEP_ID: "HERO-AI-TEST-001",
+    HERO_EXTERNAL_SPEND_DOCUMENT_VERSION: "v1.1",
+    HERO_EXTERNAL_SPEND_PROVIDER_ID: "openai",
+    HERO_EXTERNAL_SPEND_MODEL_IDS: "gpt-5.6-luna",
+    HERO_EXTERNAL_SPEND_ROLE_IDS: "analyst",
+    HERO_EXTERNAL_SPEND_CAPABILITIES: "smart-tester,walkthrough-guide,form-suggestions",
+    HERO_EXTERNAL_SPEND_MAX_COST_UNITS: "50000",
+    HERO_EXTERNAL_SPEND_EXPIRES_AT: "2027-02-23T23:59:59.000Z",
+    HERO_EXTERNAL_SPEND_GLOBAL_STOP: "false"
+  };
+  const policy = readRuntimeExternalSpendPolicy({ env });
+  const authorizer = createRuntimeExternalSpendAuthorizer({ env, clock: () => Date.parse("2026-09-19T00:00:00.000Z") });
+  assert.deepEqual(authorizer.policySnapshot(), policy);
+  const approved = await authorizer({
+    authorizationId: policy.authorizationId,
+    projectId: policy.projectId,
+    stepId: policy.stepId,
+    documentVersion: policy.documentVersion,
+    operation: "external-spend",
+    providerId: policy.providerId,
+    modelId: policy.modelIds[0],
+    role: policy.roleIds[0],
+    capability: "smart-tester",
+    maxCostUnits: 10_000
+  });
+  assert.equal(approved.authorized, true);
+  assert.equal(approved.documentVersion, authorizer.policySnapshot().documentVersion);
+  assert.equal(approved.stepId, authorizer.policySnapshot().stepId);
+  assert.equal(approved.maxCostUnits, policy.maxCostUnits);
+});
+
 test("provider cost accounting supports separate input and output rates", async () => {
   const adapter = createOpenAiResponsesAdapter({
     endpoint: "https://api.example.test/v1/responses",
