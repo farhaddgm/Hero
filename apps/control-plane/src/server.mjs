@@ -96,7 +96,7 @@ import { createFinalReadiness, FinalReadinessError } from "../../../packages/dom
 import { createBackofficeCompletion, BackofficeCompletionError } from "../../../packages/domain/src/backoffice-completion.mjs";
 import { AiOrchestrationError } from "../../../packages/domain/src/ai-orchestration.mjs";
 import { evaluateAiAdvisorReadiness } from "../../../packages/domain/src/ai-advisor-readiness.mjs";
-import { FormSuggestionsError, FORM_PROVIDER_SUGGESTIONS_SCHEMA, FORM_SUGGESTIONS_VERSION, createFormSuggestions, createProviderFormSuggestions, prepareFormSuggestionRequest } from "../../../packages/domain/src/form-suggestions.mjs";
+import { FormSuggestionsError, FORM_PROVIDER_SUGGESTIONS_SCHEMA, FORM_SUGGESTIONS_VERSION, createFormSuggestions, createProviderFormSuggestions, prepareFormSuggestionRefinement, prepareFormSuggestionRequest } from "../../../packages/domain/src/form-suggestions.mjs";
 import { rebuildPortfolioReadModel, rebuildProjectReadModel } from "../../../packages/domain/src/backoffice-read-models.mjs";
 import { ProductDevelopmentError, createProductDevelopmentCatalog } from "../../../packages/domain/src/product-development.mjs";
 import { HeroSecretStoreError, createConfiguredAiProviderAdapters, createHeroSecretStore, createNotionApiAdapter, createPostgresRuntime, createPricingCatalogRegistry, createRuntimeExternalSpendAuthorizer, readRuntimeExternalSpendPolicy } from "../../../packages/adapters/src/index.mjs";
@@ -2453,6 +2453,75 @@ export function createHeroServer(options = {}) {
           throw new FormSuggestionsError("FORM_SUGGESTION_PROVIDER_OUTPUT_INVALID", "Provider پاسخ JSON معتبر برای پیشنهاد فرم برنگرداند.", 502);
         }
         const formSuggestions = createProviderFormSuggestions({ ...formRequest, actor: authenticatedOwner, selectedAdvisor, providerOutput });
+        return json(response, 200, {
+          service: HERO_SERVICE,
+          formSuggestions,
+          providerInvocation: Object.freeze({ invocationId: live.invocationId, providerInvoked: true, costUnits: live.costUnits, status: "completed" }),
+          evidence: live.evidence
+        });
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/form-suggestions/refine") {
+        if (!authenticatedOwner || !["human-identity", "admin"].includes(authenticatedOwner.source)) {
+          throw new HumanIdentityError("IDENTITY_AUTH_REQUIRED", "برای اصلاح تعاملی پیشنهاد فرم ورود انسانی یا نشست Admin لازم است.", 401);
+        }
+        const input = await readJson(request, 24 * 1024);
+        const queryProjectId = url.searchParams.get("projectId");
+        if (input.projectId !== undefined && (input.projectId ?? null) !== (queryProjectId ?? null)) {
+          throw new FormSuggestionsError("FORM_SUGGESTION_SCOPE_MISMATCH", "Scope پروژهٔ اصلاح پیشنهاد فرم معتبر نیست.", 400);
+        }
+        const projectId = queryProjectId || null;
+        const options = formSuggestionOptions(projectId);
+        const selectedAdvisor = input.selectedAdvisor;
+        if (!options.profiles.some(profile => profile.profileId === selectedAdvisor && profile.selectable === true)) {
+          throw new FormSuggestionsError("FORM_SUGGESTION_ADVISOR_UNAVAILABLE", "AI انتخاب‌شده برای اصلاح پیشنهاد آماده یا مجاز نیست.", 403);
+        }
+        let authoritativeGoal = input.softwareGoal;
+        if (projectId) authoritativeGoal = projectOverview(projectId).intake?.goal || authoritativeGoal;
+        const refinement = prepareFormSuggestionRefinement({
+          actor: authenticatedOwner,
+          projectId,
+          formId: input.formId,
+          formTitle: input.formTitle,
+          softwareGoal: authoritativeGoal,
+          boxDescription: input.boxDescription,
+          fields: input.fields,
+          selectedAdvisor,
+          feedback: input.feedback,
+          iteration: input.iteration
+        });
+        const selectedProfile = options.profiles.find(profile => profile.profileId === selectedAdvisor);
+        const formRequest = prepareFormSuggestionRequest({
+          actor: authenticatedOwner,
+          projectId,
+          formId: refinement.formId,
+          formTitle: refinement.formTitle,
+          softwareGoal: refinement.softwareGoal,
+          boxDescription: refinement.boxDescription,
+          fields: refinement.fields,
+          selectedAdvisor
+        });
+        const live = await invokeSelectedLiveAdvisor({
+          purpose: "form-suggestions",
+          projectId,
+          selectedProfile,
+          question: `ادمین پس از دیدن پیشنهادهای قبلی این بازخورد را داده است: «${refinement.feedback}». بازخورد را فقط برای بهترکردن پیشنهادهای همین باکس اعمال کن. ابتدا کاربرد واقعی باکس را دوباره بررسی کن و سپس در boxPurpose شرح فارسی روشن و مفصل و یک تا سه پیشنهاد جدید و قابل انتخاب برگردان. فقط JSON معتبر با schema form-suggestions-v1 برگردان؛ برای هر پیشنهاد دقیقاً یک entry برای هر field و فقط مقدارهای مجاز همان field بده.`,
+          // Feedback remains transient in the request, not in the structured
+          // form context or the redacted event evidence.
+          context: { pathname: "/form-suggestions", featureKey: "form.suggestions.refine", formSuggestion: formRequest },
+          localResponse: `Generate ${FORM_PROVIDER_SUGGESTIONS_SCHEMA} with boxPurpose and revised suggestions only; no prose outside JSON, secrets, paths, tools, or executable actions.`
+        });
+        let providerOutput;
+        try {
+          providerOutput = JSON.parse(live.response);
+        } catch {
+          throw new FormSuggestionsError("FORM_SUGGESTION_PROVIDER_OUTPUT_INVALID", "Provider پاسخ JSON معتبر برای اصلاح پیشنهاد فرم برنگرداند.", 502);
+        }
+        const suggestions = createProviderFormSuggestions({ ...formRequest, actor: authenticatedOwner, selectedAdvisor, providerOutput });
+        const formSuggestions = Object.freeze({
+          ...suggestions,
+          refinement: Object.freeze({ iteration: refinement.iteration, feedbackAcknowledged: true })
+        });
         return json(response, 200, {
           service: HERO_SERVICE,
           formSuggestions,

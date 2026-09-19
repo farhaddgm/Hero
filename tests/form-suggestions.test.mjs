@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createFormSuggestions, createProviderFormSuggestions, FormSuggestionsError, FORM_PROVIDER_SUGGESTIONS_SCHEMA, FORM_SUGGESTIONS_VERSION, prepareFormSuggestionRequest } from "../packages/domain/src/form-suggestions.mjs";
+import { createFormSuggestions, createProviderFormSuggestions, FormSuggestionsError, FORM_PROVIDER_SUGGESTIONS_SCHEMA, FORM_SUGGESTION_MAX_REFINEMENTS, FORM_SUGGESTIONS_VERSION, prepareFormSuggestionRefinement, prepareFormSuggestionRequest } from "../packages/domain/src/form-suggestions.mjs";
 import { getHeroGlobalNavigation, getHeroShellScript, getHeroShellStyles } from "../apps/control-plane/src/hero-shell.mjs";
 
 const actor = { kind: "project-owner", id: "hero-owner" };
@@ -84,6 +84,27 @@ test("provider form suggestions are schema-bound, option-bound and omit existing
   assert.throws(() => createProviderFormSuggestions({ ...request, actor, selectedAdvisor: "openai-profile-v1", providerOutput: { schema: FORM_PROVIDER_SUGGESTIONS_SCHEMA, suggestions: [] } }), error => error instanceof FormSuggestionsError && error.code === "FORM_SUGGESTION_PROVIDER_OUTPUT_INVALID");
 });
 
+test("form suggestion refinement requires a live advisor, bounded safe feedback and a limited round", () => {
+  const refinement = prepareFormSuggestionRefinement({
+    actor,
+    projectId: "project-vpn",
+    formId: "intake-form",
+    formTitle: "Intake پروژه",
+    softwareGoal: "ساخت یک محصول آزمایشی قابل انتقال",
+    boxDescription: "ثبت هدف و کاربران پروژه",
+    fields,
+    selectedAdvisor: "openai-profile-v1",
+    feedback: "پیشنهادها کوتاه‌تر باشند و فقط روی شروع کم‌ریسک تمرکز کنند.",
+    iteration: 1
+  });
+  assert.equal(refinement.feedback, "پیشنهادها کوتاه‌تر باشند و فقط روی شروع کم‌ریسک تمرکز کنند.");
+  assert.equal(refinement.iteration, 1);
+  assert.equal(refinement.fields[0].value, undefined, "existing field values remain outside provider context");
+  assert.throws(() => prepareFormSuggestionRefinement({ ...refinement, actor, selectedAdvisor: "local" }), error => error instanceof FormSuggestionsError && error.code === "FORM_SUGGESTION_REFINEMENT_ADVISOR_INVALID");
+  assert.throws(() => prepareFormSuggestionRefinement({ ...refinement, actor, feedback: "api key: should-not-leave-the-browser" }), error => error instanceof FormSuggestionsError && error.code === "FORM_SUGGESTION_REFINEMENT_FEEDBACK_INVALID");
+  assert.throws(() => prepareFormSuggestionRefinement({ ...refinement, actor, iteration: FORM_SUGGESTION_MAX_REFINEMENTS + 1 }), error => error instanceof FormSuggestionsError && error.code === "FORM_SUGGESTION_REFINEMENT_LIMIT");
+});
+
 test("shared shell exposes the form suggestion switch and safe popup contract", () => {
   const nav = getHeroGlobalNavigation({ active: "workspace", projectId: "project-vpn", environment: "Test" });
   const script = getHeroShellScript();
@@ -95,9 +116,13 @@ test("shared shell exposes the form suggestion switch and safe popup contract", 
   assert.match(script, /اعلام پیشنهاد/);
   assert.match(script, /انتخاب این پیشنهاد/);
   assert.match(script, /شرح هدف این باکس/);
+  assert.match(script, /\/api\/form-suggestions\/refine/);
+  assert.match(script, /بهبود پیشنهاد با AI/);
+  assert.match(script, /ساخت پیشنهاد بهتر/);
   assert.match(script, /foundation-form/);
   assert.doesNotMatch(script, /هدف کوتاه نرم‌افزار/);
   assert.match(script, /data-hero-form-suggestion-trigger/);
   assert.match(styles, /hero-form-suggestion-dialog/);
   assert.match(styles, /hero-form-suggestion-results/);
+  assert.match(styles, /hero-form-suggestion-feedback/);
 });

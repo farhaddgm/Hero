@@ -2,6 +2,7 @@ export const FORM_SUGGESTIONS_VERSION = "1.0.0";
 export const FORM_PROVIDER_SUGGESTIONS_SCHEMA = "form-suggestions-v1";
 export const FORM_SUGGESTION_MAX_FIELDS = 32;
 export const FORM_SUGGESTION_MAX_SUGGESTIONS = 3;
+export const FORM_SUGGESTION_MAX_REFINEMENTS = 3;
 
 const IDENTIFIER = /^[A-Za-z][A-Za-z0-9._:-]{0,127}$/;
 const SENSITIVE_FIELD = /(?:password|passwd|secret|credential|token|api[._-]?key|private[._-]?key|mfa|otp|رمز|کلید\s*api)/iu;
@@ -150,6 +151,25 @@ export function prepareFormSuggestionRequest(input = {}) {
     // Existing values are intentionally omitted from the Provider context.
     fields: normalized.fields.map(field => ({ name: field.name, type: field.type, label: field.label, options: field.options, required: field.required }))
   });
+}
+
+export function prepareFormSuggestionRefinement(input = {}) {
+  const request = prepareFormSuggestionRequest(input);
+  const selectedAdvisor = input.selectedAdvisor;
+  if (typeof selectedAdvisor !== "string" || selectedAdvisor === "local" || !IDENTIFIER.test(selectedAdvisor)) {
+    throw new FormSuggestionsError("FORM_SUGGESTION_REFINEMENT_ADVISOR_INVALID", "A live Provider profile is required to refine form suggestions.", 400);
+  }
+  let feedback;
+  try {
+    feedback = text("form suggestion feedback", input.feedback, { minimum: 3, maximum: 1_000 });
+  } catch {
+    throw new FormSuggestionsError("FORM_SUGGESTION_REFINEMENT_FEEDBACK_INVALID", "Feedback must be a short, safe description of the requested improvement.", 400);
+  }
+  const iteration = Number(input.iteration);
+  if (!Number.isInteger(iteration) || iteration < 1 || iteration > FORM_SUGGESTION_MAX_REFINEMENTS) {
+    throw new FormSuggestionsError("FORM_SUGGESTION_REFINEMENT_LIMIT", `Only ${FORM_SUGGESTION_MAX_REFINEMENTS} refinement rounds are allowed per form session.`, 400);
+  }
+  return copy({ ...request, selectedAdvisor, feedback, iteration });
 }
 
 function providerEntry(field, candidate, index) {

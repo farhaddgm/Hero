@@ -578,6 +578,20 @@ test("Project-bound live advisor profiles invoke through the bounded authorizati
   assert.equal(formPayload.evidence.capability, "form-suggestions");
   assert.equal(lastProviderInput.context.formSuggestion.fields[0].value, undefined, "existing form values must not enter the Provider context");
   assert.doesNotMatch(JSON.stringify(formPayload), /مقدار قبلی محرمانه/);
+  const formRefinement = await fetch(`${base}/api/form-suggestions/refine?projectId=project-vpn`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ projectId: "project-vpn", formId: "intake-form", formTitle: "Intake پروژه", softwareGoal: "هدف فعلی فرم", boxDescription: "ثبت هدف و محدودیت‌ها", selectedAdvisor: "live-advisor-profile", feedback: "پیشنهادها کوتاه‌تر باشند و فقط شروع کم‌ریسک را نشان دهند.", iteration: 1, fields: [{ name: "goal", type: "textarea", label: "هدف", value: "مقدار قبلی محرمانه نیست اما نباید به Provider ارسال شود" }, { name: "riskLevel", type: "select", label: "ریسک", options: [{ value: "low", label: "کم" }, { value: "high", label: "زیاد" }] }, { name: "constraints", type: "textarea", label: "محدودیت" }, { name: "approved", type: "checkbox", label: "تأیید", value: "approved" }] })
+  });
+  assert.equal(formRefinement.status, 200);
+  const refinementPayload = await formRefinement.json();
+  assert.equal(refinementPayload.formSuggestions.providerInvoked, true);
+  assert.deepEqual(refinementPayload.formSuggestions.refinement, { iteration: 1, feedbackAcknowledged: true });
+  assert.equal(refinementPayload.evidence.capability, "form-suggestions");
+  assert.equal(lastProviderInput.context.featureKey, "form.suggestions.refine");
+  assert.equal(lastProviderInput.context.formSuggestion.feedback, undefined, "feedback must not be embedded in the structured provider context");
+  assert.match(lastProviderInput.request.question, /پیشنهادها کوتاه‌تر باشند/);
+  assert.doesNotMatch(JSON.stringify(persistedDomainEvents), /پیشنهادها کوتاه‌تر باشند/, "feedback must not be persisted in domain events");
   rejectLiveInvocation = true;
   const blockedResponse = await fetch(`${base}/api/smart-tester/advice?projectId=project-vpn&surface=%2Fworkspace&featureKey=workspace.intake&boxId=intake-card`, { method: "POST", headers, body: JSON.stringify({ surface: "/workspace", featureKey: "workspace.intake", boxId: "intake-card", projectId: "project-vpn", advisorProfileId: "live-advisor-profile", question: "درخواست باید در مرز مجوز متوقف شود" }) });
   assert.equal(blockedResponse.status, 502);
