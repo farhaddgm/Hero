@@ -1181,6 +1181,9 @@ export function createHeroServer(options = {}) {
       stepId: policy.stepId,
       documentVersion: policy.documentVersion,
       capability: purpose,
+      providerId,
+      modelId,
+      role,
       // The authorization remains the cumulative ceiling.  Live advisors
       // additionally use the small, versioned per-request bound published
       // with this Test-only model catalog, leaving room for both approved

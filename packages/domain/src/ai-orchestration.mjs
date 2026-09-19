@@ -206,6 +206,22 @@ function hasSeparateExternalSpendAuthorization(input, projectId) {
   return true;
 }
 
+function authorizationMismatchFields({ input, authorization, projectId, providerId, modelId, role, requestedMaxCostUnits }) {
+  const expected = input?.externalSpendAuthorization ?? {};
+  const mismatches = [];
+  if (authorization?.authorizationId !== expected.authorizationId) mismatches.push("authorizationId");
+  if (authorization?.projectId !== projectId) mismatches.push("projectId");
+  if (authorization?.stepId !== expected.stepId) mismatches.push("stepId");
+  if (authorization?.documentVersion !== expected.documentVersion) mismatches.push("documentVersion");
+  if (authorization?.providerId !== providerId) mismatches.push("providerId");
+  if (authorization?.modelId !== modelId) mismatches.push("modelId");
+  if (authorization?.role !== role) mismatches.push("role");
+  if (authorization?.capability !== expected.capability) mismatches.push("capability");
+  if (authorization?.globalStop === true || authorization?.safeCheckpointRequired === true) mismatches.push("stop-control");
+  if (!Number.isInteger(authorization?.maxCostUnits) || authorization.maxCostUnits < requestedMaxCostUnits) mismatches.push("maxCostUnits");
+  return mismatches;
+}
+
 function normalizeUsage(usage) {
   const value = usage ?? {};
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new AiOrchestrationError("USAGE_INVALID", "Provider usage must be a structured object.");
@@ -956,7 +972,13 @@ export function createAiOrchestration(options = {}) {
     }
     let verifiedExternalAuthorization = null;
     let dispatchReadiness = null;
-    let effectiveMaxCostUnits = profile.maxCostUnits;
+    // A legacy snapshot may contain a missing, null or malformed ceiling.
+    // Keep the profile usable after hydration, while the live authorization
+    // remains the final narrower ceiling and can never be widened here.
+    const profileMaxCostUnits = Number.isSafeInteger(profile.maxCostUnits) && profile.maxCostUnits >= 0
+      ? profile.maxCostUnits
+      : 100_000;
+    let effectiveMaxCostUnits = profileMaxCostUnits;
     if (provider.mode === "live") {
       if (typeof externalSpendAuthorizer !== "function") {
         return blockedInvocation({ input, actor, profile, provider, code: "ACTIVE_AUTHORIZATION_SNAPSHOT_REQUIRED", reason: "The active authorization snapshot verifier is not configured.", idempotencyKey, value });
@@ -968,8 +990,8 @@ export function createAiOrchestration(options = {}) {
       // authorization as the final source of truth for external spend.
       const authorizedCeiling = input.externalSpendAuthorization?.maxCostUnits;
       const requestedMaxCostUnits = Number.isSafeInteger(authorizedCeiling) && authorizedCeiling >= 0
-        ? Math.min(profile.maxCostUnits, authorizedCeiling)
-        : profile.maxCostUnits;
+        ? Math.min(profileMaxCostUnits, authorizedCeiling)
+        : profileMaxCostUnits;
       try {
         authorization = await externalSpendAuthorizer({
           authorizationId: input.externalSpendAuthorization.authorizationId,
@@ -992,6 +1014,15 @@ export function createAiOrchestration(options = {}) {
       const authorizationRejection = authorization?.authorized === false && typeof authorization.code === "string"
         ? authorization.code
         : null;
+      const mismatchFields = authorizationMismatchFields({
+        input,
+        authorization,
+        projectId,
+        providerId: provider.providerId,
+        modelId: profile.modelId,
+        role,
+        requestedMaxCostUnits
+      });
       if (
         authorization?.authorized !== true
         || authorization?.code !== "AUTHORIZED"
@@ -1007,7 +1038,7 @@ export function createAiOrchestration(options = {}) {
         || authorization?.role !== role
         || authorization?.capability !== input.externalSpendAuthorization.capability
         || !Number.isInteger(authorization?.maxCostUnits)
-        || authorization.maxCostUnits < requestedMaxCostUnits
+        || mismatchFields.length > 0
       ) {
         return blockedInvocation({
           input,
@@ -1016,8 +1047,8 @@ export function createAiOrchestration(options = {}) {
           provider,
           code: "ACTIVE_AUTHORIZATION_SNAPSHOT_REJECTED",
           reason: authorizationRejection
-            ? `The active authorization snapshot was rejected: ${authorizationRejection}.`
-            : "The active authorization snapshot does not exactly match the live invocation.",
+            ? `The active authorization snapshot was rejected: ${authorizationRejection}${mismatchFields.length > 0 ? ` (${mismatchFields.join(", ")}).` : "."}`
+            : `The active authorization snapshot does not exactly match the live invocation${mismatchFields.length > 0 ? ` (${mismatchFields.join(", ")})` : ""}.`,
           idempotencyKey,
           value
         });

@@ -242,6 +242,60 @@ test("hydration backfills the live profile cost ceiling for legacy Profiles", as
   assert.equal(hydrated.snapshot().profiles[0].costLatencyPriority, "balanced");
 });
 
+test("live dispatch safely defaults an invalid legacy ceiling before applying authorization", async () => {
+  const calls = [];
+  const adapter = {
+    providerId: "openai",
+    mode: "live",
+    async assertDispatchReady() { return { status: "ok", pricing: { catalogVersion: "test", currency: "USD" } }; },
+    async generate() { calls.push(true); return { output: { schema: "analysis-v1", answer: "ok" }, usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2, costUnits: 1 } }; }
+  };
+  const authorizer = async input => ({
+    authorized: true,
+    code: "AUTHORIZED",
+    action: "external-spend",
+    authorizationId: input.authorizationId,
+    projectId: input.projectId,
+    stepId: input.stepId,
+    documentVersion: input.documentVersion,
+    providerId: input.providerId,
+    modelId: input.modelId,
+    role: input.role,
+    capability: input.capability,
+    maxCostUnits: 50_000,
+    globalStop: false,
+    safeCheckpointRequired: false
+  });
+  const orchestration = createAiOrchestration({
+    now,
+    providerAdapters: { openai: adapter },
+    externalSpendAuthorizer: authorizer
+  });
+  orchestration.registerProvider({ providerId: "openai", mode: "live", displayName: "OpenAI Test", adapter, actor: OWNER, idempotencyKey: "invalid-ceiling-provider" });
+  orchestration.registerModel({ providerId: "openai", modelId: "gpt-legacy", actor: OWNER, idempotencyKey: "invalid-ceiling-model" });
+  orchestration.registerProfile({ profileId: "invalid-ceiling-profile", role: "analyst", providerId: "openai", modelId: "gpt-legacy", credentialRef: "vault:hero/test/openai/default", promptVersion: "legacy-v1", contextPolicy: "approved", toolPolicy: "read-only", outputSchema: "analysis-v1", status: "active", maxCostUnits: 10_000, actor: OWNER, idempotencyKey: "invalid-ceiling-profile-register" });
+  orchestration.bindRole({ bindingId: "invalid-ceiling-binding", projectId: "hero", role: "analyst", profileId: "invalid-ceiling-profile", actor: OWNER, idempotencyKey: "invalid-ceiling-binding-register" });
+  const state = orchestration.persistenceSnapshot();
+  const legacyProfile = { ...state.profiles[0], maxCostUnits: null };
+  const hydrated = createAiOrchestration({
+    now,
+    providerAdapters: { openai: adapter },
+    externalSpendAuthorizer: authorizer
+  });
+  hydrated.hydrate({ ...state, profiles: [legacyProfile] });
+  const result = await hydrated.invoke({
+    invocationId: "invalid-ceiling-invocation",
+    projectId: "hero",
+    role: "analyst",
+    contextSnapshotId: "invalid-ceiling-context",
+    idempotencyKey: "invalid-ceiling-invocation-key",
+    request: "test",
+    externalSpendAuthorization: { authorized: true, code: "AUTHORIZED", action: "external-spend", authorizationId: "AUTH-AI-TEST-001", projectId: "hero", stepId: "HERO-AI-TEST-001", documentVersion: "v1.1", capability: "smart-tester", maxCostUnits: 10_000, globalStop: false, safeCheckpointRequired: false }
+  });
+  assert.equal(result.invocation.status, "completed");
+  assert.equal(calls.length, 1);
+});
+
 test("provider cost accounting supports separate input and output rates", async () => {
   const adapter = createOpenAiResponsesAdapter({
     endpoint: "https://api.example.test/v1/responses",
