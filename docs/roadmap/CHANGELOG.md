@@ -877,3 +877,9 @@
 
 - اصلاح شد: `promote-test-immutable.sh` پیش از هر pull، تغییر env یا recreate کانتینر، فایل env Test را از نظر کلیدهای تکراری بررسی می‌کند و در صورت ابهام fail-closed متوقف می‌شود؛ فقط نام کلید گزارش می‌شود و مقدار Secret هرگز چاپ نمی‌شود.
 - شواهد: Candidate `v1.1.5-rc.10` از commit `e52e437` با run `35402316316` و digest immutable `sha256:e808aedc95075a3af4270aaaf971281de14a5a05c40570511ecd3948c6efb225` ساخته شد؛ `474/474` تست، build و documentation check موفق بودند. این candidate هنوز روی Runtime Test promote نشده است.
+
+# ۲۰۲۶-۰۹-۱۹ — promotion موفق rc.10 روی Hero Test
+
+- طبق گزارش اپراتور، duplicate متناقض `HERO_ENABLE_REAL_PROVIDERS` در فایل env Test رفع شد؛ مقدار فعال `true` باقی ماند و هیچ Secretی نمایش یا تغییر داده نشد.
+- `v1.1.5-rc.10` با digest immutable `sha256:e808aedc95075a3af4270aaaf971281de14a5a05c40570511ecd3948c6efb225` فقط روی Hero Test promote و verify شد؛ `/health`، `/ready` و smoke PASS شدند.
+- هنگام restart یک `connection reset` موقت رخ داد و با readiness و smoke موفق نهایی شد. rollback point metadata-only در `/etc/hero/hero-test.env.release-state.before-e808aedc95075a3af4270aaaf971281de14a5a05c40570511ecd3948c6efb225.json` ثبت شد. Production، Pilot و Secretها untouched هستند.

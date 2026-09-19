@@ -20,14 +20,14 @@
 
 ### وضعیت جاری source و انتشار Test — ۲۰۲۶-۰۹-۱۹
 
-آخرین source معتبر این roadmap روی branch `codex/test-release-reliability-20260916` در commit `e52e437` است. Candidate `v1.1.5-rc.10` با run `35402316316` و digest `sha256:e808aedc95075a3af4270aaaf971281de14a5a05c40570511ecd3948c6efb225` همهٔ گیت‌های CI را گذرانده، اما هنوز روی Runtime Test promote نشده است. آخرین runtime تأییدشدهٔ Test همان نسخهٔ قبلی است؛ این تفکیک عمداً حفظ شده تا شواهد source با وضعیت واقعی runtime اشتباه نشود. هیچ Production، Pilot، Secret یا Provider زنده در این batch تغییر نکرده است.
+آخرین source معتبر این roadmap روی branch `codex/test-release-reliability-20260916` در commit `e52e437` است. Candidate `v1.1.5-rc.10` با run `35402316316` و digest `sha256:e808aedc95075a3af4270aaaf971281de14a5a05c40570511ecd3948c6efb225` همهٔ گیت‌های CI را گذرانده و روی Runtime Test promote و verify شده است. هیچ Production، Pilot، Secret یا Provider زنده در این batch تغییر نکرده است.
 
 ## ۲. وضعیت مبنای تأییدشده
 
 | موضوع | واقعیت تأییدشده | مرز صریح |
 |---|---|---|
-| source Hero | branch `codex/test-release-reliability-20260916`، commit `e52e437`؛ شامل قرارداد/admission، adapter رسمی گیت‌دار، stop/cleanup idempotent، capacity/lease lifecycle، probe ظرفیت، artifact contract، harness رسمی PF-3 و انتخاب project-scoped Target Test است | Candidate `v1.1.5-rc.10` با digest `sha256:e808aedc95075a3af4270aaaf971281de14a5a05c40570511ecd3948c6efb225` در CI تأیید شده ولی هنوز promote نشده است. |
-| Test Hero | آخرین runtime ثبت‌شده: `v1.1.5-rc.5`، digest `ghcr.io/farhaddgm/hero@sha256:0860c09fbd815ef381690ff354e68dee185786279ed34499cf7a5a3bdf1e2bf3` | فقط Hero Test است؛ `/health`، `/ready` و smoke موفق‌اند؛ candidate جدید تا promotion جداگانه وارد runtime نمی‌شود. |
+| source Hero | branch `codex/test-release-reliability-20260916`، commit `e52e437`؛ شامل قرارداد/admission، adapter رسمی گیت‌دار، stop/cleanup idempotent، capacity/lease lifecycle، probe ظرفیت، artifact contract، harness رسمی PF-3 و انتخاب project-scoped Target Test است | Candidate `v1.1.5-rc.10` با digest `sha256:e808aedc95075a3af4270aaaf971281de14a5a05c40570511ecd3948c6efb225` در CI تأیید، promote و verify شده است. |
+| Test Hero | آخرین runtime ثبت‌شده: `v1.1.5-rc.10`، digest `ghcr.io/farhaddgm/hero@sha256:e808aedc95075a3af4270aaaf971281de14a5a05c40570511ecd3948c6efb225` | فقط Hero Test است؛ `/health`، `/ready` و smoke موفق‌اند و rollback point metadata-only ثبت شده است. |
 | آخرین promotion Test | `v1.1.4-rc.15`، run `35314609142`، runtime commit `5c7291e069cddef935d269690fcd37e8891d0121` | manifest و digest immutable روی host Test promote و verify شدند؛ خطای موقت connection reset هنگام restart با health/readiness و smoke موفق نهایی شد. |
 | شواهد rollback | قبل از promotion، rc.14 با digest `sha256:6fba080967039dde9e884e5c8ca86e8343b6512577061bde55cfdd5dcb006228` pull شد | rollback point metadata-only در `/etc/hero/hero-test.env.release-state.before-bec56ba76d8b70e3a704bfc05d5d349abe1abe1a60bd35674f63bea4f94221b0.json` ثبت شد. |
 | رخداد اصلاح‌شده | rc.6 بعد از restart با `Product request metadata is invalid` crash-loop شد | علت و اصلاح در source ثبت شده؛ rc.8 همان مسیر را سالم کرده است. |
