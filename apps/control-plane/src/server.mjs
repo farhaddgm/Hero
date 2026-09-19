@@ -1330,7 +1330,13 @@ export function createHeroServer(options = {}) {
         constraints: Object.freeze([
           "Return only JSON.",
           "Set the outer schema exactly to analysis-v1.",
-          ...(purpose === "form-suggestions" ? ["Set the answer field to a JSON string whose parsed object schema is form-suggestions-v1.", "Return one to three suggestions and one entry per supplied field."] : []),
+          ...(purpose === "form-suggestions" ? [
+            "Set the answer field to a JSON string whose parsed object schema is form-suggestions-v1.",
+            "Analyze the supplied form title, purpose hint, field labels, required flags and allowed options before suggesting values.",
+            "Set boxPurpose to a clear Persian explanation of 2 to 4 sentences (80 to 700 characters) describing why this box exists, what decision or record it controls, and what does not happen automatically.",
+            "Do not use raw identifiers, UUIDs, version strings or the overall software goal as the box purpose.",
+            "Return one to three suggestions and one entry per supplied field."
+          ] : []),
           "Use concise Persian.",
           "Do not include secrets, credentials, host paths, tools, or executable actions."
         ])
@@ -2436,9 +2442,9 @@ export function createHeroServer(options = {}) {
           purpose: "form-suggestions",
           projectId,
           selectedProfile,
-          question: "برای باکس مشخص‌شده، یک تا سه پیشنهاد قابل بازبینی تولید کن. فقط JSON معتبر با schema form-suggestions-v1 برگردان؛ برای هر پیشنهاد دقیقاً یک entry برای هر field و فقط مقدارهای مجاز همان field بده.",
+          question: "ابتدا کاربرد واقعی همین باکس را از عنوان، توضیح زمینه و فیلدهای آن تحلیل کن. سپس در boxPurpose یک شرح فارسی روشن و مفصل بنویس و یک تا سه پیشنهاد قابل بازبینی تولید کن. فقط JSON معتبر با schema form-suggestions-v1 برگردان؛ برای هر پیشنهاد دقیقاً یک entry برای هر field و فقط مقدارهای مجاز همان field بده.",
           context: { pathname: "/form-suggestions", featureKey: "form.suggestions", formSuggestion: formRequest },
-          localResponse: `Generate ${FORM_PROVIDER_SUGGESTIONS_SCHEMA} only; no prose, secrets, paths, tools, or executable actions.`
+          localResponse: `Generate ${FORM_PROVIDER_SUGGESTIONS_SCHEMA} with boxPurpose and suggestions only; no prose outside JSON, secrets, paths, tools, or executable actions.`
         });
         let providerOutput;
         try {

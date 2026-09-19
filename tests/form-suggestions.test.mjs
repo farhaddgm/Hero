@@ -26,6 +26,7 @@ test("form suggestions return three local, reviewable variants without external 
   assert.equal(result.providerInvoked, false);
   assert.equal(result.externalSpend, "none");
   assert.equal(result.suggestions.length, 3);
+  assert.equal(result.boxPurpose, "ثبت هدف و کاربران پروژه");
   assert.equal(result.suggestions[0].entries.find(entry => entry.name === "riskLevel").value, "low");
   assert.equal(result.suggestions[1].entries.find(entry => entry.name === "riskLevel").value, "medium");
   assert.ok(result.suggestions.every(suggestion => suggestion.entries.length === fields.length));
@@ -52,30 +53,35 @@ test("provider form suggestions are schema-bound, option-bound and omit existing
     selectedAdvisor: "openai-profile-v1"
   });
   assert.equal(request.fields[0].value, undefined);
+  const providerOutput = {
+    schema: FORM_PROVIDER_SUGGESTIONS_SCHEMA,
+    boxPurpose: "این باکس برای ثبت اطلاعات پایهٔ Intake پروژه است تا هدف، سطح ریسک، محدودیت‌ها و وضعیت تأیید پیش از برنامه‌ریزی توسط ادمین بررسی شوند.",
+    suggestions: [{
+      title: "پیشنهاد امن برای شروع",
+      rationale: "کمترین تغییر و قابل بازبینی توسط ادمین.",
+      entries: [
+        { name: "goal", type: "textarea", value: "هدف نسخهٔ آزمایشی و قابل انتقال", checked: false },
+        { name: "riskLevel", type: "select", value: "low", checked: false },
+        { name: "constraints", type: "textarea", value: "فقط Test و بدون هزینهٔ خارجی", checked: false },
+        { name: "approved", type: "checkbox", value: "approved", checked: false }
+      ]
+    }]
+  };
   const result = createProviderFormSuggestions({
     ...request,
     actor,
     selectedAdvisor: "openai-profile-v1",
-    providerOutput: {
-      schema: FORM_PROVIDER_SUGGESTIONS_SCHEMA,
-      suggestions: [{
-        title: "پیشنهاد امن برای شروع",
-        rationale: "کمترین تغییر و قابل بازبینی توسط ادمین.",
-        entries: [
-          { name: "goal", type: "textarea", value: "هدف نسخهٔ آزمایشی و قابل انتقال", checked: false },
-          { name: "riskLevel", type: "select", value: "low", checked: false },
-          { name: "constraints", type: "textarea", value: "فقط Test و بدون هزینهٔ خارجی", checked: false },
-          { name: "approved", type: "checkbox", value: "approved", checked: false }
-        ]
-      }]
-    }
+    providerOutput
   });
   assert.equal(result.providerInvoked, true);
   assert.equal(result.externalSpend, "accounted");
+  assert.match(result.boxPurpose, /Intake پروژه/);
   assert.equal(result.suggestions.length, 1);
   assert.equal(result.suggestions[0].entries[1].value, "low");
   assert.doesNotMatch(JSON.stringify(result), /متن فعلی نباید ارسال شود/);
-  assert.throws(() => createProviderFormSuggestions({ ...request, actor, selectedAdvisor: "openai-profile-v1", providerOutput: { schema: FORM_PROVIDER_SUGGESTIONS_SCHEMA, suggestions: [{ title: "نامعتبر", rationale: "شرح کافی", entries: [{ name: "goal", type: "textarea", value: "ok" }, { name: "riskLevel", type: "select", value: "not-an-option" }, { name: "constraints", type: "textarea", value: "ok" }, { name: "approved", type: "checkbox", value: "approved", checked: false }] }] } }), error => error instanceof FormSuggestionsError && error.code === "FORM_SUGGESTION_PROVIDER_OPTION_INVALID");
+  assert.throws(() => createProviderFormSuggestions({ ...request, actor, selectedAdvisor: "openai-profile-v1", providerOutput: { ...providerOutput, boxPurpose: undefined } }), error => error instanceof FormSuggestionsError && error.code === "FORM_SUGGESTION_PROVIDER_OUTPUT_INVALID");
+  assert.throws(() => createProviderFormSuggestions({ ...request, actor, selectedAdvisor: "openai-profile-v1", providerOutput: { schema: FORM_PROVIDER_SUGGESTIONS_SCHEMA, boxPurpose: "این باکس برای ثبت اطلاعات پایهٔ Intake پروژه است تا هدف، سطح ریسک، محدودیت‌ها و وضعیت تأیید پیش از برنامه‌ریزی توسط ادمین بررسی شوند.", suggestions: [{ title: "نامعتبر", rationale: "شرح کافی", entries: [{ name: "goal", type: "textarea", value: "ok" }, { name: "riskLevel", type: "select", value: "not-an-option" }, { name: "constraints", type: "textarea", value: "ok" }, { name: "approved", type: "checkbox", value: "approved", checked: false }] }] } }), error => error instanceof FormSuggestionsError && error.code === "FORM_SUGGESTION_PROVIDER_OPTION_INVALID");
+  assert.throws(() => createProviderFormSuggestions({ ...request, actor, selectedAdvisor: "openai-profile-v1", providerOutput: { schema: FORM_PROVIDER_SUGGESTIONS_SCHEMA, suggestions: [] } }), error => error instanceof FormSuggestionsError && error.code === "FORM_SUGGESTION_PROVIDER_OUTPUT_INVALID");
 });
 
 test("shared shell exposes the form suggestion switch and safe popup contract", () => {
@@ -88,6 +94,9 @@ test("shared shell exposes the form suggestion switch and safe popup contract", 
   assert.ok(script.includes("/api/form-suggestions"));
   assert.match(script, /اعلام پیشنهاد/);
   assert.match(script, /انتخاب این پیشنهاد/);
+  assert.match(script, /شرح هدف این باکس/);
+  assert.match(script, /foundation-form/);
+  assert.doesNotMatch(script, /هدف کوتاه نرم‌افزار/);
   assert.match(script, /data-hero-form-suggestion-trigger/);
   assert.match(styles, /hero-form-suggestion-dialog/);
   assert.match(styles, /hero-form-suggestion-results/);

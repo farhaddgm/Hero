@@ -465,7 +465,7 @@ test("Project-bound live advisor profiles invoke through the bounded authorizati
     mode: "live",
     async validateConnection() { return { status: "ok" }; },
     async assertDispatchReady(input) { dispatchedMaxCostUnits = input.maxCostUnits; return { status: "ok", pricing: { catalogVersion: "test", currency: "USD", inputPricePer1mTokens: 0.2, outputPricePer1mTokens: 1.2, cachedInputPricePer1mTokens: 0.02 } }; },
-    async generate(input) { providerCalls += 1; lastProviderInput = structuredClone(input); const answer = input.request?.purpose === "form-suggestions" ? JSON.stringify({ schema: "form-suggestions-v1", suggestions: [{ title: "پیشنهاد فرم Test", rationale: "مقدارهای کم‌ریسک و قابل بازبینی.", entries: [{ name: "goal", type: "textarea", value: "هدف نمونهٔ Test", checked: false }, { name: "riskLevel", type: "select", value: "low", checked: false }, { name: "constraints", type: "textarea", value: "فقط Test و بدون هزینهٔ خارجی", checked: false }, { name: "approved", type: "checkbox", value: "approved", checked: false }] }] }) : "پاسخ زنده و محدود برای همین Project آماده شد."; return { output: { schema: input.outputSchema, answer }, usage: { inputTokens: 12, outputTokens: 8, totalTokens: 20, costUnits: 1 } }; },
+    async generate(input) { providerCalls += 1; lastProviderInput = structuredClone(input); const answer = input.request?.purpose === "form-suggestions" ? JSON.stringify({ schema: "form-suggestions-v1", boxPurpose: "این باکس برای ثبت اطلاعات پایهٔ پروژه است تا هدف، سطح ریسک، محدودیت‌ها و تأیید ادمین پیش از برنامه‌ریزی و هرگونه اقدام اجرایی روشن و قابل بازبینی باشند.", suggestions: [{ title: "پیشنهاد فرم Test", rationale: "مقدارهای کم‌ریسک و قابل بازبینی.", entries: [{ name: "goal", type: "textarea", value: "هدف نمونهٔ Test", checked: false }, { name: "riskLevel", type: "select", value: "low", checked: false }, { name: "constraints", type: "textarea", value: "فقط Test و بدون هزینهٔ خارجی", checked: false }, { name: "approved", type: "checkbox", value: "approved", checked: false }] }] }) : "پاسخ زنده و محدود برای همین Project آماده شد."; return { output: { schema: input.outputSchema, answer }, usage: { inputTokens: 12, outputTokens: 8, totalTokens: 20, costUnits: 1 } }; },
     listCapabilities() { return []; }
   };
   const externalSpendAuthorizer = async input => rejectLiveInvocation
@@ -571,6 +571,7 @@ test("Project-bound live advisor profiles invoke through the bounded authorizati
   const formPayload = await formSuggestion.json();
   assert.equal(formPayload.formSuggestions.providerInvoked, true);
   assert.equal(formPayload.formSuggestions.providerSchema, "form-suggestions-v1");
+  assert.match(formPayload.formSuggestions.boxPurpose, /اطلاعات پایهٔ پروژه/);
   assert.equal(formPayload.formSuggestions.suggestions.length, 1);
   assert.equal(formPayload.formSuggestions.suggestions[0].entries[1].value, "low");
   assert.equal(formPayload.providerInvocation.status, "completed");

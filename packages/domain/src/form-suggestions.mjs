@@ -172,6 +172,13 @@ export function createProviderFormSuggestions({ actor, projectId = null, formId,
   if (!providerOutput || providerOutput.schema !== FORM_PROVIDER_SUGGESTIONS_SCHEMA || !Array.isArray(providerOutput.suggestions) || providerOutput.suggestions.length < 1 || providerOutput.suggestions.length > FORM_SUGGESTION_MAX_SUGGESTIONS) {
     throw new FormSuggestionsError("FORM_SUGGESTION_PROVIDER_OUTPUT_INVALID", "Provider did not return the required form-suggestions schema.", 502);
   }
+  let boxPurpose;
+  try {
+    if (typeof providerOutput.boxPurpose !== "string") throw new Error("missing box purpose");
+    boxPurpose = text("provider box purpose", providerOutput.boxPurpose, { minimum: 80, maximum: 700 });
+  } catch {
+    throw new FormSuggestionsError("FORM_SUGGESTION_PROVIDER_OUTPUT_INVALID", "Provider did not return a clear, detailed purpose for this form.", 502);
+  }
   const suggestions = providerOutput.suggestions.map((suggestion, suggestionIndex) => {
     const title = text(`provider suggestion ${suggestionIndex + 1} title`, suggestion?.title, { minimum: 1, maximum: 220 });
     const rationale = text(`provider suggestion ${suggestionIndex + 1} rationale`, suggestion?.rationale, { minimum: 1, maximum: 500 });
@@ -195,6 +202,7 @@ export function createProviderFormSuggestions({ actor, projectId = null, formId,
     selectedAdvisor: normalized.selectedAdvisor,
     providerInvoked: true,
     externalSpend: "accounted",
+    boxPurpose,
     suggestions
   });
 }
@@ -219,6 +227,7 @@ export function createFormSuggestions({ actor, projectId = null, formId, formTit
     selectedAdvisor: "local",
     providerInvoked: false,
     externalSpend: "none",
+    boxPurpose: safeDescription,
     suggestions
   });
 }

@@ -333,6 +333,7 @@ export function getHeroShellStyles() {
     .hero-form-suggestion-fields label.full { grid-column: 1 / -1; }
     .hero-form-suggestion-fields select, .hero-form-suggestion-fields textarea { width: 100%; min-width: 0; box-sizing: border-box; padding: 7px 9px; border: 1px solid var(--hero-line-strong); border-radius: 8px; background: var(--hero-surface); color: var(--hero-ink); font: 700 .72rem/1.7 Vazirmatn, sans-serif; }
     .hero-form-suggestion-fields textarea { min-height: 48px; resize: vertical; }
+    .hero-form-suggestion-fields textarea[data-hero-form-purpose-output] { min-height: 92px; line-height: 1.9; }
     .hero-form-suggestion-fields textarea[readonly] { color: var(--hero-muted); }
     .hero-form-suggestion-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .hero-form-suggestion-actions button, .hero-form-suggestion-card button { min-height: 33px; padding: 7px 11px; border: 1px solid var(--hero-line-strong); border-radius: 8px; background: var(--hero-surface); color: var(--hero-brand); cursor: pointer; font: 800 .72rem/1.3 Vazirmatn, sans-serif; }
@@ -867,6 +868,27 @@ export function getHeroShellScript() {
     const formSuggestionSensitive = /login|mfa|password|credential|secret|token|api.?key|grant|access|identity/i;
     let activeFormSuggestionDialog = null;
     const formSuggestionEnabled = () => { try { return localStorage.getItem(formSuggestionEnabledKey) !== 'false'; } catch { return true; } };
+    const formSuggestionPurposeCatalog = Object.freeze({
+      'request-form': 'این باکس برای تعریف روشن درخواست ساخت یا تغییر یک نرم‌افزار است. عنوان، توضیح و سناریوی آزمایشی باید نتیجهٔ مورد انتظار را به شکلی قابل برنامه‌ریزی مشخص کنند تا Hero بتواند بدون شروع اقدام خودکار، برنامهٔ اولیهٔ قابل بازبینی بسازد.',
+      'create-project-form': 'این باکس برای ایجاد Draft یک پروژه و ثبت ورودی‌های پایهٔ Foundation Proposal است. اطلاعات آن باید مسئله، کاربران، نوع محصول، سطح ریسک، شیوهٔ تأیید، محدودیت‌ها و خروجی‌های مورد انتظار را روشن کند؛ ثبت فرم به‌تنهایی هیچ کد، سرور یا انتشار عملیاتی ایجاد نمی‌کند.',
+      'intake-form': 'این باکس برای تکمیل Intake پروژه است؛ یعنی هدف اصلی، کاربران مورد استفاده و میزان خودکارسازی مجاز را به‌صورت نسخه‌دار مشخص می‌کند. این اطلاعات مبنای برنامه‌ریزی، کنترل Scope و پیشنهاد مراحل بعدی هستند و باید پیش از ثبت توسط ادمین بازبینی شوند.',
+      'foundation-form': 'این باکس برای بازبینی Foundation Proposal پروژه و ثبت تصمیم ادمین دربارهٔ تأیید یا درخواست بازنگری آن است. اگر Foundation به اصلاح نیاز دارد، دلیل دقیق تغییر در این فرم نوشته می‌شود تا نسخهٔ بعدی با سابقه‌ای روشن و قابل پیگیری ساخته شود؛ این تصمیم به‌تنهایی اجرای محصول یا انتشار آن را آغاز نمی‌کند.',
+      'upload-form': 'این باکس برای افزودن اختیاری نمونه، متن یا سند مرتبط با پروژه است تا تیم‌ها زمینه و نیازمندی‌ها را دقیق‌تر درک کنند. نداشتن چنین ورودی‌ای مانع ادامه نیست و محتوای ثبت‌شده باید پیش از استفاده بررسی و در Scope همان پروژه نگهداری شود.',
+      'link-form': 'این باکس برای ثبت اختیاری یک لینک عمومی HTTPS و عنوان قابل فهم آن است. لینک صرفاً به‌عنوان مرجع پروژه برای بررسی کنترل‌شده ثبت می‌شود و واردکردن آن به معنی اعتماد خودکار، اجرای محتوا یا انتشار نیست.',
+      'setting-form': 'این باکس برای ثبت یک تغییر نسخه‌دار در تنظیمات پروژه است. مسیر، لایه، مقدار JSON، دلیل و اثر تغییر باید دقیق باشند تا تغییر قابل بررسی، حسابرسی و در صورت نیاز قابل بازگشت باقی بماند.',
+      'policy-form': 'این باکس برای اعمال Policy Pack از پیش تأییدشده به پروژه است. هدف آن هم‌راستا کردن کنترل‌های پروژه با سیاست معتبر است و نباید برای ساخت سیاست جدید یا دورزدن گیت‌های تأیید استفاده شود.',
+      'rollback-form': 'این باکس برای بازگرداندن یک تنظیم پروژه به نسخهٔ قبلی مشخص است. مسیر تنظیم، نسخهٔ مقصد و دلیل Rollback باید روشن باشند تا عملیات قابل حسابرسی باشد و فقط همان تنظیم هدف تغییر کند.',
+      'target-selection-form': 'این باکس برای انتخاب نسخه‌دار سرور Test مقصدِ ساخت و اجرای محصول همین پروژه است. انتخاب Target فقط تخصیص را ثبت می‌کند و تا صدور مجوز جداگانه، build، start، deploy یا تغییری روی سرور اجرا نمی‌شود.',
+      'guide-settings-form': 'این باکس برای روشن یا خاموش کردن Walk-Through Guide در Scope همین پروژه است. تغییر این گزینه فقط وضعیت راهنما را ثبت می‌کند و داده‌ها، تاریخچه یا تنظیمات اصلی پروژه را حذف نمی‌کند.',
+      'principles-form': 'این باکس برای ثبت نسخهٔ جدید اصول کاری یک تیم است. هر اصل باید روشن، قابل ارزیابی و در یک خط نوشته شود؛ ذخیرهٔ نسخهٔ جدید تأیید قبلی را بازنشانی می‌کند تا مالک آن را جداگانه بررسی کند.',
+      'ai-config-form': 'این باکس برای ثبت تغییر نسخه‌دار در پیکربندی AI شامل Provider، Model، Profile، Binding، Skill یا Policy است. مقادیر باید با Scope پروژه و کنترل‌های امنیتی هماهنگ باشند؛ Secret واقعی در این فرم قرار نمی‌گیرد و ثبت نهایی فقط با نشست انسانی انجام می‌شود.'
+    });
+    const formSuggestionReadableText = node => {
+      if (!node) return '';
+      const copy = node.cloneNode(true);
+      copy.querySelectorAll?.('.hero-info-trigger,[data-hero-form-suggestion-trigger],[aria-hidden="true"]').forEach(item => item.remove());
+      return String(copy.textContent || '').replace(/\\s+/g, ' ').trim();
+    };
     const formSuggestionFieldText = control => {
       const label = control.labels?.[0]?.textContent || control.closest('label')?.textContent || control.name || control.id || 'فیلد';
       return String(label).trim().slice(0, 180);
@@ -898,22 +920,21 @@ export function getHeroShellScript() {
     const formSuggestionTitle = form => {
       const scope = form.closest('section,dialog,fieldset,.panel,.card,.section,.hero') || form.parentElement;
       const heading = scope?.querySelector('h1,h2,h3,h4,legend,[data-hero-info-key]');
-      return String(heading?.textContent || form.id || 'تکمیل اطلاعات').trim().slice(0, 180) || 'تکمیل اطلاعات';
+      return String(formSuggestionReadableText(heading) || form.getAttribute('aria-label') || 'تکمیل اطلاعات').trim().slice(0, 180) || 'تکمیل اطلاعات';
     };
     const formSuggestionDescription = form => {
+      const explicitPurpose = form.getAttribute('data-hero-form-purpose') || formSuggestionPurposeCatalog[form.id];
+      if (explicitPurpose) return String(explicitPurpose).replace(/\\s+/g, ' ').trim().slice(0, 700);
       const scope = form.closest('section,dialog,fieldset,.panel,.card,.section,.hero') || form.parentElement;
       const heading = scope?.querySelector('h1,h2,h3,h4,legend,[data-hero-info-key]');
-      const paragraph = [...(scope?.querySelectorAll('p') || [])].find(item => !item.closest(formSuggestionExcludedSelector));
-      return String((heading?.textContent || '') + (paragraph?.textContent ? ' · ' + paragraph.textContent : '')).replace(/\\s+/g, ' ').trim().slice(0, 520) || 'این فرم برای ثبت اطلاعات پروژه است.';
-    };
-    const formSuggestionGoal = async () => {
-      if (!projectId) return 'هدف نرم‌افزار هنوز در پروژه ثبت نشده است؛ پیشنهادها را قبل از ثبت بررسی کنید.';
-      try {
-        const response = await fetch('/api/projects/' + encodeURIComponent(projectId) + '/workspace-overview', { credentials: 'same-origin', cache: 'no-store' });
-        const body = await response.json().catch(() => null);
-        const goal = body?.overview?.intake?.goal;
-        return response.ok && typeof goal === 'string' && goal.trim() ? goal.trim().slice(0, 700) : 'هدف نرم‌افزار از اطلاعات فعلی پروژه قابل خواندن نیست؛ پیشنهادها را قبل از ثبت بررسی کنید.';
-      } catch { return 'هدف نرم‌افزار از اطلاعات فعلی پروژه قابل خواندن نیست؛ پیشنهادها را قبل از ثبت بررسی کنید.'; }
+      const title = formSuggestionReadableText(heading) || 'این بخش';
+      const supporting = [...(scope?.querySelectorAll('p.helper-copy,p.meta,p.muted,p') || [])]
+        .filter(item => !item.closest(formSuggestionExcludedSelector) && !item.matches('[role="status"],.status,.notice,.dialog-notice'))
+        .map(formSuggestionReadableText).find(Boolean);
+      const labels = [...new Set([...form.elements].filter(control => !['submit', 'button', 'reset', 'hidden'].includes(String(control.type || '').toLowerCase())).map(formSuggestionFieldText).filter(Boolean))].slice(0, 6);
+      const base = supporting || ('این باکس برای ثبت و بازبینی اطلاعات مربوط به «' + title + '» استفاده می‌شود.');
+      const fieldSummary = labels.length ? ' اطلاعات اصلی این فرم شامل «' + labels.join('»، «') + '» است.' : '';
+      return (base + fieldSummary + ' پیشنهاد باید فقط به کاربرد همین باکس مربوط باشد، از شناسه‌ها و متن‌های فنی نامفهوم به‌عنوان هدف استفاده نکند و پیش از ثبت نهایی توسط ادمین قابل بازبینی باشد.').replace(/\\s+/g, ' ').trim().slice(0, 700);
     };
     const closeFormSuggestionDialog = restoreFocus => {
       const dialog = activeFormSuggestionDialog || document.querySelector('[data-hero-form-suggestion-dialog]');
@@ -970,14 +991,12 @@ export function getHeroShellScript() {
       const head = document.createElement('header'); head.className = 'hero-form-suggestion-head'; const headCopy = document.createElement('div'); const heading = document.createElement('h2'); heading.id = 'hero-form-suggestion-title'; heading.textContent = 'پیشنهاد AI برای «' + titleText + '»'; const intro = document.createElement('p'); intro.textContent = 'یک گزینه را انتخاب کنید؛ مقدارها فقط در فرم واقعی قرار می‌گیرند و ثبت نهایی با شماست.'; headCopy.append(heading, intro); const close = document.createElement('button'); close.type = 'button'; close.className = 'hero-form-suggestion-close'; close.textContent = '×'; close.setAttribute('aria-label', 'بستن'); close.addEventListener('click', () => closeFormSuggestionDialog(true)); head.append(headCopy, close); dialog.append(head);
       const body = document.createElement('div'); body.className = 'hero-form-suggestion-body'; const fieldGrid = document.createElement('div'); fieldGrid.className = 'hero-form-suggestion-fields';
       const advisorLabel = document.createElement('label'); advisorLabel.className = 'full'; advisorLabel.textContent = 'AI و مدل پیشنهاددهنده'; const advisor = document.createElement('select'); advisor.name = 'advisor'; advisor.setAttribute('aria-label', 'انتخاب AI و مدل پیشنهاددهنده'); const local = document.createElement('option'); local.value = 'local'; local.textContent = 'راهنمای محلی Hero · بدون هزینه'; advisor.append(local); advisorLabel.append(advisor);
-      const goalLabel = document.createElement('label'); goalLabel.className = 'full'; goalLabel.textContent = 'هدف کوتاه نرم‌افزار'; const goal = document.createElement('textarea'); goal.readOnly = true; goal.setAttribute('aria-label', 'هدف کوتاه نرم‌افزار'); goalLabel.append(goal);
-      const boxLabel = document.createElement('label'); boxLabel.className = 'full'; boxLabel.textContent = 'هدف این باکس'; const box = document.createElement('textarea'); box.readOnly = true; box.value = description; box.setAttribute('aria-label', 'هدف این باکس'); boxLabel.append(box); fieldGrid.append(advisorLabel, goalLabel, boxLabel);
+      const boxLabel = document.createElement('label'); boxLabel.className = 'full'; boxLabel.textContent = 'شرح هدف این باکس'; const box = document.createElement('textarea'); box.readOnly = true; box.value = description; box.dataset.heroFormPurposeOutput = 'true'; box.setAttribute('aria-label', 'شرح هدف این باکس'); boxLabel.append(box); fieldGrid.append(advisorLabel, boxLabel);
       const requestForm = document.createElement('form'); const actions = document.createElement('div'); actions.className = 'hero-form-suggestion-actions'; const announce = document.createElement('button'); announce.type = 'submit'; announce.textContent = 'اعلام پیشنهاد'; const cancel = document.createElement('button'); cancel.type = 'button'; cancel.textContent = 'انصراف'; cancel.addEventListener('click', () => closeFormSuggestionDialog(true)); actions.append(announce, cancel); requestForm.append(fieldGrid, actions);
       const status = document.createElement('p'); status.className = 'hero-form-suggestion-status'; status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite'); status.textContent = 'در حال آماده‌سازی پیشنهاد محلی…'; const results = document.createElement('section'); results.className = 'hero-form-suggestion-results'; results.setAttribute('aria-label', 'پیشنهادهای تکمیل فرم'); body.append(requestForm, status, results); dialog.append(body); document.body.append(dialog); activeFormSuggestionDialog = dialog;
-      goal.value = projectId ? 'در حال دریافت هدف ثبت‌شدهٔ پروژه…' : 'هدف نرم‌افزار هنوز در پروژه ثبت نشده است؛ پیشنهادها را قبل از ثبت بررسی کنید.';
       const loadOptions = async () => { try { const url = new URL('/api/form-suggestions/options', location.origin); if (projectId) url.searchParams.set('projectId', projectId); const response = await fetch(url.pathname + url.search, { credentials: 'same-origin', cache: 'no-store' }); const payload = await response.json().catch(() => null); if (!response.ok) throw new Error(apiErrorMessage(response, payload, 'فهرست AIهای پیشنهاد فرم دریافت نشد')); const options = payload?.formSuggestions || {}; for (const profile of Array.isArray(options.profiles) ? options.profiles : []) { const option = document.createElement('option'); option.value = profile.profileId; option.textContent = (profile.providerName || profile.providerId) + ' / ' + (profile.modelName || profile.modelId) + ' · v' + (profile.profileVersion || '?') + (profile.selectable ? '' : ' · فعلاً غیرفعال'); option.title = profile.selectionNotice || ''; option.disabled = profile.selectable !== true; advisor.append(option); } status.textContent = 'AI و مدل انتخاب شد؛ برای دریافت پیشنهاد «اعلام پیشنهاد» را بزنید.'; } catch (error) { status.dataset.state = 'error'; status.textContent = error.message || 'راهنمای محلی همچنان قابل استفاده است.'; } };
-      requestForm.addEventListener('submit', async event => { event.preventDefault(); announce.disabled = true; cancel.disabled = true; status.dataset.state = ''; status.textContent = 'در حال ساخت پیشنهادهای قابل بررسی…'; results.replaceChildren(); try { const response = await fetch('/api/form-suggestions' + (projectId ? '?projectId=' + encodeURIComponent(projectId) : ''), { method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ projectId: projectId || null, formId: form.id || 'form-content', formTitle: titleText, softwareGoal: goal.value, boxDescription: description, selectedAdvisor: advisor.value, fields }) }); const payload = await response.json().catch(() => null); if (!response.ok) throw new Error(apiErrorMessage(response, payload, 'پیشنهاد فرم دریافت نشد')); const suggestionData = payload?.formSuggestions; for (const suggestion of Array.isArray(suggestionData?.suggestions) ? suggestionData.suggestions.slice(0, 3) : []) renderFormSuggestionCard(results, suggestion, fields, form); status.textContent = results.children.length ? 'پیشنهادها آماده‌اند؛ یکی را انتخاب کنید.' : 'پیشنهادی برای این فرم ساخته نشد.'; } catch (error) { status.dataset.state = 'error'; status.textContent = error.message || 'ساخت پیشنهاد ناموفق بود.'; } finally { announce.disabled = false; cancel.disabled = false; } });
-      dialog.addEventListener('cancel', event => { event.preventDefault(); closeFormSuggestionDialog(true); }); dialog.addEventListener('click', event => { if (event.target === dialog) closeFormSuggestionDialog(true); }); dialog.showModal(); void (async () => { goal.value = await formSuggestionGoal(); await loadOptions(); })();
+      requestForm.addEventListener('submit', async event => { event.preventDefault(); announce.disabled = true; cancel.disabled = true; status.dataset.state = ''; status.textContent = 'در حال تحلیل هدف باکس و ساخت پیشنهادهای قابل بررسی…'; results.replaceChildren(); try { const response = await fetch('/api/form-suggestions' + (projectId ? '?projectId=' + encodeURIComponent(projectId) : ''), { method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ projectId: projectId || null, formId: form.id || 'form-content', formTitle: titleText, boxDescription: description, selectedAdvisor: advisor.value, fields }) }); const payload = await response.json().catch(() => null); if (!response.ok) throw new Error(apiErrorMessage(response, payload, 'پیشنهاد فرم دریافت نشد')); const suggestionData = payload?.formSuggestions; box.value = typeof suggestionData?.boxPurpose === 'string' && suggestionData.boxPurpose.trim() ? suggestionData.boxPurpose.trim() : description; for (const suggestion of Array.isArray(suggestionData?.suggestions) ? suggestionData.suggestions.slice(0, 3) : []) renderFormSuggestionCard(results, suggestion, fields, form); status.textContent = results.children.length ? 'هدف باکس تحلیل شد و پیشنهادها آماده‌اند؛ یکی را انتخاب کنید.' : 'پیشنهادی برای این فرم ساخته نشد.'; } catch (error) { status.dataset.state = 'error'; status.textContent = error.message || 'ساخت پیشنهاد ناموفق بود.'; } finally { announce.disabled = false; cancel.disabled = false; } });
+      dialog.addEventListener('cancel', event => { event.preventDefault(); closeFormSuggestionDialog(true); }); dialog.addEventListener('click', event => { if (event.target === dialog) closeFormSuggestionDialog(true); }); dialog.showModal(); void loadOptions();
     };
     const uninstallFormSuggestionTriggers = () => { closeFormSuggestionDialog(false); document.querySelectorAll('[data-hero-form-suggestion-trigger]').forEach(trigger => trigger.remove()); };
     const installFormSuggestionTriggers = container => {
