@@ -227,6 +227,21 @@ test("runtime authorization exposes one immutable snapshot for selection and dis
   assert.equal(approved.maxCostUnits, policy.maxCostUnits);
 });
 
+test("hydration backfills the live profile cost ceiling for legacy Profiles", async () => {
+  const orchestration = createAiOrchestration({ now });
+  orchestration.registerProvider({ providerId: "openai", mode: "live", displayName: "OpenAI Test", adapter: { providerId: "openai", mode: "live", async generate() { return null; } }, actor: OWNER, idempotencyKey: "legacy-profile-provider" });
+  orchestration.registerModel({ providerId: "openai", modelId: "gpt-legacy", actor: OWNER, idempotencyKey: "legacy-profile-model" });
+  orchestration.registerProfile({ profileId: "legacy-profile", role: "analyst", providerId: "openai", modelId: "gpt-legacy", credentialRef: "vault:hero/test/openai/default", promptVersion: "legacy-v1", contextPolicy: "approved", toolPolicy: "read-only", outputSchema: "analysis-v1", status: "active", maxCostUnits: 10_000, actor: OWNER, idempotencyKey: "legacy-profile-register" });
+  const state = orchestration.persistenceSnapshot();
+  const legacyProfile = { ...state.profiles[0] };
+  delete legacyProfile.maxCostUnits;
+  delete legacyProfile.costLatencyPriority;
+  const hydrated = createAiOrchestration({ now });
+  hydrated.hydrate({ ...state, profiles: [legacyProfile] });
+  assert.equal(hydrated.snapshot().profiles[0].maxCostUnits, 100_000);
+  assert.equal(hydrated.snapshot().profiles[0].costLatencyPriority, "balanced");
+});
+
 test("provider cost accounting supports separate input and output rates", async () => {
   const adapter = createOpenAiResponsesAdapter({
     endpoint: "https://api.example.test/v1/responses",

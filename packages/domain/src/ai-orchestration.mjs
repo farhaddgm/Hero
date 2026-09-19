@@ -1457,7 +1457,19 @@ export function createAiOrchestration(options = {}) {
       providers.set(stored.providerId, { ...stored, adapter: providerAdapters[stored.providerId] ?? null });
     }
     for (const model of state.models ?? []) models.set(`${model.providerId}\u0000${model.modelId}`, immutableCopy(model));
-    for (const profile of state.profiles ?? []) profiles.set(profile.profileId, immutableCopy({ maxOutputTokens: 4_096, ...profile }));
+    for (const profile of state.profiles ?? []) {
+      // Profiles created before the cost-bound fields were persisted must keep
+      // working after hydration. These defaults are only profile ceilings;
+      // live execution still narrows them through the external-spend snapshot.
+      profiles.set(profile.profileId, immutableCopy({
+        timeoutMs: 120_000,
+        maxRetries: 0,
+        maxOutputTokens: 4_096,
+        maxCostUnits: 100_000,
+        costLatencyPriority: "balanced",
+        ...profile
+      }));
+    }
     for (const binding of state.bindings ?? []) bindings.set(binding.bindingId, immutableCopy(binding));
     for (const [role, policy] of Object.entries(AI_DEFAULT_ROLE_POLICIES)) rolePolicies.set(role, { ...policy, role, policyVersion: 1 });
     for (const policy of state.rolePolicies ?? []) {
