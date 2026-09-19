@@ -143,7 +143,20 @@ async function readResponse(response) {
   try { body = await response.json(); } catch { body = null; }
   if (!response.ok) {
     const status = Number(response.status) || 0;
-    throw new AiProviderAdapterError("PROVIDER_HTTP_ERROR", `Provider request failed with HTTP ${status}.`, { retryable: status === 408 || status === 409 || status === 429 || status >= 500 });
+    const failure = status === 401
+      ? ["PROVIDER_AUTHENTICATION_FAILED", "Provider دسترسی را رد کرد؛ وضعیت Credential محیط Test را بررسی کنید.", false]
+      : status === 403
+        ? ["PROVIDER_PERMISSION_DENIED", "Provider اجازهٔ این درخواست را نداد؛ دسترسی حساب یا پروژه را بررسی کنید.", false]
+        : status === 404
+          ? ["PROVIDER_MODEL_OR_ENDPOINT_NOT_FOUND", "Provider مدل یا مسیر درخواست را پیدا نکرد.", false]
+          : status === 400 || status === 422
+            ? ["PROVIDER_REQUEST_REJECTED", "Provider ساختار درخواست یا تنظیم مدل را رد کرد.", false]
+            : status === 429
+              ? ["PROVIDER_RATE_LIMITED", "Provider موقتاً محدودیت نرخ یا سهمیه اعمال کرده است.", true]
+              : status === 408 || status >= 500
+                ? ["PROVIDER_UPSTREAM_UNAVAILABLE", "Provider موقتاً در دسترس نیست؛ بعداً دوباره تلاش کنید.", true]
+                : ["PROVIDER_HTTP_ERROR", `Provider درخواست را با HTTP ${status} رد کرد.`, false];
+    throw new AiProviderAdapterError(failure[0], `${failure[1]} (HTTP ${status}).`, { retryable: failure[2] });
   }
   return body ?? {};
 }
@@ -302,6 +315,11 @@ export function createOpenAiResponsesAdapter(options = {}) {
           model: input.modelId,
           store: false,
           max_output_tokens: input.maxOutputTokens,
+          // Advisor requests are short, read-only and structured.  Explicitly
+          // disable reasoning tokens by default so a bounded 512-token Test
+          // response cannot be consumed before the answer is emitted.  A
+          // caller may opt into a supported effort through the adapter input.
+          reasoning: { effort: ["none", "low", "medium", "high", "xhigh", "max"].includes(input.reasoningEffort) ? input.reasoningEffort : "none" },
           input: [{ role: "user", content: [{ type: "input_text", text: inputEnvelope(input) }] }],
           text: { format: openAiStructuredOutputFormat(input.outputSchema) }
         })

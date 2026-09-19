@@ -300,6 +300,8 @@ test("Smart Tester is an opt-in floating development assistant on every shared B
   assert.match(styles, /\.hero-action-feedback\[data-hero-action-feedback-side="right"\]/);
   assert.match(shell, /credentials: 'same-origin'/);
   assert.match(shell, /تحلیلگر محلی Hero/);
+  assert.match(shell, /مشاوره اجرا نشد:/);
+  assert.match(shell, /item\.dataset\.state = state/);
   assert.match(shell, /smartTesterCandidateSelector/);
   assert.match(shell, /getSmartTesterDescription/);
   assert.match(shell, /boxDescription/);

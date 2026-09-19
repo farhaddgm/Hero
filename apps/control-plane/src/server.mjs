@@ -1234,6 +1234,27 @@ export function createHeroServer(options = {}) {
     });
   }
 
+  function liveAdvisorFailureMessage(code) {
+    const messages = {
+      CREDENTIAL_NOT_CONFIGURED: "کلید Provider در Secret Store محیط Test برای اجرای زنده در دسترس نیست.",
+      PROVIDER_AUTHENTICATION_FAILED: "Provider کلید یا اعتبارنامهٔ محیط Test را نپذیرفت.",
+      PROVIDER_PERMISSION_DENIED: "Provider اجازهٔ این درخواست را نداد؛ دسترسی حساب یا پروژه را بررسی کنید.",
+      PROVIDER_MODEL_OR_ENDPOINT_NOT_FOUND: "مدل یا مسیر API در Provider پیدا نشد.",
+      PROVIDER_REQUEST_REJECTED: "Provider ساختار درخواست یا تنظیم مدل را رد کرد.",
+      PROVIDER_RATE_LIMITED: "Provider موقتاً محدودیت نرخ یا سهمیه اعمال کرده است.",
+      PROVIDER_UPSTREAM_UNAVAILABLE: "Provider موقتاً در دسترس نیست؛ بعداً دوباره تلاش کنید.",
+      PROVIDER_NETWORK_ERROR: "ارتباط شبکه با Provider برقرار نشد.",
+      PROVIDER_TIMEOUT: "Provider در مهلت تعیین‌شده پاسخ نداد.",
+      PROVIDER_OUTPUT_NOT_JSON: "Provider پاسخ ساخت‌یافتهٔ JSON برنگرداند.",
+      PROVIDER_OUTPUT_EMPTY: "Provider پاسخ متنی قابل‌نمایش برنگرداند.",
+      COST_POLICY_INSUFFICIENT: "سقف هزینهٔ هر درخواست برای Context فعلی کافی نیست.",
+      PROVIDER_UNHEALTHY: "بررسی سلامت Provider ناموفق بود.",
+      PROVIDER_CIRCUIT_OPEN: "Provider پس از خطاهای مکرر موقتاً متوقف شده است.",
+      ACTIVE_AUTHORIZATION_SNAPSHOT_REJECTED: "مجوز نسخه‌دار هزینه با درخواست فعلی هم‌خوان نیست."
+    };
+    return messages[code] ?? "فراخوانی Provider کامل نشد.";
+  }
+
   async function invokeSelectedLiveAdvisor({ purpose, projectId, selectedProfile, question, context, localResponse }) {
     const ai = dashboard.aiOrchestrationSnapshot();
     const provider = (ai.providers ?? []).find(item => item.providerId === selectedProfile.providerId);
@@ -1329,7 +1350,8 @@ export function createHeroServer(options = {}) {
       result = await dispatch();
     }
     if (result?.invocation?.status !== "completed") {
-      throw new ProjectWorkspaceError("LIVE_ADVISOR_INVOCATION_FAILED", `فراخوانی Provider کامل نشد: ${result?.invocation?.code ?? "UNKNOWN"}.`, 502);
+      const code = result?.invocation?.code ?? "UNKNOWN";
+      throw new ProjectWorkspaceError("LIVE_ADVISOR_INVOCATION_FAILED", `${liveAdvisorFailureMessage(code)} کد امن: ${code}.`, 502);
     }
     const structuredResult = liveAdvisorResult(result.invocation);
     return Object.freeze({

@@ -99,7 +99,32 @@ test("OpenAI Responses adapter uses runtime credentials, structured JSON and usa
     }
   });
   assert.equal(body.max_output_tokens, 100);
+  assert.deepEqual(body.reasoning, { effort: "none" });
   assert.doesNotMatch(JSON.stringify(result), /runtime-secret/);
+});
+
+test("OpenAI adapter classifies provider HTTP failures without exposing the response body", async () => {
+  const cases = [
+    [400, "PROVIDER_REQUEST_REJECTED"],
+    [401, "PROVIDER_AUTHENTICATION_FAILED"],
+    [403, "PROVIDER_PERMISSION_DENIED"],
+    [404, "PROVIDER_MODEL_OR_ENDPOINT_NOT_FOUND"],
+    [429, "PROVIDER_RATE_LIMITED"],
+    [503, "PROVIDER_UPSTREAM_UNAVAILABLE"]
+  ];
+  for (const [status, code] of cases) {
+    const adapter = createOpenAiResponsesAdapter({
+      endpoint: "https://api.example.test/v1/responses",
+      credentialEnv: "TEST_OPENAI_KEY",
+      env: { TEST_OPENAI_KEY: "runtime-secret" },
+      pricingCatalog: testPricingCatalog(),
+      fetchImpl: async () => ({ ok: false, status, async json() { return { error: { message: "provider-internal-detail" } }; } })
+    });
+    await assert.rejects(
+      () => adapter.generate({ credentialRef: "env:TEST_OPENAI_KEY", modelId: "gpt-test", role: "analyst", outputSchema: "analysis-v1", maxOutputTokens: 100, maxCostUnits: 1_000, request: "تست", context: {} }),
+      error => error.code === code && !error.message.includes("provider-internal-detail")
+    );
+  }
 });
 
 test("a configured live provider still requires version-bound external-spend authorization", async () => {
