@@ -858,7 +858,10 @@ export function createAiOrchestration(options = {}) {
   }
 
   function blockedInvocation({ input, actor, profile, provider, code, reason, idempotencyKey, value }) {
-    const safeReason = safeErrorMessage({ message: reason }, "Invocation blocked by an AI governance boundary.");
+    // `reason` is already a bounded, domain-generated string. Passing it as
+    // an arbitrary object would make safeErrorMessage discard it and hide the
+    // exact redacted mismatch fields needed for diagnosis.
+    const safeReason = safeErrorMessage(reason, "Invocation blocked by an AI governance boundary.");
     const event = appendEvent({
       aggregateType: "ai-invocation",
       aggregateId: input.invocationId,

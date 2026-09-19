@@ -1244,7 +1244,7 @@ export function createHeroServer(options = {}) {
     });
   }
 
-  function liveAdvisorFailureMessage(code) {
+  function liveAdvisorFailureMessage(code, reason = null) {
     const messages = {
       CREDENTIAL_NOT_CONFIGURED: "کلید Provider در Secret Store محیط Test برای اجرای زنده در دسترس نیست.",
       PROVIDER_AUTHENTICATION_FAILED: "Provider کلید یا اعتبارنامهٔ محیط Test را نپذیرفت.",
@@ -1262,7 +1262,24 @@ export function createHeroServer(options = {}) {
       PROVIDER_CIRCUIT_OPEN: "Provider پس از خطاهای مکرر موقتاً متوقف شده است.",
       ACTIVE_AUTHORIZATION_SNAPSHOT_REJECTED: "مجوز نسخه‌دار هزینه با درخواست فعلی هم‌خوان نیست؛ تنظیمات نسخه، Step، Provider، Model، Role و قابلیت باید از یک snapshot واحد خوانده شوند."
     };
-    return messages[code] ?? "فراخوانی Provider کامل نشد.";
+    const base = messages[code] ?? "فراخوانی Provider کامل نشد.";
+    if (code !== "ACTIVE_AUTHORIZATION_SNAPSHOT_REJECTED" || typeof reason !== "string") return base;
+    // The domain layer emits only a safe field-name list. Keep the UI useful
+    // without ever copying credentials, prompts, or raw provider messages.
+    const allowedFields = new Set([
+      "authorizationId",
+      "projectId",
+      "stepId",
+      "documentVersion",
+      "providerId",
+      "modelId",
+      "role",
+      "capability",
+      "maxCostUnits",
+      "stop-control"
+    ]);
+    const fields = [...new Set(reason.match(/[A-Za-z][A-Za-z0-9-]*/g) ?? [])].filter(field => allowedFields.has(field));
+    return fields.length > 0 ? `${base} فیلد ناسازگار: ${fields.join("، ")}.` : base;
   }
 
   async function invokeSelectedLiveAdvisor({ purpose, projectId, selectedProfile, question, context, localResponse }) {
@@ -1296,7 +1313,7 @@ export function createHeroServer(options = {}) {
         question
       })
       : null;
-    const dispatch = () => dashboard.invokeAi({
+    const dispatchInput = Object.freeze({
       invocationId: `advisor-${purpose}-${crypto.randomUUID()}`,
       projectId,
       role: selectedProfile.role,
@@ -1331,6 +1348,19 @@ export function createHeroServer(options = {}) {
       requireHealthyProvider: true,
       externalSpendAuthorization: authorization
     });
+    // Live advisor calls must use the same command boundary as every other
+    // dashboard mutation. This persists invocation success/blocks and the
+    // redacted domain event to PostgreSQL, while keeping provider output out
+    // of audit data.
+    const dispatch = () => executeDashboardCommand("ai.invoke", { projectId }, () => dashboard.invokeAi({
+      ...dispatchInput,
+      // A context bootstrap retry is a new idempotent command. Reusing the
+      // first attempt's idempotency key would look like a conflicting memory
+      // write after the fixed redacted anchor is created.
+      invocationId: `advisor-${purpose}-${crypto.randomUUID()}`,
+      contextSnapshotId: `advisor-context-${crypto.randomUUID()}`,
+      idempotencyKey: `advisor-request-${crypto.randomUUID()}`
+    }));
     let result;
     try {
       result = await dispatch();
@@ -1361,7 +1391,7 @@ export function createHeroServer(options = {}) {
     }
     if (result?.invocation?.status !== "completed") {
       const code = result?.invocation?.code ?? "UNKNOWN";
-      throw new ProjectWorkspaceError("LIVE_ADVISOR_INVOCATION_FAILED", `${liveAdvisorFailureMessage(code)} کد امن: ${code}.`, 502);
+      throw new ProjectWorkspaceError("LIVE_ADVISOR_INVOCATION_FAILED", `${liveAdvisorFailureMessage(code, result?.invocation?.reason)} کد امن: ${code}.`, 502);
     }
     const structuredResult = liveAdvisorResult(result.invocation);
     return Object.freeze({

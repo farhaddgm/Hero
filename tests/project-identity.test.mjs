@@ -456,6 +456,9 @@ test("Project-bound live advisor profiles invoke through the bounded authorizati
   let providerCalls = 0;
   let dispatchedMaxCostUnits = null;
   let lastProviderInput = null;
+  let rejectLiveInvocation = false;
+  const persistedDomainEvents = [];
+  const commandAudits = [];
   let liveAdvisorPolicy = { active: true, authorizationId: "AUTH-AI-TEST-001", projectId: "project-vpn", stepId: "HERO-AI-TEST-001", documentVersion: "v1.0", providerId: "openai", modelIds: ["gpt-5.6-luna"], roleIds: ["analyst"], capabilities: ["smart-tester", "walkthrough-guide", "form-suggestions"], maxCostUnits: 50000, expiresAtMs: Date.parse("2027-02-23T23:59:59Z"), globalStop: false };
   const adapter = {
     providerId: "openai",
@@ -465,7 +468,9 @@ test("Project-bound live advisor profiles invoke through the bounded authorizati
     async generate(input) { providerCalls += 1; lastProviderInput = structuredClone(input); const answer = input.request?.purpose === "form-suggestions" ? JSON.stringify({ schema: "form-suggestions-v1", suggestions: [{ title: "پیشنهاد فرم Test", rationale: "مقدارهای کم‌ریسک و قابل بازبینی.", entries: [{ name: "goal", type: "textarea", value: "هدف نمونهٔ Test", checked: false }, { name: "riskLevel", type: "select", value: "low", checked: false }, { name: "constraints", type: "textarea", value: "فقط Test و بدون هزینهٔ خارجی", checked: false }, { name: "approved", type: "checkbox", value: "approved", checked: false }] }] }) : "پاسخ زنده و محدود برای همین Project آماده شد."; return { output: { schema: input.outputSchema, answer }, usage: { inputTokens: 12, outputTokens: 8, totalTokens: 20, costUnits: 1 } }; },
     listCapabilities() { return []; }
   };
-  const externalSpendAuthorizer = async input => ({ authorized: true, code: "AUTHORIZED", action: "external-spend", authorizationId: input.authorizationId, projectId: input.projectId, stepId: input.stepId, documentVersion: input.documentVersion, providerId: input.providerId, modelId: input.modelId, role: input.role, capability: input.capability, maxCostUnits: 50000, globalStop: false, safeCheckpointRequired: false });
+  const externalSpendAuthorizer = async input => rejectLiveInvocation
+    ? ({ authorized: false, code: "EXTERNAL_SPEND_SCOPE_MISMATCH", action: "external-spend", globalStop: false, reason: "The approved authorization does not match the invocation." })
+    : ({ authorized: true, code: "AUTHORIZED", action: "external-spend", authorizationId: input.authorizationId, projectId: input.projectId, stepId: input.stepId, documentVersion: input.documentVersion, providerId: input.providerId, modelId: input.modelId, role: input.role, capability: input.capability, maxCostUnits: 50000, globalStop: false, safeCheckpointRequired: false });
   Object.defineProperty(externalSpendAuthorizer, "policySnapshot", { value: () => liveAdvisorPolicy });
   const dashboard = createControlDashboard({ now, providerAdapters: { openai: adapter }, externalSpendAuthorizer });
   const actor = { kind: "project-owner", id: "hero-owner" };
@@ -483,7 +488,23 @@ test("Project-bound live advisor profiles invoke through the bounded authorizati
   await dashboard.checkAiProviderHealth({ providerId: "openai", profileId: "live-advisor-profile", actor });
   const app = createHeroServer({
     host: "127.0.0.1", port: 0, now, dashboard, externalSpendAuthorizer, projectAccessRegistry: access, humanIdentity: identity,
-    projectWorkspace
+    projectWorkspace,
+    postgresRuntime: {
+      async ping() { return { status: "ok" }; },
+      store: {
+        async appendEvent(event) {
+          persistedDomainEvents.push(structuredClone(event));
+          return { ...event, sequence: persistedDomainEvents.length };
+        },
+        async readAfter(after = 0) { return persistedDomainEvents.filter(event => (event.sequence ?? 0) > after); }
+      },
+      audit: {
+        async record(input) {
+          commandAudits.push(structuredClone(input));
+          return { sequence: commandAudits.length };
+        }
+      }
+    }
   });
   const address = await app.start();
   t.after(() => app.stop());
@@ -512,6 +533,9 @@ test("Project-bound live advisor profiles invoke through the bounded authorizati
   assert.equal(walkthroughAdvisor.evidence.bindingId, "live-advisor-binding");
   assert.equal(walkthroughAdvisor.evidence.usage.totalTokens, 20);
   assert.equal(walkthroughAdvisor.evidence.resultSchema, "analysis-v1");
+  assert.ok(persistedDomainEvents.some(event => event.type === "ai.invocation-completed"), "live advisor invocation must be persisted through the PostgreSQL boundary");
+  assert.ok(commandAudits.some(event => event.command === "ai.invoke" && event.projectId === "project-vpn"), "live advisor invocation must have a project-scoped command audit");
+  assert.doesNotMatch(JSON.stringify(persistedDomainEvents), /credentialRef|secret|پاسخ زنده و محدود/, "persisted domain events must not contain credentials or provider output");
   assert.equal(dispatchedMaxCostUnits, 10_000, "the Test advisor must clamp a stale higher Profile ceiling to its versioned per-request limit");
   assert.doesNotMatch(JSON.stringify(walkthroughAdvisor.evidence), /(?:credential|secret|prompt|response)/i);
   assert.equal(lastProviderInput.context.repositoryContext.access.mode, "read-only");
@@ -553,6 +577,15 @@ test("Project-bound live advisor profiles invoke through the bounded authorizati
   assert.equal(formPayload.evidence.capability, "form-suggestions");
   assert.equal(lastProviderInput.context.formSuggestion.fields[0].value, undefined, "existing form values must not enter the Provider context");
   assert.doesNotMatch(JSON.stringify(formPayload), /مقدار قبلی محرمانه/);
+  rejectLiveInvocation = true;
+  const blockedResponse = await fetch(`${base}/api/smart-tester/advice?projectId=project-vpn&surface=%2Fworkspace&featureKey=workspace.intake&boxId=intake-card`, { method: "POST", headers, body: JSON.stringify({ surface: "/workspace", featureKey: "workspace.intake", boxId: "intake-card", projectId: "project-vpn", advisorProfileId: "live-advisor-profile", question: "درخواست باید در مرز مجوز متوقف شود" }) });
+  assert.equal(blockedResponse.status, 502);
+  const blockedPayload = await blockedResponse.json();
+  assert.equal(blockedPayload.code, "LIVE_ADVISOR_INVOCATION_FAILED");
+  assert.match(blockedPayload.message, /ACTIVE_AUTHORIZATION_SNAPSHOT_REJECTED/);
+  assert.match(blockedPayload.message, /authorizationId/);
+  assert.ok(persistedDomainEvents.some(event => event.type === "ai.invocation-blocked"), "a blocked live advisor invocation must be persisted for diagnosis");
+  rejectLiveInvocation = false;
   const callsBeforeDeniedRequest = providerCalls;
   liveAdvisorPolicy = { ...liveAdvisorPolicy, roleIds: ["evaluator"] };
   const unavailableOptions = await fetch(`${base}/api/smart-tester/options?projectId=project-vpn`, { headers });
