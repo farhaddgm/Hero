@@ -1335,7 +1335,7 @@ export function createHeroServer(options = {}) {
             "Analyze the supplied form title, purpose hint, field labels, required flags and allowed options before suggesting values.",
             "Set boxPurpose to a clear Persian explanation of 2 to 4 sentences (80 to 700 characters) describing why this box exists, what decision or record it controls, and what does not happen automatically.",
             "Do not use raw identifiers, UUIDs, version strings or the overall software goal as the box purpose.",
-            "Return one to three suggestions and one entry per supplied field."
+            "Return one to three suggestions. Each suggestion.entries must include every supplied form field exactly once, in the supplied order, even when it is optional; never include submit buttons, actions or UI-only controls."
           ] : []),
           "Use concise Persian.",
           "Do not include secrets, credentials, host paths, tools, or executable actions."

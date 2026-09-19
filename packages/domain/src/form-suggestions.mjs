@@ -186,6 +186,27 @@ function providerEntry(field, candidate, index) {
   return { name: field.name, type: field.type, value, checked: candidate.checked === true };
 }
 
+function providerEntries(fields, suggestion, suggestionIndex, context) {
+  const byName = new Map();
+  const rawEntries = Array.isArray(suggestion?.entries) ? suggestion.entries : [];
+  for (const candidate of rawEntries) {
+    const field = fields.find(item => item.name === candidate?.name);
+    // A Provider may mistakenly include a submit action or another UI-only
+    // control. It cannot be applied because it is not a form field, so omit it.
+    if (!field) continue;
+    if (byName.has(field.name)) {
+      throw new FormSuggestionsError("FORM_SUGGESTION_PROVIDER_OUTPUT_INVALID", `Provider suggestion ${suggestionIndex + 1} includes the same form field more than once.`, 502);
+    }
+    byName.set(field.name, candidate);
+  }
+  const fallbackEntries = suggestionEntries(fields, suggestionIndex, context);
+  const fallbackFieldCount = fields.reduce((count, field) => count + (byName.has(field.name) ? 0 : 1), 0);
+  return Object.freeze({
+    entries: fields.map((field, fieldIndex) => byName.has(field.name) ? providerEntry(field, byName.get(field.name), fieldIndex) : fallbackEntries[fieldIndex]),
+    fallbackFieldCount
+  });
+}
+
 export function createProviderFormSuggestions({ actor, projectId = null, formId, formTitle, softwareGoal, boxDescription, fields, selectedAdvisor, providerOutput } = {}) {
   const normalized = normalizeFormInput({ actor, projectId, formId, formTitle, softwareGoal, boxDescription, fields, selectedAdvisor });
   if (normalized.selectedAdvisor === "local") throw new FormSuggestionsError("FORM_SUGGESTION_ADVISOR_INVALID", "A live Provider profile is required for Provider suggestions.", 400);
@@ -202,16 +223,19 @@ export function createProviderFormSuggestions({ actor, projectId = null, formId,
   const suggestions = providerOutput.suggestions.map((suggestion, suggestionIndex) => {
     const title = text(`provider suggestion ${suggestionIndex + 1} title`, suggestion?.title, { minimum: 1, maximum: 220 });
     const rationale = text(`provider suggestion ${suggestionIndex + 1} rationale`, suggestion?.rationale, { minimum: 1, maximum: 500 });
-    if (!Array.isArray(suggestion?.entries) || suggestion.entries.length !== normalized.fields.length) {
-      throw new FormSuggestionsError("FORM_SUGGESTION_PROVIDER_OUTPUT_INVALID", `Provider suggestion ${suggestionIndex + 1} does not contain one entry per form field.`, 502);
-    }
+    const completed = providerEntries(normalized.fields, suggestion, suggestionIndex, {
+      softwareGoal: normalized.softwareGoal,
+      formTitle: normalized.formTitle,
+      boxDescription: normalized.boxDescription
+    });
     return copy({
       suggestionId: `provider-form-suggestion-${suggestionIndex + 1}`,
       title,
       source: "provider",
       rationale,
-      entries: normalized.fields.map((field, fieldIndex) => providerEntry(field, suggestion.entries[fieldIndex], fieldIndex)),
-      fieldCount: normalized.fields.length
+      entries: completed.entries,
+      fieldCount: normalized.fields.length,
+      fallbackFieldCount: completed.fallbackFieldCount
     });
   });
   return copy({

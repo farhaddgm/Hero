@@ -988,7 +988,7 @@ export function getHeroShellScript() {
     const renderFormSuggestionCard = (container, suggestion, fields, form) => {
       const card = document.createElement('article'); card.className = 'hero-form-suggestion-card';
       const head = document.createElement('header'); head.className = 'hero-form-suggestion-card-head';
-      const copy = document.createElement('div'); const title = document.createElement('strong'); title.textContent = suggestion.title || 'پیشنهاد'; const rationale = document.createElement('small'); rationale.textContent = suggestion.rationale || ''; copy.append(title, rationale);
+      const copy = document.createElement('div'); const title = document.createElement('strong'); title.textContent = suggestion.title || 'پیشنهاد'; const rationale = document.createElement('small'); const fallbackCount = Number(suggestion.fallbackFieldCount) || 0; rationale.textContent = (suggestion.rationale || '') + (fallbackCount ? ' · ' + fallbackCount + ' مقدارِ کم‌ریسک برای کامل‌شدن فرم افزوده شد.' : ''); copy.append(title, rationale);
       const select = document.createElement('button'); select.type = 'button'; select.textContent = 'انتخاب این پیشنهاد'; select.addEventListener('click', () => { applyFormSuggestion(form, suggestion.entries); closeFormSuggestionDialog(true); }); head.append(copy, select); card.append(head);
       const values = document.createElement('div'); values.className = 'hero-form-suggestion-card-fields';
       const fieldLabels = new Map(fields.map(field => [field.name, field.label]));

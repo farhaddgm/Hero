@@ -84,6 +84,33 @@ test("provider form suggestions are schema-bound, option-bound and omit existing
   assert.throws(() => createProviderFormSuggestions({ ...request, actor, selectedAdvisor: "openai-profile-v1", providerOutput: { schema: FORM_PROVIDER_SUGGESTIONS_SCHEMA, suggestions: [] } }), error => error instanceof FormSuggestionsError && error.code === "FORM_SUGGESTION_PROVIDER_OUTPUT_INVALID");
 });
 
+test("provider form suggestions safely complete omitted optional fields and discard UI-only entries", () => {
+  const providerOutput = {
+    schema: FORM_PROVIDER_SUGGESTIONS_SCHEMA,
+    boxPurpose: "این باکس برای ثبت تصمیم ادمین دربارهٔ تأیید یا بازنگری Foundation استفاده می‌شود تا دلیل هر تغییر در نسخهٔ پروژه قابل پیگیری بماند و هیچ اقدام اجرایی خودکار آغاز نشود.",
+    suggestions: [{
+      title: "پیشنهاد آماده برای بررسی",
+      rationale: "تصمیم نهایی و ثبت همچنان با ادمین است.",
+      entries: [{ name: "action", type: "text", value: "approve" }]
+    }]
+  };
+  const result = createProviderFormSuggestions({
+    actor,
+    projectId: "project-vpn",
+    formId: "foundation-form",
+    formTitle: "Foundation Proposal",
+    softwareGoal: "ساخت یک محصول آزمایشی قابل انتقال",
+    boxDescription: "ثبت تصمیم ادمین دربارهٔ تأیید یا بازنگری Foundation",
+    fields: [{ name: "reason", type: "textarea", label: "دلیل بازنگری", required: false }],
+    selectedAdvisor: "openai-profile-v1",
+    providerOutput
+  });
+  assert.equal(result.suggestions[0].entries.length, 1);
+  assert.equal(result.suggestions[0].entries[0].name, "reason");
+  assert.equal(result.suggestions[0].fallbackFieldCount, 1);
+  assert.doesNotMatch(JSON.stringify(result.suggestions[0].entries), /action|approve/);
+});
+
 test("form suggestion refinement requires a live advisor, bounded safe feedback and a limited round", () => {
   const refinement = prepareFormSuggestionRefinement({
     actor,
