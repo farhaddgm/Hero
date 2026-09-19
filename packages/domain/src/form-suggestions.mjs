@@ -188,21 +188,31 @@ function providerEntry(field, candidate, index) {
 
 function providerEntries(fields, suggestion, suggestionIndex, context) {
   const byName = new Map();
+  const duplicateNames = new Set();
   const rawEntries = Array.isArray(suggestion?.entries) ? suggestion.entries : [];
   for (const candidate of rawEntries) {
     const field = fields.find(item => item.name === candidate?.name);
     // A Provider may mistakenly include a submit action or another UI-only
     // control. It cannot be applied because it is not a form field, so omit it.
     if (!field) continue;
-    if (byName.has(field.name)) {
-      throw new FormSuggestionsError("FORM_SUGGESTION_PROVIDER_OUTPUT_INVALID", `Provider suggestion ${suggestionIndex + 1} includes the same form field more than once.`, 502);
-    }
+    if (byName.has(field.name)) duplicateNames.add(field.name);
     byName.set(field.name, candidate);
   }
   const fallbackEntries = suggestionEntries(fields, suggestionIndex, context);
-  const fallbackFieldCount = fields.reduce((count, field) => count + (byName.has(field.name) ? 0 : 1), 0);
+  let fallbackFieldCount = 0;
   return Object.freeze({
-    entries: fields.map((field, fieldIndex) => byName.has(field.name) ? providerEntry(field, byName.get(field.name), fieldIndex) : fallbackEntries[fieldIndex]),
+    entries: fields.map((field, fieldIndex) => {
+      const fallback = () => { fallbackFieldCount += 1; return fallbackEntries[fieldIndex]; };
+      if (!byName.has(field.name) || duplicateNames.has(field.name)) return fallback();
+      try {
+        return providerEntry(field, byName.get(field.name), fieldIndex);
+      } catch (error) {
+        // The form's own name/type/options remain authoritative. A malformed
+        // Provider field is discarded rather than applied or shown as an error.
+        if (error instanceof FormSuggestionsError) return fallback();
+        throw error;
+      }
+    }),
     fallbackFieldCount
   });
 }
