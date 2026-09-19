@@ -147,6 +147,10 @@ export function createRuntimeExternalSpendAuthorizer({ env = process.env, clock 
       providerId: policy.providerId,
       modelId: input.modelId,
       role: input.role,
+      // Capability is part of the exact authorization scope and must survive
+      // verification so the orchestration layer can compare one complete,
+      // immutable snapshot instead of rejecting an otherwise valid grant.
+      capability: input.capability,
       maxCostUnits: policy.maxCostUnits,
       expiresAt: policy.expiresAt,
       globalStop: false,

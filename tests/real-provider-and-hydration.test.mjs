@@ -179,6 +179,7 @@ test("runtime external-spend authorization is exact, time-bound, cost-bound and 
   const approved = await authorizer({ authorizationId: "AUTH-PILOT-001", projectId: "hero", stepId: "HERO-021", documentVersion: "v1.0", operation: "external-spend", providerId: "openai", modelId: "gpt-approved", role: "analyst", capability: "form-suggestions", maxCostUnits: 10_000 });
   assert.equal(approved.authorized, true);
   assert.equal(approved.code, "AUTHORIZED");
+  assert.equal(approved.capability, "form-suggestions");
   const wrongModel = await authorizer({ authorizationId: "AUTH-PILOT-001", projectId: "hero", stepId: "HERO-021", documentVersion: "v1.0", operation: "external-spend", providerId: "openai", modelId: "not-approved", role: "analyst", capability: "form-suggestions", maxCostUnits: 10_000 });
   assert.equal(wrongModel.code, "EXTERNAL_SPEND_SCOPE_MISMATCH");
   const overBudget = await authorizer({ authorizationId: "AUTH-PILOT-001", projectId: "hero", stepId: "HERO-021", documentVersion: "v1.0", operation: "external-spend", providerId: "openai", modelId: "gpt-approved", role: "analyst", capability: "form-suggestions", maxCostUnits: 50_001 });
@@ -224,6 +225,7 @@ test("runtime authorization exposes one immutable snapshot for selection and dis
   assert.equal(approved.authorized, true);
   assert.equal(approved.documentVersion, authorizer.policySnapshot().documentVersion);
   assert.equal(approved.stepId, authorizer.policySnapshot().stepId);
+  assert.equal(approved.capability, "smart-tester");
   assert.equal(approved.maxCostUnits, policy.maxCostUnits);
 });
 
