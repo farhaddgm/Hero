@@ -85,6 +85,10 @@ test("AI Connections exposes safe provider setup, readiness checks and a project
   assert.match(html, /vault:hero\/test\/cursor\/default/);
   assert.match(html, /Workflow مخزن\/Agent جداگانه/);
   assert.match(html, /پیشنهاد اتصال همهٔ نقش‌ها/);
+  assert.match(html, /function currentBindingForConfig/);
+  assert.match(html, /شناسهٔ نسخهٔ فعلی خودکار درج می‌شود/);
+  assert.match(html, /supersedesBindingId = configValue\('config-binding-supersedes'\) \|\| currentBinding\?\.bindingId \|\| null/);
+  assert.match(html, /BINDING_VERSION_CONFLICT/);
 });
 
 test("global navigation never sends an unscoped project action to a 400 route", () => {
