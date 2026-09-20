@@ -1,8 +1,13 @@
 export const FORM_SUGGESTIONS_VERSION = "1.0.0";
 export const FORM_PROVIDER_SUGGESTIONS_SCHEMA = "form-suggestions-v1";
 export const FORM_SUGGESTION_MAX_FIELDS = 32;
-export const FORM_SUGGESTION_MAX_SUGGESTIONS = 3;
-export const FORM_SUGGESTION_MAX_REFINEMENTS = 3;
+// A session starts with three alternatives. Each live refinement contributes
+// exactly one more, so the owner can compare up to ten reviewable choices
+// without asking the Provider for an unnecessarily large response.
+export const FORM_SUGGESTION_INITIAL_SUGGESTIONS = 3;
+export const FORM_SUGGESTION_MAX_SUGGESTIONS = 10;
+export const FORM_SUGGESTION_MAX_PROVIDER_SUGGESTIONS = FORM_SUGGESTION_INITIAL_SUGGESTIONS;
+export const FORM_SUGGESTION_MAX_REFINEMENTS = FORM_SUGGESTION_MAX_SUGGESTIONS - FORM_SUGGESTION_INITIAL_SUGGESTIONS;
 
 const IDENTIFIER = /^[A-Za-z][A-Za-z0-9._:-]{0,127}$/;
 const SENSITIVE_FIELD = /(?:password|passwd|secret|credential|token|api[._-]?key|private[._-]?key|mfa|otp|رمز|کلید\s*api)/iu;
@@ -217,11 +222,16 @@ function providerEntries(fields, suggestion, suggestionIndex, context) {
   });
 }
 
-export function createProviderFormSuggestions({ actor, projectId = null, formId, formTitle, softwareGoal, boxDescription, fields, selectedAdvisor, providerOutput } = {}) {
+export function createProviderFormSuggestions({ actor, projectId = null, formId, formTitle, softwareGoal, boxDescription, fields, selectedAdvisor, providerOutput, requestedSuggestionCount = undefined, suggestionOffset = 0 } = {}) {
   const normalized = normalizeFormInput({ actor, projectId, formId, formTitle, softwareGoal, boxDescription, fields, selectedAdvisor });
   if (normalized.selectedAdvisor === "local") throw new FormSuggestionsError("FORM_SUGGESTION_ADVISOR_INVALID", "A live Provider profile is required for Provider suggestions.", 400);
-  if (!providerOutput || providerOutput.schema !== FORM_PROVIDER_SUGGESTIONS_SCHEMA || !Array.isArray(providerOutput.suggestions) || providerOutput.suggestions.length < 1 || providerOutput.suggestions.length > FORM_SUGGESTION_MAX_SUGGESTIONS) {
+  if (!providerOutput || providerOutput.schema !== FORM_PROVIDER_SUGGESTIONS_SCHEMA || !Array.isArray(providerOutput.suggestions) || providerOutput.suggestions.length < 1 || providerOutput.suggestions.length > FORM_SUGGESTION_MAX_PROVIDER_SUGGESTIONS) {
     throw new FormSuggestionsError("FORM_SUGGESTION_PROVIDER_OUTPUT_INVALID", "Provider did not return the required form-suggestions schema.", 502);
+  }
+  const requestedCount = requestedSuggestionCount === undefined ? providerOutput.suggestions.length : Number(requestedSuggestionCount);
+  const offset = Number(suggestionOffset);
+  if (!Number.isInteger(requestedCount) || requestedCount < 1 || requestedCount > FORM_SUGGESTION_MAX_PROVIDER_SUGGESTIONS || !Number.isInteger(offset) || offset < 0 || offset + requestedCount > FORM_SUGGESTION_MAX_SUGGESTIONS) {
+    throw new FormSuggestionsError("FORM_SUGGESTION_COUNT_INVALID", "Requested suggestion count is outside the safe form session limit.", 400);
   }
   let boxPurpose;
   try {
@@ -230,16 +240,35 @@ export function createProviderFormSuggestions({ actor, projectId = null, formId,
   } catch {
     throw new FormSuggestionsError("FORM_SUGGESTION_PROVIDER_OUTPUT_INVALID", "Provider did not return a clear, detailed purpose for this form.", 502);
   }
-  const suggestions = providerOutput.suggestions.map((suggestion, suggestionIndex) => {
+  const suggestionContext = {
+    softwareGoal: normalized.softwareGoal,
+    formTitle: normalized.formTitle,
+    boxDescription: normalized.boxDescription
+  };
+  const suggestions = Array.from({ length: requestedCount }, (_, suggestionIndex) => {
+    const suggestion = providerOutput.suggestions[suggestionIndex];
+    const absoluteSuggestionIndex = offset + suggestionIndex;
+    // A live response can be structurally valid but return fewer alternatives
+    // than requested. Complete only the missing alternatives with the same
+    // bounded, form-owned safe values; never ask the UI to invent or apply a
+    // Provider value that was not validated.
+    if (!suggestion) {
+      return copy({
+        suggestionId: `provider-form-suggestion-${absoluteSuggestionIndex + 1}`,
+        title: `پیشنهاد ${absoluteSuggestionIndex + 1} · تکمیلی و قابل بررسی`,
+        source: "hero-safe-completion",
+        rationale: "برای کامل‌شدن گزینه‌های قابل مقایسه، با مقدارهای کم‌ریسک فرم آماده شد.",
+        entries: suggestionEntries(normalized.fields, absoluteSuggestionIndex, suggestionContext),
+        fieldCount: normalized.fields.length,
+        fallbackFieldCount: normalized.fields.length,
+        fallbackSuggestion: true
+      });
+    }
     const title = text(`provider suggestion ${suggestionIndex + 1} title`, suggestion?.title, { minimum: 1, maximum: 220 });
     const rationale = text(`provider suggestion ${suggestionIndex + 1} rationale`, suggestion?.rationale, { minimum: 1, maximum: 500 });
-    const completed = providerEntries(normalized.fields, suggestion, suggestionIndex, {
-      softwareGoal: normalized.softwareGoal,
-      formTitle: normalized.formTitle,
-      boxDescription: normalized.boxDescription
-    });
+    const completed = providerEntries(normalized.fields, suggestion, absoluteSuggestionIndex, suggestionContext);
     return copy({
-      suggestionId: `provider-form-suggestion-${suggestionIndex + 1}`,
+      suggestionId: `provider-form-suggestion-${absoluteSuggestionIndex + 1}`,
       title,
       source: "provider",
       rationale,

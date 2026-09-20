@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createFormSuggestions, createProviderFormSuggestions, FormSuggestionsError, FORM_PROVIDER_SUGGESTIONS_SCHEMA, FORM_SUGGESTION_MAX_REFINEMENTS, FORM_SUGGESTIONS_VERSION, prepareFormSuggestionRefinement, prepareFormSuggestionRequest } from "../packages/domain/src/form-suggestions.mjs";
+import { createFormSuggestions, createProviderFormSuggestions, FormSuggestionsError, FORM_PROVIDER_SUGGESTIONS_SCHEMA, FORM_SUGGESTION_INITIAL_SUGGESTIONS, FORM_SUGGESTION_MAX_REFINEMENTS, FORM_SUGGESTION_MAX_SUGGESTIONS, FORM_SUGGESTIONS_VERSION, prepareFormSuggestionRefinement, prepareFormSuggestionRequest } from "../packages/domain/src/form-suggestions.mjs";
 import { getHeroGlobalNavigation, getHeroShellScript, getHeroShellStyles } from "../apps/control-plane/src/hero-shell.mjs";
 
 const actor = { kind: "project-owner", id: "hero-owner" };
@@ -114,6 +114,45 @@ test("provider form suggestions safely complete omitted optional fields and disc
   assert.doesNotMatch(JSON.stringify(result.suggestions[0].entries), /action|approve/);
 });
 
+test("a live form session starts with three cards and adds one safely numbered card for each refinement", () => {
+  const providerOutput = {
+    schema: FORM_PROVIDER_SUGGESTIONS_SCHEMA,
+    boxPurpose: "این باکس برای ثبت هدف و سطح ریسک Intake استفاده می‌شود تا ادمین پیش از برنامه‌ریزی، اطلاعات پایه را بازبینی کند و هیچ اجرای خودکاری آغاز نشود.",
+    suggestions: [{
+      title: "پیشنهاد Provider",
+      rationale: "یک گزینهٔ اولیهٔ قابل بررسی از Provider.",
+      entries: [
+        { name: "goal", type: "textarea", value: "هدف قابل بررسی", checked: false },
+        { name: "riskLevel", type: "select", value: "low", checked: false },
+        { name: "constraints", type: "textarea", value: "فقط Test", checked: false },
+        { name: "approved", type: "checkbox", value: "approved", checked: false }
+      ]
+    }]
+  };
+  const base = {
+    actor,
+    projectId: "project-vpn",
+    formId: "intake-form",
+    formTitle: "Intake پروژه",
+    softwareGoal: "ساخت یک محصول آزمایشی قابل انتقال",
+    boxDescription: "ثبت هدف و کاربران پروژه",
+    fields,
+    selectedAdvisor: "openai-profile-v1",
+    providerOutput
+  };
+  const initial = createProviderFormSuggestions({ ...base, requestedSuggestionCount: FORM_SUGGESTION_INITIAL_SUGGESTIONS });
+  assert.equal(FORM_SUGGESTION_INITIAL_SUGGESTIONS, 3);
+  assert.equal(FORM_SUGGESTION_MAX_SUGGESTIONS, 10);
+  assert.equal(FORM_SUGGESTION_MAX_REFINEMENTS, 7);
+  assert.equal(initial.suggestions.length, 3);
+  assert.deepEqual(initial.suggestions.map(item => item.suggestionId), ["provider-form-suggestion-1", "provider-form-suggestion-2", "provider-form-suggestion-3"]);
+  assert.equal(initial.suggestions[1].fallbackSuggestion, true, "missing Provider alternatives must remain reviewable rather than fail the session");
+  const refinement = createProviderFormSuggestions({ ...base, requestedSuggestionCount: 1, suggestionOffset: FORM_SUGGESTION_INITIAL_SUGGESTIONS });
+  assert.equal(refinement.suggestions.length, 1);
+  assert.equal(refinement.suggestions[0].suggestionId, "provider-form-suggestion-4");
+  assert.throws(() => createProviderFormSuggestions({ ...base, requestedSuggestionCount: 1, suggestionOffset: FORM_SUGGESTION_MAX_SUGGESTIONS }), error => error instanceof FormSuggestionsError && error.code === "FORM_SUGGESTION_COUNT_INVALID");
+});
+
 test("form suggestion refinement requires a live advisor, bounded safe feedback and a limited round", () => {
   const refinement = prepareFormSuggestionRefinement({
     actor,
@@ -149,6 +188,9 @@ test("shared shell exposes the form suggestion switch and safe popup contract", 
   assert.match(script, /\/api\/form-suggestions\/refine/);
   assert.match(script, /بهبود پیشنهاد با AI/);
   assert.match(script, /ساخت پیشنهاد بهتر/);
+  assert.match(script, /formSuggestionInitialCount = 3/);
+  assert.match(script, /formSuggestionMaxCount = 10/);
+  assert.match(script, /هر بازخورد فقط یک گزینهٔ تازه می‌سازد/);
   assert.match(script, /foundation-form/);
   assert.doesNotMatch(script, /هدف کوتاه نرم‌افزار/);
   assert.match(script, /data-hero-form-suggestion-trigger/);

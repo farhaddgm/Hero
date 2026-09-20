@@ -96,7 +96,7 @@ import { createFinalReadiness, FinalReadinessError } from "../../../packages/dom
 import { createBackofficeCompletion, BackofficeCompletionError } from "../../../packages/domain/src/backoffice-completion.mjs";
 import { AiOrchestrationError } from "../../../packages/domain/src/ai-orchestration.mjs";
 import { evaluateAiAdvisorReadiness } from "../../../packages/domain/src/ai-advisor-readiness.mjs";
-import { FormSuggestionsError, FORM_PROVIDER_SUGGESTIONS_SCHEMA, FORM_SUGGESTIONS_VERSION, createFormSuggestions, createProviderFormSuggestions, prepareFormSuggestionRefinement, prepareFormSuggestionRequest } from "../../../packages/domain/src/form-suggestions.mjs";
+import { FormSuggestionsError, FORM_PROVIDER_SUGGESTIONS_SCHEMA, FORM_SUGGESTION_INITIAL_SUGGESTIONS, FORM_SUGGESTIONS_VERSION, createFormSuggestions, createProviderFormSuggestions, prepareFormSuggestionRefinement, prepareFormSuggestionRequest } from "../../../packages/domain/src/form-suggestions.mjs";
 import { rebuildPortfolioReadModel, rebuildProjectReadModel } from "../../../packages/domain/src/backoffice-read-models.mjs";
 import { ProductDevelopmentError, createProductDevelopmentCatalog } from "../../../packages/domain/src/product-development.mjs";
 import { HeroSecretStoreError, createConfiguredAiProviderAdapters, createHeroSecretStore, createNotionApiAdapter, createPostgresRuntime, createPricingCatalogRegistry, createRuntimeExternalSpendAuthorizer, readRuntimeExternalSpendPolicy } from "../../../packages/adapters/src/index.mjs";
@@ -1295,6 +1295,10 @@ export function createHeroServer(options = {}) {
       throw new ProjectWorkspaceError("LIVE_ADVISOR_BINDING_MISMATCH", "Binding فعال این Project با Profile انتخاب‌شده هم‌خوان نیست.", 403);
     }
     const authorization = activeLiveAdvisorAuthorization({ purpose, projectId, providerId: selectedProfile.providerId, modelId: selectedProfile.modelId, role: selectedProfile.role });
+    const requestedFormSuggestionCount = Number(context?.formSuggestion?.requestedSuggestionCount);
+    const formSuggestionCountInstruction = Number.isInteger(requestedFormSuggestionCount) && requestedFormSuggestionCount >= 1 && requestedFormSuggestionCount <= FORM_SUGGESTION_INITIAL_SUGGESTIONS
+      ? `Return exactly ${requestedFormSuggestionCount} suggestion${requestedFormSuggestionCount === 1 ? "" : "s"}.`
+      : "Return one to three suggestions.";
     const repositoryContext = ["smart-tester", "walkthrough-guide"].includes(purpose)
       ? repositoryReadContext.build({
         sourceFiles: [
@@ -1335,7 +1339,7 @@ export function createHeroServer(options = {}) {
             "Analyze the supplied form title, purpose hint, field labels, required flags and allowed options before suggesting values.",
             "Set boxPurpose to a clear Persian explanation of 2 to 4 sentences (80 to 700 characters) describing why this box exists, what decision or record it controls, and what does not happen automatically.",
             "Do not use raw identifiers, UUIDs, version strings or the overall software goal as the box purpose.",
-            "Return one to three suggestions. Each suggestion.entries must include every supplied form field exactly once, in the supplied order, even when it is optional; never include submit buttons, actions or UI-only controls."
+            `${formSuggestionCountInstruction} Each suggestion.entries must include every supplied form field exactly once, in the supplied order, even when it is optional; never include submit buttons, actions or UI-only controls.`
           ] : []),
           "Use concise Persian.",
           "Do not include secrets, credentials, host paths, tools, or executable actions."
@@ -2442,8 +2446,8 @@ export function createHeroServer(options = {}) {
           purpose: "form-suggestions",
           projectId,
           selectedProfile,
-          question: "ابتدا کاربرد واقعی همین باکس را از عنوان، توضیح زمینه و فیلدهای آن تحلیل کن. سپس در boxPurpose یک شرح فارسی روشن و مفصل بنویس و یک تا سه پیشنهاد قابل بازبینی تولید کن. فقط JSON معتبر با schema form-suggestions-v1 برگردان؛ برای هر پیشنهاد دقیقاً یک entry برای هر field و فقط مقدارهای مجاز همان field بده.",
-          context: { pathname: "/form-suggestions", featureKey: "form.suggestions", formSuggestion: formRequest },
+          question: "ابتدا کاربرد واقعی همین باکس را از عنوان، توضیح زمینه و فیلدهای آن تحلیل کن. سپس در boxPurpose یک شرح فارسی روشن و مفصل بنویس و دقیقاً سه پیشنهاد قابل بازبینی تولید کن. فقط JSON معتبر با schema form-suggestions-v1 برگردان؛ برای هر پیشنهاد دقیقاً یک entry برای هر field و فقط مقدارهای مجاز همان field بده.",
+          context: { pathname: "/form-suggestions", featureKey: "form.suggestions", formSuggestion: { ...formRequest, requestedSuggestionCount: FORM_SUGGESTION_INITIAL_SUGGESTIONS } },
           localResponse: `Generate ${FORM_PROVIDER_SUGGESTIONS_SCHEMA} with boxPurpose and suggestions only; no prose outside JSON, secrets, paths, tools, or executable actions.`
         });
         let providerOutput;
@@ -2452,7 +2456,7 @@ export function createHeroServer(options = {}) {
         } catch {
           throw new FormSuggestionsError("FORM_SUGGESTION_PROVIDER_OUTPUT_INVALID", "Provider پاسخ JSON معتبر برای پیشنهاد فرم برنگرداند.", 502);
         }
-        const formSuggestions = createProviderFormSuggestions({ ...formRequest, actor: authenticatedOwner, selectedAdvisor, providerOutput });
+        const formSuggestions = createProviderFormSuggestions({ ...formRequest, actor: authenticatedOwner, selectedAdvisor, providerOutput, requestedSuggestionCount: FORM_SUGGESTION_INITIAL_SUGGESTIONS });
         return json(response, 200, {
           service: HERO_SERVICE,
           formSuggestions,
@@ -2505,10 +2509,10 @@ export function createHeroServer(options = {}) {
           purpose: "form-suggestions",
           projectId,
           selectedProfile,
-          question: `ادمین پس از دیدن پیشنهادهای قبلی این بازخورد را داده است: «${refinement.feedback}». بازخورد را فقط برای بهترکردن پیشنهادهای همین باکس اعمال کن. ابتدا کاربرد واقعی باکس را دوباره بررسی کن و سپس در boxPurpose شرح فارسی روشن و مفصل و یک تا سه پیشنهاد جدید و قابل انتخاب برگردان. فقط JSON معتبر با schema form-suggestions-v1 برگردان؛ برای هر پیشنهاد دقیقاً یک entry برای هر field و فقط مقدارهای مجاز همان field بده.`,
+          question: `ادمین پس از دیدن پیشنهادهای قبلی این بازخورد را داده است: «${refinement.feedback}». بازخورد را فقط برای بهترکردن پیشنهادهای همین باکس اعمال کن. ابتدا کاربرد واقعی باکس را دوباره بررسی کن و سپس در boxPurpose شرح فارسی روشن و مفصل و دقیقاً یک پیشنهاد جدید و قابل انتخاب برگردان. فقط JSON معتبر با schema form-suggestions-v1 برگردان؛ برای همان پیشنهاد دقیقاً یک entry برای هر field و فقط مقدارهای مجاز همان field بده.`,
           // Feedback remains transient in the request, not in the structured
           // form context or the redacted event evidence.
-          context: { pathname: "/form-suggestions", featureKey: "form.suggestions.refine", formSuggestion: formRequest },
+          context: { pathname: "/form-suggestions", featureKey: "form.suggestions.refine", formSuggestion: { ...formRequest, requestedSuggestionCount: 1 } },
           localResponse: `Generate ${FORM_PROVIDER_SUGGESTIONS_SCHEMA} with boxPurpose and revised suggestions only; no prose outside JSON, secrets, paths, tools, or executable actions.`
         });
         let providerOutput;
@@ -2517,7 +2521,7 @@ export function createHeroServer(options = {}) {
         } catch {
           throw new FormSuggestionsError("FORM_SUGGESTION_PROVIDER_OUTPUT_INVALID", "Provider پاسخ JSON معتبر برای اصلاح پیشنهاد فرم برنگرداند.", 502);
         }
-        const suggestions = createProviderFormSuggestions({ ...formRequest, actor: authenticatedOwner, selectedAdvisor, providerOutput });
+        const suggestions = createProviderFormSuggestions({ ...formRequest, actor: authenticatedOwner, selectedAdvisor, providerOutput, requestedSuggestionCount: 1, suggestionOffset: FORM_SUGGESTION_INITIAL_SUGGESTIONS + refinement.iteration - 1 });
         const formSuggestions = Object.freeze({
           ...suggestions,
           refinement: Object.freeze({ iteration: refinement.iteration, feedbackAcknowledged: true })

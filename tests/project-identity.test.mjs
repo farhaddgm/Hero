@@ -572,7 +572,8 @@ test("Project-bound live advisor profiles invoke through the bounded authorizati
   assert.equal(formPayload.formSuggestions.providerInvoked, true);
   assert.equal(formPayload.formSuggestions.providerSchema, "form-suggestions-v1");
   assert.match(formPayload.formSuggestions.boxPurpose, /اطلاعات پایهٔ پروژه/);
-  assert.equal(formPayload.formSuggestions.suggestions.length, 1);
+  assert.equal(formPayload.formSuggestions.suggestions.length, 3, "a live first response must always populate the three starting cards");
+  assert.equal(formPayload.formSuggestions.suggestions[1].fallbackSuggestion, true, "a missing Provider alternative is safely completed rather than treated as a user-facing error");
   assert.equal(formPayload.formSuggestions.suggestions[0].entries[1].value, "low");
   assert.equal(formPayload.providerInvocation.status, "completed");
   assert.equal(formPayload.evidence.capability, "form-suggestions");
@@ -587,6 +588,8 @@ test("Project-bound live advisor profiles invoke through the bounded authorizati
   const refinementPayload = await formRefinement.json();
   assert.equal(refinementPayload.formSuggestions.providerInvoked, true);
   assert.deepEqual(refinementPayload.formSuggestions.refinement, { iteration: 1, feedbackAcknowledged: true });
+  assert.equal(refinementPayload.formSuggestions.suggestions.length, 1, "each feedback adds one card to the existing UI list");
+  assert.equal(refinementPayload.formSuggestions.suggestions[0].suggestionId, "provider-form-suggestion-4");
   assert.equal(refinementPayload.evidence.capability, "form-suggestions");
   assert.equal(lastProviderInput.context.featureKey, "form.suggestions.refine");
   assert.equal(lastProviderInput.context.formSuggestion.feedback, undefined, "feedback must not be embedded in the structured provider context");
