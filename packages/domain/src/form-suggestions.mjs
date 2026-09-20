@@ -18,6 +18,24 @@ const SENSITIVE_FIELD = /(?:password|passwd|secret|credential|token|api[._-]?key
 const SENSITIVE_VALUE = /(?:\bsk-[A-Za-z0-9_-]{12,}\b|\bBearer\s+[A-Za-z0-9._-]{12,}\b|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----)/u;
 const SENSITIVE_ASSIGNMENT = /(?:password|passwd|secret|credential|token|api(?:[._-]|\s)?key|mfa|رمز|کلید\s*api)\s*[:=]\s*\S+/iu;
 const HOST_PATH = /(?:^|[\s"'(])(?:[A-Za-z]:[\\/]|\/(?:home|Users|mnt|opt)\/)/u;
+const FREE_TEXT_FIELD_TYPES = new Set(["text", "search", "email", "url", "textarea"]);
+const FEEDBACK_COMPACT_MAX_CHARACTERS = 220;
+const FEEDBACK_DETAILED_MIN_CHARACTERS = 220;
+const FIELD_POSITION = new Map([
+  ["اول", 1], ["یکم", 1], ["یک", 1], ["1", 1], ["۱", 1],
+  ["دوم", 2], ["دو", 2], ["2", 2], ["۲", 2],
+  ["سوم", 3], ["سه", 3], ["3", 3], ["۳", 3],
+  ["چهارم", 4], ["چهار", 4], ["4", 4], ["۴", 4],
+  ["پنجم", 5], ["پنج", 5], ["5", 5], ["۵", 5],
+  ["ششم", 6], ["شش", 6], ["6", 6], ["۶", 6],
+  ["هفتم", 7], ["هفت", 7], ["7", 7], ["۷", 7],
+  ["هشتم", 8], ["هشت", 8], ["8", 8], ["۸", 8],
+  ["نهم", 9], ["نه", 9], ["9", 9], ["۹", 9],
+  ["دهم", 10], ["ده", 10], ["10", 10], ["۱۰", 10]
+]);
+const FIELD_REFERENCE = /(?:فیلد|field)\s*(اول|یکم|یک|1|۱|دوم|دو|2|۲|سوم|سه|3|۳|چهارم|چهار|4|۴|پنجم|پنج|5|۵|ششم|شش|6|۶|هفتم|هفت|7|۷|هشتم|هشت|8|۸|نهم|نه|9|۹|دهم|ده|10|۱۰)/giu;
+const COMPACT_FEEDBACK = /(?:کم(?:تر)?|کوتاه(?:تر)?|مختصر(?:تر)?|خلاصه(?:تر)?|brief(?:er)?|short(?:er)?)/iu;
+const DETAILED_FEEDBACK = /(?:زیاد(?:تر)?|بیشتر|طولانی(?:تر)?|مفصل(?:تر)?|جزئیات\s*(?:بیشتر|اضافه)|شرح\s*(?:بیشتر|اضافه)|detail(?:ed)?|longer|expand|elaborate)/iu;
 
 export class FormSuggestionsError extends Error {
   constructor(code, message, statusCode = 400) {
@@ -110,9 +128,63 @@ function has(field, pattern) {
   return pattern.test(fieldKey(field));
 }
 
-function suggestedValue(field, variant, { softwareGoal, formTitle, boxDescription, feedback = "" }) {
+function fieldDirectiveMode(fragment) {
+  const compact = COMPACT_FEEDBACK.test(fragment);
+  const detailed = DETAILED_FEEDBACK.test(fragment);
+  // Ambiguous instructions are left to the Provider's full transient prompt;
+  // deterministic enforcement is only safe when the requested change is clear.
+  if (compact === detailed) return null;
+  return compact ? "compact" : "detailed";
+}
+
+function feedbackFieldDirectives(fields, feedback) {
+  const mentions = [...feedback.matchAll(FIELD_REFERENCE)];
+  const directives = new Map();
+  for (let mentionIndex = 0; mentionIndex < mentions.length; mentionIndex += 1) {
+    const mention = mentions[mentionIndex];
+    const position = FIELD_POSITION.get(mention[1].toLocaleLowerCase());
+    const field = Number.isInteger(position) ? fields[position - 1] : null;
+    if (!field || !FREE_TEXT_FIELD_TYPES.has(field.type)) continue;
+    const nextIndex = mentions[mentionIndex + 1]?.index ?? feedback.length;
+    const mode = fieldDirectiveMode(feedback.slice(mention.index, nextIndex));
+    if (!mode) continue;
+    directives.set(field.name, Object.freeze({
+      fieldName: field.name,
+      fieldLabel: field.label,
+      fieldPosition: position,
+      mode
+    }));
+  }
+  return [...directives.values()].sort((left, right) => left.fieldPosition - right.fieldPosition);
+}
+
+function normalizedFeedbackDirectives(fields, directives) {
+  if (!Array.isArray(directives)) return [];
+  const normalized = new Map();
+  for (const directive of directives) {
+    const field = fields.find(item => item.name === directive?.fieldName);
+    if (!field || !FREE_TEXT_FIELD_TYPES.has(field.type) || !["compact", "detailed"].includes(directive?.mode)) continue;
+    normalized.set(field.name, Object.freeze({
+      fieldName: field.name,
+      fieldLabel: field.label,
+      fieldPosition: fields.indexOf(field) + 1,
+      mode: directive.mode
+    }));
+  }
+  return [...normalized.values()].sort((left, right) => left.fieldPosition - right.fieldPosition);
+}
+
+function fallbackValueForDirective(field, { softwareGoal, boxDescription }, directive) {
+  if (!directive || !FREE_TEXT_FIELD_TYPES.has(field.type)) return null;
+  if (directive.mode === "compact") return `شرح کوتاه و روشن برای «${field.label}».`;
+  return `شرح تفصیلی برای «${field.label}»: ${boxDescription}. این مقدار پیشنهادی، ارتباط آن با هدف «${softwareGoal}» را روشن می‌کند، معیار بازبینی ادمین و محدودیت‌های مهم را مشخص می‌سازد و به‌تنهایی هیچ ثبت، اجرا یا انتشار خودکاری انجام نمی‌دهد.`;
+}
+
+function suggestedValue(field, variant, { softwareGoal, formTitle, boxDescription, feedbackPresent = false, feedbackDirectives = [] }) {
   const option = chooseOption(field, variant);
   if (option) return option.value;
+  const directiveValue = fallbackValueForDirective(field, { softwareGoal, boxDescription }, feedbackDirectives.find(item => item.fieldName === field.name));
+  if (directiveValue) return directiveValue;
   const key = fieldKey(field);
   if (has(field, /goal|objective|هدف|مقصود/u)) return variant === 0 ? softwareGoal : variant === 1 ? `تکمیل هدف «${softwareGoal}» با مسیر قابل بررسی و انتقال‌پذیر.` : `ساخت راه‌حل امن و قابل آزمون برای «${softwareGoal}» با تأیید ادمین.`;
   if (has(field, /user|audience|کاربر|مخاطب/u)) return variant === 0 ? "کاربران هدفی که در شرح پروژه مشخص شده‌اند" : variant === 1 ? "کاربران داخلی و ادمین‌های پروژه" : "کاربران هدف، ادمین و تیم پشتیبان";
@@ -126,7 +198,7 @@ function suggestedValue(field, variant, { softwareGoal, formTitle, boxDescriptio
       "معیار پذیرش، تغییر مورد انتظار و محدودیت‌های بازنگری را مشخص کنید",
       "شرح کاملِ مسئله، نتیجهٔ مورد انتظار و مواردی که نباید تغییر کنند را ثبت کنید"
     ][variant % 3];
-    const feedbackClause = feedback ? ` بازخورد ادمین برای این نوبت: «${feedback}».` : "";
+    const feedbackClause = feedbackPresent ? " بازخورد ادمین برای همین نوبت در ساخت این گزینه اعمال شده است." : "";
     return `${focus}.${feedbackClause} این متن فقط برای بررسی و ثبت تصمیم است و اجرای خودکار آغاز نمی‌کند.`;
   }
   if (has(field, /impact|اثر/u)) return "بدون اجرای خودکار؛ فقط پس از بررسی و ثبت ادمین";
@@ -197,10 +269,14 @@ export function prepareFormSuggestionRefinement(input = {}) {
   if (!Number.isInteger(iteration) || iteration < 1 || iteration > FORM_SUGGESTION_MAX_REFINEMENTS) {
     throw new FormSuggestionsError("FORM_SUGGESTION_REFINEMENT_LIMIT", `Only ${FORM_SUGGESTION_MAX_REFINEMENTS} refinement rounds are allowed per form session.`, 400);
   }
-  return copy({ ...request, selectedAdvisor, feedback, iteration });
+  // Explicit ordinal instructions such as «فیلد اول را کوتاه‌تر کن و فیلد
+  // دوم را مفصل‌تر کن» are distilled into a tiny non-sensitive contract.
+  // The raw feedback itself stays only in the one live Provider request.
+  const fieldDirectives = feedbackFieldDirectives(request.fields, feedback);
+  return copy({ ...request, selectedAdvisor, feedback, iteration, fieldDirectives });
 }
 
-function providerEntry(field, candidate, index) {
+function providerEntry(field, candidate, index, directive = null) {
   // The browser's form owns the type. Providers commonly omit it or call a
   // textarea a text field; neither case makes an otherwise safe value unsafe.
   // The value is still validated against the authoritative field/options and
@@ -209,6 +285,12 @@ function providerEntry(field, candidate, index) {
     throw new FormSuggestionsError("FORM_SUGGESTION_PROVIDER_OUTPUT_INVALID", `Provider suggestion ${index + 1} does not match the form fields.`, 502);
   }
   const value = text(`provider entry ${index + 1} value`, candidate.value, { maximum: 700 });
+  if (directive?.mode === "compact" && FREE_TEXT_FIELD_TYPES.has(field.type) && value.length > FEEDBACK_COMPACT_MAX_CHARACTERS) {
+    throw new FormSuggestionsError("FORM_SUGGESTION_PROVIDER_FEEDBACK_MISMATCH", `Provider suggestion ${index + 1} did not make the requested field concise.`, 502);
+  }
+  if (directive?.mode === "detailed" && FREE_TEXT_FIELD_TYPES.has(field.type) && value.length < FEEDBACK_DETAILED_MIN_CHARACTERS) {
+    throw new FormSuggestionsError("FORM_SUGGESTION_PROVIDER_FEEDBACK_MISMATCH", `Provider suggestion ${index + 1} did not make the requested field detailed.`, 502);
+  }
   if (["select", "radio"].includes(field.type) && field.options.length > 0 && !field.options.some(option => option.value === value)) {
     throw new FormSuggestionsError("FORM_SUGGESTION_PROVIDER_OPTION_INVALID", `Provider suggestion ${index + 1} selected an option that is not in the form.`, 502);
   }
@@ -237,7 +319,7 @@ function providerEntries(fields, suggestion, suggestionIndex, context) {
       const fallback = () => { fallbackFieldCount += 1; return fallbackEntries[fieldIndex]; };
       if (!byName.has(field.name) || duplicateNames.has(field.name)) return fallback();
       try {
-        return providerEntry(field, byName.get(field.name), fieldIndex);
+        return providerEntry(field, byName.get(field.name), fieldIndex, context.feedbackDirectives.find(item => item.fieldName === field.name));
       } catch (error) {
         // The form's own name/type/options remain authoritative. A malformed
         // Provider field is discarded rather than applied or shown as an error.
@@ -249,7 +331,13 @@ function providerEntries(fields, suggestion, suggestionIndex, context) {
   });
 }
 
-function providerFeedbackResponse(providerOutput, safeFeedback) {
+function feedbackDirectiveSummary(directives) {
+  if (directives.length === 0) return "بازخورد شما برای بازنویسی همین پیشنهاد در نظر گرفته شد";
+  const details = directives.map(directive => `«${directive.fieldLabel}» ${directive.mode === "compact" ? "کوتاه‌تر" : "مفصل‌تر"}`).join(" و ");
+  return `درخواست شما به این صورت تفسیر شد: ${details}`;
+}
+
+function providerFeedbackResponse(providerOutput, safeFeedback, directives) {
   if (!safeFeedback) return null;
   try {
     return text("provider feedback response", providerOutput?.feedbackResponse, { minimum: 12, maximum: 700 });
@@ -257,7 +345,7 @@ function providerFeedbackResponse(providerOutput, safeFeedback) {
     // Availability of a normal, safe suggestion must not depend on an
     // optional conversational explanation. This fallback is transient too;
     // it is never added to an event, audit entry or project history.
-    return "بازخورد شما برای بازنویسی همین پیشنهاد در نظر گرفته شد؛ فقط مقدارهای مجاز همین فرم تغییر کرده‌اند و ثبت نهایی همچنان با شماست.";
+    return `${feedbackDirectiveSummary(directives)}؛ فقط مقدارهای مجاز همین فرم تغییر کرده‌اند و ثبت نهایی همچنان با شماست.`;
   }
 }
 
@@ -285,7 +373,7 @@ function providerDocumentProposal(providerOutput, normalized) {
   }
 }
 
-export function createProviderFormSuggestions({ actor, projectId = null, formId, formTitle, softwareGoal, boxDescription, fields, selectedAdvisor, providerOutput, requestedSuggestionCount = undefined, suggestionOffset = 0, feedback = undefined } = {}) {
+export function createProviderFormSuggestions({ actor, projectId = null, formId, formTitle, softwareGoal, boxDescription, fields, selectedAdvisor, providerOutput, requestedSuggestionCount = undefined, suggestionOffset = 0, feedback = undefined, feedbackDirectives = undefined } = {}) {
   const normalized = normalizeFormInput({ actor, projectId, formId, formTitle, softwareGoal, boxDescription, fields, selectedAdvisor });
   if (normalized.selectedAdvisor === "local") throw new FormSuggestionsError("FORM_SUGGESTION_ADVISOR_INVALID", "A live Provider profile is required for Provider suggestions.", 400);
   if (!providerOutput || providerOutput.schema !== FORM_PROVIDER_SUGGESTIONS_SCHEMA || !Array.isArray(providerOutput.suggestions) || providerOutput.suggestions.length < 1 || providerOutput.suggestions.length > FORM_SUGGESTION_MAX_PROVIDER_SUGGESTIONS) {
@@ -315,7 +403,8 @@ export function createProviderFormSuggestions({ actor, projectId = null, formId,
     softwareGoal: normalized.softwareGoal,
     formTitle: normalized.formTitle,
     boxDescription: normalized.boxDescription,
-    feedback: safeFeedback
+    feedbackPresent: safeFeedback !== "",
+    feedbackDirectives: normalizedFeedbackDirectives(normalized.fields, feedbackDirectives)
   };
   const suggestions = Array.from({ length: requestedCount }, (_, suggestionIndex) => {
     const suggestion = providerOutput.suggestions[suggestionIndex];
@@ -349,7 +438,7 @@ export function createProviderFormSuggestions({ actor, projectId = null, formId,
       fallbackFieldCount: completed.fallbackFieldCount
     });
   });
-  const feedbackResponse = providerFeedbackResponse(providerOutput, safeFeedback);
+  const feedbackResponse = providerFeedbackResponse(providerOutput, safeFeedback, suggestionContext.feedbackDirectives);
   const documentProposal = providerDocumentProposal(providerOutput, normalized);
   return copy({
     version: FORM_SUGGESTIONS_VERSION,

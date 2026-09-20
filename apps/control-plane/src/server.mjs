@@ -1342,7 +1342,8 @@ export function createHeroServer(options = {}) {
             `${formSuggestionCountInstruction} Each suggestion.entries must include every supplied form field exactly once, in the supplied order, even when it is optional. Every entry must contain the supplied field name exactly, a string value, and the exact supplied type when available; select/radio values must be one of the supplied options. Never include submit buttons, actions or UI-only controls.`,
             ...(context?.formSuggestion?.refinement === true ? [
               "Include feedbackResponse: a concise Persian explanation of how the feedback was interpreted and what materially changed in this one new suggestion. It is a short user-facing rationale, not hidden chain-of-thought, and must not quote sensitive data or claim a write was performed.",
-              "Make the new values materially different in detail, emphasis or structure whenever the feedback requests a change. Do not recycle a generic prior-template answer."
+              "Make the new values materially different in detail, emphasis or structure whenever the feedback requests a change. Do not recycle a generic prior-template answer.",
+              "When the transient request names individual fields, apply each numbered instruction only to its matching field. A field requested to be concise must be a single clear statement of at most 220 characters; a field requested to be detailed must contain at least 220 characters of concrete, form-relevant detail. Mention the affected field labels in feedbackResponse."
             ] : []),
             ...(context?.formSuggestion?.documentProposalEligible === true ? [
               "Only when an optional project-input document would help, you may include one documentProposal with title, filename ending in .txt or .md, compact Persian content, and rationale. It is a review-only draft: never claim it has been uploaded, stored or applied."
@@ -2518,11 +2519,14 @@ export function createHeroServer(options = {}) {
           selectedAdvisor
         });
         const documentProposalEligible = formRequest.formId === "upload-form";
+        const fieldDirectiveInstruction = refinement.fieldDirectives.length > 0
+          ? `دستورهای صریح و field-aware که باید دقیقاً رعایت شوند: ${refinement.fieldDirectives.map(directive => `فیلد شمارهٔ ${directive.fieldPosition} با نام «${directive.fieldName}» و برچسب «${directive.fieldLabel}» باید ${directive.mode === "compact" ? "یک توضیح کوتاه و روشن، حداکثر ۲۲۰ نویسه" : "توضیحی مفصل، دست‌کم ۲۲۰ نویسه و شامل جزئیات مرتبط با همان فیلد"} داشته باشد`).join("؛ ")}. این دستورها فقط برای همان فیلدها هستند؛ مقدار یا ساختار فیلدهای دیگر را بی‌دلیل تغییر نده و در feedbackResponse نام همین فیلدها و تغییر اعمال‌شده را روشن بگو.`
+          : "اگر بازخورد به یک فیلد اشاره کرده است، نام، برچسب و نوع همان فیلد را از فهرست فرم تشخیص بده و تغییر را فقط روی همان فیلد اعمال کن.";
         const live = await invokeSelectedLiveAdvisor({
           purpose: "form-suggestions",
           projectId,
           selectedProfile,
-          question: `ادمین پس از دیدن پیشنهادهای قبلی این بازخورد را داده است: «${refinement.feedback}». بازخورد را فقط برای بهترکردن پیشنهادهای همین باکس اعمال کن. ابتدا کاربرد واقعی باکس را دوباره بررسی کن و سپس در boxPurpose شرح فارسی روشن و مفصل، feedbackResponse در ۱ تا ۳ جملهٔ کوتاه دربارهٔ تفسیر بازخورد و تغییر ایجادشده، و دقیقاً یک پیشنهاد جدید و قابل انتخاب برگردان. مقدارهای پیشنهاد تازه باید به‌طور محسوس بر اساس بازخورد تغییر کرده باشند؛ از پاسخ قالبی یا تکرار متن عمومی استفاده نکن. فقط JSON معتبر با schema form-suggestions-v1 برگردان؛ برای همان پیشنهاد دقیقاً یک entry برای هر field و فقط مقدارهای مجاز همان field بده.${documentProposalEligible ? " اگر پیش‌نویس سند اختیاری مفید است، documentProposal تازه را هم بازنگری کن؛ هرگز آن را ذخیره‌شده یا بارگذاری‌شده معرفی نکن." : ""}`,
+          question: `ادمین پس از دیدن پیشنهادهای قبلی این بازخورد را داده است: «${refinement.feedback}». بازخورد را فقط برای بهترکردن پیشنهادهای همین باکس اعمال کن. ${fieldDirectiveInstruction} ابتدا کاربرد واقعی باکس را دوباره بررسی کن و سپس در boxPurpose شرح فارسی روشن و مفصل، feedbackResponse در ۱ تا ۳ جملهٔ کوتاه دربارهٔ تفسیر بازخورد و تغییر ایجادشده، و دقیقاً یک پیشنهاد جدید و قابل انتخاب برگردان. مقدارهای پیشنهاد تازه باید به‌طور محسوس بر اساس بازخورد تغییر کرده باشند؛ از پاسخ قالبی یا تکرار متن عمومی استفاده نکن. فقط JSON معتبر با schema form-suggestions-v1 برگردان؛ برای همان پیشنهاد دقیقاً یک entry برای هر field و فقط مقدارهای مجاز همان field بده.${documentProposalEligible ? " اگر پیش‌نویس سند اختیاری مفید است، documentProposal تازه را هم بازنگری کن؛ هرگز آن را ذخیره‌شده یا بارگذاری‌شده معرفی نکن." : ""}`,
           // Feedback remains transient in the request, not in the structured
           // form context or the redacted event evidence.
           context: { pathname: "/form-suggestions", featureKey: "form.suggestions.refine", formSuggestion: { ...formRequest, requestedSuggestionCount: 1, refinement: true, documentProposalEligible } },
@@ -2534,11 +2538,12 @@ export function createHeroServer(options = {}) {
         } catch {
           throw new FormSuggestionsError("FORM_SUGGESTION_PROVIDER_OUTPUT_INVALID", "Provider پاسخ JSON معتبر برای اصلاح پیشنهاد فرم برنگرداند.", 502);
         }
-        // `feedback` is only used here to keep a safe deterministic fallback
-        // responsive if a structurally incomplete Provider reply omits a
-        // value. It is not added to the structured provider context, event,
-        // audit record or returned as a standalone field.
-        const suggestions = createProviderFormSuggestions({ ...formRequest, actor: authenticatedOwner, selectedAdvisor, providerOutput, requestedSuggestionCount: 1, suggestionOffset: FORM_SUGGESTION_INITIAL_SUGGESTIONS + refinement.iteration - 1, feedback: refinement.feedback });
+        // `feedback` and its field-aware derivative are only used here to
+        // keep a safe deterministic fallback responsive if a structurally
+        // incomplete Provider reply omits a value or ignores an explicit
+        // concise/detailed field request. They are not added to the structured
+        // Provider context, event, audit record or returned as standalone data.
+        const suggestions = createProviderFormSuggestions({ ...formRequest, actor: authenticatedOwner, selectedAdvisor, providerOutput, requestedSuggestionCount: 1, suggestionOffset: FORM_SUGGESTION_INITIAL_SUGGESTIONS + refinement.iteration - 1, feedback: refinement.feedback, feedbackDirectives: refinement.fieldDirectives });
         const formSuggestions = Object.freeze({
           ...suggestions,
           refinement: Object.freeze({ iteration: refinement.iteration, feedbackAcknowledged: true })

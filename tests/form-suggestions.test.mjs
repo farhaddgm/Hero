@@ -177,8 +177,62 @@ test("feedback makes a safe fallback distinct when a Provider omits a real form 
   const initialReason = initial.suggestions[0].entries[0].value;
   const refinedReason = refined.suggestions[0].entries[0].value;
   assert.notEqual(refinedReason, initialReason);
-  assert.match(refinedReason, /پیشنهاد طولانی‌تر/);
+  assert.match(refinedReason, /بازخورد ادمین/);
+  assert.doesNotMatch(refinedReason, /پیشنهاد طولانی‌تر/, "raw feedback must not be copied into a displayed fallback value");
   assert.equal(refined.suggestions[0].fallbackFieldCount, 1);
+});
+
+test("field-aware feedback maps ordinal instructions and enforces them per matching text field", () => {
+  const multiTextFields = [
+    { name: "summary", type: "textarea", label: "خلاصهٔ درخواست" },
+    { name: "details", type: "textarea", label: "توضیح تکمیلی" },
+    { name: "riskLevel", type: "select", label: "سطح ریسک", options: [{ value: "low", label: "کم" }, { value: "high", label: "زیاد" }] }
+  ];
+  const refinement = prepareFormSuggestionRefinement({
+    actor,
+    projectId: "project-vpn",
+    formId: "intake-form",
+    formTitle: "Intake پروژه",
+    softwareGoal: "ساخت یک محصول آزمایشی قابل انتقال",
+    boxDescription: "ثبت هدف و محدودیت‌های پروژه",
+    fields: multiTextFields,
+    selectedAdvisor: "openai-profile-v1",
+    feedback: "فیلد اول را کوتاه‌تر کن و برای فیلد دوم توضیح مفصل‌تری بنویس.",
+    iteration: 1
+  });
+  assert.deepEqual(refinement.fieldDirectives, [
+    { fieldName: "summary", fieldLabel: "خلاصهٔ درخواست", fieldPosition: 1, mode: "compact" },
+    { fieldName: "details", fieldLabel: "توضیح تکمیلی", fieldPosition: 2, mode: "detailed" }
+  ]);
+  const tooLongGoal = "هدف پیشنهادی بسیار طولانی است که عمداً از سقف کوتاه‌بودن عبور می‌کند و نباید برای فیلد اول پذیرفته شود. ".repeat(4);
+  const result = createProviderFormSuggestions({
+    ...refinement,
+    actor,
+    providerOutput: {
+      schema: FORM_PROVIDER_SUGGESTIONS_SCHEMA,
+      boxPurpose: "این باکس برای ثبت هدف، ریسک و محدودیت‌های Intake پروژه است تا ادمین پیش از برنامه‌ریزی مسیر قابل بررسی را تأیید کند و هیچ اقدام اجرایی خودکاری آغاز نشود.",
+      feedbackResponse: "درخواست شما را به کوتاه‌سازی «خلاصهٔ درخواست» و افزودن جزئیات به «توضیح تکمیلی» تفسیر کردم؛ پیشنهاد تازه فقط همین دو بخش را با این هدف بازنویسی می‌کند.",
+      suggestions: [{
+        title: "پیشنهاد field-aware",
+        rationale: "فقط تغییرهای روشن‌شده برای همان فیلدها اعمال شده‌اند.",
+        entries: [
+          { name: "summary", type: "textarea", value: tooLongGoal },
+          { name: "details", type: "textarea", value: "توضیح کوتاه" },
+          { name: "riskLevel", type: "select", value: "low" }
+        ]
+      }]
+    },
+    requestedSuggestionCount: 1,
+    suggestionOffset: 3,
+    feedback: refinement.feedback,
+    feedbackDirectives: refinement.fieldDirectives
+  });
+  const entries = result.suggestions[0].entries;
+  assert.ok(entries.find(entry => entry.name === "summary").value.length <= 220, "a concise instruction only affects the first field and is enforced");
+  assert.ok(entries.find(entry => entry.name === "details").value.length >= 220, "a detailed instruction only affects the second field and is enforced");
+  assert.equal(result.suggestions[0].fallbackFieldCount, 2, "only Provider fields that violate explicit field directives are replaced safely");
+  assert.match(result.feedbackResponse, /خلاصهٔ درخواست/);
+  assert.doesNotMatch(JSON.stringify(result), /فیلد اول را کوتاه‌تر/, "raw transient feedback is never echoed into a suggestion result");
 });
 
 test("Provider feedback explanation and optional document draft remain bounded and transient", () => {
@@ -244,6 +298,7 @@ test("form suggestion refinement requires a live advisor, bounded safe feedback 
   });
   assert.equal(refinement.feedback, "پیشنهادها کوتاه‌تر باشند و فقط روی شروع کم‌ریسک تمرکز کنند.");
   assert.equal(refinement.iteration, 1);
+  assert.deepEqual(refinement.fieldDirectives, [], "global feedback remains available to the Provider without inventing field-specific constraints");
   assert.equal(refinement.fields[0].value, undefined, "existing field values remain outside provider context");
   assert.throws(() => prepareFormSuggestionRefinement({ ...refinement, actor, selectedAdvisor: "local" }), error => error instanceof FormSuggestionsError && error.code === "FORM_SUGGESTION_REFINEMENT_ADVISOR_INVALID");
   assert.throws(() => prepareFormSuggestionRefinement({ ...refinement, actor, feedback: "api key: should-not-leave-the-browser" }), error => error instanceof FormSuggestionsError && error.code === "FORM_SUGGESTION_REFINEMENT_FEEDBACK_INVALID");

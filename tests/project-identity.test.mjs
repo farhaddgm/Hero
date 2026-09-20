@@ -469,15 +469,17 @@ test("Project-bound live advisor profiles invoke through the bounded authorizati
       providerCalls += 1;
       lastProviderInput = structuredClone(input);
       const refined = input.context?.featureKey === "form.suggestions.refine";
+      const fieldAwareRefinement = refined && input.request?.question?.includes("فیلد اول را کوتاه‌تر");
+      const detailedConstraints = "این محدودیت‌ها فقط محیط Test ایزوله، بازبینی انسانی پیش از هر تغییر، جلوگیری از ورود Secret و هزینهٔ خارجی، ثبت شواهد قابل بررسی، امکان rollback و انتقال‌پذیری artifact را مشخص می‌کند تا پیشنهاد برای ادمین روشن و قابل ارزیابی بماند و هیچ اجرای خودکاری آغاز نشود.";
       const answer = input.request?.purpose === "form-suggestions"
         ? JSON.stringify({
           schema: "form-suggestions-v1",
           boxPurpose: "این باکس برای ثبت اطلاعات پایهٔ پروژه است تا هدف، سطح ریسک، محدودیت‌ها و تأیید ادمین پیش از برنامه‌ریزی و هرگونه اقدام اجرایی روشن و قابل بازبینی باشند.",
-          ...(refined ? { feedbackResponse: "بازخورد ادمین را به درخواستِ شرح تفصیلی‌تر تفسیر کردم؛ گزینهٔ تازه هدف را با جزئیات بیشتری بازنویسی می‌کند و همچنان فقط برای بازبینی است." } : {}),
+          ...(refined ? { feedbackResponse: fieldAwareRefinement ? "درخواست شما را به کوتاه‌سازی «هدف» و افزودن جزئیات به «محدودیت» تفسیر کردم؛ پیشنهاد تازه فقط برای بازبینی ادمین است." : "بازخورد ادمین را به درخواستِ شرح تفصیلی‌تر تفسیر کردم؛ گزینهٔ تازه هدف را با جزئیات بیشتری بازنویسی می‌کند و همچنان فقط برای بازبینی است." } : {}),
           suggestions: [{
             title: refined ? "پیشنهاد بهبودیافتهٔ فرم Test" : "پیشنهاد فرم Test",
             rationale: refined ? "بازخوردِ معتبرِ ادمین در پیشنهاد تازه اعمال شد." : "مقدارهای کم‌ریسک و قابل بازبینی.",
-            entries: [{ name: "goal", type: refined ? "text" : "textarea", value: refined ? "هدف تفصیلی Test پس از بازخورد" : "هدف نمونهٔ Test", checked: false }, { name: "riskLevel", type: "select", value: "low", checked: false }, { name: "constraints", type: "textarea", value: "فقط Test و بدون هزینهٔ خارجی", checked: false }, { name: "approved", type: "checkbox", value: "approved", checked: false }]
+            entries: [{ name: "goal", type: refined ? "text" : "textarea", value: fieldAwareRefinement ? "هدف کوتاه و قابل بررسی Test" : refined ? "هدف تفصیلی Test پس از بازخورد" : "هدف نمونهٔ Test", checked: false }, { name: "riskLevel", type: "select", value: "low", checked: false }, { name: "constraints", type: "textarea", value: fieldAwareRefinement ? detailedConstraints : "فقط Test و بدون هزینهٔ خارجی", checked: false }, { name: "approved", type: "checkbox", value: "approved", checked: false }]
           }]
         })
         : "پاسخ زنده و محدود برای همین Project آماده شد.";
@@ -599,7 +601,7 @@ test("Project-bound live advisor profiles invoke through the bounded authorizati
   const formRefinement = await fetch(`${base}/api/form-suggestions/refine?projectId=project-vpn`, {
     method: "POST",
     headers,
-    body: JSON.stringify({ projectId: "project-vpn", formId: "intake-form", formTitle: "Intake پروژه", softwareGoal: "هدف فعلی فرم", boxDescription: "ثبت هدف و محدودیت‌ها", selectedAdvisor: "live-advisor-profile", feedback: "پیشنهادها کوتاه‌تر باشند و فقط شروع کم‌ریسک را نشان دهند.", iteration: 1, fields: [{ name: "goal", type: "textarea", label: "هدف", value: "مقدار قبلی محرمانه نیست اما نباید به Provider ارسال شود" }, { name: "riskLevel", type: "select", label: "ریسک", options: [{ value: "low", label: "کم" }, { value: "high", label: "زیاد" }] }, { name: "constraints", type: "textarea", label: "محدودیت" }, { name: "approved", type: "checkbox", label: "تأیید", value: "approved" }] })
+    body: JSON.stringify({ projectId: "project-vpn", formId: "intake-form", formTitle: "Intake پروژه", softwareGoal: "هدف فعلی فرم", boxDescription: "ثبت هدف و محدودیت‌ها", selectedAdvisor: "live-advisor-profile", feedback: "فیلد اول را کوتاه‌تر کن و برای فیلد سوم توضیح مفصل‌تری بنویس.", iteration: 1, fields: [{ name: "goal", type: "textarea", label: "هدف", value: "مقدار قبلی محرمانه نیست اما نباید به Provider ارسال شود" }, { name: "riskLevel", type: "select", label: "ریسک", options: [{ value: "low", label: "کم" }, { value: "high", label: "زیاد" }] }, { name: "constraints", type: "textarea", label: "محدودیت" }, { name: "approved", type: "checkbox", label: "تأیید", value: "approved" }] })
   });
   assert.equal(formRefinement.status, 200);
   const refinementPayload = await formRefinement.json();
@@ -607,14 +609,17 @@ test("Project-bound live advisor profiles invoke through the bounded authorizati
   assert.deepEqual(refinementPayload.formSuggestions.refinement, { iteration: 1, feedbackAcknowledged: true });
   assert.equal(refinementPayload.formSuggestions.suggestions.length, 1, "each feedback adds one card to the existing UI list");
   assert.equal(refinementPayload.formSuggestions.suggestions[0].suggestionId, "provider-form-suggestion-4");
-  assert.equal(refinementPayload.formSuggestions.suggestions[0].entries[0].value, "هدف تفصیلی Test پس از بازخورد", "a safe value from the refined Provider reply must not be discarded only because its type was omitted or generalized");
-  assert.match(refinementPayload.formSuggestions.feedbackResponse, /شرح تفصیلی‌تر/, "the Provider's user-facing feedback interpretation is returned only to this transient popup response");
+  assert.equal(refinementPayload.formSuggestions.suggestions[0].entries[0].value, "هدف کوتاه و قابل بررسی Test", "a safe field-aware Provider value must not be discarded only because its type was omitted or generalized");
+  assert.ok(refinementPayload.formSuggestions.suggestions[0].entries[2].value.length >= 220, "a detailed instruction is enforced only for the matching field");
+  assert.match(refinementPayload.formSuggestions.feedbackResponse, /محدودیت/, "the Provider's field-aware feedback interpretation is returned only to this transient popup response");
   assert.equal(refinementPayload.evidence.capability, "form-suggestions");
   assert.equal(lastProviderInput.context.featureKey, "form.suggestions.refine");
   assert.equal(lastProviderInput.context.formSuggestion.feedback, undefined, "feedback must not be embedded in the structured provider context");
-  assert.match(lastProviderInput.request.question, /پیشنهادها کوتاه‌تر باشند/);
-  assert.doesNotMatch(JSON.stringify(persistedDomainEvents), /پیشنهادها کوتاه‌تر باشند/, "feedback must not be persisted in domain events");
-  assert.doesNotMatch(JSON.stringify(persistedDomainEvents), /شرح تفصیلی‌تر/, "the transient Provider feedback explanation must not be persisted in domain events");
+  assert.equal(lastProviderInput.context.formSuggestion.fieldDirectives, undefined, "field-aware feedback must not be embedded in structured provider context");
+  assert.match(lastProviderInput.request.question, /فیلد اول را کوتاه‌تر/);
+  assert.match(lastProviderInput.request.question, /فیلد شمارهٔ 1/);
+  assert.doesNotMatch(JSON.stringify(persistedDomainEvents), /فیلد اول را کوتاه‌تر/, "feedback must not be persisted in domain events");
+  assert.doesNotMatch(JSON.stringify(persistedDomainEvents), /افزودن جزئیات به «محدودیت»/, "the transient Provider feedback explanation must not be persisted in domain events");
   const persistedAiRegistry = dashboard.persistenceSnapshot().registries.find(registry => registry.registryId === "ai-orchestration");
   const persistedRefinement = persistedAiRegistry.invocations.find(invocation => invocation.invocationId === refinementPayload.providerInvocation.invocationId);
   assert.equal(persistedRefinement.response, null, "a form-suggestion response is not retained in the invocation registry");
