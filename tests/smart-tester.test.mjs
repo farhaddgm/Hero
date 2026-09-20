@@ -39,6 +39,8 @@ test("Smart Tester report is explicit about what passed, needs attention and was
   assert.equal(report.summary.attention, 0);
   assert.equal(report.checks.find(check => check.id === "browser.e2e").status, "not-run");
   assert.match(report.checks.find(check => check.id === "security.boundary").detail, /Secret/);
+  assert.deepEqual(report.qualityOpportunities.map(item => item.status), ["suggested-not-run", "suggested-not-run", "suggested-not-run"]);
+  assert.ok(report.qualityOpportunities.some(item => item.type === "accessibility"));
   assert.equal(HERO_SMART_TESTER_REPORT_TTL_MS, 30 * 60 * 1000);
 });
 
@@ -71,6 +73,11 @@ test("Smart Tester creates a sanitized, actionable error report without echoing 
   assert.equal(report.chatInformed, true);
   assert.equal(report.summary.findingCount, 2);
   assert.equal(report.findings[0].sourceFiles.includes("apps/control-plane/src/project-workspace-view.mjs"), true);
+  assert.match(report.incident.fingerprint, /^hst-[a-f0-9]{8}$/);
+  assert.equal(report.remediationBrief.schema, "hero.smart-tester.remediation-brief/v1");
+  assert.equal(report.remediationBrief.safeForAgentHandoff, true);
+  assert.ok(report.remediationBrief.verificationPlan.length >= 1);
+  assert.ok(report.qualityOpportunities.every(item => item.status === "suggested-not-run"));
   assert.doesNotMatch(JSON.stringify(report), /(?:password|secret|credential)\s*[:=]/i);
 });
 
@@ -84,11 +91,18 @@ test("Smart Tester carries a failed process action into advice and the owner-rev
   assert.equal(report.summary.findingCount, 1);
   assert.equal(report.findings[0].findingId, "smart-tester.action-failure");
   assert.equal(report.findings[0].severity, "medium");
+  assert.match(report.findings[0].fingerprint, /^hst-[a-f0-9]{8}$/);
+  assert.equal(report.findings[0].category, "defect");
+  assert.equal(report.findings[0].confidence, "high");
+  assert.equal(report.findings[0].evidenceType, "observed-http-result");
+  assert.match(report.findings[0].expected, /موفق/);
+  assert.match(report.findings[0].impact, /کامل نشده/);
   assert.equal(report.diagnosis.classification, "state-or-version-conflict");
   assert.match(report.diagnosis.problem, /ثبت Intake/);
   assert.match(report.diagnosis.likelyRootCause, /نسخه/);
   assert.match(report.diagnosis.proposedFix, /تازه‌سازی/);
   assert.match(report.diagnosis.verification, /همان نشست انسانی/);
+  assert.deepEqual(report.remediationBrief.sourceFiles, context.sourceFiles);
   assert.doesNotMatch(JSON.stringify(report), /(?:password|secret|credential)\s*[:=]/i);
 });
 

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createFormSuggestions, createProviderFormSuggestions, FormSuggestionsError, FORM_PROVIDER_SUGGESTIONS_SCHEMA, FORM_SUGGESTION_INITIAL_SUGGESTIONS, FORM_SUGGESTION_MAX_DOCUMENT_DRAFT_CHARACTERS, FORM_SUGGESTION_MAX_REFINEMENTS, FORM_SUGGESTION_MAX_SUGGESTIONS, FORM_SUGGESTIONS_VERSION, prepareFormSuggestionRefinement, prepareFormSuggestionRequest } from "../packages/domain/src/form-suggestions.mjs";
+import { AdvisorError, HERO_ADVISOR_INITIAL_PROPOSALS, HERO_ADVISOR_MAX_PROPOSALS, HERO_ADVISOR_PROVIDER_SCHEMA, HERO_ADVISOR_VERSION, createAdvisorProposals } from "../packages/domain/src/advisor.mjs";
 import { getHeroGlobalNavigation, getHeroShellScript, getHeroShellStyles } from "../apps/control-plane/src/hero-shell.mjs";
 
 const actor = { kind: "project-owner", id: "hero-owner" };
@@ -31,6 +32,16 @@ test("form suggestions return three local, reviewable variants without external 
   assert.equal(result.suggestions[1].entries.find(entry => entry.name === "riskLevel").value, "medium");
   assert.ok(result.suggestions.every(suggestion => suggestion.entries.length === fields.length));
   assert.doesNotMatch(JSON.stringify(result), /(?:password|secret|credential|api.?key|token)\s*[:=]/i);
+});
+
+test("Advisor is the canonical facade while legacy form-suggestions contracts remain compatible", () => {
+  assert.equal(HERO_ADVISOR_VERSION, FORM_SUGGESTIONS_VERSION);
+  assert.equal(HERO_ADVISOR_PROVIDER_SCHEMA, FORM_PROVIDER_SUGGESTIONS_SCHEMA);
+  assert.equal(HERO_ADVISOR_INITIAL_PROPOSALS, FORM_SUGGESTION_INITIAL_SUGGESTIONS);
+  assert.equal(HERO_ADVISOR_MAX_PROPOSALS, FORM_SUGGESTION_MAX_SUGGESTIONS);
+  assert.equal(AdvisorError, FormSuggestionsError);
+  const result = createAdvisorProposals({ actor, formId: "safe-form", formTitle: "فرم امن", softwareGoal: "هدف آزمایشی", boxDescription: "ثبت تصمیم قابل بازبینی", fields: [{ name: "title", type: "text", label: "عنوان" }] });
+  assert.equal(result.suggestions.length, 3);
 });
 
 test("form suggestions reject sensitive fields and unauthorized actors", () => {
@@ -283,6 +294,50 @@ test("Provider feedback explanation and optional document draft remain bounded a
   assert.equal(ordinaryForm.documentProposal, undefined, "only the dedicated optional project-input form can expose a document draft");
 });
 
+test("Advisor can propose review-only document and image briefs without receiving or uploading binary files", () => {
+  const request = prepareFormSuggestionRequest({
+    actor,
+    projectId: "project-vpn",
+    formId: "evidence-form",
+    formTitle: "Evidence",
+    softwareGoal: "ثبت شواهد قابل بازبینی",
+    boxDescription: "افزودن سند و تصویر برای بررسی ادمین",
+    fields: [],
+    assets: [
+      { name: "architecture", label: "سند معماری", accept: ".pdf,.md", kind: "document" },
+      { name: "screen", label: "تصویر رابط", accept: "image/png,image/webp", kind: "image" }
+    ],
+    selectedAdvisor: "openai-profile-v1"
+  });
+  assert.deepEqual(request.assets.map(asset => asset.name), ["architecture", "screen"]);
+  assert.doesNotMatch(JSON.stringify(request), /content|path|selectedFile/i);
+  const result = createProviderFormSuggestions({
+    ...request,
+    actor,
+    selectedAdvisor: "openai-profile-v1",
+    providerOutput: {
+      schema: FORM_PROVIDER_SUGGESTIONS_SCHEMA,
+      boxPurpose: "این باکس شواهد معماری و نمای رابط را برای بازبینی انسانی جمع می‌کند تا تصمیم ادمین بر پایهٔ سند قابل بررسی باشد و هیچ فایل یا تغییری خودکار ثبت نشود.",
+      decisionSupport: {
+        assumptions: ["معماری هنوز در مرحلهٔ بازبینی است."],
+        risks: ["سند ممکن است با نسخهٔ فعلی منطبق نباشد."],
+        tests: ["شمارهٔ نسخهٔ سند با نسخهٔ پروژه تطبیق داده شود."],
+        improvements: ["معیار پذیرش تصویر در سند ذکر شود."]
+      },
+      assetProposals: [
+        { name: "architecture", title: "سند تصمیم معماری", filename: "architecture-decision.md", brief: "دامنه، گزینه‌های بررسی‌شده، تصمیم و پیامدهای معماری را برای بازبینی ادمین توضیح دهد.", acceptanceCriteria: ["نسخه و مالک سند روشن باشد."] },
+        { name: "screen", title: "نمای وضعیت اصلی", filename: "main-status.webp", brief: "وضعیت اصلی محصول و مسیر اقدام بعدی را بدون دادهٔ شخصی نمایش دهد.", altText: "نمای وضعیت اصلی محصول Hero", acceptanceCriteria: ["متن‌ها خوانا و فاقد دادهٔ حساس باشند."] }
+      ],
+      suggestions: [{ title: "بستهٔ شواهد", rationale: "فقط راهنمای تهیه و انتخاب فایل را ارائه می‌کند.", entries: [] }]
+    }
+  });
+  assert.equal(result.assetProposals.length, 2);
+  assert.ok(result.assetProposals.every(item => item.applyMode === "review-only-no-binary-upload"));
+  assert.match(result.assetProposals.find(item => item.kind === "image").altText, /Hero/);
+  assert.match(result.decisionSupport.tests[0], /نسخه/);
+  assert.doesNotMatch(JSON.stringify(result), /data:image|https?:\/\//i);
+});
+
 test("form suggestion refinement requires a live advisor, bounded safe feedback and a limited round", () => {
   const refinement = prepareFormSuggestionRefinement({
     actor,
@@ -310,13 +365,13 @@ test("shared shell exposes the form suggestion switch and safe popup contract", 
   const script = getHeroShellScript();
   const styles = getHeroShellStyles();
   assert.match(nav, /data-hero-form-suggestions-toggle/);
-  assert.match(nav, /پیشنهاد فرم/);
+  assert.match(nav, /ادوایزر/);
   assert.match(script, /hero\.form-suggestions\.enabled\.v1/);
-  assert.ok(script.includes("/api/form-suggestions"));
+  assert.ok(script.includes("/api/advisor"));
   assert.match(script, /اعلام پیشنهاد/);
   assert.match(script, /انتخاب این پیشنهاد/);
   assert.match(script, /شرح هدف این باکس/);
-  assert.match(script, /\/api\/form-suggestions\/refine/);
+  assert.match(script, /\/api\/advisor\/refine/);
   assert.match(script, /بهبود پیشنهاد با AI/);
   assert.match(script, /ساخت پیشنهاد بهتر/);
   assert.match(script, /formSuggestionInitialCount = 3/);
@@ -329,6 +384,8 @@ test("shared shell exposes the form suggestion switch and safe popup contract", 
   assert.match(script, /foundation-form/);
   assert.doesNotMatch(script, /هدف کوتاه نرم‌افزار/);
   assert.match(script, /data-hero-form-suggestion-trigger/);
+  assert.match(script, /window\.heroAdvisor = window\.heroFormSuggestions/);
+  assert.match(script, /پیشنهاد سند|پیشنهاد تصویر/);
   assert.match(styles, /hero-form-suggestion-dialog/);
   assert.match(styles, /hero-form-suggestion-results/);
   assert.match(styles, /hero-form-suggestion-feedback/);

@@ -42,6 +42,21 @@ Provider != Model
 Credential Reference != Credential Value
 ```
 
+## Advisor تعاملی Back Office
+
+نام canonical قابلیت کمک به تکمیل فرم از این نسخه **Advisor / ادوایزر** است. این قابلیت با `Organization Advisor` که عملکرد کل سازمان را تحلیل می‌کند یکی نیست:
+
+| قابلیت | Scope | خروجی | اختیار |
+| --- | --- | --- | --- |
+| Advisor فرم | همان Box/Form و Project فعال | ۳ پیشنهاد اولیه، اصلاح‌های تک‌به‌تک تا سقف ۱۰، تحلیل تصمیم، طرح سند/تصویر | فقط قرار دادن مقدار انتخابی در فرم؛ ثبت نهایی با ادمین |
+| Organization Advisor | Evidence سازمان و ۱۱ تیم | گزینه، recommendation، uncertainty و roadmap | advisory-only؛ بدون mutation یا authorization |
+
+مسیرهای canonical عبارت‌اند از `/api/advisor/options`، `/api/advisor` و `/api/advisor/refine`. مسیرها، exportها، localStorage و capability قبلی `form-suggestions` برای سازگاری نسخه‌دار باقی می‌مانند؛ authorization فعال نباید با rename ظاهری شکسته یا بی‌صدا بازنویسی شود.
+
+Advisor فقط metadata امن field و asset را می‌بیند. مقدار موجود فرم، فایل باینری، مسیر میزبان و محتوای فایل برای پیشنهاد سند/تصویر ارسال نمی‌شود. خروجی asset فقط brief، نام فایل پیشنهادی، alt text و معیار پذیرش است و `review-only-no-binary-upload` می‌ماند. تحلیل تصمیم نیز assumptions، risks، tests و improvements را جدا می‌کند تا پیشنهاد علاوه بر پرکردن فرم، خطا، باگ و فرصت بهبود احتمالی را برای بازبینی ادمین نشان دهد. بازخورد اصلاح فقط در همان درخواست گذرا استفاده می‌شود و history پایدار نمی‌سازد.
+
+مبنای Human-AI این تصمیم، حفظ کنترل و امکان feedback طبق Microsoft HAX و Google PAIR است: `https://www.microsoft.com/en-us/haxtoolkit/ai-guidelines/` و `https://pair.withgoogle.com/chapter/People%20%2B%20AI%20Guidebook%20-%20Feedback%20%2B%20Control.pdf`.
+
 تیم‌ها واحدهای سازمانی با مسئولیت، اختیار، readiness و مالکیت خروجی هستند. Roleها قابلیت‌های AI هستند و می‌توانند بین تیم‌ها و Projectها به‌صورت مستقل تخصیص یابند. چند تیم می‌توانند از یک Role استفاده کنند و یک تیم می‌تواند چند Role داشته باشد.
 
 ## Benchmark معماری

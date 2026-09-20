@@ -19,7 +19,8 @@ import {
   HERO_PROJECT_WALKTHROUGH_STATE_VERSION,
   HERO_PROJECT_WALKTHROUGH_STEPS,
   HERO_PROJECT_WALKTHROUGH_VERSION,
-  createProjectWalkthroughAdvisory
+  createProjectWalkthroughAdvisory,
+  createProjectWalkthroughProgress
 } from "../apps/control-plane/src/project-walkthrough.mjs";
 
 function scripts(html) {
@@ -53,7 +54,7 @@ test("the shared Hero shell provides accessible project-aware navigation", () =>
   assert.match(getHeroShellStyles(), /prefers-reduced-motion: reduce/);
   assert.match(getHeroShellStyles(), /--hero-danger/);
   assert.match(getHeroShellStyles(), /hero-smart-tester-panel/);
-  assert.match(getBackofficeHtml({ initialData: null }), /پیشنهاد فرم/);
+  assert.match(getBackofficeHtml({ initialData: null }), /Advisor|ادوایزر/);
   assert.match(getBackofficeHtml({ initialData: null }), /form-suggestions/);
   assert.ok(getHeroShellStyles().includes(".hero-side-nav { position: fixed;"));
   assert.ok(getHeroShellStyles().includes(".hero-global-nav { display: grid; align-content: start; min-width: 0; gap: 4px; overflow-y: auto;"));
@@ -110,7 +111,7 @@ test("project control room exposes a project-scoped Test target selector without
 });
 
 test("the project Walk-Through covers the real setup path, all management surfaces and explicit gated work", () => {
-  assert.equal(HERO_PROJECT_WALKTHROUGH_VERSION, "1.8.0");
+  assert.equal(HERO_PROJECT_WALKTHROUGH_VERSION, "1.9.0");
   assert.equal(HERO_PROJECT_WALKTHROUGH_STATE_VERSION, 1);
   assert.equal(HERO_PROJECT_WALKTHROUGH_ENABLED_SETTING, "backoffice.walkthrough.enabled");
   assert.ok(HERO_PROJECT_WALKTHROUGH_STEPS.length >= 12);
@@ -143,6 +144,7 @@ test("the project Walk-Through covers the real setup path, all management surfac
   for (const step of HERO_PROJECT_WALKTHROUGH_STEPS) if (step.nextId) assert.ok(ids.has(step.nextId), `${step.id} points to a missing next step`);
   assert.equal(mainSteps.at(-1).nextId, null, "the final main stage must expose completion instead of another step");
   assert.ok(HERO_PROJECT_WALKTHROUGH_STEPS.some(step => step.id === "intake" && step.completion === "intake-complete"));
+  assert.ok(HERO_PROJECT_WALKTHROUGH_STEPS.some(step => step.id === "inputs" && step.completion === "optional-input" && step.optional === true));
   assert.ok(HERO_PROJECT_WALKTHROUGH_STEPS.some(step => step.id === "foundation" && step.completion === "foundation-approved"));
   assert.ok(HERO_PROJECT_WALKTHROUGH_STEPS.some(step => step.availability === "gated" && step.id === "production"));
   const html = getProjectWalkthroughHtml({ projectId: "project-vpn" });
@@ -158,6 +160,26 @@ test("the project Walk-Through covers the real setup path, all management surfac
   assert.match(html, /تنظیمات سرویس Walk-Through/);
   assert.match(html, /backoffice\.walkthrough\.enabled/);
   for (const source of scripts(html)) assert.doesNotThrow(() => new vm.Script(source, { filename: "project-walkthrough-inline.js" }));
+});
+
+test("Walk-Through progress uses real project evidence and never blocks on optional inputs", () => {
+  const progress = createProjectWalkthroughProgress({
+    authenticated: true,
+    projectId: "project-vpn",
+    overview: {
+      intake: { goal: "هدف", users: "کاربران", autonomy: "approval-each-stage" },
+      inputs: [],
+      foundationProposal: { state: "approved" },
+      settings: [{ path: "product.locale", value: "fa" }]
+    }
+  });
+  assert.equal(progress.summary.percent, 100);
+  assert.equal(progress.summary.nextRequiredStepId, null);
+  const optionalInput = progress.steps.find(step => step.stepId === "inputs");
+  assert.equal(optionalInput.state, "optional");
+  assert.equal(optionalInput.required, false);
+  assert.match(optionalInput.evidence, /اختیاری/);
+  assert.doesNotMatch(JSON.stringify(progress), /approval-each-stage|product\.locale/, "progress does not retain project form values");
 });
 
 test("Walk-Through advisor starts empty, analyses the current step and never invokes a provider", () => {

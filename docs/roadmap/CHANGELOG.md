@@ -1,5 +1,14 @@
 # تغییرات رودمپ شرکت
 
+# ۲۰۲۶-۰۹-۲۰ — ارتقای یکپارچهٔ Walk-Through، Smart Tester و Advisor
+
+- Walk-Through نسخهٔ `1.9.0` پیشرفت لازم، blocker و اقدام بعدی را از نشست و read model واقعی محاسبه می‌کند. «ورودی پروژه» اکنون مطابق قرارداد Workspace اختیاری است و نبود Brief/سند ادامهٔ مسیر را مسدود نمی‌کند. Project دارای Grant ولی فاقد read model نیز به‌جای 404، راهنمای امن با وضعیت تکمیل‌نشده دریافت می‌کند. Context زنده فقط summary و شناسه‌های وضعیت را می‌گیرد و مقدار فرم را نگه نمی‌دارد.
+- Smart Tester نسخهٔ `1.6.0` و گزارش خطای `1.3.0` برای هر یافته fingerprint پایدار پاک‌سازی‌شده، category، severity، confidence، evidence type، observed/expected/impact، پیشنهاد اصلاح و verification می‌سازند. `remediationBrief/v1` برای تحویل امن به عامل توسعه، incident و فرصت‌های کیفیتِ صریحاً اجرا‌نشده به دفتر خطا افزوده شده‌اند؛ prompt، Secret و source خام ذخیره نمی‌شوند.
+- نام canonical دستیار تکمیل فرم «Advisor / ادوایزر» است. APIهای `/api/advisor*` و facade دامنه اضافه شدند؛ مسیر، export، localStorage و capability قبلی `form-suggestions` برای سازگاری authorization نسخه‌دار حفظ شده‌اند. Advisor علاوه بر پیشنهادهای فرم، assumptions، risks، tests و improvements و برای file input فقط brief امن سند/تصویر، filename، alt text و معیار پذیرش ارائه می‌دهد؛ فایل یا upload خودکار ندارد. Owner/Admin ثبت نهایی را جداگانه انجام می‌دهد.
+- دسترسی Admin به refinement canonical و legacy تکمیل شد. هیچ قابلیت قبلی حذف و هیچ Secret، Provider، Profile، Binding، authorization، Pilot یا Production تغییر داده نشد.
+- Benchmark رسمی از GOV.UK Task List، Microsoft HAX، Google PAIR، OpenTelemetry semantic conventions، GitHub Issue Forms، Google SRE postmortem culture و WAI-ARIA modal dialog در اسناد معماری/عملیاتی ثبت شد.
+- شواهد source: `pnpm check` معادل در Linux source-snapshot container کامل PASS شد؛ `487/487` تست، documentation برابر `148` سند و صفر خطا، build برابر `299` ماژول و `54` فایل JSON، به‌همراه governance، deployment contract، environment parity، roadmap و Back Office audit همگی موفق‌اند.
+
 # ۲۰۲۶-۰۹-۲۰ — اجرای دقیق بازخورد در فرم‌های چندفیلدی
 
 - اصلاح تعاملی پیشنهاد فرم اکنون field-aware است: Hero عبارت‌های صریحی مانند «فیلد اول را کوتاه‌تر کن و فیلد دوم را مفصل‌تر کن» را فقط در حافظهٔ همان درخواست به نام، برچسب و جایگاه field واقعی نگاشت می‌کند. Provider علاوه بر متن بازخورد، قرارداد روشنِ هر فیلدِ هدف را می‌گیرد؛ بنابراین تغییر مربوط به یک field نباید به field دیگر سرایت کند.

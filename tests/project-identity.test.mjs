@@ -293,7 +293,10 @@ test("Human Identity issues a six-hour HttpOnly browser session that survives re
   const formSuggestionOptions = await fetch(`${base}/api/form-suggestions/options`, { headers: { cookie } });
   assert.equal(formSuggestionOptions.status, 200);
   assert.equal((await formSuggestionOptions.json()).formSuggestions.localAdvisor.id, "local");
-  const formSuggestion = await fetch(`${base}/api/form-suggestions`, {
+  const formAdvisorOptions = await fetch(`${base}/api/advisor/options`, { headers: { cookie } });
+  assert.equal(formAdvisorOptions.status, 200);
+  assert.equal((await formAdvisorOptions.json()).advisor.localAdvisor.id, "local");
+  const formSuggestion = await fetch(`${base}/api/advisor`, {
     method: "POST",
     headers: { cookie, origin: base, "content-type": "application/json" },
     body: JSON.stringify({
@@ -307,7 +310,9 @@ test("Human Identity issues a six-hour HttpOnly browser session that survives re
     })
   });
   assert.equal(formSuggestion.status, 200);
-  const formSuggestionPayload = (await formSuggestion.json()).formSuggestions;
+  const localAdvisorPayload = await formSuggestion.json();
+  const formSuggestionPayload = localAdvisorPayload.advisor;
+  assert.deepEqual(localAdvisorPayload.advisor, localAdvisorPayload.formSuggestions, "canonical and legacy response keys stay compatible");
   assert.equal(formSuggestionPayload.providerInvoked, false);
   assert.equal(formSuggestionPayload.externalSpend, "none");
   assert.equal(formSuggestionPayload.suggestions.length, 3);
@@ -581,7 +586,7 @@ test("Project-bound live advisor profiles invoke through the bounded authorizati
     ...lastProviderInput.context.repositoryContext.files.map(file => file.path)
   ]);
   assert.doesNotMatch(repositoryPaths, /\/opt\/hero|(?:^|[\\/])\.env(?:\.|$)|(?:^|[\\/])node_modules(?:[\\/]|$)/i);
-  const formSuggestion = await fetch(`${base}/api/form-suggestions?projectId=project-vpn`, {
+  const formSuggestion = await fetch(`${base}/api/advisor?projectId=project-vpn`, {
     method: "POST",
     headers,
     body: JSON.stringify({ projectId: "project-vpn", formId: "intake-form", formTitle: "Intake پروژه", softwareGoal: "هدف فعلی فرم", boxDescription: "ثبت هدف و محدودیت‌ها", selectedAdvisor: "live-advisor-profile", fields: [{ name: "goal", type: "textarea", label: "هدف", value: "مقدار قبلی محرمانه نیست اما نباید به Provider ارسال شود" }, { name: "riskLevel", type: "select", label: "ریسک", options: [{ value: "low", label: "کم" }, { value: "high", label: "زیاد" }] }, { name: "constraints", type: "textarea", label: "محدودیت" }, { name: "approved", type: "checkbox", label: "تأیید", value: "approved" }] })
@@ -598,7 +603,7 @@ test("Project-bound live advisor profiles invoke through the bounded authorizati
   assert.equal(formPayload.evidence.capability, "form-suggestions");
   assert.equal(lastProviderInput.context.formSuggestion.fields[0].value, undefined, "existing form values must not enter the Provider context");
   assert.doesNotMatch(JSON.stringify(formPayload), /مقدار قبلی محرمانه/);
-  const formRefinement = await fetch(`${base}/api/form-suggestions/refine?projectId=project-vpn`, {
+  const formRefinement = await fetch(`${base}/api/advisor/refine?projectId=project-vpn`, {
     method: "POST",
     headers,
     body: JSON.stringify({ projectId: "project-vpn", formId: "intake-form", formTitle: "Intake پروژه", softwareGoal: "هدف فعلی فرم", boxDescription: "ثبت هدف و محدودیت‌ها", selectedAdvisor: "live-advisor-profile", feedback: "فیلد اول را کوتاه‌تر کن و برای فیلد سوم توضیح مفصل‌تری بنویس.", iteration: 1, fields: [{ name: "goal", type: "textarea", label: "هدف", value: "مقدار قبلی محرمانه نیست اما نباید به Provider ارسال شود" }, { name: "riskLevel", type: "select", label: "ریسک", options: [{ value: "low", label: "کم" }, { value: "high", label: "زیاد" }] }, { name: "constraints", type: "textarea", label: "محدودیت" }, { name: "approved", type: "checkbox", label: "تأیید", value: "approved" }] })

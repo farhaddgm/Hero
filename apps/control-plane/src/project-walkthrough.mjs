@@ -4,7 +4,7 @@
  * actions.  The project view evaluates the completion checks against the
  * project-scoped read model before it marks a setup step complete.
  */
-export const HERO_PROJECT_WALKTHROUGH_VERSION = "1.8.0";
+export const HERO_PROJECT_WALKTHROUGH_VERSION = "1.9.0";
 export const HERO_PROJECT_WALKTHROUGH_STATE_VERSION = 1;
 export const HERO_PROJECT_WALKTHROUGH_ENABLED_SETTING = "backoffice.walkthrough.enabled";
 
@@ -95,12 +95,13 @@ export const HERO_PROJECT_WALKTHROUGH_STEPS = Object.freeze([
     phase: "پایهٔ محصول",
     flow: "main",
     title: "ثبت ورودی‌های پروژه",
-    summary: "Brief، متن نیازمندی یا لینک عمومی را ثبت کنید تا Foundation و مستندات بر مبنای آن قابل بازبینی باشند.",
+    summary: "اگر نمونه، Brief، متن نیازمندی یا لینک عمومی دارید، آن را اختیاری ثبت کنید؛ نداشتن ورودی مانع ادامهٔ ساخت محصول نیست.",
     route: "/workspace",
     target: "workspace.project-inputs",
     actionLabel: "باز کردن ورودی‌های پروژه",
-    completion: "input-registered",
+    completion: "optional-input",
     availability: "available-with-limits",
+    optional: true,
     instructions: Object.freeze([
       "برای متن، نام فایل معنادار مانند brief.txt انتخاب و متن نیازمندی را وارد کنید؛ سپس «ثبت ورودی متن» را بزنید.",
       "برای یک مرجع وب، فقط URL عمومی HTTPS و عنوان را ثبت کنید؛ این ثبت، به معنی fetch یا اجرای خودکار لینک نیست.",
@@ -412,12 +413,75 @@ export function getProjectWalkthroughStep(stepId) {
 }
 
 /**
- * The guide advisor is intentionally local and deterministic for now.  It
- * receives no provider credential, does not dispatch a model, and never keeps
- * a user's question.  That makes the assistant useful on every setup surface
- * without quietly turning a help bubble into an external AI invocation or an
- * unreviewed cost.  A future provider-backed advisor can replace this narrow
- * contract while preserving the response shape and the explicit review step.
+ * A compact, deterministic readiness model shared by tests and server-side
+ * consumers. It never stores form values and never treats reference/gated
+ * stages as completed product work. Optional inputs can add context, but are
+ * deliberately excluded from the blocking progress denominator.
+ */
+export function createProjectWalkthroughProgress({ authenticated = false, projectId = null, overview = null } = {}) {
+  const projectSelected = typeof projectId === "string" && /^[a-z][a-z0-9-]{2,62}$/.test(projectId);
+  const intake = overview?.intake ?? {};
+  const foundation = overview?.foundationProposal ?? {};
+  const settings = Array.isArray(overview?.settings) ? overview.settings : [];
+  const inputs = Array.isArray(overview?.inputs) ? overview.inputs : [];
+  const completion = step => {
+    if (step.id === "create-project") return false;
+    if (step.completion === "human-session") return authenticated === true;
+    if (step.completion === "selected-project") return projectSelected;
+    if (step.completion === "intake-complete") return Boolean(intake.goal && intake.users && intake.autonomy);
+    if (step.completion === "optional-input") return inputs.length > 0;
+    if (step.completion === "foundation-approved") return foundation.state === "approved";
+    if (step.completion === "setting-registered") return settings.some(item => item?.path !== HERO_PROJECT_WALKTHROUGH_ENABLED_SETTING);
+    return false;
+  };
+  const requiredSteps = HERO_PROJECT_WALKTHROUGH_STEPS.filter(step => step.flow === "main" && step.optional !== true && !["review-only", "gated", "not-available"].includes(step.completion));
+  const requiredCompleted = requiredSteps.filter(completion).length;
+  const steps = HERO_PROJECT_WALKTHROUGH_STEPS.map(step => {
+    const complete = completion(step);
+    const priorRequired = requiredSteps.slice(0, Math.max(0, requiredSteps.findIndex(item => item.id === step.id))).filter(item => item.id !== step.id);
+    const blockedBy = priorRequired.filter(item => !completion(item)).map(item => item.id);
+    const state = complete
+      ? "complete"
+      : step.optional === true
+        ? "optional"
+        : ["gated", "partial"].includes(step.availability)
+          ? "gated"
+          : step.completion === "review-only"
+            ? "reference"
+            : blockedBy.length
+              ? "waiting"
+              : "ready";
+    return Object.freeze({
+      stepId: step.id,
+      state,
+      required: requiredSteps.some(item => item.id === step.id),
+      completed: complete,
+      blockedBy: Object.freeze(blockedBy),
+      nextAction: state === "ready" || state === "optional" ? step.actionLabel : null,
+      evidence: complete
+        ? step.completion === "optional-input" ? `${inputs.length} ورودی اختیاری ثبت شده است.` : "معیار این گام از وضعیت واقعی پروژه تأیید شده است."
+        : step.optional === true ? "این گام اختیاری است و می‌توانید بدون ثبت داده ادامه دهید." : null
+    });
+  });
+  const nextRequired = steps.find(item => item.required && !item.completed && item.state === "ready") ?? null;
+  return Object.freeze({
+    version: HERO_PROJECT_WALKTHROUGH_VERSION,
+    projectId: projectSelected ? projectId : null,
+    summary: Object.freeze({
+      required: requiredSteps.length,
+      completed: requiredCompleted,
+      percent: requiredSteps.length ? Math.round((requiredCompleted / requiredSteps.length) * 100) : 0,
+      nextRequiredStepId: nextRequired?.stepId ?? null
+    }),
+    steps: Object.freeze(steps)
+  });
+}
+
+/**
+ * The deterministic guidance is always available and never receives a
+ * credential or keeps a user's question. The HTTP layer may additionally use
+ * an explicitly selected, authorized live profile while preserving this
+ * narrow response contract and the admin's final review boundary.
  */
 export const HERO_PROJECT_WALKTHROUGH_ADVISOR_MODE = "local-contextual-guidance";
 export const HERO_PROJECT_WALKTHROUGH_ADVISOR_MAX_QUESTION_LENGTH = 1_500;
@@ -520,6 +584,18 @@ export function createProjectWalkthroughAdvisory({ stepId, projectId = null, que
     title: step.title,
     fieldLabels: Object.freeze(fields.map(field => field.label)),
     response: contextualAdvisorResponse({ step, question: normalizedQuestion, fields }),
-    proposedFields: Object.freeze(proposedFields.map(field => Object.freeze({ ...field })))
+    proposedFields: Object.freeze(proposedFields.map(field => Object.freeze({ ...field }))),
+    guidance: Object.freeze({
+      objective: step.summary,
+      required: step.optional !== true && !["review-only", "gated", "not-available"].includes(step.completion),
+      availability: step.availability,
+      checklist: Object.freeze(step.instructions.slice(0, 4)),
+      evidenceNeeded: step.completion === "review-only"
+        ? "بازبینی آگاهانهٔ وضعیت و Evidence همین سطح"
+        : step.optional === true
+          ? "اختیاری؛ در صورت ثبت، نمایش موفق آن در همان Scope"
+          : `تأیید معیار ${step.completion} از دادهٔ واقعی پروژه`,
+      safeBoundary: "راهنما فقط پیشنهاد و مسیر بعدی می‌دهد؛ ثبت، هزینه، اجرا و انتشار همچنان نیازمند اقدام یا مجوز مستقل ادمین است."
+    })
   });
 }

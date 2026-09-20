@@ -43,6 +43,7 @@ export function getProjectWalkthroughHtml({ projectId = null } = {}) {
     const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
     const state = { projectId: initial.projectId, principal: null, overview: null, serviceEnabled: initial.projectId ? null : true };
     const configuredSteps = new Set(['intake','inputs','foundation','settings']);
+    const requiredSetupSteps = new Set(['intake','foundation','settings']);
     const surfaceFor = step => {
       const route = new URL(step.route, location.origin);
       if (route.pathname === '/identity') return 'identity';
@@ -80,25 +81,26 @@ export function getProjectWalkthroughHtml({ projectId = null } = {}) {
       if (step.completion === 'human-session') return Boolean(state.principal);
       if (step.completion === 'selected-project') return Boolean(state.projectId);
       if (step.completion === 'intake-complete') return Boolean(intake.goal && intake.users && intake.autonomy);
-      if (step.completion === 'input-registered') return (overview.inputs || []).length > 0;
+      if (step.completion === 'optional-input') return (overview.inputs || []).length > 0;
       if (step.completion === 'foundation-approved') return foundation.state === 'approved';
       if (step.completion === 'setting-registered') return (overview.settings || []).length > 0;
       return false;
     };
     const stateFor = step => {
       if (complete(step)) return 'complete';
+      if (step.optional === true) return 'optional';
       if (configuredSteps.has(step.id) && !state.projectId) return 'waiting';
       if (step.availability === 'gated' || step.availability === 'partial') return 'gated';
       if (step.completion === 'review-only') return 'reference';
       const currentIndex = initial.steps.findIndex(item => item.id === step.id);
-      const previousRequired = initial.steps.slice(0, currentIndex).filter(item => configuredSteps.has(item.id));
+      const previousRequired = initial.steps.slice(0, currentIndex).filter(item => requiredSetupSteps.has(item.id));
       if (configuredSteps.has(step.id) && previousRequired.every(complete)) return 'current';
       return 'available';
     };
-    const stateLabel = value => ({ complete:'ثبت و تأیید شد', current:'اقدام بعدی', available:'قابل انجام', waiting:'ابتدا پروژه', reference:'بازبینی', gated:'گیت‌شده' }[value] || 'قابل انجام');
+    const stateLabel = value => ({ complete:'ثبت و تأیید شد', current:'اقدام بعدی', available:'قابل انجام', optional:'اختیاری؛ مانع ادامه نیست', waiting:'ابتدا پروژه', reference:'بازبینی', gated:'گیت‌شده' }[value] || 'قابل انجام');
     const groupName = phase => phase;
     const render = () => {
-      const setup = initial.steps.filter(step => configuredSteps.has(step.id));
+      const setup = initial.steps.filter(step => requiredSetupSteps.has(step.id));
       const done = setup.filter(complete).length;
       const project = state.overview?.project;
       $('guide-context-title').textContent = project ? project.name : (state.projectId ? state.projectId : 'هنوز پروژه‌ای انتخاب نشده است');

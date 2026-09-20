@@ -65,7 +65,7 @@ import { getIdentityHtml } from "./identity-view.mjs";
 import { getProjectControlRoomHtml } from "./project-control-room-view.mjs";
 import { getProjectWorkspaceHtml } from "./project-workspace-view.mjs";
 import { getProjectWalkthroughHtml } from "./project-walkthrough-view.mjs";
-import { createProjectWalkthroughAdvisory } from "./project-walkthrough.mjs";
+import { createProjectWalkthroughAdvisory, createProjectWalkthroughProgress } from "./project-walkthrough.mjs";
 import {
   HERO_SMART_TESTER_ERROR_REPORT_VERSION,
   HERO_SMART_TESTER_REPORT_TTL_MS,
@@ -96,7 +96,7 @@ import { createFinalReadiness, FinalReadinessError } from "../../../packages/dom
 import { createBackofficeCompletion, BackofficeCompletionError } from "../../../packages/domain/src/backoffice-completion.mjs";
 import { AiOrchestrationError } from "../../../packages/domain/src/ai-orchestration.mjs";
 import { evaluateAiAdvisorReadiness } from "../../../packages/domain/src/ai-advisor-readiness.mjs";
-import { FormSuggestionsError, FORM_PROVIDER_SUGGESTIONS_SCHEMA, FORM_SUGGESTION_INITIAL_SUGGESTIONS, FORM_SUGGESTIONS_VERSION, createFormSuggestions, createProviderFormSuggestions, prepareFormSuggestionRefinement, prepareFormSuggestionRequest } from "../../../packages/domain/src/form-suggestions.mjs";
+import { FormSuggestionsError, FORM_PROVIDER_SUGGESTIONS_SCHEMA, FORM_SUGGESTION_INITIAL_SUGGESTIONS, FORM_SUGGESTIONS_VERSION, createFormSuggestions, createProviderFormSuggestions, prepareFormSuggestionRefinement, prepareFormSuggestionRequest } from "../../../packages/domain/src/advisor.mjs";
 import { rebuildPortfolioReadModel, rebuildProjectReadModel } from "../../../packages/domain/src/backoffice-read-models.mjs";
 import { ProductDevelopmentError, createProductDevelopmentCatalog } from "../../../packages/domain/src/product-development.mjs";
 import { HeroSecretStoreError, createConfiguredAiProviderAdapters, createHeroSecretStore, createNotionApiAdapter, createPostgresRuntime, createPricingCatalogRegistry, createRuntimeExternalSpendAuthorizer, readRuntimeExternalSpendPolicy } from "../../../packages/adapters/src/index.mjs";
@@ -186,7 +186,10 @@ const ADMIN_ALLOWED_MUTATIONS = new Set([
   "/api/ai/skills",
   "/api/ai/skill-bindings",
   "/api/ai/role-policies",
-  "/api/form-suggestions"
+  "/api/form-suggestions",
+  "/api/form-suggestions/refine",
+  "/api/advisor",
+  "/api/advisor/refine"
 ]);
 // Human Identity is the browser-facing authority. Global AI catalog entries
 // affect the whole private Hero installation, so they remain Owner-only.
@@ -1153,7 +1156,7 @@ export function createHeroServer(options = {}) {
         setupAction: "ai-assignment-proposal"
       }))),
       profiles: options.profiles,
-      note: "پیشنهاد فرم به‌صورت محلی همیشه در دسترس است؛ Profile خارجی فقط وقتی قابل انتخاب است که Binding سالم، Scope پروژه و مجوز هزینهٔ form-suggestions هر سه فعال باشند."
+      note: "Advisor به‌صورت محلی همیشه در دسترس است؛ Profile خارجی فقط وقتی قابل انتخاب است که Binding سالم، Scope پروژه و مجوز نسخه‌دارِ سازگار form-suggestions هر سه فعال باشند."
     });
   }
 
@@ -1677,7 +1680,10 @@ export function createHeroServer(options = {}) {
       reproductionSteps: report.reproductionSteps,
       limitations: report.limitations,
       sourceReport: report.sourceReport,
-      diagnosis: report.diagnosis ?? null
+      diagnosis: report.diagnosis ?? null,
+      incident: report.incident ?? null,
+      remediationBrief: report.remediationBrief ?? null,
+      qualityOpportunities: report.qualityOpportunities ?? []
     });
     const current = smartTesterErrorDocuments.get(documentId) ?? Object.freeze({
       documentId,
@@ -1699,7 +1705,13 @@ export function createHeroServer(options = {}) {
         findings: entry.findings,
         reproductionSteps: entry.reproductionSteps,
         limitations: entry.limitations,
-        sourceReport: { ...entry.sourceReport, diagnosis: entry.diagnosis },
+        sourceReport: {
+          ...entry.sourceReport,
+          diagnosis: entry.diagnosis,
+          incident: entry.incident,
+          remediationBrief: entry.remediationBrief,
+          qualityOpportunities: entry.qualityOpportunities
+        },
         actorId: principal.subject
       });
     }
@@ -1715,7 +1727,13 @@ export function createHeroServer(options = {}) {
     if (current) return current;
     if (postgresRuntime?.projectWorkspace?.listSmartTesterErrors) {
       const entries = await postgresRuntime.projectWorkspace.listSmartTesterErrors({ projectId });
-      return Object.freeze({ documentId, projectId, title: `دفتر خطاهای Smart Tester · ${projectId}`, entries: Object.freeze(entries.map(entry => Object.freeze({ ...entry, diagnosis: entry.sourceReport?.diagnosis ?? null }))) });
+      return Object.freeze({ documentId, projectId, title: `دفتر خطاهای Smart Tester · ${projectId}`, entries: Object.freeze(entries.map(entry => Object.freeze({
+        ...entry,
+        diagnosis: entry.sourceReport?.diagnosis ?? null,
+        incident: entry.sourceReport?.incident ?? null,
+        remediationBrief: entry.sourceReport?.remediationBrief ?? null,
+        qualityOpportunities: entry.sourceReport?.qualityOpportunities ?? []
+      }))) });
     }
     return Object.freeze({ documentId, projectId, title: `دفتر خطاهای Smart Tester · ${projectId}`, entries: Object.freeze([]) });
   }
@@ -1876,12 +1894,12 @@ export function createHeroServer(options = {}) {
         if (projectId) projectAccessMiddleware.requireProject({ principal, projectId, action: "project.read" });
         return;
       }
-      if (url.pathname.startsWith("/api/form-suggestions") && ["GET", "POST"].includes(request.method)) {
+      if ((url.pathname.startsWith("/api/form-suggestions") || url.pathname.startsWith("/api/advisor")) && ["GET", "POST"].includes(request.method)) {
         if (!principal || !["human-identity", "admin"].includes(principal.source)) {
           throw new HumanIdentityError("IDENTITY_AUTH_REQUIRED", "Human or admin authentication is required for form suggestions.", 401);
         }
         if (!["project-owner", "admin"].includes(principal.role)) {
-          throw new ProjectAccessError("ADMIN_REQUIRED", "پیشنهاد فرم فقط برای Owner یا Admin مجاز است.", 403);
+          throw new ProjectAccessError("ADMIN_REQUIRED", "Advisor فقط برای Owner یا Admin مجاز است.", 403);
         }
         const scopedProjectId = url.searchParams.get("projectId");
         if (scopedProjectId) projectAccessMiddleware.requireProject({ principal, projectId: scopedProjectId, action: request.method === "GET" ? "project.read" : "project.write" });
@@ -2414,15 +2432,16 @@ export function createHeroServer(options = {}) {
         }
       }
 
-      if (request.method === "GET" && url.pathname === "/api/form-suggestions/options") {
+      if (request.method === "GET" && ["/api/form-suggestions/options", "/api/advisor/options"].includes(url.pathname)) {
         const queryProjectId = url.searchParams.get("projectId");
         if (queryProjectId !== null && !/^[a-z][a-z0-9-]{2,62}$/.test(queryProjectId)) {
           throw new FormSuggestionsError("FORM_SUGGESTION_PROJECT_INVALID", "شناسهٔ پروژه برای پیشنهاد فرم معتبر نیست.", 400);
         }
-        return json(response, 200, { service: HERO_SERVICE, formSuggestions: formSuggestionOptions(queryProjectId) });
+        const advisorOptions = formSuggestionOptions(queryProjectId);
+        return json(response, 200, { service: HERO_SERVICE, advisor: advisorOptions, formSuggestions: advisorOptions });
       }
 
-      if (request.method === "POST" && url.pathname === "/api/form-suggestions") {
+      if (request.method === "POST" && ["/api/form-suggestions", "/api/advisor"].includes(url.pathname)) {
         if (!authenticatedOwner || !["human-identity", "admin"].includes(authenticatedOwner.source)) {
           throw new HumanIdentityError("IDENTITY_AUTH_REQUIRED", "برای پیشنهاد فرم ورود انسانی یا نشست Admin لازم است.", 401);
         }
@@ -2447,11 +2466,12 @@ export function createHeroServer(options = {}) {
           softwareGoal: authoritativeGoal,
           boxDescription: input.boxDescription,
           fields: input.fields,
+          assets: input.assets,
           selectedAdvisor
         });
         if (selectedAdvisor === "local") {
           const formSuggestions = createFormSuggestions({ ...formRequest, actor: authenticatedOwner, selectedAdvisor: "local" });
-          return json(response, 200, { service: HERO_SERVICE, formSuggestions });
+          return json(response, 200, { service: HERO_SERVICE, advisor: formSuggestions, formSuggestions });
         }
         const selectedProfile = options.profiles.find(profile => profile.profileId === selectedAdvisor);
         const documentProposalEligible = formRequest.formId === "upload-form";
@@ -2459,9 +2479,9 @@ export function createHeroServer(options = {}) {
           purpose: "form-suggestions",
           projectId,
           selectedProfile,
-          question: `ابتدا کاربرد واقعی همین باکس را از عنوان، توضیح زمینه و فیلدهای آن تحلیل کن. سپس در boxPurpose یک شرح فارسی روشن و مفصل بنویس و دقیقاً سه پیشنهاد قابل بازبینی تولید کن. برای هر گزینه، مقدارها باید از نظر سطح جزئیات یا رویکرد واقعاً متفاوت باشند، نه سه بازنویسی از یک متن. فقط JSON معتبر با schema form-suggestions-v1 برگردان؛ برای هر پیشنهاد دقیقاً یک entry برای هر field و فقط مقدارهای مجاز همان field بده.${documentProposalEligible ? " چون این فرم ورودی اختیاری متن پروژه است، اگر یک پیش‌نویس کوتاه واقعاً مفید است، یک documentProposal قابل‌خواندن هم برگردان؛ پیش‌نویس را هرگز ثبت‌شده یا بارگذاری‌شده معرفی نکن." : ""}`,
+          question: `ابتدا کاربرد واقعی همین باکس را از عنوان، توضیح زمینه، فیلدها و ورودی‌های سند/تصویر تحلیل کن. سپس در boxPurpose یک شرح فارسی روشن و مفصل بنویس و دقیقاً سه پیشنهاد قابل بازبینی تولید کن. برای هر گزینه، مقدارها باید از نظر سطح جزئیات یا رویکرد واقعاً متفاوت باشند، نه سه بازنویسی از یک متن. decisionSupport را با assumptions، risks، tests و improvements کوتاه و عملی تکمیل کن. اگر assets وجود دارد، برای هر مورد فقط یک assetProposal امن شامل name، title، filename، brief، altText و acceptanceCriteria بده؛ فایل باینری، URL یا ادعای بارگذاری تولید نکن. فقط JSON معتبر با schema form-suggestions-v1 برگردان؛ برای هر پیشنهاد دقیقاً یک entry برای هر field و فقط مقدارهای مجاز همان field بده.${documentProposalEligible ? " چون این فرم ورودی اختیاری متن پروژه است، اگر یک پیش‌نویس کوتاه واقعاً مفید است، یک documentProposal قابل‌خواندن هم برگردان؛ پیش‌نویس را هرگز ثبت‌شده یا بارگذاری‌شده معرفی نکن." : ""}`,
           context: { pathname: "/form-suggestions", featureKey: "form.suggestions", formSuggestion: { ...formRequest, requestedSuggestionCount: FORM_SUGGESTION_INITIAL_SUGGESTIONS, documentProposalEligible } },
-          localResponse: `Generate ${FORM_PROVIDER_SUGGESTIONS_SCHEMA} with boxPurpose, materially distinct suggestions${documentProposalEligible ? ", and an optional review-only documentProposal" : ""}; no prose outside JSON, secrets, paths, tools, or executable actions.`
+          localResponse: `Generate ${FORM_PROVIDER_SUGGESTIONS_SCHEMA} with boxPurpose, materially distinct suggestions, decisionSupport, and optional review-only assetProposals${documentProposalEligible ? ", and an optional review-only documentProposal" : ""}; no prose outside JSON, secrets, paths, tools, binary data, or executable actions.`
         });
         let providerOutput;
         try {
@@ -2472,13 +2492,14 @@ export function createHeroServer(options = {}) {
         const formSuggestions = createProviderFormSuggestions({ ...formRequest, actor: authenticatedOwner, selectedAdvisor, providerOutput, requestedSuggestionCount: FORM_SUGGESTION_INITIAL_SUGGESTIONS });
         return json(response, 200, {
           service: HERO_SERVICE,
+          advisor: formSuggestions,
           formSuggestions,
           providerInvocation: Object.freeze({ invocationId: live.invocationId, providerInvoked: true, costUnits: live.costUnits, status: "completed" }),
           evidence: live.evidence
         });
       }
 
-      if (request.method === "POST" && url.pathname === "/api/form-suggestions/refine") {
+      if (request.method === "POST" && ["/api/form-suggestions/refine", "/api/advisor/refine"].includes(url.pathname)) {
         if (!authenticatedOwner || !["human-identity", "admin"].includes(authenticatedOwner.source)) {
           throw new HumanIdentityError("IDENTITY_AUTH_REQUIRED", "برای اصلاح تعاملی پیشنهاد فرم ورود انسانی یا نشست Admin لازم است.", 401);
         }
@@ -2503,6 +2524,7 @@ export function createHeroServer(options = {}) {
           softwareGoal: authoritativeGoal,
           boxDescription: input.boxDescription,
           fields: input.fields,
+          assets: input.assets,
           selectedAdvisor,
           feedback: input.feedback,
           iteration: input.iteration
@@ -2516,6 +2538,7 @@ export function createHeroServer(options = {}) {
           softwareGoal: refinement.softwareGoal,
           boxDescription: refinement.boxDescription,
           fields: refinement.fields,
+          assets: refinement.assets,
           selectedAdvisor
         });
         const documentProposalEligible = formRequest.formId === "upload-form";
@@ -2526,7 +2549,7 @@ export function createHeroServer(options = {}) {
           purpose: "form-suggestions",
           projectId,
           selectedProfile,
-          question: `ادمین پس از دیدن پیشنهادهای قبلی این بازخورد را داده است: «${refinement.feedback}». بازخورد را فقط برای بهترکردن پیشنهادهای همین باکس اعمال کن. ${fieldDirectiveInstruction} ابتدا کاربرد واقعی باکس را دوباره بررسی کن و سپس در boxPurpose شرح فارسی روشن و مفصل، feedbackResponse در ۱ تا ۳ جملهٔ کوتاه دربارهٔ تفسیر بازخورد و تغییر ایجادشده، و دقیقاً یک پیشنهاد جدید و قابل انتخاب برگردان. مقدارهای پیشنهاد تازه باید به‌طور محسوس بر اساس بازخورد تغییر کرده باشند؛ از پاسخ قالبی یا تکرار متن عمومی استفاده نکن. فقط JSON معتبر با schema form-suggestions-v1 برگردان؛ برای همان پیشنهاد دقیقاً یک entry برای هر field و فقط مقدارهای مجاز همان field بده.${documentProposalEligible ? " اگر پیش‌نویس سند اختیاری مفید است، documentProposal تازه را هم بازنگری کن؛ هرگز آن را ذخیره‌شده یا بارگذاری‌شده معرفی نکن." : ""}`,
+          question: `ادمین پس از دیدن پیشنهادهای قبلی این بازخورد را داده است: «${refinement.feedback}». بازخورد را فقط برای بهترکردن پیشنهادهای همین باکس اعمال کن. ${fieldDirectiveInstruction} ابتدا کاربرد واقعی باکس را دوباره بررسی کن و سپس در boxPurpose شرح فارسی روشن و مفصل، feedbackResponse در ۱ تا ۳ جملهٔ کوتاه دربارهٔ تفسیر بازخورد و تغییر ایجادشده، decisionSupport بازنگری‌شده، و دقیقاً یک پیشنهاد جدید و قابل انتخاب برگردان. اگر بازخورد به سند یا تصویر مربوط است، assetProposals را نیز متناسب بازنگری کن. مقدارهای پیشنهاد تازه باید به‌طور محسوس بر اساس بازخورد تغییر کرده باشند؛ از پاسخ قالبی یا تکرار متن عمومی استفاده نکن. فقط JSON معتبر با schema form-suggestions-v1 برگردان؛ برای همان پیشنهاد دقیقاً یک entry برای هر field و فقط مقدارهای مجاز همان field بده.${documentProposalEligible ? " اگر پیش‌نویس سند اختیاری مفید است، documentProposal تازه را هم بازنگری کن؛ هرگز آن را ذخیره‌شده یا بارگذاری‌شده معرفی نکن." : ""}`,
           // Feedback remains transient in the request, not in the structured
           // form context or the redacted event evidence.
           context: { pathname: "/form-suggestions", featureKey: "form.suggestions.refine", formSuggestion: { ...formRequest, requestedSuggestionCount: 1, refinement: true, documentProposalEligible } },
@@ -2550,6 +2573,7 @@ export function createHeroServer(options = {}) {
         });
         return json(response, 200, {
           service: HERO_SERVICE,
+          advisor: formSuggestions,
           formSuggestions,
           providerInvocation: Object.freeze({ invocationId: live.invocationId, providerInvoked: true, costUnits: live.costUnits, status: "completed" }),
           evidence: live.evidence
@@ -2580,8 +2604,29 @@ export function createHeroServer(options = {}) {
             projectId: queryProjectId,
             question: input.question
           });
+          const progress = createProjectWalkthroughProgress({
+            authenticated: true,
+            projectId: queryProjectId,
+            // A Project Grant can exist before the Workspace read model is
+            // populated. Guidance must remain available in that transitional
+            // state and simply report the setup steps as incomplete.
+            overview: queryProjectId ? (() => {
+              try { return projectOverview(queryProjectId); } catch { return null; }
+            })() : null
+          });
           const live = selectedProfile
-            ? await invokeSelectedLiveAdvisor({ purpose: "walkthrough-guide", projectId: queryProjectId, selectedProfile, question: input.question, context: { stepId: input.stepId }, localResponse: advisor.response })
+            ? await invokeSelectedLiveAdvisor({
+              purpose: "walkthrough-guide",
+              projectId: queryProjectId,
+              selectedProfile,
+              question: input.question,
+              context: {
+                stepId: input.stepId,
+                progress: progress.summary,
+                step: progress.steps.find(item => item.stepId === input.stepId) ?? null
+              },
+              localResponse: advisor.response
+            })
             : null;
           // Questions and answers are not stored in the Walk-Through record.
           // The AI orchestration ledger retains only redacted invocation and
@@ -2590,6 +2635,7 @@ export function createHeroServer(options = {}) {
             service: HERO_SERVICE,
             advisor: Object.freeze({
               ...advisor,
+              progress,
               ...(live ? {
                 mode: "live-project-advisor",
                 providerInvoked: true,

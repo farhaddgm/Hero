@@ -6,8 +6,8 @@
  * HTTP layer supplies a safe rendered page and a project-scoped read probe;
  * this module turns their result into an honest, contextual report.
  */
-export const HERO_SMART_TESTER_VERSION = "1.5.0";
-export const HERO_SMART_TESTER_ERROR_REPORT_VERSION = "1.2.0";
+export const HERO_SMART_TESTER_VERSION = "1.6.0";
+export const HERO_SMART_TESTER_ERROR_REPORT_VERSION = "1.3.0";
 export const HERO_SMART_TESTER_REPORT_TTL_MS = 30 * 60 * 1000;
 export const HERO_SMART_TESTER_MAX_QUESTION_LENGTH = 1_500;
 
@@ -78,6 +78,17 @@ const SURFACES = Object.freeze({
 
 function immutable(value) {
   return Object.freeze(value);
+}
+
+function stableFingerprint(parts) {
+  // A non-cryptographic, deterministic identifier is sufficient for grouping
+  // the same sanitized symptom. It contains no raw prompt or form value.
+  let hash = 2166136261;
+  for (const character of parts.filter(Boolean).join("|").toLocaleLowerCase()) {
+    hash ^= character.codePointAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `hst-${(hash >>> 0).toString(16).padStart(8, "0")}`;
 }
 
 function nonEmptyString(value, name, maximum = 256) {
@@ -281,6 +292,11 @@ export function createSmartTesterReport({ context, renderedHtml = "", backendPro
       notRun: checks.filter(check => check.status === "not-run").length
     }),
     checks,
+    qualityOpportunities: immutable([
+      immutable({ type: "test", title: "پوشش تعامل مرورگر", recommendation: "سناریوی موفق، خطای اعتبارسنجی و بازگشت فوکوس را در E2E همین featureKey پوشش دهید.", status: "suggested-not-run" }),
+      immutable({ type: "accessibility", title: "بازبینی دسترس‌پذیری", recommendation: "ترتیب فوکوس، نام قابل‌دسترسی کنترل‌ها، اعلان وضعیت و کار با صفحه‌کلید را بررسی کنید.", status: "suggested-not-run" }),
+      immutable({ type: "resilience", title: "رفتار شکست و بازیابی", recommendation: "timeout، پاسخ غیر JSON، نشست منقضی و retry امن را بدون side effect آزمایش کنید.", status: "suggested-not-run" })
+    ]),
     limits: immutable([
       "این گزارش جایگزین مرور انسانی، آزمون E2E یا acceptance نیست.",
       "هیچ دادهٔ خصوصی، Secret یا متن خام گفتگو در گزارش نگهداری نمی‌شود.",
@@ -319,27 +335,62 @@ export function createSmartTesterErrorReport({ context, renderedHtml = "", backe
   const baseReport = report ?? createSmartTesterReport({ context, renderedHtml, backendProbe });
   const findings = baseReport.checks.filter(check => check.status === "attention").map(check => immutable({
     findingId: `smart-tester.${check.id}`,
+    fingerprint: stableFingerprint([context.pathname, context.featureKey, context.boxId, check.id]),
+    category: "defect",
     severity: check.area === "Security" ? "high" : check.area === "Backend" ? "high" : "medium",
+    confidence: "medium",
+    evidenceType: "bounded-probe",
     area: check.area,
     title: `${check.area} · ${check.id}`,
+    observed: check.detail,
     evidence: check.detail,
     expected: "قرارداد این بخش باید بدون خطا و با دادهٔ Scope‌شده اجرا شود.",
+    impact: "این بخش ممکن است برای ادمین ناقص، مبهم یا غیرقابل استفاده باشد.",
     recommendation: `مسیر ${check.id} را بررسی کنید و پس از اصلاح، Smart Tester و آزمون تخصصی همان سطح را دوباره اجرا کنید.`,
+    verification: "Probe محدود، تست تخصصی همان ماژول و سناریوی مرورگر مربوط را دوباره اجرا کنید.",
     sourceFiles: context.sourceFiles
   }));
   const normalizedActionFailure = normalizeActionFailure(actionFailure);
   const actionDiagnosis = diagnoseActionFailure(normalizedActionFailure);
   if (normalizedActionFailure) findings.unshift(immutable({
     findingId: "smart-tester.action-failure",
+    fingerprint: stableFingerprint([context.pathname, context.featureKey, context.boxId, normalizedActionFailure.method, normalizedActionFailure.path, normalizedActionFailure.status, normalizedActionFailure.code]),
+    category: "defect",
     severity: normalizedActionFailure.status >= 500 ? "high" : "medium",
+    confidence: "high",
+    evidenceType: "observed-http-result",
     area: "Action",
     title: `${normalizedActionFailure.label} ناموفق بود`,
+    observed: `${normalizedActionFailure.method} ${normalizedActionFailure.path} · HTTP ${normalizedActionFailure.status ?? "نامشخص"}${normalizedActionFailure.code ? ` · ${normalizedActionFailure.code}` : ""}`,
     evidence: `${normalizedActionFailure.status ?? "خطای نامشخص"}${normalizedActionFailure.code ? ` · ${normalizedActionFailure.code}` : ""}${normalizedActionFailure.message ? ` · ${normalizedActionFailure.message}` : ""}`,
     expected: "اقدام فرایندی باید پاسخ موفق و قابل‌اعتماد برگرداند.",
+    impact: "اقدام ادمین کامل نشده و وضعیت قبلی باید بدون overwrite ناخواسته حفظ شده باشد.",
     recommendation: actionDiagnosis.proposedFix,
+    verification: actionDiagnosis.verification,
     sourceFiles: context.sourceFiles
   }));
   const severity = findings.some(item => item.severity === "high") ? "high" : findings.length ? "medium" : "none";
+  const primaryFinding = findings[0] ?? null;
+  const incidentFingerprint = primaryFinding?.fingerprint ?? stableFingerprint([context.pathname, context.featureKey, context.boxId, "no-confirmed-error"]);
+  const remediationBrief = immutable({
+    schema: "hero.smart-tester.remediation-brief/v1",
+    fingerprint: incidentFingerprint,
+    projectId: context.projectId ?? null,
+    surface: context.pathname,
+    featureKey: context.featureKey,
+    boxId: context.boxId,
+    problem: actionDiagnosis?.problem ?? primaryFinding?.observed ?? "در Probe محدود فعلی خطای قطعی تأیید نشد.",
+    suspectedCause: actionDiagnosis?.likelyRootCause ?? "برای تعیین علت، Evidence بیشتری از تست تخصصی همان ماژول لازم است.",
+    proposedFix: actionDiagnosis?.proposedFix ?? primaryFinding?.recommendation ?? "ابتدا تست تخصصی همان مسیر را اجرا کنید.",
+    verificationPlan: immutable([
+      actionDiagnosis?.verification ?? primaryFinding?.verification ?? "Probe محدود همین بخش را تکرار کنید.",
+      "تست unit/integration مرتبط با فایل‌های مسئول را اجرا کنید.",
+      "سناریوی مرورگر همان اقدام را با Scope پروژه و نشست انسانی معتبر بررسی کنید."
+    ]),
+    rollbackBoundary: "اگر اصلاح وضعیت را بدتر کرد، فقط تغییر همان ماژول را بازگردانید؛ داده، Secret، Production و Pilot خارج از این گزارش‌اند.",
+    sourceFiles: context.sourceFiles,
+    safeForAgentHandoff: true
+  });
   return immutable({
     version: HERO_SMART_TESTER_ERROR_REPORT_VERSION,
     smartTesterVersion: HERO_SMART_TESTER_VERSION,
@@ -348,6 +399,8 @@ export function createSmartTesterErrorReport({ context, renderedHtml = "", backe
     chatInformed: chatInformed === true,
     actionFailure: normalizedActionFailure,
     diagnosis: actionDiagnosis,
+    incident: immutable({ fingerprint: incidentFingerprint, severity, scope: `${context.pathname}:${context.featureKey}:${context.boxId}`, confirmed: findings.length > 0 }),
+    remediationBrief,
     summary: immutable({
       state: findings.length ? "errors-found" : "no-confirmed-errors",
       severity,
@@ -366,6 +419,7 @@ export function createSmartTesterErrorReport({ context, renderedHtml = "", backe
       "برای یافته‌های نیازمند رسیدگی، راه‌حل پیشنهادی را اجرا و بررسی تخصصی همان بخش را تکرار کنید."
     ]),
     limitations: immutable(baseReport.limits),
+    qualityOpportunities: baseReport.qualityOpportunities,
     sourceReport: immutable({ version: baseReport.version, generatedAt: baseReport.generatedAt, summary: baseReport.summary })
   });
 }
