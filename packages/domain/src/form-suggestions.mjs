@@ -95,7 +95,7 @@ function has(field, pattern) {
   return pattern.test(fieldKey(field));
 }
 
-function suggestedValue(field, variant, { softwareGoal, formTitle, boxDescription }) {
+function suggestedValue(field, variant, { softwareGoal, formTitle, boxDescription, feedback = "" }) {
   const option = chooseOption(field, variant);
   if (option) return option.value;
   const key = fieldKey(field);
@@ -105,7 +105,15 @@ function suggestedValue(field, variant, { softwareGoal, formTitle, boxDescriptio
   if (has(field, /description|summary|شرح|توضیح|brief/u)) return `${boxDescription}. هدف پروژه: ${softwareGoal}.`;
   if (has(field, /constraint|محدود|مرز|قید/u)) return variant === 0 ? "فقط محیط Test، بدون Secret و بدون هزینهٔ خارجی" : variant === 1 ? "محیط Test ایزوله، بررسی ادمین و امکان Rollback" : "Test ایزوله، بدون دسترسی ناخواسته، با Artifact قابل انتقال";
   if (has(field, /output|deliverable|خروجی|تحویل/u)) return variant === 0 ? "کد، تست و گزارش سلامت" : variant === 1 ? "Artifact immutable، تست و گزارش قابل بررسی" : "Artifact قابل انتقال، تست، گزارش و راهنمای اجرا";
-  if (has(field, /reason|دلیل/u)) return `پیشنهاد اولیه بر اساس هدف پروژه و باکس «${formTitle}».`;
+  if (has(field, /reason|دلیل/u)) {
+    const focus = [
+      "بخش دقیقِ نیازمند بازنگری و اثر آن بر تصمیم ادمین را روشن کنید",
+      "معیار پذیرش، تغییر مورد انتظار و محدودیت‌های بازنگری را مشخص کنید",
+      "شرح کاملِ مسئله، نتیجهٔ مورد انتظار و مواردی که نباید تغییر کنند را ثبت کنید"
+    ][variant % 3];
+    const feedbackClause = feedback ? ` بازخورد ادمین برای این نوبت: «${feedback}».` : "";
+    return `${focus}.${feedbackClause} این متن فقط برای بررسی و ثبت تصمیم است و اجرای خودکار آغاز نمی‌کند.`;
+  }
   if (has(field, /impact|اثر/u)) return "بدون اجرای خودکار؛ فقط پس از بررسی و ثبت ادمین";
   if (has(field, /path|مسیر/u)) return variant === 0 ? "project/settings/approved" : variant === 1 ? "project/runtime/test" : "project/delivery/portable";
   if (has(field, /url|link|نشانی|آدرس/u)) return `https://example.invalid/hero-reference-${variant + 1}`;
@@ -178,7 +186,11 @@ export function prepareFormSuggestionRefinement(input = {}) {
 }
 
 function providerEntry(field, candidate, index) {
-  if (!candidate || candidate.name !== field.name || candidate.type !== field.type || typeof candidate.value !== "string") {
+  // The browser's form owns the type. Providers commonly omit it or call a
+  // textarea a text field; neither case makes an otherwise safe value unsafe.
+  // The value is still validated against the authoritative field/options and
+  // the returned entry always uses the form's actual type.
+  if (!candidate || candidate.name !== field.name || typeof candidate.value !== "string") {
     throw new FormSuggestionsError("FORM_SUGGESTION_PROVIDER_OUTPUT_INVALID", `Provider suggestion ${index + 1} does not match the form fields.`, 502);
   }
   const value = text(`provider entry ${index + 1} value`, candidate.value, { maximum: 700 });
@@ -222,7 +234,7 @@ function providerEntries(fields, suggestion, suggestionIndex, context) {
   });
 }
 
-export function createProviderFormSuggestions({ actor, projectId = null, formId, formTitle, softwareGoal, boxDescription, fields, selectedAdvisor, providerOutput, requestedSuggestionCount = undefined, suggestionOffset = 0 } = {}) {
+export function createProviderFormSuggestions({ actor, projectId = null, formId, formTitle, softwareGoal, boxDescription, fields, selectedAdvisor, providerOutput, requestedSuggestionCount = undefined, suggestionOffset = 0, feedback = undefined } = {}) {
   const normalized = normalizeFormInput({ actor, projectId, formId, formTitle, softwareGoal, boxDescription, fields, selectedAdvisor });
   if (normalized.selectedAdvisor === "local") throw new FormSuggestionsError("FORM_SUGGESTION_ADVISOR_INVALID", "A live Provider profile is required for Provider suggestions.", 400);
   if (!providerOutput || providerOutput.schema !== FORM_PROVIDER_SUGGESTIONS_SCHEMA || !Array.isArray(providerOutput.suggestions) || providerOutput.suggestions.length < 1 || providerOutput.suggestions.length > FORM_SUGGESTION_MAX_PROVIDER_SUGGESTIONS) {
@@ -232,6 +244,14 @@ export function createProviderFormSuggestions({ actor, projectId = null, formId,
   const offset = Number(suggestionOffset);
   if (!Number.isInteger(requestedCount) || requestedCount < 1 || requestedCount > FORM_SUGGESTION_MAX_PROVIDER_SUGGESTIONS || !Number.isInteger(offset) || offset < 0 || offset + requestedCount > FORM_SUGGESTION_MAX_SUGGESTIONS) {
     throw new FormSuggestionsError("FORM_SUGGESTION_COUNT_INVALID", "Requested suggestion count is outside the safe form session limit.", 400);
+  }
+  let safeFeedback = "";
+  if (feedback !== undefined && feedback !== null) {
+    try {
+      safeFeedback = text("form suggestion feedback", feedback, { minimum: 3, maximum: 1_000 });
+    } catch {
+      throw new FormSuggestionsError("FORM_SUGGESTION_REFINEMENT_FEEDBACK_INVALID", "Feedback must be a short, safe description of the requested improvement.", 400);
+    }
   }
   let boxPurpose;
   try {
@@ -243,7 +263,8 @@ export function createProviderFormSuggestions({ actor, projectId = null, formId,
   const suggestionContext = {
     softwareGoal: normalized.softwareGoal,
     formTitle: normalized.formTitle,
-    boxDescription: normalized.boxDescription
+    boxDescription: normalized.boxDescription,
+    feedback: safeFeedback
   };
   const suggestions = Array.from({ length: requestedCount }, (_, suggestionIndex) => {
     const suggestion = providerOutput.suggestions[suggestionIndex];

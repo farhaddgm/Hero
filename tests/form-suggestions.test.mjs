@@ -82,7 +82,9 @@ test("provider form suggestions are schema-bound, option-bound and omit existing
   assert.throws(() => createProviderFormSuggestions({ ...request, actor, selectedAdvisor: "openai-profile-v1", providerOutput: { ...providerOutput, boxPurpose: undefined } }), error => error instanceof FormSuggestionsError && error.code === "FORM_SUGGESTION_PROVIDER_OUTPUT_INVALID");
   const recovered = createProviderFormSuggestions({ ...request, actor, selectedAdvisor: "openai-profile-v1", providerOutput: { schema: FORM_PROVIDER_SUGGESTIONS_SCHEMA, boxPurpose: "این باکس برای ثبت اطلاعات پایهٔ Intake پروژه است تا هدف، سطح ریسک، محدودیت‌ها و وضعیت تأیید پیش از برنامه‌ریزی توسط ادمین بررسی شوند.", suggestions: [{ title: "ناسازگار اما قابل بازیابی", rationale: "فقط مقدارهای امن فرم باید نمایش داده شوند.", entries: [{ name: "goal", type: "text", value: "ok" }, { name: "riskLevel", type: "select", value: "not-an-option" }, { name: "constraints", type: "textarea", value: "ok" }, { name: "approved", type: "checkbox", value: "approved", checked: false }] }] } });
   assert.equal(recovered.suggestions[0].entries.length, fields.length);
-  assert.equal(recovered.suggestions[0].fallbackFieldCount, 2);
+  assert.equal(recovered.suggestions[0].fallbackFieldCount, 1, "a missing or mismatched Provider type must not discard an otherwise safe value");
+  assert.equal(recovered.suggestions[0].entries[0].type, "textarea", "the authoritative form type is returned even when Provider calls it text");
+  assert.equal(recovered.suggestions[0].entries[0].value, "ok");
   assert.equal(recovered.suggestions[0].entries[1].value, "low", "an invalid Provider option must be discarded for a safe form option");
   assert.throws(() => createProviderFormSuggestions({ ...request, actor, selectedAdvisor: "openai-profile-v1", providerOutput: { schema: FORM_PROVIDER_SUGGESTIONS_SCHEMA, suggestions: [] } }), error => error instanceof FormSuggestionsError && error.code === "FORM_SUGGESTION_PROVIDER_OUTPUT_INVALID");
 });
@@ -151,6 +153,32 @@ test("a live form session starts with three cards and adds one safely numbered c
   assert.equal(refinement.suggestions.length, 1);
   assert.equal(refinement.suggestions[0].suggestionId, "provider-form-suggestion-4");
   assert.throws(() => createProviderFormSuggestions({ ...base, requestedSuggestionCount: 1, suggestionOffset: FORM_SUGGESTION_MAX_SUGGESTIONS }), error => error instanceof FormSuggestionsError && error.code === "FORM_SUGGESTION_COUNT_INVALID");
+});
+
+test("feedback makes a safe fallback distinct when a Provider omits a real form value", () => {
+  const base = {
+    actor,
+    projectId: "project-vpn",
+    formId: "foundation-form",
+    formTitle: "Foundation Proposal",
+    softwareGoal: "ساخت یک محصول آزمایشی قابل انتقال",
+    boxDescription: "ثبت تصمیم ادمین دربارهٔ تأیید یا بازنگری Foundation",
+    fields: [{ name: "reason", type: "textarea", label: "دلیل بازنگری" }],
+    selectedAdvisor: "openai-profile-v1",
+    providerOutput: {
+      schema: FORM_PROVIDER_SUGGESTIONS_SCHEMA,
+      boxPurpose: "این باکس برای ثبت دلیل بازنگری Foundation استفاده می‌شود تا ادمین بتواند تغییر مورد انتظار را بررسی کند و هیچ اقدام اجرایی خودکاری آغاز نشود.",
+      suggestions: [{ title: "پیشنهاد Provider", rationale: "نسخهٔ قابل بررسی.", entries: [] }]
+    },
+    requestedSuggestionCount: 1
+  };
+  const initial = createProviderFormSuggestions(base);
+  const refined = createProviderFormSuggestions({ ...base, suggestionOffset: 3, feedback: "پیشنهاد طولانی‌تر با جزئیات معیار پذیرش بده" });
+  const initialReason = initial.suggestions[0].entries[0].value;
+  const refinedReason = refined.suggestions[0].entries[0].value;
+  assert.notEqual(refinedReason, initialReason);
+  assert.match(refinedReason, /پیشنهاد طولانی‌تر/);
+  assert.equal(refined.suggestions[0].fallbackFieldCount, 1);
 });
 
 test("form suggestion refinement requires a live advisor, bounded safe feedback and a limited round", () => {

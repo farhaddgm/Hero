@@ -1339,7 +1339,7 @@ export function createHeroServer(options = {}) {
             "Analyze the supplied form title, purpose hint, field labels, required flags and allowed options before suggesting values.",
             "Set boxPurpose to a clear Persian explanation of 2 to 4 sentences (80 to 700 characters) describing why this box exists, what decision or record it controls, and what does not happen automatically.",
             "Do not use raw identifiers, UUIDs, version strings or the overall software goal as the box purpose.",
-            `${formSuggestionCountInstruction} Each suggestion.entries must include every supplied form field exactly once, in the supplied order, even when it is optional; never include submit buttons, actions or UI-only controls.`
+            `${formSuggestionCountInstruction} Each suggestion.entries must include every supplied form field exactly once, in the supplied order, even when it is optional. Every entry must contain the supplied field name exactly, a string value, and the exact supplied type when available; select/radio values must be one of the supplied options. Never include submit buttons, actions or UI-only controls.`
           ] : []),
           "Use concise Persian.",
           "Do not include secrets, credentials, host paths, tools, or executable actions."
@@ -2521,7 +2521,11 @@ export function createHeroServer(options = {}) {
         } catch {
           throw new FormSuggestionsError("FORM_SUGGESTION_PROVIDER_OUTPUT_INVALID", "Provider پاسخ JSON معتبر برای اصلاح پیشنهاد فرم برنگرداند.", 502);
         }
-        const suggestions = createProviderFormSuggestions({ ...formRequest, actor: authenticatedOwner, selectedAdvisor, providerOutput, requestedSuggestionCount: 1, suggestionOffset: FORM_SUGGESTION_INITIAL_SUGGESTIONS + refinement.iteration - 1 });
+        // `feedback` is only used here to keep a safe deterministic fallback
+        // responsive if a structurally incomplete Provider reply omits a
+        // value. It is not added to the structured provider context, event,
+        // audit record or returned as a standalone field.
+        const suggestions = createProviderFormSuggestions({ ...formRequest, actor: authenticatedOwner, selectedAdvisor, providerOutput, requestedSuggestionCount: 1, suggestionOffset: FORM_SUGGESTION_INITIAL_SUGGESTIONS + refinement.iteration - 1, feedback: refinement.feedback });
         const formSuggestions = Object.freeze({
           ...suggestions,
           refinement: Object.freeze({ iteration: refinement.iteration, feedbackAcknowledged: true })
