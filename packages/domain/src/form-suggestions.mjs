@@ -8,6 +8,10 @@ export const FORM_SUGGESTION_INITIAL_SUGGESTIONS = 3;
 export const FORM_SUGGESTION_MAX_SUGGESTIONS = 10;
 export const FORM_SUGGESTION_MAX_PROVIDER_SUGGESTIONS = FORM_SUGGESTION_INITIAL_SUGGESTIONS;
 export const FORM_SUGGESTION_MAX_REFINEMENTS = FORM_SUGGESTION_MAX_SUGGESTIONS - FORM_SUGGESTION_INITIAL_SUGGESTIONS;
+// A document draft is advisory browser-session data. It may only be offered
+// for the optional project-input form and is deliberately much smaller than
+// the private upload quota; an Owner still reviews and submits it separately.
+export const FORM_SUGGESTION_MAX_DOCUMENT_DRAFT_CHARACTERS = 6_000;
 
 const IDENTIFIER = /^[A-Za-z][A-Za-z0-9._:-]{0,127}$/;
 const SENSITIVE_FIELD = /(?:password|passwd|secret|credential|token|api[._-]?key|private[._-]?key|mfa|otp|رمز|کلید\s*api)/iu;
@@ -34,6 +38,17 @@ function text(label, value, { minimum = 0, maximum = 700 } = {}) {
   const normalized = value.replace(/\s+/gu, " ").trim();
   if (normalized.length < minimum || SENSITIVE_VALUE.test(normalized) || SENSITIVE_ASSIGNMENT.test(normalized) || HOST_PATH.test(normalized)) {
     throw new FormSuggestionsError("FORM_SUGGESTION_SENSITIVE_INPUT", `${label} is empty, too short or contains sensitive data.`);
+  }
+  return normalized;
+}
+
+function documentText(value) {
+  if (typeof value !== "string" || value.length > FORM_SUGGESTION_MAX_DOCUMENT_DRAFT_CHARACTERS) throw new FormSuggestionsError("FORM_SUGGESTION_TEXT_INVALID", "provider document content is invalid.");
+  // Keep paragraph boundaries for the preview and the eventual text upload,
+  // while still normalizing accidental blank-line runs.
+  const normalized = value.replace(/\r\n?/gu, "\n").replace(/[ \t]+\n/gu, "\n").replace(/\n{3,}/gu, "\n\n").trim();
+  if (normalized.length < 40 || SENSITIVE_VALUE.test(normalized) || SENSITIVE_ASSIGNMENT.test(normalized) || HOST_PATH.test(normalized)) {
+    throw new FormSuggestionsError("FORM_SUGGESTION_SENSITIVE_INPUT", "provider document content contains unsafe data.");
   }
   return normalized;
 }
@@ -234,6 +249,42 @@ function providerEntries(fields, suggestion, suggestionIndex, context) {
   });
 }
 
+function providerFeedbackResponse(providerOutput, safeFeedback) {
+  if (!safeFeedback) return null;
+  try {
+    return text("provider feedback response", providerOutput?.feedbackResponse, { minimum: 12, maximum: 700 });
+  } catch {
+    // Availability of a normal, safe suggestion must not depend on an
+    // optional conversational explanation. This fallback is transient too;
+    // it is never added to an event, audit entry or project history.
+    return "بازخورد شما برای بازنویسی همین پیشنهاد در نظر گرفته شد؛ فقط مقدارهای مجاز همین فرم تغییر کرده‌اند و ثبت نهایی همچنان با شماست.";
+  }
+}
+
+function providerDocumentProposal(providerOutput, normalized) {
+  // A generated document is useful only for the explicit optional project
+  // input. Do not turn arbitrary forms into a write path or infer a file from
+  // ordinary suggestions.
+  if (normalized.formId !== "upload-form" || !normalized.fields.some(field => field.name === "filename") || !normalized.fields.some(field => field.name === "content")) return null;
+  const proposal = providerOutput?.documentProposal;
+  if (!proposal || typeof proposal !== "object" || Array.isArray(proposal)) return null;
+  try {
+    const title = text("provider document title", proposal.title, { minimum: 3, maximum: 220 });
+    const filename = text("provider document filename", proposal.filename, { minimum: 5, maximum: 240 });
+    // Only a portable text draft can be moved into the existing private text
+    // input form. Paths, binary-looking filenames and surprising extensions
+    // cannot be proposed or applied.
+    if (!/^[\p{L}\p{N}][\p{L}\p{N} ._-]{0,235}\.(?:txt|md)$/u.test(filename)) throw new Error("invalid filename");
+    const content = documentText(proposal.content);
+    const rationale = text("provider document rationale", proposal.rationale, { minimum: 3, maximum: 500 });
+    return copy({ title, filename, content, rationale, mimeType: "text/plain" });
+  } catch {
+    // documentProposal is optional. A malformed one is omitted rather than
+    // blocking the rest of a safe form suggestion session.
+    return null;
+  }
+}
+
 export function createProviderFormSuggestions({ actor, projectId = null, formId, formTitle, softwareGoal, boxDescription, fields, selectedAdvisor, providerOutput, requestedSuggestionCount = undefined, suggestionOffset = 0, feedback = undefined } = {}) {
   const normalized = normalizeFormInput({ actor, projectId, formId, formTitle, softwareGoal, boxDescription, fields, selectedAdvisor });
   if (normalized.selectedAdvisor === "local") throw new FormSuggestionsError("FORM_SUGGESTION_ADVISOR_INVALID", "A live Provider profile is required for Provider suggestions.", 400);
@@ -298,6 +349,8 @@ export function createProviderFormSuggestions({ actor, projectId = null, formId,
       fallbackFieldCount: completed.fallbackFieldCount
     });
   });
+  const feedbackResponse = providerFeedbackResponse(providerOutput, safeFeedback);
+  const documentProposal = providerDocumentProposal(providerOutput, normalized);
   return copy({
     version: FORM_SUGGESTIONS_VERSION,
     providerSchema: FORM_PROVIDER_SUGGESTIONS_SCHEMA,
@@ -307,7 +360,9 @@ export function createProviderFormSuggestions({ actor, projectId = null, formId,
     providerInvoked: true,
     externalSpend: "accounted",
     boxPurpose,
-    suggestions
+    suggestions,
+    ...(feedbackResponse ? { feedbackResponse } : {}),
+    ...(documentProposal ? { documentProposal } : {})
   });
 }
 

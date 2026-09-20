@@ -1339,7 +1339,14 @@ export function createHeroServer(options = {}) {
             "Analyze the supplied form title, purpose hint, field labels, required flags and allowed options before suggesting values.",
             "Set boxPurpose to a clear Persian explanation of 2 to 4 sentences (80 to 700 characters) describing why this box exists, what decision or record it controls, and what does not happen automatically.",
             "Do not use raw identifiers, UUIDs, version strings or the overall software goal as the box purpose.",
-            `${formSuggestionCountInstruction} Each suggestion.entries must include every supplied form field exactly once, in the supplied order, even when it is optional. Every entry must contain the supplied field name exactly, a string value, and the exact supplied type when available; select/radio values must be one of the supplied options. Never include submit buttons, actions or UI-only controls.`
+            `${formSuggestionCountInstruction} Each suggestion.entries must include every supplied form field exactly once, in the supplied order, even when it is optional. Every entry must contain the supplied field name exactly, a string value, and the exact supplied type when available; select/radio values must be one of the supplied options. Never include submit buttons, actions or UI-only controls.`,
+            ...(context?.formSuggestion?.refinement === true ? [
+              "Include feedbackResponse: a concise Persian explanation of how the feedback was interpreted and what materially changed in this one new suggestion. It is a short user-facing rationale, not hidden chain-of-thought, and must not quote sensitive data or claim a write was performed.",
+              "Make the new values materially different in detail, emphasis or structure whenever the feedback requests a change. Do not recycle a generic prior-template answer."
+            ] : []),
+            ...(context?.formSuggestion?.documentProposalEligible === true ? [
+              "Only when an optional project-input document would help, you may include one documentProposal with title, filename ending in .txt or .md, compact Persian content, and rationale. It is a review-only draft: never claim it has been uploaded, stored or applied."
+            ] : ["Do not include documentProposal for this form."])
           ] : []),
           "Use concise Persian.",
           "Do not include secrets, credentials, host paths, tools, or executable actions."
@@ -1355,6 +1362,10 @@ export function createHeroServer(options = {}) {
         ...(context?.formSuggestion ? { formSuggestion: context.formSuggestion } : {}),
         ...(repositoryContext ? { repositoryContext } : {})
       }),
+      // Form Suggestions is an explicitly ephemeral browser dialog. The
+      // provider output is needed for this response but must not enter the
+      // invocation registry snapshot or become project history.
+      transientResponse: purpose === "form-suggestions",
       requireHealthyProvider: true,
       externalSpendAuthorization: authorization
     });
@@ -2442,13 +2453,14 @@ export function createHeroServer(options = {}) {
           return json(response, 200, { service: HERO_SERVICE, formSuggestions });
         }
         const selectedProfile = options.profiles.find(profile => profile.profileId === selectedAdvisor);
+        const documentProposalEligible = formRequest.formId === "upload-form";
         const live = await invokeSelectedLiveAdvisor({
           purpose: "form-suggestions",
           projectId,
           selectedProfile,
-          question: "ابتدا کاربرد واقعی همین باکس را از عنوان، توضیح زمینه و فیلدهای آن تحلیل کن. سپس در boxPurpose یک شرح فارسی روشن و مفصل بنویس و دقیقاً سه پیشنهاد قابل بازبینی تولید کن. فقط JSON معتبر با schema form-suggestions-v1 برگردان؛ برای هر پیشنهاد دقیقاً یک entry برای هر field و فقط مقدارهای مجاز همان field بده.",
-          context: { pathname: "/form-suggestions", featureKey: "form.suggestions", formSuggestion: { ...formRequest, requestedSuggestionCount: FORM_SUGGESTION_INITIAL_SUGGESTIONS } },
-          localResponse: `Generate ${FORM_PROVIDER_SUGGESTIONS_SCHEMA} with boxPurpose and suggestions only; no prose outside JSON, secrets, paths, tools, or executable actions.`
+          question: `ابتدا کاربرد واقعی همین باکس را از عنوان، توضیح زمینه و فیلدهای آن تحلیل کن. سپس در boxPurpose یک شرح فارسی روشن و مفصل بنویس و دقیقاً سه پیشنهاد قابل بازبینی تولید کن. برای هر گزینه، مقدارها باید از نظر سطح جزئیات یا رویکرد واقعاً متفاوت باشند، نه سه بازنویسی از یک متن. فقط JSON معتبر با schema form-suggestions-v1 برگردان؛ برای هر پیشنهاد دقیقاً یک entry برای هر field و فقط مقدارهای مجاز همان field بده.${documentProposalEligible ? " چون این فرم ورودی اختیاری متن پروژه است، اگر یک پیش‌نویس کوتاه واقعاً مفید است، یک documentProposal قابل‌خواندن هم برگردان؛ پیش‌نویس را هرگز ثبت‌شده یا بارگذاری‌شده معرفی نکن." : ""}`,
+          context: { pathname: "/form-suggestions", featureKey: "form.suggestions", formSuggestion: { ...formRequest, requestedSuggestionCount: FORM_SUGGESTION_INITIAL_SUGGESTIONS, documentProposalEligible } },
+          localResponse: `Generate ${FORM_PROVIDER_SUGGESTIONS_SCHEMA} with boxPurpose, materially distinct suggestions${documentProposalEligible ? ", and an optional review-only documentProposal" : ""}; no prose outside JSON, secrets, paths, tools, or executable actions.`
         });
         let providerOutput;
         try {
@@ -2505,15 +2517,16 @@ export function createHeroServer(options = {}) {
           fields: refinement.fields,
           selectedAdvisor
         });
+        const documentProposalEligible = formRequest.formId === "upload-form";
         const live = await invokeSelectedLiveAdvisor({
           purpose: "form-suggestions",
           projectId,
           selectedProfile,
-          question: `ادمین پس از دیدن پیشنهادهای قبلی این بازخورد را داده است: «${refinement.feedback}». بازخورد را فقط برای بهترکردن پیشنهادهای همین باکس اعمال کن. ابتدا کاربرد واقعی باکس را دوباره بررسی کن و سپس در boxPurpose شرح فارسی روشن و مفصل و دقیقاً یک پیشنهاد جدید و قابل انتخاب برگردان. فقط JSON معتبر با schema form-suggestions-v1 برگردان؛ برای همان پیشنهاد دقیقاً یک entry برای هر field و فقط مقدارهای مجاز همان field بده.`,
+          question: `ادمین پس از دیدن پیشنهادهای قبلی این بازخورد را داده است: «${refinement.feedback}». بازخورد را فقط برای بهترکردن پیشنهادهای همین باکس اعمال کن. ابتدا کاربرد واقعی باکس را دوباره بررسی کن و سپس در boxPurpose شرح فارسی روشن و مفصل، feedbackResponse در ۱ تا ۳ جملهٔ کوتاه دربارهٔ تفسیر بازخورد و تغییر ایجادشده، و دقیقاً یک پیشنهاد جدید و قابل انتخاب برگردان. مقدارهای پیشنهاد تازه باید به‌طور محسوس بر اساس بازخورد تغییر کرده باشند؛ از پاسخ قالبی یا تکرار متن عمومی استفاده نکن. فقط JSON معتبر با schema form-suggestions-v1 برگردان؛ برای همان پیشنهاد دقیقاً یک entry برای هر field و فقط مقدارهای مجاز همان field بده.${documentProposalEligible ? " اگر پیش‌نویس سند اختیاری مفید است، documentProposal تازه را هم بازنگری کن؛ هرگز آن را ذخیره‌شده یا بارگذاری‌شده معرفی نکن." : ""}`,
           // Feedback remains transient in the request, not in the structured
           // form context or the redacted event evidence.
-          context: { pathname: "/form-suggestions", featureKey: "form.suggestions.refine", formSuggestion: { ...formRequest, requestedSuggestionCount: 1 } },
-          localResponse: `Generate ${FORM_PROVIDER_SUGGESTIONS_SCHEMA} with boxPurpose and revised suggestions only; no prose outside JSON, secrets, paths, tools, or executable actions.`
+          context: { pathname: "/form-suggestions", featureKey: "form.suggestions.refine", formSuggestion: { ...formRequest, requestedSuggestionCount: 1, refinement: true, documentProposalEligible } },
+          localResponse: `Generate ${FORM_PROVIDER_SUGGESTIONS_SCHEMA} with boxPurpose, feedbackResponse and one feedback-driven revised suggestion${documentProposalEligible ? ", plus an optional review-only revised documentProposal" : ""}; no prose outside JSON, secrets, paths, tools, or executable actions.`
         });
         let providerOutput;
         try {

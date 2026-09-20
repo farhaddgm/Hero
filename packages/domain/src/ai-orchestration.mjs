@@ -909,6 +909,11 @@ export function createAiOrchestration(options = {}) {
 
   async function invoke(input = {}) {
     const actor = assertActor(input.actor ?? SYSTEM);
+    // Some owner-facing advisory interactions (for example, form-suggestion
+    // feedback) explicitly promise that their prompt and response do not
+    // become project history. Keep their output only long enough to return it
+    // to the current HTTP request; metadata and cost evidence remain durable.
+    const transientResponse = input.transientResponse === true;
     const invocationId = assertIdentifier("invocationId", input.invocationId);
     const projectId = assertIdentifier("projectId", input.projectId);
     const role = assertEnum("role", input.role, AI_ROLES);
@@ -956,6 +961,7 @@ export function createAiOrchestration(options = {}) {
       context,
       skillVersion: skill?.version ?? null,
       toolAction: input.toolAction ?? null,
+      transientResponse,
       spendApprovalId: input.externalSpendAuthorization?.authorizationId ?? null
     };
     const scope = commandScope("invocation", invocationId, idempotencyKey);
@@ -1234,9 +1240,15 @@ export function createAiOrchestration(options = {}) {
       correlationId: input.runId ?? projectId,
       causationId: started.eventId
     });
-    const invocation = immutableCopy({ invocationId, projectId, taskId: input.taskId ?? null, runId: input.runId ?? null, teamId, skillId, role, providerId: provider.providerId, modelId: profile.modelId, profileId: profile.profileId, profileVersion: profile.profileVersion, spendApprovalId: budget?.approvalId ?? null, accountedCostUnits: budget?.accountedCostUnits ?? response.usage.costUnits, remainingSpendCostUnits: budget?.remainingCostUnits ?? null, contextSnapshotId, status: "completed", code: "AI_INVOCATION_COMPLETED", response, attempts, latencyMs: Math.max(0, Date.now() - startedAtMs), requestedAt: started.occurredAt, completedAt: completed.occurredAt, eventId: completed.eventId, credentialRef: profile.credentialRef });
+    const invocation = immutableCopy({ invocationId, projectId, taskId: input.taskId ?? null, runId: input.runId ?? null, teamId, skillId, role, providerId: provider.providerId, modelId: profile.modelId, profileId: profile.profileId, profileVersion: profile.profileVersion, spendApprovalId: budget?.approvalId ?? null, accountedCostUnits: budget?.accountedCostUnits ?? response.usage.costUnits, remainingSpendCostUnits: budget?.remainingCostUnits ?? null, contextSnapshotId, status: "completed", code: "AI_INVOCATION_COMPLETED", response: transientResponse ? null : response, responseRetention: transientResponse ? "transient" : "retained", attempts, latencyMs: Math.max(0, Date.now() - startedAtMs), requestedAt: started.occurredAt, completedAt: completed.occurredAt, eventId: completed.eventId, credentialRef: profile.credentialRef });
     invocations.set(invocationId, invocation);
-    return remember(scope, value, { invocation, idempotent: false });
+    const persistedResult = remember(scope, value, { invocation, idempotent: false });
+    // Do not put `response` in either the invocation map or the idempotency
+    // cache for a transient request. The caller receives it once, while a
+    // replay safely exposes only the retained metadata.
+    return transientResponse
+      ? { invocation: immutableCopy({ ...invocation, response }), idempotent: false }
+      : persistedResult;
   }
 
   function recordEvaluation(input = {}) {

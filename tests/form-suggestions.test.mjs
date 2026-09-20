@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createFormSuggestions, createProviderFormSuggestions, FormSuggestionsError, FORM_PROVIDER_SUGGESTIONS_SCHEMA, FORM_SUGGESTION_INITIAL_SUGGESTIONS, FORM_SUGGESTION_MAX_REFINEMENTS, FORM_SUGGESTION_MAX_SUGGESTIONS, FORM_SUGGESTIONS_VERSION, prepareFormSuggestionRefinement, prepareFormSuggestionRequest } from "../packages/domain/src/form-suggestions.mjs";
+import { createFormSuggestions, createProviderFormSuggestions, FormSuggestionsError, FORM_PROVIDER_SUGGESTIONS_SCHEMA, FORM_SUGGESTION_INITIAL_SUGGESTIONS, FORM_SUGGESTION_MAX_DOCUMENT_DRAFT_CHARACTERS, FORM_SUGGESTION_MAX_REFINEMENTS, FORM_SUGGESTION_MAX_SUGGESTIONS, FORM_SUGGESTIONS_VERSION, prepareFormSuggestionRefinement, prepareFormSuggestionRequest } from "../packages/domain/src/form-suggestions.mjs";
 import { getHeroGlobalNavigation, getHeroShellScript, getHeroShellStyles } from "../apps/control-plane/src/hero-shell.mjs";
 
 const actor = { kind: "project-owner", id: "hero-owner" };
@@ -181,6 +181,54 @@ test("feedback makes a safe fallback distinct when a Provider omits a real form 
   assert.equal(refined.suggestions[0].fallbackFieldCount, 1);
 });
 
+test("Provider feedback explanation and optional document draft remain bounded and transient", () => {
+  const providerOutput = {
+    schema: FORM_PROVIDER_SUGGESTIONS_SCHEMA,
+    boxPurpose: "این باکس برای افزودن اختیاری متن خصوصی پروژه است تا نمونه و زمینهٔ قابل بررسی در همان پروژه قرار گیرد؛ نداشتن آن مانع ادامه نیست و ثبت نهایی فقط با ادمین انجام می‌شود.",
+    feedbackResponse: "درخواست برای جزئیات بیشتر را به افزودن زمینه، معیار بازبینی و مرزهای روشن تفسیر کردم؛ پیش‌نویس تازه فقط برای خواندن و تأیید ادمین آماده شده است.",
+    documentProposal: {
+      title: "پیش‌نویس کوتاهِ زمینهٔ پروژه",
+      filename: "project-brief.md",
+      content: "# زمینهٔ پروژه\n\nاین پیش‌نویس، مسئله، کاربران، معیارهای بازبینی و محدودیت‌های اولیه را برای بررسی ادمین جمع‌بندی می‌کند.\n\n## مرز\n\nهیچ اجرا، انتشار یا تغییر زیرساختی با این متن آغاز نمی‌شود.",
+      rationale: "برای اینکه تیم بتواند پیش از برنامه‌ریزی، مسئله و مرزهای تصمیم را در یک متن کوتاه بخواند."
+    },
+    suggestions: [{
+      title: "ورودی متنی آمادهٔ بازبینی",
+      rationale: "مقدارها فقط در فرم قرار می‌گیرند و جداگانه ثبت می‌شوند.",
+      entries: [{ name: "filename", type: "text", value: "project-brief.md" }, { name: "content", type: "textarea", value: "پیش‌نویس کوتاه برای بازبینی ادمین و تیم پروژه، بدون اجرای خودکار." }]
+    }]
+  };
+  const result = createProviderFormSuggestions({
+    actor,
+    projectId: "project-vpn",
+    formId: "upload-form",
+    formTitle: "ورودی پروژه",
+    softwareGoal: "ساخت یک محصول آزمایشی قابل انتقال",
+    boxDescription: "افزودن اختیاری متن خصوصی پروژه",
+    fields: [{ name: "filename", type: "text", label: "نام فایل" }, { name: "content", type: "textarea", label: "متن نمونه یا سند" }],
+    selectedAdvisor: "openai-profile-v1",
+    providerOutput,
+    feedback: "پیشنهاد جدیدی بده که توضیح بیشتری داشته باشد"
+  });
+  assert.match(result.feedbackResponse, /جزئیات بیشتر/);
+  assert.equal(result.documentProposal.filename, "project-brief.md");
+  assert.match(result.documentProposal.content, /^# زمینهٔ پروژه/m, "line breaks survive for the admin's document preview");
+  assert.ok(result.documentProposal.content.length <= FORM_SUGGESTION_MAX_DOCUMENT_DRAFT_CHARACTERS);
+  const ordinaryForm = createProviderFormSuggestions({
+    actor,
+    projectId: "project-vpn",
+    formId: "intake-form",
+    formTitle: "Intake پروژه",
+    softwareGoal: "ساخت یک محصول آزمایشی قابل انتقال",
+    boxDescription: "ثبت هدف و کاربران پروژه",
+    fields: [{ name: "goal", type: "textarea", label: "هدف" }],
+    selectedAdvisor: "openai-profile-v1",
+    providerOutput: { ...providerOutput, suggestions: [{ title: "هدف", rationale: "فقط برای بازبینی.", entries: [{ name: "goal", type: "textarea", value: "هدف ایمن و قابل بررسی" }] }] },
+    feedback: "هدف را روشن‌تر کن"
+  });
+  assert.equal(ordinaryForm.documentProposal, undefined, "only the dedicated optional project-input form can expose a document draft");
+});
+
 test("form suggestion refinement requires a live advisor, bounded safe feedback and a limited round", () => {
   const refinement = prepareFormSuggestionRefinement({
     actor,
@@ -219,6 +267,10 @@ test("shared shell exposes the form suggestion switch and safe popup contract", 
   assert.match(script, /formSuggestionInitialCount = 3/);
   assert.match(script, /formSuggestionMaxCount = 10/);
   assert.match(script, /هر بازخورد فقط یک گزینهٔ تازه می‌سازد/);
+  assert.match(script, /feedbackResponse/);
+  assert.match(script, /پیش‌نویس سند اختیاری/);
+  assert.match(script, /قرار دادن سند در فرم/);
+  assert.match(script, /هنوز ذخیره یا بارگذاری نشده است/);
   assert.match(script, /foundation-form/);
   assert.doesNotMatch(script, /هدف کوتاه نرم‌افزار/);
   assert.match(script, /data-hero-form-suggestion-trigger/);

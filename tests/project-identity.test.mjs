@@ -465,7 +465,24 @@ test("Project-bound live advisor profiles invoke through the bounded authorizati
     mode: "live",
     async validateConnection() { return { status: "ok" }; },
     async assertDispatchReady(input) { dispatchedMaxCostUnits = input.maxCostUnits; return { status: "ok", pricing: { catalogVersion: "test", currency: "USD", inputPricePer1mTokens: 0.2, outputPricePer1mTokens: 1.2, cachedInputPricePer1mTokens: 0.02 } }; },
-    async generate(input) { providerCalls += 1; lastProviderInput = structuredClone(input); const refined = input.context?.featureKey === "form.suggestions.refine"; const answer = input.request?.purpose === "form-suggestions" ? JSON.stringify({ schema: "form-suggestions-v1", boxPurpose: "این باکس برای ثبت اطلاعات پایهٔ پروژه است تا هدف، سطح ریسک، محدودیت‌ها و تأیید ادمین پیش از برنامه‌ریزی و هرگونه اقدام اجرایی روشن و قابل بازبینی باشند.", suggestions: [{ title: refined ? "پیشنهاد بهبودیافتهٔ فرم Test" : "پیشنهاد فرم Test", rationale: refined ? "بازخوردِ معتبرِ ادمین در پیشنهاد تازه اعمال شد." : "مقدارهای کم‌ریسک و قابل بازبینی.", entries: [{ name: "goal", type: refined ? "text" : "textarea", value: refined ? "هدف تفصیلی Test پس از بازخورد" : "هدف نمونهٔ Test", checked: false }, { name: "riskLevel", type: "select", value: "low", checked: false }, { name: "constraints", type: "textarea", value: "فقط Test و بدون هزینهٔ خارجی", checked: false }, { name: "approved", type: "checkbox", value: "approved", checked: false }] }] }) : "پاسخ زنده و محدود برای همین Project آماده شد."; return { output: { schema: input.outputSchema, answer }, usage: { inputTokens: 12, outputTokens: 8, totalTokens: 20, costUnits: 1 } }; },
+    async generate(input) {
+      providerCalls += 1;
+      lastProviderInput = structuredClone(input);
+      const refined = input.context?.featureKey === "form.suggestions.refine";
+      const answer = input.request?.purpose === "form-suggestions"
+        ? JSON.stringify({
+          schema: "form-suggestions-v1",
+          boxPurpose: "این باکس برای ثبت اطلاعات پایهٔ پروژه است تا هدف، سطح ریسک، محدودیت‌ها و تأیید ادمین پیش از برنامه‌ریزی و هرگونه اقدام اجرایی روشن و قابل بازبینی باشند.",
+          ...(refined ? { feedbackResponse: "بازخورد ادمین را به درخواستِ شرح تفصیلی‌تر تفسیر کردم؛ گزینهٔ تازه هدف را با جزئیات بیشتری بازنویسی می‌کند و همچنان فقط برای بازبینی است." } : {}),
+          suggestions: [{
+            title: refined ? "پیشنهاد بهبودیافتهٔ فرم Test" : "پیشنهاد فرم Test",
+            rationale: refined ? "بازخوردِ معتبرِ ادمین در پیشنهاد تازه اعمال شد." : "مقدارهای کم‌ریسک و قابل بازبینی.",
+            entries: [{ name: "goal", type: refined ? "text" : "textarea", value: refined ? "هدف تفصیلی Test پس از بازخورد" : "هدف نمونهٔ Test", checked: false }, { name: "riskLevel", type: "select", value: "low", checked: false }, { name: "constraints", type: "textarea", value: "فقط Test و بدون هزینهٔ خارجی", checked: false }, { name: "approved", type: "checkbox", value: "approved", checked: false }]
+          }]
+        })
+        : "پاسخ زنده و محدود برای همین Project آماده شد.";
+      return { output: { schema: input.outputSchema, answer }, usage: { inputTokens: 12, outputTokens: 8, totalTokens: 20, costUnits: 1 } };
+    },
     listCapabilities() { return []; }
   };
   const externalSpendAuthorizer = async input => rejectLiveInvocation
@@ -591,11 +608,18 @@ test("Project-bound live advisor profiles invoke through the bounded authorizati
   assert.equal(refinementPayload.formSuggestions.suggestions.length, 1, "each feedback adds one card to the existing UI list");
   assert.equal(refinementPayload.formSuggestions.suggestions[0].suggestionId, "provider-form-suggestion-4");
   assert.equal(refinementPayload.formSuggestions.suggestions[0].entries[0].value, "هدف تفصیلی Test پس از بازخورد", "a safe value from the refined Provider reply must not be discarded only because its type was omitted or generalized");
+  assert.match(refinementPayload.formSuggestions.feedbackResponse, /شرح تفصیلی‌تر/, "the Provider's user-facing feedback interpretation is returned only to this transient popup response");
   assert.equal(refinementPayload.evidence.capability, "form-suggestions");
   assert.equal(lastProviderInput.context.featureKey, "form.suggestions.refine");
   assert.equal(lastProviderInput.context.formSuggestion.feedback, undefined, "feedback must not be embedded in the structured provider context");
   assert.match(lastProviderInput.request.question, /پیشنهادها کوتاه‌تر باشند/);
   assert.doesNotMatch(JSON.stringify(persistedDomainEvents), /پیشنهادها کوتاه‌تر باشند/, "feedback must not be persisted in domain events");
+  assert.doesNotMatch(JSON.stringify(persistedDomainEvents), /شرح تفصیلی‌تر/, "the transient Provider feedback explanation must not be persisted in domain events");
+  const persistedAiRegistry = dashboard.persistenceSnapshot().registries.find(registry => registry.registryId === "ai-orchestration");
+  const persistedRefinement = persistedAiRegistry.invocations.find(invocation => invocation.invocationId === refinementPayload.providerInvocation.invocationId);
+  assert.equal(persistedRefinement.response, null, "a form-suggestion response is not retained in the invocation registry");
+  assert.equal(persistedRefinement.responseRetention, "transient");
+  assert.doesNotMatch(JSON.stringify(persistedAiRegistry), /پیشنهادها کوتاه‌تر باشند|شرح تفصیلی‌تر/, "feedback and its conversational response must not enter a durable registry snapshot");
   rejectLiveInvocation = true;
   const blockedResponse = await fetch(`${base}/api/smart-tester/advice?projectId=project-vpn&surface=%2Fworkspace&featureKey=workspace.intake&boxId=intake-card`, { method: "POST", headers, body: JSON.stringify({ surface: "/workspace", featureKey: "workspace.intake", boxId: "intake-card", projectId: "project-vpn", advisorProfileId: "live-advisor-profile", question: "درخواست باید در مرز مجوز متوقف شود" }) });
   assert.equal(blockedResponse.status, 502);
