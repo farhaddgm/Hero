@@ -1536,7 +1536,10 @@ export function createAiOrchestration(options = {}) {
         typeof budget?.approvalId === "string"
         && Number.isInteger(budget.maxCostUnits)
         && budget.maxCostUnits > 0
-        && budget.maxCostUnits <= 100_000
+        // Profile and per-invocation limits remain independently bounded at
+        // 100k. The persisted authorization ledger may hold the explicitly
+        // approved Test-wide cumulative ceiling of 200k.
+        && budget.maxCostUnits <= 200_000
         && Number.isInteger(budget.spentCostUnits)
         && budget.spentCostUnits >= 0
         && Number.isInteger(budget.reservedCostUnits ?? 0)

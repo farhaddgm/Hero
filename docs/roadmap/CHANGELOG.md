@@ -1,5 +1,12 @@
 # تغییرات رودمپ شرکت
 
+# ۲۰۲۶-۰۹-۲۱ — سرویس سراسری Test برای Advisor، Walk-Through و Smart Tester
+
+- اصلاح‌شده: سه دستیار Back Office برای Project تازه دیگر به Binding تحلیل‌گر یا Scope دستیِ همان Project وابسته نیستند. Profile فعال و سالم در همهٔ Projectها انتخاب‌پذیر است و، پس از گذر از مجوز صریح Test-wide، نخستین درخواست فقط یک Binding داخلیِ append-only و project-scoped می‌سازد.
+- سخت‌سازی‌شده: authorization جدید `AUTH-AI-TEST-002 / v1.2` با سقف تجمعی `200,000` واحد فقط با `HERO_EXTERNAL_SPEND_PROJECT_SCOPE=all-test-projects`، `HERO_EXTERNAL_SPEND_PROJECT_ID=all-test-projects` و `HERO_EXTERNAL_SPEND_ENVIRONMENT=test` معتبر است. این حالت در هر محیط دیگر fail-closed می‌شود. سقف هر درخواست همچنان از Profile read-only و policy درخواست محدود است. authorization، audit و حسابداری هر فراخوانی همچنان `projectId` واقعی همان Project را ثبت می‌کنند؛ هیچ context یا مجوزی میان Projectها به اشتراک گذاشته نمی‌شود.
+- اصلاح‌شده: پیام‌های UI و API دیگر از ادمین نمی‌خواهند برای این سه دستیار در Project تازه Binding یا Scope بسازد؛ در نبود گیت واقعی فقط وضعیت «مجوز سراسری Test یا Health آماده نیست» نمایش داده می‌شود.
+- شواهد source: `git diff --check`، تست متمرکز Linux container `52/52` PASS و زنجیرهٔ کامل معادل `pnpm check` با `490/490` تست، `149` سند با صفر خطا و build `299` ماژول / `55` JSON PASS است. سناریوی Project تازه، policy تک‌پروژه‌ای، authorization صریح Test-wide، provision داخلی و رد scope جهانی بیرون از Test پوشش داده شده‌اند. هیچ Provider زنده، هزینهٔ خارجی، Secret، Profile/Binding runtime، Pilot یا Production تغییر نکرد.
+
 # ۲۰۲۶-۰۹-۲۱ — انتخاب سراسری AI و چیدمان پایدار Advisor
 
 - اصلاح‌شده: AI/Profile سازگار و دارای Health در سه سرویس Advisor، Walk-Through Guide و Smart Tester دیگر به Binding پروژهٔ باز وابسته نیست و در انتخاب‌گر همهٔ پروژه‌ها نمایش داده و قابل انتخاب می‌شود. انتخاب اخیر هر سرویس نیز فقط به‌عنوان preference مرورگر و بدون ذخیرهٔ متن/Secret، بین پروژه‌ها حفظ می‌شود.

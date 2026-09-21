@@ -1072,21 +1072,37 @@ export function createHeroServer(options = {}) {
             liveAuthorization = { authorized: false, code: error?.code ?? "LIVE_ADVISOR_AUTHORIZATION_UNAVAILABLE", expiresAtMs: 0 };
           }
         }
+        // Advisor services use one global Profile contract.  Per-project
+        // bindings are provisioned just-in-time only after all live gates
+        // pass, so they never become an admin setup task or an authorization
+        // shortcut.  A project still keeps its own context and audit trail.
+        const readinessBinding = binding ?? Object.freeze({
+          bindingId: `advisor-service-${profile.profileId}`,
+          projectId,
+          role: profile.role,
+          profileId: profile.profileId,
+          source: "backoffice-advisor-service"
+        });
         const readiness = evaluateAiAdvisorReadiness({
           purpose,
           projectId,
           provider: provider ? { ...provider, advisorCompatible: provider.advisorCompatible } : null,
           model,
           profile,
-          binding,
-          projectScope,
+          binding: readinessBinding,
+          // Advisor availability is a Back Office service policy rather than
+          // a project configuration. Explicit project scopes remain available
+          // to other AI orchestration flows, but do not gate these three
+          // human-facing read-only advisor surfaces.
+          projectScope: null,
           health: provider?.mode === "deterministic" ? { status: "healthy", code: "LOCAL_PROVIDER_READY" } : provider?.connection?.latestHealth,
           authorization: liveAuthorization
         });
         // The connected AI/profile is Back Office configuration, not a
-        // per-project setting.  Show a healthy compatible profile in every
-        // project picker, while keeping the actual live dispatch decision
-        // fail-closed behind its project Binding, Scope and cost snapshot.
+        // per-project setting. Show a healthy compatible profile in every
+        // project picker. Dispatch remains fail-closed behind the explicit
+        // Test authorization snapshot; an internal binding is provisioned
+        // only after that authorization passes.
         // `selectable` means a service can be selected as the global UI
         // preference; `dispatchReady` means this particular project may send
         // a live request right now.
@@ -1112,7 +1128,7 @@ export function createHeroServer(options = {}) {
               ? "پاسخ deterministic و بدون هزینهٔ Provider خارجی است."
               : "برای فراخوانی زنده آماده است؛ سقف مصرف و مجوز نسخه‌دار همچنان اعمال می‌شود."
             : serviceReady
-              ? "این AI به‌صورت سراسری در Back Office قابل انتخاب است؛ اجرای زنده در این پروژه به Binding تحلیل‌گر، Scope قابلیت و مجوز هزینهٔ همین پروژه نیاز دارد."
+              ? "این AI به‌صورت سراسری در Back Office قابل انتخاب است؛ اجرای زنده پس از فعال‌شدن مجوز صریح سرویس سراسری Test در دسترس می‌شود."
             : `${readiness.selectionNotice} (${readiness.code})${readiness.nextAction ? ` اقدام بعدی: ${readiness.nextAction}` : ""}`
         });
       });
@@ -1153,7 +1169,7 @@ export function createHeroServer(options = {}) {
       ...options,
       projectId: projectId ?? null,
       defaultAdvisorId: "local",
-      note: "AIهای آماده یک‌بار برای سرویس Back Office انتخاب می‌شوند و در همهٔ پروژه‌ها نمایش داده می‌شوند؛ پاسخ زنده هنوز فقط با Role، Binding، Scope، Health و مجوز هزینهٔ معتبر همان پروژه اجرا می‌شود.",
+      note: "AIهای آماده یک‌بار برای سرویس Back Office انتخاب می‌شوند و در همهٔ پروژه‌ها نمایش داده می‌شوند؛ اجرای زنده تنها با Health و مجوز صریح سرویس سراسری Test انجام می‌شود.",
       models: Object.freeze(options.models.map(model => Object.freeze({
         ...model,
         selectable: options.profiles.some(profile => profile.providerId === model.providerId && profile.modelId === model.modelId && profile.selectable === true),
@@ -1177,15 +1193,11 @@ export function createHeroServer(options = {}) {
         setupAction: "ai-assignment-proposal"
       }))),
       profiles: options.profiles,
-      note: "Advisor محلی همیشه در دسترس است. AIهای سازگار یک‌بار برای سرویس Back Office انتخاب می‌شوند و در همهٔ پروژه‌ها نمایش داده می‌شوند؛ اجرای زندهٔ هر پروژه جداگانه به Binding، Scope و مجوز نسخه‌دارِ سازگار form-suggestions نیاز دارد."
+      note: "Advisor محلی همیشه در دسترس است. AIهای سازگار یک‌بار برای سرویس Back Office انتخاب می‌شوند و در همهٔ پروژه‌ها نمایش داده می‌شوند؛ اجرای زنده با مجوز صریح سرویس سراسری Test و سقف مصرف همان مجوز انجام می‌شود."
     });
   }
 
   function activeLiveAdvisorAuthorization({ purpose, projectId, providerId, modelId, role }) {
-    const projectScope = (dashboard.aiOrchestrationSnapshot().projectScopes ?? []).find(scope => scope.projectId === projectId) ?? null;
-    if (projectScope && (projectScope.mode !== "enabled" || !(projectScope.capabilities ?? []).includes(purpose))) {
-      throw new ProjectWorkspaceError("AI_PROJECT_SCOPE_DISABLED", "AI برای این پروژه یا این قابلیت فعال نیست.", 403);
-    }
     let policy;
     try { policy = typeof liveAdvisorPolicy === "function" ? liveAdvisorPolicy() : liveAdvisorPolicy; } catch (error) {
       throw new ProjectWorkspaceError("LIVE_ADVISOR_AUTHORIZATION_UNAVAILABLE", `مجوز هزینهٔ AI قابل‌خواندن نیست: ${error?.code ?? "CONFIGURATION_INVALID"}.`, 503);
@@ -1193,7 +1205,10 @@ export function createHeroServer(options = {}) {
     if (!policy?.active || policy.globalStop === true) {
       throw new ProjectWorkspaceError("LIVE_ADVISOR_AUTHORIZATION_UNAVAILABLE", "مجوز هزینهٔ AI فعال نیست یا توقف اضطراری برقرار است.", 503);
     }
-    if (Date.now() >= policy.expiresAtMs || policy.projectId !== projectId || policy.providerId !== providerId || !policy.modelIds?.includes(modelId) || !policy.roleIds?.includes(role) || !policy.capabilities?.includes(purpose)) {
+    const projectMatches = policy.projectScope === "all-test-projects"
+      ? /^[a-z][a-z0-9-]{2,62}$/.test(projectId)
+      : policy.projectId === projectId;
+    if (Date.now() >= policy.expiresAtMs || !projectMatches || policy.providerId !== providerId || !policy.modelIds?.includes(modelId) || !policy.roleIds?.includes(role) || !policy.capabilities?.includes(purpose)) {
       throw new ProjectWorkspaceError("LIVE_ADVISOR_AUTHORIZATION_SCOPE_MISMATCH", "مجوز هزینهٔ AI با Project، Provider، Model یا Role انتخاب‌شده هم‌خوان نیست.", 403);
     }
     return Object.freeze({
@@ -1201,7 +1216,8 @@ export function createHeroServer(options = {}) {
       action: "external-spend",
       code: "AUTHORIZED",
       authorizationId: policy.authorizationId,
-      projectId: policy.projectId,
+      projectId,
+      ...(policy.projectScope === "all-test-projects" ? { projectScope: "all-test-projects" } : {}),
       stepId: policy.stepId,
       documentVersion: policy.documentVersion,
       capability: purpose,
@@ -1314,11 +1330,37 @@ export function createHeroServer(options = {}) {
     if (selectedProfile.role !== LIVE_ADVISOR_ROLE || selectedProfile.outputSchema !== LIVE_ADVISOR_OUTPUT_SCHEMA || configuredProfile?.toolPolicy !== "read-only") {
       throw new ProjectWorkspaceError("LIVE_ADVISOR_POLICY_MISMATCH", "Live advisor فقط با Role، Output Schema و Tool Policy مجاز قابل اجراست.", 403);
     }
-    const binding = dashboard.aiOrchestration.resolveBinding({ projectId, role: selectedProfile.role });
-    if (!binding || binding.profileId !== selectedProfile.profileId) {
-      throw new ProjectWorkspaceError("LIVE_ADVISOR_BINDING_MISMATCH", "Binding فعال این Project با Profile انتخاب‌شده هم‌خوان نیست.", 403);
-    }
     const authorization = activeLiveAdvisorAuthorization({ purpose, projectId, providerId: selectedProfile.providerId, modelId: selectedProfile.modelId, role: selectedProfile.role });
+    let binding = dashboard.aiOrchestration.resolveBinding({ projectId, role: selectedProfile.role });
+    if (!binding) {
+      // This is an internal, append-only service provisioning record. It is
+      // created only after the exact Test authorization has passed, contains
+      // no credential, and gives a new Project the globally configured
+      // read-only analyst Profile without an admin visiting AI Connections.
+      try {
+        dashboard.bindAiRole({
+          bindingId: `advisor-service-${projectId}-${crypto.randomUUID()}`,
+          projectId,
+          teamId: null,
+          skillId: null,
+          role: selectedProfile.role,
+          profileId: selectedProfile.profileId,
+          supersedesBindingId: null,
+          idempotencyKey: `advisor-service-binding-${projectId}-${selectedProfile.profileId}`,
+          actor: { kind: "admin", id: "hero-backoffice-advisor-service" }
+        });
+      } catch (error) {
+        // A concurrent first request may have won the append-only binding
+        // race. Re-read once; any incompatible existing binding still fails
+        // closed below instead of being replaced automatically.
+        binding = dashboard.aiOrchestration.resolveBinding({ projectId, role: selectedProfile.role });
+        if (!binding) throw error;
+      }
+      binding = dashboard.aiOrchestration.resolveBinding({ projectId, role: selectedProfile.role });
+    }
+    if (!binding || binding.profileId !== selectedProfile.profileId) {
+      throw new ProjectWorkspaceError("LIVE_ADVISOR_BINDING_MISMATCH", "Binding تحلیل‌گر این Project با سرویس سراسری انتخاب‌شده هم‌خوان نیست و به‌صورت خودکار جایگزین نمی‌شود.", 403);
+    }
     const requestedFormSuggestionCount = Number(context?.formSuggestion?.requestedSuggestionCount);
     const formSuggestionCountInstruction = Number.isInteger(requestedFormSuggestionCount) && requestedFormSuggestionCount >= 1 && requestedFormSuggestionCount <= FORM_SUGGESTION_INITIAL_SUGGESTIONS
       ? `Return exactly ${requestedFormSuggestionCount} suggestion${requestedFormSuggestionCount === 1 ? "" : "s"}.`
@@ -2475,7 +2517,7 @@ export function createHeroServer(options = {}) {
         const options = formSuggestionOptions(projectId);
         const selectedAdvisor = input.selectedAdvisor === undefined || input.selectedAdvisor === null || input.selectedAdvisor === "" ? "local" : input.selectedAdvisor;
         if (selectedAdvisor !== "local" && !options.profiles.some(profile => profile.profileId === selectedAdvisor && profile.selectable === true && profile.dispatchReady === true)) {
-          throw new FormSuggestionsError("FORM_SUGGESTION_ADVISOR_UNAVAILABLE", "AI انتخاب‌شده در فهرست سراسری موجود است، اما اجرای زنده برای این پروژه هنوز آماده نیست؛ Binding تحلیل‌گر، Scope این قابلیت و مجوز هزینهٔ همین پروژه را فعال کنید.", 403);
+          throw new FormSuggestionsError("FORM_SUGGESTION_ADVISOR_UNAVAILABLE", "AI انتخاب‌شده در فهرست سراسری موجود است، اما مجوز صریح سرویس سراسری Test یا Health اتصال هنوز برای اجرای زنده آماده نیست.", 403);
         }
         let authoritativeGoal = input.softwareGoal;
         if (projectId) authoritativeGoal = projectOverview(projectId).intake?.goal || authoritativeGoal;
@@ -2533,7 +2575,7 @@ export function createHeroServer(options = {}) {
         const options = formSuggestionOptions(projectId);
         const selectedAdvisor = input.selectedAdvisor;
         if (!options.profiles.some(profile => profile.profileId === selectedAdvisor && profile.selectable === true && profile.dispatchReady === true)) {
-          throw new FormSuggestionsError("FORM_SUGGESTION_ADVISOR_UNAVAILABLE", "AI انتخاب‌شده در فهرست سراسری موجود است، اما اجرای زنده برای این پروژه هنوز آماده نیست؛ Binding تحلیل‌گر، Scope این قابلیت و مجوز هزینهٔ همین پروژه را فعال کنید.", 403);
+          throw new FormSuggestionsError("FORM_SUGGESTION_ADVISOR_UNAVAILABLE", "AI انتخاب‌شده در فهرست سراسری موجود است، اما مجوز صریح سرویس سراسری Test یا Health اتصال هنوز برای اجرای زنده آماده نیست.", 403);
         }
         let authoritativeGoal = input.softwareGoal;
         if (projectId) authoritativeGoal = projectOverview(projectId).intake?.goal || authoritativeGoal;
@@ -2618,7 +2660,7 @@ export function createHeroServer(options = {}) {
           const options = queryProjectId ? walkthroughAdvisorOptions(queryProjectId) : null;
           const selectedProfile = profileId ? options?.profiles.find(profile => profile.profileId === profileId) : null;
           if (profileId && (!selectedProfile || selectedProfile.selectable !== true || selectedProfile.dispatchReady !== true)) {
-            throw new ProjectWorkspaceError("WALKTHROUGH_ADVISOR_PROFILE_UNAVAILABLE", "AI انتخاب‌شده سراسری است، اما اجرای زندهٔ Walk-Through در این پروژه به Binding تحلیل‌گر، Scope و مجوز هزینهٔ همین پروژه نیاز دارد.", 400);
+            throw new ProjectWorkspaceError("WALKTHROUGH_ADVISOR_PROFILE_UNAVAILABLE", "AI انتخاب‌شده سراسری است، اما مجوز صریح سرویس سراسری Test یا Health اتصال برای اجرای زندهٔ Walk-Through آماده نیست.", 400);
           }
           const advisor = createProjectWalkthroughAdvisory({
             stepId: input.stepId,
@@ -2746,7 +2788,7 @@ export function createHeroServer(options = {}) {
             if (input.advisorProfileId !== undefined && input.advisorProfileId !== null && input.advisorProfileId !== "" && input.advisorProfileId !== "local") {
               const options = smartTesterAdvisorOptions(contextualSmartTesterContext.projectId);
               const profile = options.profiles.find(item => item.profileId === input.advisorProfileId);
-              if (!profile || profile.selectable !== true || profile.dispatchReady !== true) throw new ProjectWorkspaceError("SMART_TESTER_ADVISOR_UNAVAILABLE", "AI انتخاب‌شده سراسری است، اما اجرای زندهٔ Smart Tester در این پروژه به Binding تحلیل‌گر، Scope و مجوز هزینهٔ همین پروژه نیاز دارد.", 400);
+              if (!profile || profile.selectable !== true || profile.dispatchReady !== true) throw new ProjectWorkspaceError("SMART_TESTER_ADVISOR_UNAVAILABLE", "AI انتخاب‌شده سراسری است، اما مجوز صریح سرویس سراسری Test یا Health اتصال برای اجرای زندهٔ Smart Tester آماده نیست.", 400);
               selectedAdvisor = profile;
             }
             const advisor = createSmartTesterAdvisory({ context: contextualSmartTesterContext, question: input.question, report, selectedAdvisor, actionFailure: input.actionFailure });

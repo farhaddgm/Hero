@@ -554,6 +554,26 @@ test("Project-bound live advisor profiles invoke through the bounded authorizati
   assert.equal(newProjectProfile?.selectable, true, "a healthy compatible AI must appear in a newly created project's global service picker");
   assert.equal(newProjectProfile?.dispatchReady, false, "an unbound project must still fail closed before a live external request");
   assert.match(newProjectProfile?.selectionNotice ?? "", /سراسری/);
+  // A Test-wide authorization changes only the cost-policy boundary. It does
+  // not loosen the Project context boundary: the first live request below
+  // must create an append-only, project-specific binding rather than asking
+  // an admin to configure every newly created Project by hand.
+  liveAdvisorPolicy = { ...liveAdvisorPolicy, projectId: "all-test-projects", projectScope: "all-test-projects" };
+  const globalAuthorizedOptions = await fetch(`${base}/api/projects/project-new/walkthrough-advisor/options`, { headers });
+  assert.equal(globalAuthorizedOptions.status, 200);
+  const globalAuthorizedProfile = (await globalAuthorizedOptions.json()).advisorOptions.profiles.find(profile => profile.profileId === "live-advisor-profile");
+  assert.equal(globalAuthorizedProfile?.selectable, true);
+  assert.equal(globalAuthorizedProfile?.dispatchReady, true, "a Test-wide advisor authorization must not require an admin-created project binding or scope");
+  const firstNewProjectWalkthrough = await fetch(`${base}/api/walkthrough/advice?projectId=project-new`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ stepId: "intake", projectId: "project-new", advisorProfileId: "live-advisor-profile", question: "راهنمای پروژهٔ تازه چیست؟" })
+  });
+  assert.equal(firstNewProjectWalkthrough.status, 200);
+  assert.equal((await firstNewProjectWalkthrough.json()).advisor.providerInvoked, true);
+  const autoProvisionedBinding = dashboard.aiOrchestration.resolveBinding({ projectId: "project-new", role: "analyst" });
+  assert.equal(autoProvisionedBinding?.profileId, "live-advisor-profile");
+  assert.match(autoProvisionedBinding?.bindingId ?? "", /^advisor-service-project-new-/);
   const walkthrough = await fetch(`${base}/api/walkthrough/advice?projectId=project-vpn`, { method: "POST", headers, body: JSON.stringify({ stepId: "intake", projectId: "project-vpn", advisorProfileId: "live-advisor-profile", question: "گام بعدی چیست؟" }) });
   assert.equal(walkthrough.status, 200);
   const walkthroughAdvisor = (await walkthrough.json()).advisor;

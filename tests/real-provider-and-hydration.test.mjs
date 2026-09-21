@@ -229,6 +229,54 @@ test("runtime authorization exposes one immutable snapshot for selection and dis
   assert.equal(approved.maxCostUnits, policy.maxCostUnits);
 });
 
+test("a Test-wide Back Office advisor authorization is explicit and audits the actual project", async () => {
+  const env = {
+    HERO_EXTERNAL_SPEND_AUTHORIZATION_ACTIVE: "true",
+    HERO_EXTERNAL_SPEND_AUTHORIZATION_ID: "AUTH-AI-TEST-002",
+    HERO_EXTERNAL_SPEND_PROJECT_ID: "all-test-projects",
+    HERO_EXTERNAL_SPEND_PROJECT_SCOPE: "all-test-projects",
+    HERO_EXTERNAL_SPEND_ENVIRONMENT: "test",
+    HERO_EXTERNAL_SPEND_STEP_ID: "HERO-AI-TEST-001",
+    HERO_EXTERNAL_SPEND_DOCUMENT_VERSION: "v1.2",
+    HERO_EXTERNAL_SPEND_PROVIDER_ID: "openai",
+    HERO_EXTERNAL_SPEND_MODEL_IDS: "gpt-5.6-luna",
+    HERO_EXTERNAL_SPEND_ROLE_IDS: "analyst",
+    HERO_EXTERNAL_SPEND_CAPABILITIES: "smart-tester,walkthrough-guide,form-suggestions",
+    HERO_EXTERNAL_SPEND_MAX_COST_UNITS: "200000",
+    HERO_EXTERNAL_SPEND_EXPIRES_AT: "2027-02-23T23:59:59.000Z",
+    HERO_EXTERNAL_SPEND_GLOBAL_STOP: "false"
+  };
+  const authorizer = createRuntimeExternalSpendAuthorizer({ env, clock: () => Date.parse("2026-09-21T12:00:00.000Z") });
+  const policy = authorizer.policySnapshot();
+  assert.equal(policy.projectScope, "all-test-projects");
+  assert.equal(policy.maxCostUnits, 200_000);
+  const approved = await authorizer({
+    authorizationId: policy.authorizationId,
+    projectId: "project-new",
+    stepId: policy.stepId,
+    documentVersion: policy.documentVersion,
+    operation: "external-spend",
+    providerId: policy.providerId,
+    modelId: policy.modelIds[0],
+    role: policy.roleIds[0],
+    capability: "walkthrough-guide",
+    maxCostUnits: 10_000
+  });
+  assert.equal(approved.authorized, true);
+  assert.equal(approved.projectId, "project-new", "the actual Project must remain the auditable authorization subject");
+  assert.equal(approved.projectScope, "all-test-projects");
+  const reservedProject = await authorizer({ ...approved, projectId: "all-test-projects" });
+  assert.equal(reservedProject.code, "EXTERNAL_SPEND_SCOPE_MISMATCH");
+  assert.throws(
+    () => readRuntimeExternalSpendPolicy({ env: { ...env, HERO_EXTERNAL_SPEND_ENVIRONMENT: "production" } }),
+    error => error.code === "EXTERNAL_SPEND_CONFIGURATION_INVALID"
+  );
+  assert.throws(
+    () => readRuntimeExternalSpendPolicy({ env: { ...env, HERO_EXTERNAL_SPEND_PROJECT_SCOPE: "single-project", HERO_EXTERNAL_SPEND_PROJECT_ID: "hero", HERO_EXTERNAL_SPEND_ENVIRONMENT: "" } }),
+    error => error.code === "EXTERNAL_SPEND_CONFIGURATION_INVALID"
+  );
+});
+
 test("hydration backfills the live profile cost ceiling for legacy Profiles", async () => {
   const orchestration = createAiOrchestration({ now });
   orchestration.registerProvider({ providerId: "openai", mode: "live", displayName: "OpenAI Test", adapter: { providerId: "openai", mode: "live", async generate() { return null; } }, actor: OWNER, idempotencyKey: "legacy-profile-provider" });
