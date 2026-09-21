@@ -387,6 +387,12 @@ test("project HTTP APIs enforce owner create, project grant isolation, settings 
   const recalledBody = await recalled.json();
   assert.equal(recalled.status, 200, JSON.stringify(recalledBody));
   assert.equal(recalledBody.input.content, "private recallable brief");
+  const downloaded = await fetch(`${base}/api/projects/project-vpn/inputs/${encodeURIComponent(uploadedBody.input.uploadId)}/download`, { headers });
+  assert.equal(downloaded.status, 200);
+  assert.equal(downloaded.headers.get("content-type"), "application/octet-stream");
+  assert.match(downloaded.headers.get("content-disposition") ?? "", /attachment; filename="project-input"/);
+  assert.equal(downloaded.headers.get("cache-control"), "no-store");
+  assert.equal(await downloaded.text(), "private recallable brief");
   assert.equal(projectSettings.effectiveProject({ projectId: "project-vpn" }).find(item => item.path === "ai.defaultModel").value, "sol");
   const settings = await fetch(`${base}/api/projects/project-vpn/settings`, { headers });
   const settingsBody = await settings.json();
@@ -402,6 +408,7 @@ test("project HTTP APIs enforce owner create, project grant isolation, settings 
   assert.equal((await fetch(`${base}/api/portfolio`, { headers: viewerHeaders })).status, 200);
   assert.equal((await fetch(`${base}/api/projects/project-vpn/workspace-overview`, { headers: viewerHeaders })).status, 200);
   assert.equal((await fetch(`${base}/api/projects/project-vpn/inputs/${encodeURIComponent(uploadedBody.input.uploadId)}/recall`, { headers: viewerHeaders })).status, 403);
+  assert.equal((await fetch(`${base}/api/projects/project-vpn/inputs/${encodeURIComponent(uploadedBody.input.uploadId)}/download`, { headers: viewerHeaders })).status, 403);
   assert.equal((await fetch(`${base}/api/projects/project-vpn/settings`, { method: "POST", headers: viewerHeaders, body: JSON.stringify({ path: "ai.defaultModel", value: "luna", reason: "no" }) })).status, 403);
 });
 

@@ -373,12 +373,28 @@ test("Workspace has scoped recall controls, safe presets and a complete Run over
   assert.match(html, /name="runId"/);
   assert.match(html, /برای Run override، شناسهٔ Run را وارد کنید/);
   assert.match(html, /\/inputs\/.*\/recall/);
+  assert.match(html, /\/inputs\/.*\/download/);
+  assert.match(html, /data-input-download/);
+  assert.match(html, /foundationSummary/);
+  assert.match(html, /settingLabel/);
+  assert.match(html, /form-label-with-info/);
   assert.match(html, /متن خصوصی پس از کنترل مجوز و checksum/);
   assert.match(html, /<select name="impact">/);
   assert.match(html, /byId\('studio'\)\.href = '\/api\/portal\?surface=studio&projectId='/);
   assert.match(html, /byId\('control'\)\.href = '\/api\/portal\?surface=control&projectId='/);
   assert.doesNotMatch(html, /\.href = '\/(?:product-studio|project-control)\?projectId='/);
   for (const source of scripts(html)) assert.doesNotThrow(() => new vm.Script(source, { filename: "workspace-inline.js" }));
+});
+
+test("Advisor launchers are icon-only overlays and do not consume form layout", () => {
+  const styles = getHeroShellStyles();
+  const shell = getHeroShellScript();
+  assert.match(styles, /\.hero-advisable-form \{ position: relative;/);
+  assert.match(styles, /\.hero-form-suggestion-trigger \{ position: absolute;/);
+  assert.match(styles, /width: 24px; height: 24px;/);
+  assert.match(shell, /trigger\.textContent = '💡'/);
+  assert.match(shell, /form\.classList\.add\('hero-advisable-form'\)/);
+  assert.match(shell, /form\.classList\.remove\('hero-advisable-form'\)/);
 });
 
 test("the shared InfoTip contract is accessible, keyboard-aware and injection-safe", () => {

@@ -190,6 +190,16 @@ export function createProjectWorkspace({ ownerUserId = "hero-owner", now = () =>
       if (checksum !== item.checksum) throw new ProjectWorkspaceError("TEXT_INPUT_RECALL_INTEGRITY_FAILED", "The private text source failed its integrity check.", 409);
       return copy({ uploadId: item.uploadId, filename: item.filename, mimeType: item.mimeType, content: bytes.toString("utf8") });
     },
+    downloadInput({ actor, projectId, uploadId }) {
+      assertProjectEditor(actor); project(projectId);
+      const item = uploads.get(assertId("uploadId", uploadId));
+      if (!item || item.projectId !== projectId || item.type === "link") throw new ProjectWorkspaceError("PROJECT_INPUT_DOWNLOAD_NOT_AVAILABLE", "Only a stored project input from this project may be downloaded.", 404);
+      const bytes = objectStoreAdapter?.read ? objectStoreAdapter.read({ objectKey: item.objectKey }) : objectStore.get(item.objectKey);
+      if (!Buffer.isBuffer(bytes)) throw new ProjectWorkspaceError("PROJECT_INPUT_DOWNLOAD_UNAVAILABLE", "The private project input is not available for download.", 409);
+      const checksum = createHash("sha256").update(bytes).digest("hex");
+      if (checksum !== item.checksum) throw new ProjectWorkspaceError("PROJECT_INPUT_DOWNLOAD_INTEGRITY_FAILED", "The private project input failed its integrity check.", 409);
+      return Object.freeze({ uploadId: item.uploadId, filename: item.filename, mimeType: item.mimeType, bytes: Buffer.from(bytes) });
+    },
     privateObjectMetadata({ actor, projectId, uploadId }) { assertProjectEditor(actor); project(projectId); const item = uploads.get(assertId("uploadId", uploadId)); if (!item || item.projectId !== projectId) throw new ProjectWorkspaceError("UPLOAD_NOT_FOUND", "Upload was not found.", 404); return copy({ uploadId: item.uploadId, objectKey: item.objectKey, checksum: item.checksum, byteLength: item.byteLength }); },
     deletionRequest(projectId) { project(projectId); return deletionRequests.get(projectId) ?? null; }
   });

@@ -2881,6 +2881,26 @@ export function createHeroServer(options = {}) {
         return json(response, 200, { service: HERO_SERVICE, input }, { maxBytes: 4 * 1024 * 1024 });
       }
 
+      const projectInputDownloadMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/inputs\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/download$/);
+      if (projectInputDownloadMatch && request.method === "GET") {
+        const input = projectWorkspace.downloadInput({ actor: authenticatedOwner, projectId: projectInputDownloadMatch[1], uploadId: projectInputDownloadMatch[2] });
+        // Downloads are always attachments. Never trust an uploaded MIME type
+        // for browser rendering, and keep the private response out of caches.
+        const filename = typeof input.filename === "string" && input.filename.trim() ? input.filename.trim() : "project-input";
+        const encodedFilename = encodeURIComponent(filename).replaceAll("'", "%27").replaceAll("(", "%28").replaceAll(")", "%29").replaceAll("*", "%2A");
+        response.writeHead(200, {
+          "content-type": "application/octet-stream",
+          "content-length": input.bytes.length,
+          "content-disposition": `attachment; filename="project-input"; filename*=UTF-8''${encodedFilename}`,
+          "cache-control": "no-store",
+          "x-robots-tag": PRIVATE_ROBOTS_POLICY,
+          "x-content-type-options": "nosniff",
+          "referrer-policy": "no-referrer"
+        });
+        response.end(input.bytes);
+        return;
+      }
+
       const projectFoundationMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/foundation$/);
       if (projectFoundationMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, proposal: projectWorkspace.foundationProposal({ projectId: projectFoundationMatch[1] }) });
       const projectFoundationReviseMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/foundation\/revise$/);
