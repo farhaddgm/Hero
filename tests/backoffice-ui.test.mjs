@@ -262,7 +262,7 @@ test("Walk-Through routes have an on-page target on the exact surface they expla
   assert.match(shell, /AI و نسخه/);
   assert.match(shell, /پاسخ سرویس قابل‌خواندن نیست/);
   assert.match(shell, /نشست انسانی و Proxy محیط Test را بررسی کنید/);
-  assert.match(shell, /hero\.project-walkthrough\.advisor\./);
+  assert.match(shell, /hero\.advisor\.selection\.walkthrough-guide\.v1/);
   assert.match(shell, /hero-walkthrough-advisor-messages/);
   assert.match(shell, /در حال تحلیل پرسش در زمینهٔ همین گام/);
   assert.doesNotMatch(shell, /askAdvisor\(''\)/);

@@ -385,8 +385,13 @@ test("shared shell exposes the form suggestion switch and safe popup contract", 
   assert.doesNotMatch(script, /هدف کوتاه نرم‌افزار/);
   assert.match(script, /data-hero-form-suggestion-trigger/);
   assert.match(script, /window\.heroAdvisor = window\.heroFormSuggestions/);
+  assert.match(script, /hero\.advisor\.selection\.form-suggestions\.v1/);
+  assert.match(script, /hero\.advisor\.selection\.smart-tester\.v1/);
+  assert.match(script, /hero\.advisor\.selection\.walkthrough-guide\.v1/);
   assert.match(script, /پیشنهاد سند|پیشنهاد تصویر/);
   assert.match(styles, /hero-form-suggestion-dialog/);
   assert.match(styles, /hero-form-suggestion-results/);
   assert.match(styles, /hero-form-suggestion-feedback/);
+  assert.match(styles, /hero-form-suggestion-body \{ display: flex/);
+  assert.match(styles, /hero-form-suggestion-feedback-form textarea \{ width: 100%; min-width: 0/);
 });

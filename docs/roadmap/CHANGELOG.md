@@ -1,5 +1,13 @@
 # تغییرات رودمپ شرکت
 
+# ۲۰۲۶-۰۹-۲۱ — انتخاب سراسری AI و چیدمان پایدار Advisor
+
+- اصلاح‌شده: AI/Profile سازگار و دارای Health در سه سرویس Advisor، Walk-Through Guide و Smart Tester دیگر به Binding پروژهٔ باز وابسته نیست و در انتخاب‌گر همهٔ پروژه‌ها نمایش داده و قابل انتخاب می‌شود. انتخاب اخیر هر سرویس نیز فقط به‌عنوان preference مرورگر و بدون ذخیرهٔ متن/Secret، بین پروژه‌ها حفظ می‌شود.
+- سخت‌سازی‌شده: «قابل انتخاب بودن در سرویس» از «آماده‌بودن dispatch زنده در پروژه» جدا شد. Provider call همچنان بدون Binding تحلیل‌گر، Scope قابلیت و authorization هزینهٔ همان Project انجام نمی‌شود؛ گزینهٔ انتخابی در این حالت علت امن و روشن نشان می‌دهد و API نیز fail-closed می‌ماند.
+- اصلاح‌شده: در تکرار Profileهای یک Provider/Model، Profile آمادهٔ dispatch برای Project جاری بر نسخهٔ قدیمی یا unbound اولویت دارد؛ بنابراین یک گزینهٔ ناسالم، AI سالم را پنهان نمی‌کند.
+- اصلاح‌شده: بدنهٔ Popup ادوایزر اکنون یک scroll region کنترل‌شده دارد. کارت‌های پیشنهاد و متن‌ها فشرده‌تر شده‌اند و input بازخورد با `min-width: 0` و responsive layout در کادر قابل‌مشاهده می‌ماند.
+- شواهد source: تست متمرکز Linux container برای Advisor UI و API برابر `27/27` PASS است؛ این تغییر هیچ Provider زنده، Secret، Profile/Binding، authorization، هزینه، Pilot یا Production را تغییر نداده است. Candidate و promotion Test مرحلهٔ بعدیِ جداگانه‌اند.
+
 # ۲۰۲۶-۰۹-۲۱ — Candidate فقط-Test برای ارتقای سه دستیار Back Office
 
 - source مربوط به ارتقای Walk-Through، Smart Tester و Advisor در commit `2cd6f4e` روی branch مرجع push شد و workflow `35529180861` Candidate `v1.1.5-rc.27` را با artifact immutable `sha256:62354d79a8266bcc857ed1111f31f15a727ebed171d36722dd803cafafa2cd09` ساخت.

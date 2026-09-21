@@ -1051,8 +1051,7 @@ export function createHeroServer(options = {}) {
       .filter(profile => profile.status === "active"
         && profile.role === LIVE_ADVISOR_ROLE
         && profile.outputSchema === LIVE_ADVISOR_OUTPUT_SCHEMA
-        && profile.toolPolicy === "read-only"
-        && (includeUnbound || bindingsByProfile.has(profile.profileId)))
+        && profile.toolPolicy === "read-only")
       .map(profile => {
         const provider = providerById.get(profile.providerId);
         const model = modelByKey.get(`${profile.providerId}:${profile.modelId}`);
@@ -1084,6 +1083,17 @@ export function createHeroServer(options = {}) {
           health: provider?.mode === "deterministic" ? { status: "healthy", code: "LOCAL_PROVIDER_READY" } : provider?.connection?.latestHealth,
           authorization: liveAuthorization
         });
+        // The connected AI/profile is Back Office configuration, not a
+        // per-project setting.  Show a healthy compatible profile in every
+        // project picker, while keeping the actual live dispatch decision
+        // fail-closed behind its project Binding, Scope and cost snapshot.
+        // `selectable` means a service can be selected as the global UI
+        // preference; `dispatchReady` means this particular project may send
+        // a live request right now.
+        const serviceReady = readiness.checks
+          .filter(check => ["provider", "model", "profile", "health"].includes(check.id))
+          .every(check => check.passed === true);
+        const dispatchReady = readiness.selectable;
         return Object.freeze({
           profileId: profile.profileId,
           role: profile.role,
@@ -1094,12 +1104,15 @@ export function createHeroServer(options = {}) {
           profileVersion: profile.profileVersion,
           outputSchema: profile.outputSchema,
           connectionState: provider?.connection?.state ?? "not-registered",
-          selectable: readiness.selectable,
-          ...(readiness.selectable ? {} : { readiness }),
-          selectionNotice: readiness.selectable
+          selectable: serviceReady,
+          dispatchReady,
+          ...(dispatchReady ? {} : { readiness }),
+          selectionNotice: dispatchReady
             ? provider.mode === "deterministic"
               ? "پاسخ deterministic و بدون هزینهٔ Provider خارجی است."
               : "برای فراخوانی زنده آماده است؛ سقف مصرف و مجوز نسخه‌دار همچنان اعمال می‌شود."
+            : serviceReady
+              ? "این AI به‌صورت سراسری در Back Office قابل انتخاب است؛ اجرای زنده در این پروژه به Binding تحلیل‌گر، Scope قابلیت و مجوز هزینهٔ همین پروژه نیاز دارد."
             : `${readiness.selectionNotice} (${readiness.code})${readiness.nextAction ? ` اقدام بعدی: ${readiness.nextAction}` : ""}`
         });
       });
@@ -1107,7 +1120,14 @@ export function createHeroServer(options = {}) {
     // example after a versioned replacement). Keep the catalog intact, but
     // expose one deterministic choice per Provider/Model in advisor UIs.
     const seenAdvisorModels = new Set();
-    const uniqueProfiles = profiles.filter(profile => {
+    // Prefer the profile that is dispatch-ready for the current project when
+    // a versioned replacement shares Provider/Model with an older profile.
+    // This avoids showing a globally selectable-but-not-yet-bound duplicate
+    // in place of the ready one.
+    const uniqueProfiles = [...profiles].sort((left, right) => (
+      Number(right.dispatchReady === true) - Number(left.dispatchReady === true)
+      || String(left.profileId).localeCompare(String(right.profileId))
+    )).filter(profile => {
       const key = `${profile.providerId}:${profile.modelId}`;
       if (seenAdvisorModels.has(key)) return false;
       seenAdvisorModels.add(key);
@@ -1115,6 +1135,7 @@ export function createHeroServer(options = {}) {
     });
     return Object.freeze({
       projectId,
+      selectionScope: "backoffice-service",
       projectScope: projectScope ?? Object.freeze({ projectId, mode: "implicit", capabilities: [purpose], version: 0, externalSpendBoundary: "separate-authorization-required" }),
       localAdvisor: Object.freeze({ id: "local", label: "راهنمای محلی Hero", mode: "local-contextual-guidance", selectable: true, notice: "بدون اتصال خارجی، بدون هزینه و بدون ذخیرهٔ متن گفتگو." }),
       providers: Object.freeze(providers),
@@ -1132,7 +1153,7 @@ export function createHeroServer(options = {}) {
       ...options,
       projectId: projectId ?? null,
       defaultAdvisorId: "local",
-      note: "Profile فقط در مرز همین پروژه انتخاب می‌شود؛ پاسخ زنده تنها با Role، Binding، Policy، Health و مجوز هزینهٔ معتبر ممکن است.",
+      note: "AIهای آماده یک‌بار برای سرویس Back Office انتخاب می‌شوند و در همهٔ پروژه‌ها نمایش داده می‌شوند؛ پاسخ زنده هنوز فقط با Role، Binding، Scope، Health و مجوز هزینهٔ معتبر همان پروژه اجرا می‌شود.",
       models: Object.freeze(options.models.map(model => Object.freeze({
         ...model,
         selectable: options.profiles.some(profile => profile.providerId === model.providerId && profile.modelId === model.modelId && profile.selectable === true),
@@ -1156,7 +1177,7 @@ export function createHeroServer(options = {}) {
         setupAction: "ai-assignment-proposal"
       }))),
       profiles: options.profiles,
-      note: "Advisor به‌صورت محلی همیشه در دسترس است؛ Profile خارجی فقط وقتی قابل انتخاب است که Binding سالم، Scope پروژه و مجوز نسخه‌دارِ سازگار form-suggestions هر سه فعال باشند."
+      note: "Advisor محلی همیشه در دسترس است. AIهای سازگار یک‌بار برای سرویس Back Office انتخاب می‌شوند و در همهٔ پروژه‌ها نمایش داده می‌شوند؛ اجرای زندهٔ هر پروژه جداگانه به Binding، Scope و مجوز نسخه‌دارِ سازگار form-suggestions نیاز دارد."
     });
   }
 
@@ -2453,8 +2474,8 @@ export function createHeroServer(options = {}) {
         const projectId = queryProjectId || null;
         const options = formSuggestionOptions(projectId);
         const selectedAdvisor = input.selectedAdvisor === undefined || input.selectedAdvisor === null || input.selectedAdvisor === "" ? "local" : input.selectedAdvisor;
-        if (selectedAdvisor !== "local" && !options.profiles.some(profile => profile.profileId === selectedAdvisor && profile.selectable === true)) {
-          throw new FormSuggestionsError("FORM_SUGGESTION_ADVISOR_UNAVAILABLE", "AI انتخاب‌شده برای پیشنهاد فرم آماده یا مجاز نیست.", 403);
+        if (selectedAdvisor !== "local" && !options.profiles.some(profile => profile.profileId === selectedAdvisor && profile.selectable === true && profile.dispatchReady === true)) {
+          throw new FormSuggestionsError("FORM_SUGGESTION_ADVISOR_UNAVAILABLE", "AI انتخاب‌شده در فهرست سراسری موجود است، اما اجرای زنده برای این پروژه هنوز آماده نیست؛ Binding تحلیل‌گر، Scope این قابلیت و مجوز هزینهٔ همین پروژه را فعال کنید.", 403);
         }
         let authoritativeGoal = input.softwareGoal;
         if (projectId) authoritativeGoal = projectOverview(projectId).intake?.goal || authoritativeGoal;
@@ -2511,8 +2532,8 @@ export function createHeroServer(options = {}) {
         const projectId = queryProjectId || null;
         const options = formSuggestionOptions(projectId);
         const selectedAdvisor = input.selectedAdvisor;
-        if (!options.profiles.some(profile => profile.profileId === selectedAdvisor && profile.selectable === true)) {
-          throw new FormSuggestionsError("FORM_SUGGESTION_ADVISOR_UNAVAILABLE", "AI انتخاب‌شده برای اصلاح پیشنهاد آماده یا مجاز نیست.", 403);
+        if (!options.profiles.some(profile => profile.profileId === selectedAdvisor && profile.selectable === true && profile.dispatchReady === true)) {
+          throw new FormSuggestionsError("FORM_SUGGESTION_ADVISOR_UNAVAILABLE", "AI انتخاب‌شده در فهرست سراسری موجود است، اما اجرای زنده برای این پروژه هنوز آماده نیست؛ Binding تحلیل‌گر، Scope این قابلیت و مجوز هزینهٔ همین پروژه را فعال کنید.", 403);
         }
         let authoritativeGoal = input.softwareGoal;
         if (projectId) authoritativeGoal = projectOverview(projectId).intake?.goal || authoritativeGoal;
@@ -2596,8 +2617,8 @@ export function createHeroServer(options = {}) {
           }
           const options = queryProjectId ? walkthroughAdvisorOptions(queryProjectId) : null;
           const selectedProfile = profileId ? options?.profiles.find(profile => profile.profileId === profileId) : null;
-          if (profileId && (!selectedProfile || selectedProfile.selectable !== true)) {
-            throw new ProjectWorkspaceError("WALKTHROUGH_ADVISOR_PROFILE_UNAVAILABLE", "The selected Walk-Through advisor profile is not available for this project.", 400);
+          if (profileId && (!selectedProfile || selectedProfile.selectable !== true || selectedProfile.dispatchReady !== true)) {
+            throw new ProjectWorkspaceError("WALKTHROUGH_ADVISOR_PROFILE_UNAVAILABLE", "AI انتخاب‌شده سراسری است، اما اجرای زندهٔ Walk-Through در این پروژه به Binding تحلیل‌گر، Scope و مجوز هزینهٔ همین پروژه نیاز دارد.", 400);
           }
           const advisor = createProjectWalkthroughAdvisory({
             stepId: input.stepId,
@@ -2725,7 +2746,7 @@ export function createHeroServer(options = {}) {
             if (input.advisorProfileId !== undefined && input.advisorProfileId !== null && input.advisorProfileId !== "" && input.advisorProfileId !== "local") {
               const options = smartTesterAdvisorOptions(contextualSmartTesterContext.projectId);
               const profile = options.profiles.find(item => item.profileId === input.advisorProfileId);
-              if (!profile || profile.selectable !== true) throw new ProjectWorkspaceError("SMART_TESTER_ADVISOR_UNAVAILABLE", "AI انتخاب‌شده برای این پروژه آماده نیست.", 400);
+              if (!profile || profile.selectable !== true || profile.dispatchReady !== true) throw new ProjectWorkspaceError("SMART_TESTER_ADVISOR_UNAVAILABLE", "AI انتخاب‌شده سراسری است، اما اجرای زندهٔ Smart Tester در این پروژه به Binding تحلیل‌گر، Scope و مجوز هزینهٔ همین پروژه نیاز دارد.", 400);
               selectedAdvisor = profile;
             }
             const advisor = createSmartTesterAdvisory({ context: contextualSmartTesterContext, question: input.question, report, selectedAdvisor, actionFailure: input.actionFailure });

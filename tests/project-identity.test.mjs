@@ -409,7 +409,7 @@ test("identity status is safely readable and login fails explicitly when human i
   assert.equal((await login.json()).code, "IDENTITY_NOT_CONFIGURED");
 });
 
-test("Walk-Through lists only active Project-bound advisor Profiles and preserves the local fallback", async t => {
+test("Walk-Through lists active global advisor Profiles and preserves the project dispatch boundary", async t => {
   const { access, identity } = setup();
   const owner = ownerLogin(identity);
   const dashboard = createControlDashboard({ now });
@@ -439,6 +439,7 @@ test("Walk-Through lists only active Project-bound advisor Profiles and preserve
     outputSchema: "analysis-v1",
     connectionState: "local-ready",
     selectable: true,
+    dispatchReady: true,
     selectionNotice: "پاسخ deterministic و بدون هزینهٔ Provider خارجی است."
   });
   assert.equal(JSON.stringify(payload).includes("credentialRef"), false);
@@ -546,6 +547,13 @@ test("Project-bound live advisor profiles invoke through the bounded authorizati
   const globalSmartOptionPayload = (await globalSmartOptions.json()).smartTester.options;
   assert.equal(globalSmartOptionPayload.profiles.length, 1, "global advisor options must collapse duplicate Provider/Model Profiles");
   assert.deepEqual(globalSmartOptionPayload.profiles.map(profile => profile.role), ["analyst"]);
+  projectWorkspace.createProject({ actor: { role: "project-owner", subject: "hero-owner" }, projectId: "project-new", name: "New project", intake: { intent: "پروژهٔ تازه", goal: "هدف پروژهٔ تازه" }, idempotencyKey: "global-advisor-catalog-project" });
+  const newProjectOptions = await fetch(`${base}/api/smart-tester/options?projectId=project-new`, { headers });
+  assert.equal(newProjectOptions.status, 200);
+  const newProjectProfile = (await newProjectOptions.json()).smartTester.options.profiles.find(profile => profile.profileId === "live-advisor-profile");
+  assert.equal(newProjectProfile?.selectable, true, "a healthy compatible AI must appear in a newly created project's global service picker");
+  assert.equal(newProjectProfile?.dispatchReady, false, "an unbound project must still fail closed before a live external request");
+  assert.match(newProjectProfile?.selectionNotice ?? "", /سراسری/);
   const walkthrough = await fetch(`${base}/api/walkthrough/advice?projectId=project-vpn`, { method: "POST", headers, body: JSON.stringify({ stepId: "intake", projectId: "project-vpn", advisorProfileId: "live-advisor-profile", question: "گام بعدی چیست؟" }) });
   assert.equal(walkthrough.status, 200);
   const walkthroughAdvisor = (await walkthrough.json()).advisor;
@@ -644,8 +652,9 @@ test("Project-bound live advisor profiles invoke through the bounded authorizati
   const unavailableOptions = await fetch(`${base}/api/smart-tester/options?projectId=project-vpn`, { headers });
   assert.equal(unavailableOptions.status, 200);
   const unavailableProfile = (await unavailableOptions.json()).smartTester.options.profiles.find(profile => profile.profileId === "live-advisor-profile");
-  assert.equal(unavailableProfile?.selectable, false, "Smart Tester must not offer a live profile after the scoped authorization changes");
-  assert.match(unavailableProfile?.selectionNotice ?? "", /LIVE_ADVISOR_AUTHORIZATION_SCOPE_MISMATCH/);
+  assert.equal(unavailableProfile?.selectable, true, "a healthy global service remains selectable after a project authorization changes");
+  assert.equal(unavailableProfile?.dispatchReady, false, "Smart Tester must not dispatch a live request after the scoped authorization changes");
+  assert.match(unavailableProfile?.selectionNotice ?? "", /سراسری/);
   const denied = await fetch(`${base}/api/smart-tester/advice?projectId=project-vpn&surface=%2Fworkspace&featureKey=workspace.intake&boxId=intake-card`, { method: "POST", headers, body: JSON.stringify({ surface: "/workspace", featureKey: "workspace.intake", boxId: "intake-card", projectId: "project-vpn", advisorProfileId: "live-advisor-profile", question: "نباید به Provider برسد" }) });
   assert.equal(denied.status, 400);
   assert.equal((await denied.json()).code, "SMART_TESTER_ADVISOR_UNAVAILABLE");
