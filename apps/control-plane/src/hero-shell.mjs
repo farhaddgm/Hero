@@ -231,6 +231,14 @@ export function getHeroShellStyles() {
       --hero-warning-soft: #fff4d8;
       --hero-danger: #b4234d;
       --hero-danger-soft: #fff0f3;
+      --hero-space-1: 4px;
+      --hero-space-2: 8px;
+      --hero-space-3: 12px;
+      --hero-space-4: 16px;
+      --hero-space-5: 24px;
+      --hero-control-height: 38px;
+      --hero-control-radius: 10px;
+      --hero-surface-radius: 14px;
       --hero-shadow-sm: 0 1px 2px rgba(20, 29, 48, .04), 0 5px 16px rgba(20, 29, 48, .04);
       --hero-shadow-lg: 0 24px 70px rgba(16, 24, 40, .18);
     }
@@ -312,11 +320,25 @@ export function getHeroShellStyles() {
     .hero-command-copy small { color: var(--hero-muted); font-size: 10px; }
     .hero-command-group { padding: 8px 10px 2px; color: var(--hero-muted); font-size: 9px; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
     .hero-command-empty { padding: 28px; color: var(--hero-muted); text-align: center; font-size: 12px; }
+    /* Shared Back Office rhythm.  This is intentionally a light consistency
+       layer: individual surfaces keep their own layouts and specialist panels
+       (Advisor, Walk-Through and Smart Tester) retain their compact controls. */
+    .hero-page-header, .page-head, .top, .topbar { gap: var(--hero-space-4); }
+    .hero-page-header :is(h1, h2), .page-head :is(h1, h2), .top :is(h1, h2), .topbar :is(h1, h2), .section-head :is(h2, h3), .panel-head :is(h2, h3), .head :is(h2, h3) { font-weight: 850; letter-spacing: -.01em; }
+    .hero-page-header :is(.lead, .subtitle, .muted, .helper-copy), .page-head :is(.lead, .subtitle, .muted, .helper-copy), .top :is(.lead, .subtitle, .muted, .helper-copy), .topbar :is(.lead, .subtitle, .muted, .helper-copy) { max-width: 72ch; }
+    .hero-page-actions, .page-actions, .top-actions, .actions, .panel-head-actions, .dialog-actions, .form-toolbar, .setting-actions { align-items: center; gap: var(--hero-space-2); }
+    .form, .create-form, .target-form, .form-grid { gap: var(--hero-space-3); }
+    .form label, .create-form label, .target-form label, .form-grid label { gap: var(--hero-space-1); font-weight: 750; }
+    .form :is(input, select, textarea), .create-form :is(input, select, textarea), .target-form :is(input, select, textarea), .form-grid :is(input, select, textarea) { min-height: var(--hero-control-height); border-radius: var(--hero-control-radius); }
+    .form textarea, .create-form textarea, .target-form textarea, .form-grid textarea { min-height: 92px; }
+    .form :is(button, .button), .create-form :is(button, .button), .target-form :is(button, .button), .dialog-actions :is(button, .button), .hero-page-actions :is(button, .button), .page-actions :is(button, .button) { min-height: var(--hero-control-height); border-radius: var(--hero-control-radius); font-weight: 800; }
+    .panel, .section, .content-panel, .hero, .project-card, .card, .context { border-radius: var(--hero-surface-radius); }
+    .helper-copy[data-hero-info-moved="true"] { display: none !important; }
     [data-hero-info-key], .hero-feature-name { position: relative; }
     .hero-feature-with-info { display: inline-flex !important; align-items: center; gap: .38rem; max-width: 100%; }
     .hero-info-trigger { display: inline-grid; place-items: center; width: 1.75rem; height: 1.75rem; min-width: 1.75rem; padding: 0; border: 1px solid var(--hero-line-strong); border-radius: 999px; background: var(--hero-surface); color: var(--hero-muted); box-shadow: none; cursor: help; font: 850 .72rem/1 Vazirmatn, sans-serif; text-transform: lowercase; vertical-align: middle; }
     .hero-info-trigger:hover, .hero-info-trigger:focus-visible, .hero-info-trigger[aria-expanded="true"] { border-color: var(--hero-brand); outline: 0; background: var(--hero-brand-soft); color: var(--hero-brand); box-shadow: 0 0 0 3px color-mix(in srgb, var(--hero-brand) 16%, transparent); }
-    .hero-feature-tooltip { position: fixed; z-index: 12000; width: min(330px, calc(100vw - 24px)); padding: 11px 13px; border: 1px solid var(--hero-line-strong); border-radius: 12px; background: var(--hero-surface-raised); color: var(--hero-ink); box-shadow: var(--hero-shadow-lg); font: 650 .82rem/1.8 Vazirmatn, sans-serif; text-align: start; direction: rtl; pointer-events: none; opacity: 0; transform: translateY(4px); transition: opacity .12s ease, transform .12s ease; }
+    .hero-feature-tooltip { position: fixed; z-index: 12000; width: min(330px, calc(100vw - 24px)); padding: 11px 13px; border: 1px solid var(--hero-line-strong); border-radius: 12px; background: var(--hero-surface-raised); color: var(--hero-ink); box-shadow: var(--hero-shadow-lg); font: 650 .82rem/1.8 Vazirmatn, sans-serif; text-align: start; direction: rtl; white-space: pre-line; pointer-events: none; opacity: 0; transform: translateY(4px); transition: opacity .12s ease, transform .12s ease; }
     .hero-feature-tooltip[data-open="true"] { opacity: 1; transform: translateY(0); }
     .hero-form-suggestion-trigger { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; margin: 0 0 10px; padding: 6px 10px; border: 1px solid color-mix(in srgb, var(--hero-brand) 42%, var(--hero-line)); border-radius: 9px; background: var(--hero-brand-soft); color: var(--hero-brand); cursor: pointer; font: 800 .72rem/1.2 Vazirmatn, sans-serif; }
     .hero-form-suggestion-trigger:hover, .hero-form-suggestion-trigger:focus-visible { border-color: var(--hero-brand); outline: 0; background: var(--hero-brand); color: #fff; box-shadow: 0 0 0 3px color-mix(in srgb, var(--hero-brand) 16%, transparent); }
@@ -389,11 +411,11 @@ export function getHeroShellStyles() {
     .hero-smart-tester-panel button { min-height: 32px; padding: 6px 9px; border: 1px solid var(--hero-line-strong); border-radius: 8px; background: var(--hero-surface); color: var(--hero-brand); cursor: pointer; font: 800 .72rem/1.2 Vazirmatn, sans-serif; }.hero-smart-tester-panel button:hover, .hero-smart-tester-panel button:focus-visible { border-color: var(--hero-brand); outline: 0; background: var(--hero-brand-soft); }.hero-smart-tester-panel button[disabled] { opacity: .52; cursor: wait; }
     .hero-smart-tester-scroll { display: grid; align-content: start; gap: 8px; min-width: 0; min-height: 0; overflow: auto; padding: 1px 2px; overscroll-behavior: contain; scrollbar-gutter: stable; }.hero-smart-tester-message, .hero-smart-tester-report { min-width: 0; max-width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid var(--hero-line); border-radius: 10px; background: var(--hero-surface); font-size: .74rem; line-height: 1.82; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }.hero-smart-tester-message span, .hero-smart-tester-report span { display: block; min-width: 0; max-width: 100%; overflow-wrap: anywhere; word-break: break-word; }.hero-smart-tester-message[data-speaker="user"] { border-inline-start: 3px solid var(--hero-brand); background: color-mix(in srgb, var(--hero-brand-soft) 42%, var(--hero-surface)); }.hero-smart-tester-message[data-speaker="assistant"] { background: color-mix(in srgb, var(--hero-success-soft) 31%, var(--hero-surface)); }.hero-smart-tester-message[data-speaker="assistant"][data-state="error"] { border-color: color-mix(in srgb, var(--hero-danger) 48%, var(--hero-line)); background: color-mix(in srgb, var(--hero-danger-soft) 24%, var(--hero-surface)); }.hero-smart-tester-message b, .hero-smart-tester-report b { display: block; min-width: 0; margin-bottom: 4px; color: var(--hero-brand); font-size: .67rem; overflow-wrap: anywhere; }.hero-smart-tester-report[data-state="attention"] { border-color: color-mix(in srgb, var(--hero-warning) 45%, var(--hero-line)); }.hero-smart-tester-report[data-state="not-run"] { border-style: dashed; color: var(--hero-muted); }.hero-smart-tester-diagnosis { display: grid; gap: 9px; padding: 12px; border: 1px solid color-mix(in srgb, var(--hero-warning) 45%, var(--hero-line)); border-radius: 12px; background: color-mix(in srgb, var(--hero-warning) 9%, var(--hero-surface)); }.hero-smart-tester-diagnosis-head { display: grid; gap: 2px; }.hero-smart-tester-diagnosis-head h3 { margin: 0; color: var(--hero-ink); font: 900 .82rem/1.5 Vazirmatn, sans-serif; }.hero-smart-tester-diagnosis-head p { margin: 0; color: var(--hero-muted); font-size: .67rem; }.hero-smart-tester-diagnosis-grid { display: grid; gap: 7px; }.hero-smart-tester-diagnosis-item { padding: 9px 10px; border: 1px solid color-mix(in srgb, var(--hero-line) 84%, var(--hero-warning)); border-radius: 9px; background: var(--hero-surface); font-size: .68rem; line-height: 1.72; }.hero-smart-tester-diagnosis-item b { color: var(--hero-brand); font-size: .67rem; }.hero-smart-tester-diagnosis-item[data-kind="fix"] { border-inline-start: 3px solid var(--hero-success); }.hero-smart-tester-diagnosis-item[data-kind="verify"] { border-inline-start: 3px solid var(--hero-brand); }
     .hero-smart-tester-form { display: grid; min-width: 0; gap: 7px; }.hero-smart-tester-form textarea { width: 100%; min-height: 70px; max-height: 150px; box-sizing: border-box; padding: 8px; border: 1px solid var(--hero-line-strong); border-radius: 9px; background: var(--hero-surface); color: var(--hero-ink); font: 700 .75rem/1.7 Vazirmatn, sans-serif; resize: vertical; }.hero-smart-tester-selector { display: grid; min-width: 0; gap: 4px; color: var(--hero-muted); font-size: .68rem; font-weight: 800; }.hero-smart-tester-selector select { width: 100%; min-width: 0; min-height: 34px; box-sizing: border-box; padding: 6px 8px; border: 1px solid var(--hero-line-strong); border-radius: 8px; background: var(--hero-surface); color: var(--hero-ink); font: 700 .72rem/1.4 Vazirmatn, sans-serif; }.hero-smart-tester-actions button { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
-    .hero-action-feedback { position: fixed; z-index: 12030; right: 18px; bottom: 18px; left: auto; display: grid; gap: 9px; width: min(460px, calc(100vw - 36px)); max-height: min(46vh, 420px); box-sizing: border-box; padding: 15px; overflow: auto; border: 1px solid var(--hero-line-strong); border-radius: 15px; background: var(--hero-surface-raised); color: var(--hero-ink); box-shadow: var(--hero-shadow-lg); direction: rtl; contain: layout paint style; isolation: isolate; }
+    .hero-action-feedback { position: fixed; z-index: 12030; right: auto; bottom: 18px; left: 18px; display: grid; gap: 9px; width: min(460px, calc(100vw - 36px)); max-height: min(46vh, 420px); box-sizing: border-box; padding: 15px; overflow: auto; border: 1px solid var(--hero-line-strong); border-radius: 15px; background: var(--hero-surface-raised); color: var(--hero-ink); box-shadow: var(--hero-shadow-lg); direction: rtl; contain: layout paint style; isolation: isolate; }
     .hero-action-feedback[data-hero-action-feedback-side="left"] { right: auto; left: 18px; }.hero-action-feedback[data-hero-action-feedback-side="right"] { right: 18px; left: auto; }
-    .hero-action-feedback[data-state="success"] { border-color: color-mix(in srgb, var(--hero-success) 48%, var(--hero-line)); }.hero-action-feedback[data-state="error"] { border-color: color-mix(in srgb, var(--hero-danger) 55%, var(--hero-line)); }
+    .hero-action-feedback[data-state="success"] { width: min(380px, calc(100vw - 36px)); gap: 6px; padding: 12px 13px; overflow: visible; border-color: color-mix(in srgb, var(--hero-success) 48%, var(--hero-line)); }.hero-action-feedback[data-state="error"] { border-color: color-mix(in srgb, var(--hero-danger) 55%, var(--hero-line)); }
     .hero-action-feedback-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }.hero-action-feedback-head h2 { margin: 0; color: var(--hero-ink); font-size: .9rem; line-height: 1.5; }.hero-action-feedback[data-state="success"] .hero-action-feedback-head h2 { color: var(--hero-success); }.hero-action-feedback[data-state="error"] .hero-action-feedback-head h2 { color: var(--hero-danger); }
-    .hero-action-feedback-status { margin: 0; color: var(--hero-muted); font-size: .76rem; line-height: 1.85; overflow-wrap: anywhere; }.hero-action-feedback-meta { margin: 0; color: var(--hero-muted); font-size: .66rem; line-height: 1.7; }.hero-action-feedback-actions { display: flex; flex-wrap: wrap; gap: 7px; }.hero-action-feedback button { min-height: 33px; padding: 7px 10px; border: 1px solid var(--hero-line-strong); border-radius: 8px; background: var(--hero-surface); color: var(--hero-brand); cursor: pointer; font: 800 .72rem/1.2 Vazirmatn, sans-serif; }.hero-action-feedback button:hover, .hero-action-feedback button:focus-visible { border-color: var(--hero-brand); outline: 0; background: var(--hero-brand-soft); }.hero-action-feedback button[data-kind="close"] { color: var(--hero-muted); }.hero-action-feedback button[data-kind="smart"] { border-color: color-mix(in srgb, var(--hero-brand) 48%, var(--hero-line)); color: var(--hero-brand); }.hero-action-feedback button[data-kind="move"] { color: var(--hero-muted); }.hero-action-feedback button[data-kind="move"][aria-pressed="true"] { border-color: var(--hero-brand); background: var(--hero-brand-soft); color: var(--hero-brand); cursor: default; }
+    .hero-action-feedback-status { margin: 0; color: var(--hero-muted); font-size: .76rem; line-height: 1.85; overflow-wrap: anywhere; }.hero-action-feedback-meta { margin: 0; color: var(--hero-muted); font-size: .66rem; line-height: 1.7; }.hero-action-feedback[data-state="success"] .hero-action-feedback-meta { display: none; }.hero-action-feedback-actions { display: flex; flex-wrap: wrap; gap: 7px; }.hero-action-feedback[data-state="success"] .hero-action-feedback-actions { justify-content: flex-end; }.hero-action-feedback button { min-height: 33px; padding: 7px 10px; border: 1px solid var(--hero-line-strong); border-radius: 8px; background: var(--hero-surface); color: var(--hero-brand); cursor: pointer; font: 800 .72rem/1.2 Vazirmatn, sans-serif; }.hero-action-feedback button:hover, .hero-action-feedback button:focus-visible { border-color: var(--hero-brand); outline: 0; background: var(--hero-brand-soft); }.hero-action-feedback button[data-kind="close"] { color: var(--hero-muted); }.hero-action-feedback button[data-kind="smart"] { border-color: color-mix(in srgb, var(--hero-brand) 48%, var(--hero-line)); color: var(--hero-brand); }.hero-action-feedback button[data-kind="move"] { color: var(--hero-muted); }.hero-action-feedback button[data-kind="move"][aria-pressed="true"] { border-color: var(--hero-brand); background: var(--hero-brand-soft); color: var(--hero-brand); cursor: default; }
     .hero-walkthrough-coach, .hero-walkthrough-advisor { position: fixed; z-index: 11000; top: 92px; right: 12px; display: grid; gap: 9px; width: min(440px, calc(100vw - 24px)); max-height: calc(100vh - 104px); overflow: auto; box-sizing: border-box; margin: 0; padding: 14px 15px; border: 1px solid color-mix(in srgb, var(--hero-brand) 45%, var(--hero-line)); border-radius: 14px; background: var(--hero-surface-raised); color: var(--hero-ink); box-shadow: 0 18px 44px rgba(47,43,160,.22); direction: rtl; overscroll-behavior: contain; contain: layout paint style; isolation: isolate; }
     .hero-walkthrough-coach[data-hero-walkthrough-side="left"] { right: auto; left: 12px; }.hero-walkthrough-coach[data-hero-walkthrough-side="right"] { right: 12px; left: auto; }
     .hero-walkthrough-advisor { z-index: 11010; border-color: color-mix(in srgb, var(--hero-success) 42%, var(--hero-line)); }.hero-walkthrough-advisor[data-hero-walkthrough-side="left"] { right: auto; left: 12px; }.hero-walkthrough-advisor[data-hero-walkthrough-side="right"] { right: 12px; left: auto; }
@@ -538,7 +560,11 @@ export function getHeroShellScript() {
     let pendingHeroAction = null;
     let pendingHeroActionTimer = null;
     let activeHeroActionFeedback = null;
-    const heroActionFeedbackSide = () => { try { const side = localStorage.getItem(heroActionFeedbackSideKey); return side === 'left' || side === 'right' ? side : 'right'; } catch { return 'right'; } };
+    let heroActionFeedbackDismissTimer = null;
+    // Form outcomes have one predictable home: a bottom-left toast.  Keep the
+    // historical side key only for backwards-compatible error-panel controls;
+    // normal notifications must not jump around between surfaces.
+    const heroActionFeedbackSide = () => 'left';
     const setHeroActionFeedbackSide = side => { try { localStorage.setItem(heroActionFeedbackSideKey, side); } catch { /* browser-local preference only */ } };
     const heroActionText = node => String(node?.getAttribute?.('aria-label') || node?.textContent || node?.labels?.[0]?.textContent || '').replace(/\\s+/g, ' ').trim().slice(0, 160);
     const heroActionButton = node => node?.closest?.('button,input[type="submit"],input[type="button"],input[type="checkbox"][data-hero-process-action],#autonomy') || null;
@@ -589,7 +615,14 @@ export function getHeroShellScript() {
     const readHeroActionFeedback = () => { try { return normalizeHeroActionFeedback(JSON.parse(sessionStorage.getItem(heroActionFeedbackKey) || 'null')); } catch { return null; } };
     const persistHeroActionFeedback = value => { try { sessionStorage.setItem(heroActionFeedbackKey, JSON.stringify(value)); } catch { /* browser-local persistence only */ } };
     const forgetHeroActionFeedback = () => { try { sessionStorage.removeItem(heroActionFeedbackKey); } catch { /* browser-local persistence only */ } };
+    const clearHeroActionFeedbackDismiss = () => {
+      if (heroActionFeedbackDismissTimer) {
+        clearTimeout(heroActionFeedbackDismissTimer);
+        heroActionFeedbackDismissTimer = null;
+      }
+    };
     const closeHeroActionFeedback = ({ restoreFocus = false, forget = true } = {}) => {
+      clearHeroActionFeedbackDismiss();
       const popup = activeHeroActionFeedback || document.querySelector('[data-hero-action-feedback]');
       if (!popup) { if (forget) forgetHeroActionFeedback(); return; }
       const trigger = popup._heroActionTrigger;
@@ -597,13 +630,20 @@ export function getHeroShellScript() {
       if (forget) forgetHeroActionFeedback();
       if (restoreFocus && trigger?.isConnected) trigger.focus({ preventScroll: true });
     };
+    const scheduleHeroActionFeedbackDismiss = popup => {
+      clearHeroActionFeedbackDismiss();
+      if (!popup?.isConnected || popup.dataset.state !== 'success') return;
+      heroActionFeedbackDismissTimer = window.setTimeout(() => {
+        if (popup.isConnected) closeHeroActionFeedback();
+      }, 6_500);
+    };
     const showHeroActionFeedback = ({ ok, label, status, detail, code = '', trigger = null, method, path, featureKey = null, restored = false }) => {
       const record = normalizeHeroActionFeedback({ ok, label, status, detail, code, method, path, featureKey });
       if (!record) return;
       closeHeroActionFeedback({ forget: false });
       if (!restored) persistHeroActionFeedback(record);
       const popup = document.createElement('aside');
-      popup.className = 'hero-action-feedback'; popup.dataset.state = record.ok ? 'success' : 'error'; popup.dataset.heroActionFeedback = 'true'; popup.dataset.heroActionFeedbackSide = heroActionFeedbackSide(); popup.setAttribute('role', 'dialog'); popup.setAttribute('aria-modal', 'false'); popup.setAttribute('aria-live', 'assertive'); popup.setAttribute('tabindex', '-1'); popup._heroActionTrigger = trigger;
+      popup.className = 'hero-action-feedback'; popup.dataset.state = record.ok ? 'success' : 'error'; popup.dataset.heroActionFeedback = 'true'; popup.dataset.heroActionFeedbackSide = heroActionFeedbackSide(); popup.setAttribute('role', record.ok ? 'status' : 'dialog'); popup.setAttribute('aria-modal', 'false'); popup.setAttribute('aria-live', record.ok ? 'polite' : 'assertive'); popup.setAttribute('tabindex', '-1'); popup._heroActionTrigger = trigger;
       const head = document.createElement('header'); head.className = 'hero-action-feedback-head'; const title = document.createElement('h2'); title.textContent = record.ok ? 'عملیات با موفقیت انجام شد' : 'عملیات ناموفق بود'; head.append(title); popup.append(head);
       const statusNode = document.createElement('p'); statusNode.className = 'hero-action-feedback-status'; statusNode.textContent = record.detail || (record.ok ? 'تغییر موردنظر ثبت شد.' : 'سرویس نتوانست اقدام را تکمیل کند.'); popup.append(statusNode);
       const meta = document.createElement('p'); meta.className = 'hero-action-feedback-meta'; meta.textContent = record.label + ' · ' + record.method + ' · HTTP ' + (record.status || '—') + (record.code ? ' · ' + record.code : '') + ' · ' + record.path; popup.append(meta);
@@ -615,7 +655,7 @@ export function getHeroShellScript() {
       moveLeft.addEventListener('click', () => applySide('left'));
       moveRight.addEventListener('click', () => applySide('right'));
       if (record.ok) {
-        const next = document.createElement('button'); next.type = 'button'; next.dataset.kind = 'continue'; next.textContent = 'ادامه'; next.addEventListener('click', () => closeHeroActionFeedback({ restoreFocus: true })); actions.append(moveLeft, moveRight, next);
+        const close = document.createElement('button'); close.type = 'button'; close.dataset.kind = 'close'; close.textContent = 'بستن'; close.addEventListener('click', () => closeHeroActionFeedback({ restoreFocus: true })); actions.append(close);
       } else {
         const smart = document.createElement('button'); smart.type = 'button'; smart.dataset.kind = 'smart'; smart.textContent = 'تحلیل با اسمارت تستر'; smart.addEventListener('click', () => {
           const open = window.heroSmartTester?.openForElement;
@@ -624,7 +664,14 @@ export function getHeroShellScript() {
         const close = document.createElement('button'); close.type = 'button'; close.dataset.kind = 'close'; close.textContent = 'بستن'; close.addEventListener('click', () => closeHeroActionFeedback({ restoreFocus: true })); actions.append(smart, close);
         actions.prepend(moveLeft, moveRight);
       }
-      popup.append(actions); document.body.append(popup); activeHeroActionFeedback = popup; applySide(side); if (!restored) popup.focus({ preventScroll: true });
+      popup.append(actions); document.body.append(popup); activeHeroActionFeedback = popup; applySide(side);
+      if (record.ok) {
+        popup.addEventListener('pointerenter', clearHeroActionFeedbackDismiss);
+        popup.addEventListener('pointerleave', () => scheduleHeroActionFeedbackDismiss(popup));
+        popup.addEventListener('focusin', clearHeroActionFeedbackDismiss);
+        popup.addEventListener('focusout', event => { if (!popup.contains(event.relatedTarget)) scheduleHeroActionFeedbackDismiss(popup); });
+        scheduleHeroActionFeedbackDismiss(popup);
+      } else if (!restored) popup.focus({ preventScroll: true });
     };
     const originalHeroFetch = window.fetch.bind(window);
     const apiErrorMessage = (response, body, fallback) => {
@@ -683,6 +730,17 @@ export function getHeroShellScript() {
       clone.querySelectorAll('.hero-info-trigger').forEach(item => item.remove());
       return clone.textContent.trim() || 'این قابلیت';
     };
+    const infoSupplement = node => {
+      const scope = node.closest?.('.panel-head, .panel-head-copy, .section-head, .head, .hero-page-header, .page-head, .top, .topbar, .dialog-head') || node.parentElement;
+      const copy = scope?.querySelector?.('.helper-copy');
+      const text = String(copy?.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 700);
+      if (!text) return '';
+      // The copy remains in the server-rendered page for no-JS browsing.  Once
+      // the matching i trigger is installed, it moves into that trigger so the
+      // visual hierarchy stays compact without dropping any explanation.
+      copy.dataset.heroInfoMoved = 'true';
+      return text;
+    };
     const installInfoTriggers = container => {
       const nodes = [];
       if (container?.nodeType === 1 && container.matches?.('[data-hero-info-key]')) nodes.push(container);
@@ -698,6 +756,8 @@ export function getHeroShellScript() {
         trigger.setAttribute('aria-label', 'توضیح دربارهٔ ' + infoLabel(node));
         trigger.setAttribute('aria-describedby', 'hero-feature-tooltip');
         trigger.setAttribute('aria-expanded', 'false');
+        const supplement = infoSupplement(node);
+        if (supplement) trigger.dataset.heroInfoSupplement = supplement;
         trigger.textContent = 'i';
         node.append(trigger);
       });
@@ -721,7 +781,8 @@ export function getHeroShellScript() {
       if (featureTooltip.parentElement !== tooltipHost(trigger)) tooltipHost(trigger).append(featureTooltip);
       if (activeInfoTrigger && activeInfoTrigger !== trigger) activeInfoTrigger.setAttribute('aria-expanded', 'false');
       activeInfoTrigger = trigger; trigger.setAttribute('aria-expanded', 'true');
-      featureTooltip.textContent = text; featureTooltip.hidden = false; featureTooltip.dataset.open = 'true';
+      const supplement = String(trigger.dataset.heroInfoSupplement || '').trim();
+      featureTooltip.textContent = supplement ? text + '\\n\\n' + supplement : text; featureTooltip.hidden = false; featureTooltip.dataset.open = 'true';
       placeInfoTooltip();
     };
     const hideInfoTooltip = () => {

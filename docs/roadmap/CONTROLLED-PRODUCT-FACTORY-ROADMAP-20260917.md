@@ -20,7 +20,20 @@
 
 ### وضعیت جاری source و انتشار Test — ۲۰۲۶-۰۹-۱۹
 
-آخرین source معتبر این roadmap روی branch `codex/test-release-reliability-20260916` در commit `e52e437` است. Candidate `v1.1.5-rc.10` با run `35402316316` و digest `sha256:e808aedc95075a3af4270aaaf971281de14a5a05c40570511ecd3948c6efb225` همهٔ گیت‌های CI را گذرانده و روی Runtime Test promote و verify شده است. هیچ Production، Pilot، Secret یا Provider زنده در این batch تغییر نکرده است.
+#### به‌روزرسانی ۲۰۲۶-۰۹-۲۱ — Candidate بعدی
+
+آخرین source در branch `codex/test-release-reliability-20260916` روی commit
+`2cd6f4efb8fb6fff77eb079ae061c534a4472cf7` است. Candidate `v1.1.5-rc.27` از workflow
+`35529180861` با artifact immutable زیر ساخته شده است:
+
+`ghcr.io/farhaddgm/hero@sha256:62354d79a8266bcc857ed1111f31f15a727ebed171d36722dd803cafafa2cd09`
+
+این Candidate فقط برای Test است و با manifest immutable روی Runtime Test promote و verify
+شده است؛ `/health`، `/ready` و smoke نهایی PASS هستند. یک `connection reset` گذرا هنگام
+restart رخ داد و پس از آن readiness و smoke موفق ثبت شد. Production، Pilot، Secret و
+Provider زنده خارج از scope هستند.
+
+برای مقایسه، baseline عملیاتی پیش از این Candidate در commit `e52e437` و Candidate `v1.1.5-rc.10` ثبت شده بود؛ وضعیت جاری Candidate در بخش بالا مرجع است. هیچ Production، Pilot، Secret یا Provider زنده در این batch تغییر نکرده است.
 
 ## ۲. وضعیت مبنای تأییدشده
 

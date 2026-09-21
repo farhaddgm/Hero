@@ -8,8 +8,52 @@ function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
 }
 
+function fallbackPill(value) {
+  const state = String(value ?? "unknown");
+  const className = /^(active|ready|healthy|accepted|completed|clean|ok)$/i.test(state) ? "good" : /^(critical|failed|blocked|revoked)$/i.test(state) ? "bad" : "warn";
+  return `<span class="pill ${className}">${escapeHtml(state)}</span>`;
+}
+
+function fallbackList(items, empty = "داده‌ای ثبت نشده است.") {
+  if (!items?.length) return `<div class="empty">${escapeHtml(empty)}</div>`;
+  return `<div class="list">${items.map(item => `<article class="row"><div class="head"><strong>${escapeHtml(item.title)}</strong>${fallbackPill(item.state)}</div><div class="meta">${escapeHtml(item.meta)}</div></article>`).join("")}</div>`;
+}
+
+function fallbackControlRoomMarkup(controlRoom) {
+  if (!controlRoom) return { metrics: "", sections: '<section class="section full"><div class="empty">دادهٔ پروژه پیدا نشد.</div></section>' };
+  const data = controlRoom;
+  const metrics = [
+    ["teams", "تیم فعال", "control.activeTeams"],
+    ["commands", "فرمان", "control.commands"],
+    ["entities", "دارایی کاتالوگ", "control.catalogEntities"],
+    ["notifications", "اعلان باز", "control.openNotifications"],
+    ["readiness", "آمادگی", "control.readiness"]
+  ];
+  const metricMarkup = metrics.map(([key, label, infoKey]) => `<article class="card metric"><strong>${escapeHtml(data.metrics?.[key] ?? 0)}</strong><span class="muted" data-hero-info-key="${escapeHtml(infoKey)}">${escapeHtml(label)}</span></article>`).join("");
+  const sections = [
+    ["همکاری و حافظه", data.collaboration?.teams, "control.collaborationMemory", "control.collaboration-memory"],
+    ["فرمان و عملیات", data.commands?.items, "control.commandOperations", ""],
+    ["Catalog و تغییرات", data.catalog?.items, "control.catalogDrift", ""],
+    ["کارایی و سلامت", data.performance?.items, "control.performanceHealth", ""],
+    ["Inbox و Observability", data.observability?.items, "control.inboxObservability", ""],
+    ["زیرساخت", data.infrastructure?.items, "control.infrastructure", "control.infrastructure"],
+    ["Delivery و Artifact", data.delivery?.items, "control.deliveryArtifacts", "control.delivery-artifacts"],
+    ["Hardening", data.hardening?.items, "control.hardening", ""],
+    ["Final Readiness", data.readiness?.items, "control.finalReadiness", "control.final-readiness"]
+  ];
+  const sectionMarkup = sections.map(([title, items, infoKey, guideTarget], index) => `<section class="section ${index < 2 ? "wide" : ""}"${guideTarget ? ` data-hero-guide-target="${escapeHtml(guideTarget)}"` : ""}><div class="head"><div><h2 data-hero-info-key="${escapeHtml(infoKey)}">${escapeHtml(title)}</h2></div></div>${fallbackList(items)}</section>`).join("");
+  const infrastructure = data.infrastructure ?? {};
+  const currentTarget = (infrastructure.targetSelections ?? []).find(selection => selection.environment === "test") ?? null;
+  const testServers = (infrastructure.servers ?? []).filter(server => server.environment === "test" && server.state !== "revoked");
+  const targetMarkup = testServers.length
+    ? `<section class="section full" data-hero-guide-target="control.infrastructure"><div class="head"><div><h2>انتخاب سرور ساخت محصول</h2><p class="muted">این انتخاب فقط نسخه‌دار ثبت می‌شود؛ build، start یا dispatch خودکار انجام نمی‌شود.</p></div></div><form id="target-selection-form" class="target-form"><label>سرور Test<select name="serverId" required>${testServers.map(server => `<option value="${escapeHtml(server.serverId)}"${currentTarget?.serverId === server.serverId ? " selected" : ""}>${escapeHtml(`${server.serverId} · ${server.address}`)}</option>`).join("")}</select></label><input type="hidden" name="expectedVersion" value="${escapeHtml(currentTarget?.version ?? 0)}"><button type="submit">ثبت Target برای این پروژه</button><span id="target-selection-status" class="muted" role="status">${escapeHtml(currentTarget ? `Target فعلی: ${currentTarget.serverId} · نسخه ${currentTarget.version}` : "هنوز Targetی برای این پروژه انتخاب نشده است.")}</span></form></section>`
+    : `<section class="section full" data-hero-guide-target="control.infrastructure"><div class="head"><div><h2>انتخاب سرور ساخت محصول</h2><p class="muted">هنوز سرور Testای برای این پروژه ثبت نشده است. پس از ثبت metadata سرور، گزینهٔ انتخاب Target اینجا نمایش داده می‌شود.</p></div></div><div class="empty">Targetی برای انتخاب وجود ندارد.</div></section>`;
+  return { metrics: metricMarkup, sections: sectionMarkup + targetMarkup };
+}
+
 export function getProjectControlRoomHtml({ initialData = null, dataEndpoint = "/project-control-data", active = "control", heading = "اتاق کنترل پروژه", environment = "Private · Operations" } = {}) {
   const initialDataJson = safeJson(initialData);
+  const fallbackMarkup = fallbackControlRoomMarkup(initialData?.controlRoom);
   const projectId = initialData?.controlRoom?.project?.projectId ?? null;
   const projectQuery = projectId ? `?projectId=${encodeURIComponent(projectId)}` : "";
   const endpoint = projectId ? `${dataEndpoint}${dataEndpoint.includes("?") ? "&" : "?"}projectId=${encodeURIComponent(projectId)}` : dataEndpoint;
@@ -33,8 +77,8 @@ export function getProjectControlRoomHtml({ initialData = null, dataEndpoint = "
     <main id="hero-main" tabindex="-1">
       <header class="top hero-page-header" data-hero-guide-target="${headerGuideTarget}"><div><p class="muted">Hero / Project Operations</p><h1 id="title" data-hero-info-key="control.projectOperations">${escapeHtml(initialHeading)}</h1><p id="subtitle" class="muted helper-copy">نمای خواندنی، project-scoped و redacted از وضعیت عملیاتی.</p></div><div class="actions"><a class="button secondary" id="studio-link" href="/api/portal?surface=studio${projectId ? `&projectId=${encodeURIComponent(projectId)}` : ""}">Product Studio</a><a class="button secondary" href="/api/portal?surface=portfolio&select=project">تغییر پروژه</a><button id="refresh" type="button">به‌روزرسانی</button></div></header>
       <p class="notice">این صفحه فقط وضعیت و metadata امن را نمایش می‌دهد. Provider زنده، Dispatch بیرونی، Secret، Production و Pilot از این مسیر فعال نمی‌شوند.</p>
-      <section id="metrics" class="metrics"></section>
-      <section id="sections" class="grid" aria-live="polite"></section>
+      <section id="metrics" class="metrics">${fallbackMarkup.metrics}</section>
+      <section id="sections" class="grid" aria-live="polite">${fallbackMarkup.sections}</section>
     </main>
     <script>
       const $ = selector => document.querySelector(selector);

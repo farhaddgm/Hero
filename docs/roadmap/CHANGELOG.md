@@ -1,5 +1,16 @@
 # تغییرات رودمپ شرکت
 
+# ۲۰۲۶-۰۹-۲۱ — Candidate فقط-Test برای ارتقای سه دستیار Back Office
+
+- source مربوط به ارتقای Walk-Through، Smart Tester و Advisor در commit `2cd6f4e` روی branch مرجع push شد و workflow `35529180861` Candidate `v1.1.5-rc.27` را با artifact immutable `sha256:62354d79a8266bcc857ed1111f31f15a727ebed171d36722dd803cafafa2cd09` ساخت.
+- این Candidate روی Runtime Test promote و verify شد؛ `/health`، `/ready` و smoke نهایی PASS شدند. `connection reset` هنگام restart گذرا بود و با readiness/smoke نهایی برطرف‌نشدنِ اختلال تأیید شد. ثبت Target واقعی، Agent enrollment، lifecycle محصول نمونه، portability/recovery واقعی، Owner acceptance و browser/accessibility/load evidence گیت‌های جداگانهٔ بعدی‌اند.
+- هیچ Production، Pilot، Secret، Provider زنده یا هزینهٔ خارجی در این Candidate تغییر نکرده است.
+
+# ۲۰۲۶-۰۹-۲۱ — رندر مقاوم اتاق کنترل پروژه
+
+- اتاق کنترل پروژه اکنون محتوای امن و project-scoped را از سمت سرور هم رندر می‌کند؛ اگر JavaScript مرورگر خطا بخورد، کاربر فقط header خالی نمی‌بیند و وضعیت زیرساخت/Target و پیام نبود Target را مشاهده می‌کند.
+- برای این رفتار تست regression اضافه شد. این تغییر هنوز در Candidate rc27 نیست و برای Runtime Test به Candidate و promotion جداگانه نیاز دارد.
+
 # ۲۰۲۶-۰۹-۲۰ — ارتقای یکپارچهٔ Walk-Through، Smart Tester و Advisor
 
 - Walk-Through نسخهٔ `1.9.0` پیشرفت لازم، blocker و اقدام بعدی را از نشست و read model واقعی محاسبه می‌کند. «ورودی پروژه» اکنون مطابق قرارداد Workspace اختیاری است و نبود Brief/سند ادامهٔ مسیر را مسدود نمی‌کند. Project دارای Grant ولی فاقد read model نیز به‌جای 404، راهنمای امن با وضعیت تکمیل‌نشده دریافت می‌کند. Context زنده فقط summary و شناسه‌های وضعیت را می‌گیرد و مقدار فرم را نگه نمی‌دارد.

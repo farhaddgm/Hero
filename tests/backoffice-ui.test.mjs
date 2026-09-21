@@ -54,6 +54,9 @@ test("the shared Hero shell provides accessible project-aware navigation", () =>
   assert.match(getHeroShellStyles(), /prefers-reduced-motion: reduce/);
   assert.match(getHeroShellStyles(), /--hero-danger/);
   assert.match(getHeroShellStyles(), /hero-smart-tester-panel/);
+  assert.match(getHeroShellStyles(), /helper-copy\[data-hero-info-moved="true"\]/);
+  assert.match(getHeroShellScript(), /infoSupplement/);
+  assert.match(getHeroShellScript(), /heroInfoSupplement/);
   assert.match(getBackofficeHtml({ initialData: null }), /Advisor|ادوایزر/);
   assert.match(getBackofficeHtml({ initialData: null }), /form-suggestions/);
   assert.ok(getHeroShellStyles().includes(".hero-side-nav { position: fixed;"));
@@ -108,6 +111,13 @@ test("project control room exposes a project-scoped Test target selector without
   assert.match(html, /ثبت Target برای این پروژه/);
   assert.match(html, /action: 'select-target'/);
   assert.match(html, /اجرای محصول هنوز جداگانه نیازمند مجوز Test است/);
+});
+
+test("project control room server-renders safe content when browser JavaScript is unavailable", () => {
+  const html = getProjectControlRoomHtml({ initialData: { controlRoom: { project: { projectId: "project-vpn", name: "VPN", lifecycle: "draft" }, metrics: { teams: 2, commands: 1, entities: 3, notifications: 0, readiness: "draft" }, infrastructure: { items: [], servers: [], targetSelections: [] }, collaboration: { teams: [{ title: "تحلیلگرو", state: "active", meta: "teamId: analyst" }] }, commands: { items: [] }, catalog: { items: [] }, performance: { items: [] }, observability: { items: [] }, delivery: { items: [] }, hardening: { items: [] }, readiness: { items: [] } } } });
+  assert.match(html, /id="metrics"[\s\S]*>[^<]*<article class="card metric">/);
+  assert.match(html, /id="sections"[\s\S]*همکاری و حافظه/);
+  assert.match(html, /Targetی برای انتخاب وجود ندارد/);
 });
 
 test("the project Walk-Through covers the real setup path, all management surfaces and explicit gated work", () => {
@@ -310,7 +320,11 @@ test("Smart Tester is an opt-in floating development assistant on every shared B
   assert.doesNotMatch(shell, /rowTitle\.textContent = 'گام بازتولید'/);
   assert.match(shell, /انتقال به لبهٔ چپ/);
   assert.match(shell, /انتقال به لبهٔ راست/);
-  assert.match(shell, /actions\.append\(moveLeft, moveRight, next\)/);
+  assert.match(shell, /heroActionFeedbackSide = \(\) => 'left'/);
+  assert.match(shell, /scheduleHeroActionFeedbackDismiss/);
+  assert.match(shell, /6_500/);
+  assert.match(shell, /popup\.setAttribute\('role', record\.ok \? 'status' : 'dialog'\)/);
+  assert.match(shell, /actions\.append\(close\)/);
   assert.match(shell, /actions\.prepend\(moveLeft, moveRight\)/);
   assert.match(shell, /window\.fetch = async/);
   assert.match(shell, /heroActionIsProcess/);
@@ -318,8 +332,11 @@ test("Smart Tester is an opt-in floating development assistant on every shared B
   assert.ok(styles.includes(".hero-action-feedback { position: fixed;"));
   assert.match(styles, /\.hero-action-feedback\[data-state="success"\]/);
   assert.match(styles, /\.hero-action-feedback\[data-state="error"\]/);
+  assert.match(styles, /\.hero-action-feedback\[data-state="success"\] \{ width: min\(380px/);
   assert.match(styles, /\.hero-action-feedback\[data-hero-action-feedback-side="left"\]/);
   assert.match(styles, /\.hero-action-feedback\[data-hero-action-feedback-side="right"\]/);
+  assert.match(styles, /--hero-control-height/);
+  assert.match(styles, /--hero-space-3/);
   assert.match(shell, /credentials: 'same-origin'/);
   assert.match(shell, /تحلیلگر محلی Hero/);
   assert.match(shell, /مشاوره اجرا نشد:/);
@@ -382,7 +399,8 @@ test("the shared InfoTip contract is accessible, keyboard-aware and injection-sa
   assert.match(script, /focusin/);
   assert.match(script, /event\.key === 'Escape'/);
   assert.match(script, /getBoundingClientRect/);
-  assert.match(script, /featureTooltip\.textContent = text/);
+  assert.match(script, /featureTooltip\.textContent = supplement \? text/);
+  assert.match(script, /infoSupplement/);
   assert.doesNotMatch(script, /featureTooltip\.innerHTML/);
 });
 
