@@ -1,0 +1,72 @@
+{
+  "schema": "hero.authorization-snapshot/v1",
+  "authorizationId": "TEST-RELEASE-20260922-004",
+  "status": "active",
+  "grantedBy": "project-owner",
+  "grantedAt": "2026-09-22",
+  "grantSource": "owner-confirmation-to-publish-current-task-changes-as-rc-33",
+  "validUntil": "owner-revocation",
+  "globalStop": false,
+  "operations": [
+    "version",
+    "build",
+    "test",
+    "review",
+    "github-write",
+    "test-deploy"
+  ],
+  "excludedOperations": [
+    "production-deploy",
+    "secret-change",
+    "external-spend",
+    "external-message",
+    "destructive-data-operation",
+    "irreversible-operation",
+    "pilot-execution",
+    "notion-write"
+  ],
+  "documents": [
+    {
+      "documentId": "HERO-OPS-HERO-TEST-RELEASE-RELIABILITY",
+      "documentVersion": "1.5.1"
+    },
+    {
+      "documentId": "HERO-OPS-GITHUB-RELEASE-AUTOMATION",
+      "documentVersion": "1.0.0"
+    }
+  ],
+  "steps": [
+    {
+      "stepId": "TEST-RELEASE-001",
+      "documentVersion": "1.5.1"
+    },
+    {
+      "stepId": "TEST-RELEASE-002",
+      "documentVersion": "1.5.1"
+    },
+    {
+      "stepId": "TEST-RELEASE-003",
+      "documentVersion": "1.5.1"
+    },
+    {
+      "stepId": "TEST-RELEASE-004",
+      "documentVersion": "1.5.1"
+    }
+  ],
+  "scope": {
+    "environment": "test",
+    "repository": "farhaddgm/Hero",
+    "releaseVersion": "1.1.5-rc.33",
+    "allowedActions": [
+      "commit",
+      "push-branch",
+      "run-release-candidate-workflow",
+      "publish-test-candidate-artifact"
+    ],
+    "production": false,
+    "secrets": false,
+    "providers": false,
+    "pilot": false
+  },
+  "note": "Owner-authorized publication of the project archive and purge controls as Test candidate 1.1.5-rc.33. Production, Provider calls, Secret changes, external spend, Pilot and destructive data operations remain excluded."
+}
