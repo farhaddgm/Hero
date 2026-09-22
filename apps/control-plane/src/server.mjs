@@ -97,6 +97,7 @@ import { createBackofficeCompletion, BackofficeCompletionError } from "../../../
 import { AiOrchestrationError } from "../../../packages/domain/src/ai-orchestration.mjs";
 import { evaluateAiAdvisorReadiness } from "../../../packages/domain/src/ai-advisor-readiness.mjs";
 import { FormSuggestionsError, FORM_PROVIDER_SUGGESTIONS_SCHEMA, FORM_SUGGESTION_INITIAL_SUGGESTIONS, FORM_SUGGESTIONS_VERSION, createFormSuggestions, createProviderFormSuggestions, prepareFormSuggestionRefinement, prepareFormSuggestionRequest } from "../../../packages/domain/src/advisor.mjs";
+import { ProjectIntakeAdvisorError, createProjectIntakeAdvisor } from "../../../packages/domain/src/project-intake-advisor.mjs";
 import { rebuildPortfolioReadModel, rebuildProjectReadModel } from "../../../packages/domain/src/backoffice-read-models.mjs";
 import { ProductDevelopmentError, createProductDevelopmentCatalog } from "../../../packages/domain/src/product-development.mjs";
 import { HeroSecretStoreError, createConfiguredAiProviderAdapters, createHeroSecretStore, createNotionApiAdapter, createPostgresRuntime, createPricingCatalogRegistry, createRuntimeExternalSpendAuthorizer, readRuntimeExternalSpendPolicy } from "../../../packages/adapters/src/index.mjs";
@@ -1968,6 +1969,19 @@ export function createHeroServer(options = {}) {
         if (scopedProjectId) projectAccessMiddleware.requireProject({ principal, projectId: scopedProjectId, action: request.method === "GET" ? "project.read" : "project.write" });
         return;
       }
+      // Creation-time advice is strictly transient: it is available after the
+      // first five project answers, before a Project exists to scope. It may
+      // fill the remaining form fields but cannot dispatch a live provider,
+      // create a Project, or write an AI binding.
+      if (url.pathname.startsWith("/api/project-intake-advisor") && ["GET", "POST"].includes(request.method)) {
+        if (!principal || !["human-identity", "admin"].includes(principal.source)) {
+          throw new HumanIdentityError("IDENTITY_AUTH_REQUIRED", "Human or admin authentication is required for intake advice.", 401);
+        }
+        if (!["project-owner", "admin"].includes(principal.role)) {
+          throw new ProjectAccessError("ADMIN_REQUIRED", "Advisor فقط برای Owner یا Admin مجاز است.", 403);
+        }
+        return;
+      }
       if (url.pathname === "/api/projects" && request.method === "POST") {
         projectAccessRegistry.authorize({ principal, projectId: "hero", action: "project.create" });
         return;
@@ -2502,6 +2516,36 @@ export function createHeroServer(options = {}) {
         }
         const advisorOptions = formSuggestionOptions(queryProjectId);
         return json(response, 200, { service: HERO_SERVICE, advisor: advisorOptions, formSuggestions: advisorOptions });
+      }
+
+      if (request.method === "GET" && url.pathname === "/api/project-intake-advisor/options") {
+        const advisorOptions = formSuggestionOptions(null);
+        return json(response, 200, {
+          service: HERO_SERVICE,
+          advisor: Object.freeze({
+            ...advisorOptions,
+            defaultAdvisorId: "local",
+            preCreationLiveEligible: false,
+            note: "پیش از ثبت پروژه، Advisor محلی پیشنهادهای قابل بازبینی می‌سازد. Provider زنده و هزینه‌دار تا پس از ثبت پروژه و گیت‌های جداگانه فعال نمی‌شود."
+          })
+        });
+      }
+
+      if (request.method === "POST" && ["/api/project-intake-advisor", "/api/project-intake-advisor/refine"].includes(url.pathname)) {
+        if (!authenticatedOwner || !["human-identity", "admin"].includes(authenticatedOwner.source)) {
+          throw new HumanIdentityError("IDENTITY_AUTH_REQUIRED", "برای پیشنهاد مرحلهٔ ایجاد پروژه ورود انسانی یا نشست Admin لازم است.", 401);
+        }
+        const input = await readJson(request, 16 * 1024);
+        const selectedAdvisor = input.selectedAdvisor === undefined || input.selectedAdvisor === null || input.selectedAdvisor === "" ? "local" : input.selectedAdvisor;
+        if (selectedAdvisor !== "local") {
+          throw new ProjectIntakeAdvisorError("PROJECT_INTAKE_ADVISOR_LIVE_DEFERRED", "Provider زنده پیش از ثبت پروژه فعال نمی‌شود؛ ابتدا پیشنهاد محلی را بازبینی و پروژه را ثبت کنید.", 403);
+        }
+        const advisor = createProjectIntakeAdvisor({
+          actor: authenticatedOwner,
+          firstFive: input.firstFive,
+          ...(url.pathname.endsWith("/refine") ? { feedback: input.feedback } : {})
+        });
+        return json(response, 200, { service: HERO_SERVICE, advisor });
       }
 
       if (request.method === "POST" && ["/api/form-suggestions", "/api/advisor"].includes(url.pathname)) {
@@ -3830,7 +3874,7 @@ export function createHeroServer(options = {}) {
       if (error instanceof OwnerAuthError && rejectedReadResource) {
         await recordReadAccess(rejectedReadResource, "rejected");
       }
-      const known = error instanceof DashboardCommandError || error instanceof ProductDevelopmentError || error instanceof ProjectAccessError || error instanceof ProjectWorkspaceError || error instanceof ProjectSettingsError || error instanceof CollaborationError || error instanceof CommandCenterError || error instanceof SystemCatalogError || error instanceof PerformanceError || error instanceof NotificationError || error instanceof InfrastructureError || error instanceof DeliveryError || error instanceof HardeningError || error instanceof FinalReadinessError || error instanceof BackofficeCompletionError || error instanceof HeroSecretStoreError || error instanceof AiOrchestrationError || error instanceof FormSuggestionsError;
+      const known = error instanceof DashboardCommandError || error instanceof ProductDevelopmentError || error instanceof ProjectAccessError || error instanceof ProjectWorkspaceError || error instanceof ProjectSettingsError || error instanceof CollaborationError || error instanceof CommandCenterError || error instanceof SystemCatalogError || error instanceof PerformanceError || error instanceof NotificationError || error instanceof InfrastructureError || error instanceof DeliveryError || error instanceof HardeningError || error instanceof FinalReadinessError || error instanceof BackofficeCompletionError || error instanceof HeroSecretStoreError || error instanceof AiOrchestrationError || error instanceof FormSuggestionsError || error instanceof ProjectIntakeAdvisorError;
       const auth = error instanceof OwnerAuthError || error instanceof HumanIdentityError;
       const statusCode = auth ? error.statusCode : known ? (error.statusCode ?? error.status ?? 409) : 500;
       if (statusCode >= 500) console.error(JSON.stringify({ level: "error", event: "hero.request-failed", method: request.method, path: url.pathname, status: statusCode, code: auth || known ? error.code : "INTERNAL_ERROR" }));

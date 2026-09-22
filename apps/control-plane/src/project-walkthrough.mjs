@@ -51,11 +51,11 @@ export const HERO_PROJECT_WALKTHROUGH_STEPS = Object.freeze([
   }),
   Object.freeze({
     id: "create-project",
-    nextId: "intake",
+    nextId: "inputs",
     phase: "تعریف Scope",
     flow: "main",
-    title: "ساخت Draft جدید",
-    summary: "هر پروژه با lifecycle برابر Draft شروع می‌شود؛ هنوز اجرای Provider، سرور یا Production رخ نمی‌دهد.",
+    title: "تعریف پروژهٔ جدید",
+    summary: "ثبت تعریف اولیه، پروژه را مستقیم وارد بازبینی Foundation می‌کند؛ هنوز اجرای Provider، سرور یا Production رخ نمی‌دهد.",
     route: "/portfolio?select=project&next=walkthrough",
     target: "portfolio.create-project",
     actionLabel: "باز کردن فرم پروژهٔ جدید",
@@ -66,27 +66,7 @@ export const HERO_PROJECT_WALKTHROUGH_STEPS = Object.freeze([
       "Project ID را یکتا، کوچک و با خط تیره وارد کنید؛ نمونه: project-vpn. این شناسه بعداً در URL و API استفاده می‌شود.",
       "نام و توضیح کوتاه را برای تشخیص انسانی پروژه ثبت کنید.",
       "در همان فرم، هدف، کاربران هدف و سطح خودکارسازی اولیه را وارد کنید. پیش‌فرض امن «تأیید در هر مرحله» است.",
-      "پس از ثبت، Hero Foundation اولیه می‌سازد و شما وارد Scope همان پروژه می‌شوید."
-    ])
-  }),
-  Object.freeze({
-    id: "intake",
-    nextId: "inputs",
-    phase: "پایهٔ محصول",
-    flow: "main",
-    title: "ثبت دقیق Intake",
-    summary: "هدف، کاربران و سطح خودکارسازی، مبنای Foundation و تصمیم‌های بعدی پروژه هستند.",
-    route: "/workspace",
-    target: "workspace.intake",
-    actionLabel: "باز کردن Intake پروژه",
-    completion: "intake-complete",
-    availability: "available",
-    instructions: Object.freeze([
-      "در «فضای پروژه»، بخش Intake را پیدا کنید.",
-      "در «هدف»، نتیجهٔ قابل اندازه‌گیری مورد انتظار را بنویسید؛ نه صرفاً نام محصول.",
-      "در «کاربران»، گروه‌های استفاده‌کننده یا تصمیم‌گیر را بنویسید.",
-      "«تأیید در هر مرحله» را برای کنترل کامل انتخاب کنید، یا فقط پس از تعریف سیاست مناسب «خودکار پس از تأیید» را انتخاب کنید.",
-      "دکمهٔ «ثبت Intake» را بزنید و سپس به راهنما بازگردید؛ راهنما مقدار ثبت‌شده را دوباره بررسی می‌کند."
+      "پس از ثبت، Hero مستقیم وارد بازبینی Foundation می‌شود و شما وارد Scope همان پروژه می‌شوید."
     ])
   }),
   Object.freeze({
@@ -115,7 +95,7 @@ export const HERO_PROJECT_WALKTHROUGH_STEPS = Object.freeze([
     phase: "پایهٔ محصول",
     flow: "main",
     title: "بازبینی و تأیید Foundation",
-    summary: "Foundation یک پیشنهاد نسخه‌دار از تیم‌ها، رودمپ، سیاست و پایهٔ معماری است؛ تأیید آن پروژه را از Draft خارج می‌کند.",
+    summary: "Foundation یک پیشنهاد نسخه‌دار از تیم‌ها، رودمپ، سیاست و پایهٔ معماری است؛ تأیید آن پروژه را فعال می‌کند.",
     route: "/workspace",
     target: "workspace.foundation",
     actionLabel: "باز کردن Foundation",
@@ -322,14 +302,7 @@ export const HERO_PROJECT_WALKTHROUGH_FIELD_GUIDANCE = Object.freeze({
     Object.freeze({ label: "هدف", instruction: "نتیجهٔ قابل سنجش را بنویسید، نه فقط نام محصول. این مقدار مبنای Foundation و ارزیابی خروجی خواهد بود." }),
     Object.freeze({ label: "کاربران هدف", instruction: "گروه کاربران، خریداران یا تصمیم‌گیرندگان محصول را مشخص کنید تا نیازها در Foundation قابل ارزیابی باشند." }),
     Object.freeze({ label: "سطح خودکارسازی", instruction: "برای شروع «تأیید در هر مرحله» را انتخاب کنید. فقط وقتی Policy و Approval روشن دارید سطح خودکارسازی بیشتری انتخاب کنید." }),
-    Object.freeze({ label: "ثبت پروژه", instruction: "پس از بازبینی همهٔ فیلدها، پروژه را ثبت کنید. نتیجه یک Draft و Foundation Proposal است؛ هنوز Provider، سرور یا Production اجرا نمی‌شود." })
-  ]),
-  intake: Object.freeze([
-    Object.freeze({ label: "هدف محصول", instruction: "نتیجه‌ای روشن و قابل ارزیابی بنویسید؛ مثال خوب به نتیجه و معیار موفقیت اشاره می‌کند، نه فقط نام فناوری." }),
-    Object.freeze({ label: "کاربران", instruction: "گروه‌هایی را بنویسید که از محصول استفاده می‌کنند یا در مورد آن تصمیم می‌گیرند. اگر چند گروه هستند، هر کدام را جدا و ساده بنویسید." }),
-    Object.freeze({ label: "سطح خودکارسازی", instruction: "این انتخاب تعیین می‌کند Hero در هر مرحله از شما تأیید بخواهد یا بعد از Approval تعریف‌شده ادامه دهد. برای پروژهٔ جدید حالت تأیید در هر مرحله مناسب است." }),
-    Object.freeze({ label: "فراخوانی Intake", instruction: "اگر Intake قبلی همین پروژه را می‌خواهید اصلاح کنید، «فراخوانی» را بزنید تا دادهٔ ثبت‌شده فقط در همین فرم قرار گیرد. تا ثبت Intake را نزنید، نسخهٔ جدید ساخته نمی‌شود." }),
-    Object.freeze({ label: "ثبت Intake", instruction: "دکمهٔ ثبت را بزنید و پیام موفقیت را ببینید. سپس «گام بعد» راهنما را بزنید تا همان دادهٔ واقعی دوباره بررسی شود." })
+    Object.freeze({ label: "ثبت پروژه", instruction: "پس از بازبینی همهٔ فیلدها، پروژه را ثبت کنید. نتیجه یک Foundation Proposal آمادهٔ بازبینی است؛ هنوز Provider، سرور یا Production اجرا نمی‌شود." })
   ]),
   inputs: Object.freeze([
     Object.freeze({ label: "نام فایل متن", instruction: "برای Brief یا نیازمندی متنی یک نام روشن مانند brief.txt بنویسید تا بعداً معلوم باشد این ورودی چیست." }),
@@ -420,7 +393,6 @@ export function getProjectWalkthroughStep(stepId) {
  */
 export function createProjectWalkthroughProgress({ authenticated = false, projectId = null, overview = null } = {}) {
   const projectSelected = typeof projectId === "string" && /^[a-z][a-z0-9-]{2,62}$/.test(projectId);
-  const intake = overview?.intake ?? {};
   const foundation = overview?.foundationProposal ?? {};
   const settings = Array.isArray(overview?.settings) ? overview.settings : [];
   const inputs = Array.isArray(overview?.inputs) ? overview.inputs : [];
@@ -428,7 +400,6 @@ export function createProjectWalkthroughProgress({ authenticated = false, projec
     if (step.id === "create-project") return false;
     if (step.completion === "human-session") return authenticated === true;
     if (step.completion === "selected-project") return projectSelected;
-    if (step.completion === "intake-complete") return Boolean(intake.goal && intake.users && intake.autonomy);
     if (step.completion === "optional-input") return inputs.length > 0;
     if (step.completion === "foundation-approved") return foundation.state === "approved";
     if (step.completion === "setting-registered") return settings.some(item => item?.path !== HERO_PROJECT_WALKTHROUGH_ENABLED_SETTING);
@@ -496,11 +467,6 @@ const ADVISOR_PROPOSALS = Object.freeze({
     Object.freeze({ formId: "create-project-form", name: "goal", label: "هدف اولیه", value: "ارائهٔ یک خروجی قابل سنجش برای کاربران هدف با معیار پذیرش روشن." }),
     Object.freeze({ formId: "create-project-form", name: "users", label: "کاربران هدف", value: "کاربران اصلی و تصمیم‌گیرندگان محصول" }),
     Object.freeze({ formId: "create-project-form", name: "autonomy", label: "شیوهٔ تأیید", value: "approval-each-stage" })
-  ]),
-  intake: Object.freeze([
-    Object.freeze({ formId: "intake-form", name: "goal", label: "هدف محصول", value: "ارائهٔ یک نتیجهٔ قابل سنجش برای کاربران هدف؛ معیار موفقیت و محدوده را پیش از ثبت دقیق کنید." }),
-    Object.freeze({ formId: "intake-form", name: "users", label: "کاربران", value: "کاربران اصلی محصول و تصمیم‌گیرندگان مرتبط" }),
-    Object.freeze({ formId: "intake-form", name: "autonomy", label: "سطح خودکارسازی", value: "approval-each-stage" })
   ]),
   inputs: Object.freeze([
     Object.freeze({ formId: "upload-form", name: "filename", label: "نام فایل متن", value: "brief.txt" }),

@@ -191,6 +191,7 @@ Product ابتدا با owner و Evidence در Product registry ثبت می‌ش
 | `HERO-ROADMAP-FUTURE-REQUIRED-PRICING-CATALOG` | `active` | [قابلیت ضروری آینده: Pricing Catalog نسخه‌دار Hero](roadmap/FUTURE-REQUIRED-PRICING-CATALOG.md) |
 | `HERO-ROADMAP-BACKOFFICE-COMMAND-CENTER-V1` | `active` | [برنامهٔ جامع توسعهٔ Back Office Command Center — v1.2](roadmap/BACKOFFICE-COMMAND-CENTER-IMPLEMENTATION-v1.0.md) |
 | `HERO-ROADMAP-BACKOFFICE-UI-UX-V1` | `active` | [برنامهٔ توسعهٔ UI/UX جامع Back Office — v1.0](roadmap/BACKOFFICE-UI-UX-IMPLEMENTATION-v1.0.md) |
+| `HERO-ROADMAP-INTAKE-ADVISOR-AND-UNKNOWN-RISK-20260921` | `active` | [تحلیل و اجرای Intake Advisor و پاسخ «نمی‌دانم» برای ریسک پروژه — ۲۰۲۶-۰۹-۲۱](roadmap/INTAKE-ADVISOR-AND-UNKNOWN-RISK-ANALYSIS-20260921.md) |
 
 ## Templateها
 

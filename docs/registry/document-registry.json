@@ -2126,6 +2126,20 @@
       "supersedes": [],
       "superseded_by": null,
       "review_cadence": "per-change"
+    },
+    {
+      "id": "HERO-ROADMAP-INTAKE-ADVISOR-AND-UNKNOWN-RISK-20260921",
+      "path": "docs/roadmap/INTAKE-ADVISOR-AND-UNKNOWN-RISK-ANALYSIS-20260921.md",
+      "title": "تحلیل و اجرای Intake Advisor و پاسخ «نمی‌دانم» برای ریسک پروژه — ۲۰۲۶-۰۹-۲۱",
+      "type": "roadmap",
+      "scope": "hero",
+      "status": "active",
+      "version": "0.2.0",
+      "owner": "hero-product",
+      "canonical": true,
+      "supersedes": [],
+      "superseded_by": null,
+      "review_cadence": "per-change"
     }
   ]
 }

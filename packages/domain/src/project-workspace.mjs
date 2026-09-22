@@ -98,7 +98,10 @@ export function createProjectWorkspace({ ownerUserId = "hero-owner", now = () =>
       }
       if (projects.has(id)) throw new ProjectWorkspaceError("PROJECT_EXISTS", "ProjectId already exists.", 409);
       const request = copy({ requestId: `product-request-${randomUUID()}`, version: 1, idempotencyKey: key, fingerprint: requestFingerprint, projectId: id, state: "accepted", submittedBy: actor.subject, submittedAt: now() });
-      const row = copy({ projectId: id, name: safeName, description: safeDescription, lifecycle: "draft", status: "draft", version: 1, createdAt: now(), updatedAt: now(), createdBy: actor.subject, intake: normalized, riskAssessment: normalized.riskAssessment, productRequest: request }); projects.set(id, row); productRequests.set(key, request);
+      // The create form is the authoritative capture point for product
+      // definition. Re-asking its goal/users/autonomy in a second Intake
+      // form added no decision value and only delayed Foundation review.
+      const row = copy({ projectId: id, name: safeName, description: safeDescription, lifecycle: "foundation-review", status: "foundation-review", version: 1, createdAt: now(), updatedAt: now(), createdBy: actor.subject, intake: normalized, riskAssessment: normalized.riskAssessment, productRequest: request }); projects.set(id, row); productRequests.set(key, request);
       const foundation = makeFoundationProposal(row, actor); return copy({ project: row, foundationProposal: foundation, policyPack: settings?.policyPack(id) ?? null, request, replayed: false });
     },
     getProject(projectId) { return copy(project(projectId)); },

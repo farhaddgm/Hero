@@ -153,7 +153,7 @@ test("the project Walk-Through covers the real setup path, all management surfac
   assert.deepEqual(Object.keys(HERO_PROJECT_WALKTHROUGH_FIELD_GUIDANCE).sort(), [...ids].sort(), "field coaching must cover exactly the guide steps");
   for (const step of HERO_PROJECT_WALKTHROUGH_STEPS) if (step.nextId) assert.ok(ids.has(step.nextId), `${step.id} points to a missing next step`);
   assert.equal(mainSteps.at(-1).nextId, null, "the final main stage must expose completion instead of another step");
-  assert.ok(HERO_PROJECT_WALKTHROUGH_STEPS.some(step => step.id === "intake" && step.completion === "intake-complete"));
+  assert.equal(HERO_PROJECT_WALKTHROUGH_STEPS.some(step => step.id === "intake"), false, "project creation captures Intake once and does not add a duplicate guide stage");
   assert.ok(HERO_PROJECT_WALKTHROUGH_STEPS.some(step => step.id === "inputs" && step.completion === "optional-input" && step.optional === true));
   assert.ok(HERO_PROJECT_WALKTHROUGH_STEPS.some(step => step.id === "foundation" && step.completion === "foundation-approved"));
   assert.ok(HERO_PROJECT_WALKTHROUGH_STEPS.some(step => step.availability === "gated" && step.id === "production"));
@@ -193,21 +193,21 @@ test("Walk-Through progress uses real project evidence and never blocks on optio
 });
 
 test("Walk-Through advisor starts empty, analyses the current step and never invokes a provider", () => {
-  const intake = createProjectWalkthroughAdvisory({ stepId: "intake", projectId: "project-vpn", question: "برای هدف و خودکارسازی چه پیشنهادی داری؟" });
-  assert.equal(intake.mode, HERO_PROJECT_WALKTHROUGH_ADVISOR_MODE);
-  assert.equal(intake.providerInvoked, false);
-  assert.equal(intake.stepId, "intake");
-  assert.match(intake.response, /هدف/);
-  assert.ok(intake.proposedFields.length >= 3);
-  assert.ok(intake.proposedFields.every(field => field.formId === "intake-form"));
-  assert.ok(intake.proposedFields.every(field => !/(?:password|secret|token|credential|mfa)/i.test(field.name)));
-  const blank = createProjectWalkthroughAdvisory({ stepId: "intake", projectId: "project-vpn" });
+  const creation = createProjectWalkthroughAdvisory({ stepId: "create-project", question: "برای هدف و خودکارسازی چه پیشنهادی داری؟" });
+  assert.equal(creation.mode, HERO_PROJECT_WALKTHROUGH_ADVISOR_MODE);
+  assert.equal(creation.providerInvoked, false);
+  assert.equal(creation.stepId, "create-project");
+  assert.match(creation.response, /هدف/);
+  assert.ok(creation.proposedFields.length >= 3);
+  assert.ok(creation.proposedFields.every(field => field.formId === "create-project-form"));
+  assert.ok(creation.proposedFields.every(field => !/(?:password|secret|token|credential|mfa)/i.test(field.name)));
+  const blank = createProjectWalkthroughAdvisory({ stepId: "create-project" });
   assert.equal(blank.response, "", "opening consultation must not show a pre-written answer");
   const gated = createProjectWalkthroughAdvisory({ stepId: "production", projectId: "project-vpn", question: "برای Production چه Approval لازم است؟" });
   assert.equal(gated.proposedFields.length, 0);
   assert.match(gated.response, /Approval|تأیید/);
-  assert.throws(() => createProjectWalkthroughAdvisory({ stepId: "intake" }), RangeError);
-  assert.throws(() => createProjectWalkthroughAdvisory({ stepId: "intake", projectId: "project-vpn", question: "a".repeat(HERO_PROJECT_WALKTHROUGH_ADVISOR_MAX_QUESTION_LENGTH + 1) }), RangeError);
+  assert.throws(() => createProjectWalkthroughAdvisory({ stepId: "missing-step" }), RangeError);
+  assert.throws(() => createProjectWalkthroughAdvisory({ stepId: "create-project", question: "a".repeat(HERO_PROJECT_WALKTHROUGH_ADVISOR_MAX_QUESTION_LENGTH + 1) }), RangeError);
 });
 
 test("Walk-Through routes have an on-page target on the exact surface they explain", () => {
@@ -369,7 +369,8 @@ test("AI connection command surface lists connection health and token usage with
 
 test("Workspace has scoped recall controls, safe presets and a complete Run override form", () => {
   const html = getProjectWorkspaceHtml({ projectId: "project-vpn" });
-  for (const id of ["intake-recall", "foundation-recall", "input-recall", "setting-recall", "rollback-recall", "setting-preset", "setting-run-id-field"]) assert.match(html, new RegExp(`id=\"${id}\"`));
+  for (const id of ["foundation-recall", "input-recall", "setting-recall", "rollback-recall", "setting-preset", "setting-run-id-field"]) assert.match(html, new RegExp(`id=\"${id}\"`));
+  assert.doesNotMatch(html, /id="intake-recall"/);
   assert.match(html, /name="runId"/);
   assert.match(html, /برای Run override، شناسهٔ Run را وارد کنید/);
   assert.match(html, /\/inputs\/.*\/recall/);
@@ -452,7 +453,7 @@ test("all back-office surfaces expose their required feature help without nestin
     [getPortfolioHtml({ portfolio: { cards: [] } }), ["portfolio.projects", "portfolio.health", "portfolio.ownerBriefing", "portfolio.createProject"]],
     [getBackofficeHtml(), ["command.statusOverview", "capability.portfolioHealth", "capability.identityAccess", "teams.contracts", "ai.versionedConfiguration", "project.globalSettings", "operations.ownerActions", "guide.conceptsContracts"]],
     [getProductStudioHtml(), ["studio.sourceOfTruth", "studio.productsMetric", "studio.canonicalDocuments", "studio.projectWorkspace", "studio.versionedEndpoints"]],
-    [getProjectWorkspaceHtml({ projectId: "project-vpn" }), ["workspace.projectContext", "workspace.intake", "workspace.foundationProposal", "workspace.projectInputs", "workspace.versionedSettings", "workspace.policyPack", "workspace.rollback"]],
+    [getProjectWorkspaceHtml({ projectId: "project-vpn" }), ["workspace.projectContext", "workspace.foundationProposal", "workspace.projectInputs", "workspace.versionedSettings", "workspace.policyPack", "workspace.rollback"]],
     [getProjectControlRoomHtml(), ["control.activeTeams", "control.collaborationMemory", "control.commandOperations", "control.infrastructure", "control.finalReadiness"]],
     [getIdentityHtml(), ["identity.configurationStatus", "identity.loginSteps", "identity.humanLogin", "identity.ownerAdmin", "identity.viewer", "identity.projectGrant", "identity.createViewer", "identity.assignGrant"]],
     [getDashboardHtml(), ["lab.newRequest", "lab.autonomy", "lab.globalStop", "lab.currentScope", "lab.aiRoles", "lab.releases"]]
@@ -466,6 +467,22 @@ test("all back-office surfaces expose their required feature help without nestin
   const backoffice = surfaces[1][0];
   assert.equal((backoffice.match(/class="capability-card"/g) ?? []).length, 12);
   assert.equal((backoffice.match(/class="capability-info"/g) ?? []).length, 12);
+});
+
+test("project definition is captured once before Foundation review", () => {
+  const portfolio = getPortfolioHtml({ portfolio: { cards: [] } });
+  const workspace = getProjectWorkspaceHtml({ projectId: "project-vpn" });
+  assert.match(portfolio, /name="goal" required/);
+  assert.match(portfolio, /name="users" required/);
+  assert.match(portfolio, /مستقیم Foundation قابل بازبینی می‌سازد/);
+  assert.match(portfolio, /id="open-intake-advisor"/);
+  assert.match(portfolio, /\/api\/project-intake-advisor/);
+  assert.match(portfolio, /name="riskAnswer\.internetFacing"/);
+  assert.match(portfolio, /نمی‌دانم.*به معنی «خیر» نیست/);
+  assert.match(portfolio, /portfolio\.riskPersonalData/);
+  assert.doesNotMatch(portfolio, /name="riskFlag"/);
+  assert.doesNotMatch(workspace, /id="intake-form"/);
+  assert.doesNotMatch(workspace, /ثبت Intake/);
 });
 
 test("Project Workspace makes project inputs explicitly optional", () => {

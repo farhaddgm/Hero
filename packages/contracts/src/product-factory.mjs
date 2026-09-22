@@ -2,6 +2,9 @@ export const PRODUCT_FACTORY_CONTRACT_VERSION = "1.0";
 
 export const PRODUCT_TYPES = Object.freeze(["application", "web", "service", "data", "security-tool", "library", "other"]);
 export const PRODUCT_RISK_LEVELS = Object.freeze(["low", "standard", "high", "critical"]);
+// A risk answer is deliberately not a boolean: an omitted answer must remain
+// visible as unknown instead of being silently interpreted as "no".
+export const PRODUCT_RISK_ANSWERS = Object.freeze(["yes", "no", "unknown"]);
 export const PRODUCT_AUTONOMY_MODES = Object.freeze(["approval-each-stage", "approved-autonomous"]);
 export const PRODUCT_TARGET_KINDS = Object.freeze(["product-test-local-isolated", "remote-product-target"]);
 export const PRODUCT_EXECUTION_MODES = Object.freeze(["plan-only", "isolated-test", "remote-agent"]);
@@ -44,6 +47,7 @@ export function getProductFactoryContractSummary() {
     version: PRODUCT_FACTORY_CONTRACT_VERSION,
     productTypes: PRODUCT_TYPES,
     riskLevels: PRODUCT_RISK_LEVELS,
+    riskAnswers: PRODUCT_RISK_ANSWERS,
     autonomyModes: PRODUCT_AUTONOMY_MODES,
     targetKinds: PRODUCT_TARGET_KINDS,
     executionModes: PRODUCT_EXECUTION_MODES,
@@ -61,6 +65,7 @@ export function validateProductFactoryContract() {
   if (PRODUCT_FACTORY_CONTRACT_VERSION !== "1.0") errors.push("Unexpected product factory contract version.");
   if (!PRODUCT_TYPES.includes("security-tool")) errors.push("Security-sensitive product type is required.");
   if (!PRODUCT_RISK_LEVELS.includes("critical")) errors.push("Critical risk level is required.");
+  if (!PRODUCT_RISK_ANSWERS.includes("unknown")) errors.push("Unknown risk answers must be represented explicitly.");
   if (PRODUCT_RUNTIME_DEFAULTS.executionMode !== "plan-only") errors.push("Factory runtime must default to plan-only.");
   if (!PRODUCT_RUNTIME_STATES.includes("proposed") || !PRODUCT_RUNTIME_STATES.includes("approved")) errors.push("Runtime plans must have proposed and approved states.");
   if (PRODUCT_RUNTIME_DEFAULTS.network !== "disabled") errors.push("Factory runtime must default to disabled network.");

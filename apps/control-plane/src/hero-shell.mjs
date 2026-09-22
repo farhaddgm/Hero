@@ -23,6 +23,13 @@ export const HERO_FEATURE_HELP = Object.freeze({
   "portfolio.latestOutput": "جدیدترین Artifact یا خروجی قابل تحویل ثبت‌شده برای پروژه، بدون نمایش Secret یا محتوای خصوصی.",
   "portfolio.nextRoadmap": "نزدیک‌ترین گام‌های Roadmap که وضعیت حرکت پروژه را توضیح می‌دهند.",
   "portfolio.createProject": "فقط Owner می‌تواند Project جدید و Foundation اولیهٔ آن را ایجاد کند؛ Admin و Viewer این اختیار را ندارند.",
+  "portfolio.intakeAdvisor": "پس از تکمیل پنج پاسخ نخست، Advisor فقط پیشنهادهای قابل بازبینی برای بقیهٔ فرم می‌سازد. اعمال پیشنهاد، ثبت پروژه یا اجرای هیچ عملی نیست.",
+  "portfolio.riskInternetFacing": "اگر وب‌سایت یا سرویس قرار است از اینترنت یا توسط عموم قابل دسترس باشد «بله» را بزنید. اگر هنوز تصمیم نگرفته‌اید «نمی‌دانم» را نگه دارید.",
+  "portfolio.riskPersonalData": "اگر نام، ایمیل، پیام تماس یا هر دادهٔ مربوط به یک شخص جمع یا نگهداری می‌شود «بله» را بزنید. فرم تماسِ هنوز تعیین‌نشده معمولاً «نمی‌دانم» است.",
+  "portfolio.riskRegulatedData": "اگر حوزه یا داده تابع مقررات ویژه است، مانند سلامت، مالی یا دادهٔ کودکان، «بله» را بزنید. مطمئن نبودن را «نمی‌دانم» ثبت کنید.",
+  "portfolio.riskSecuritySensitive": "اگر محصول با امنیت، زیرساخت، کنترل دسترسی یا دارایی حساس سروکار دارد «بله» را بزنید؛ صرفِ داشتن CMS به‌تنهایی چنین معنایی ندارد.",
+  "portfolio.riskExternalIntegrations": "اگر محصول به سرویس بیرونی مثل ایمیل، پرداخت، تحلیل یا شبکهٔ اجتماعی وصل می‌شود «بله» را بزنید. اتصال احتمالیِ هنوز انتخاب‌نشده «نمی‌دانم» است.",
+  "portfolio.riskPrivilegedAccess": "اگر اجرا به دسترسی مدیر سرور، کلیدهای سطح‌بالا، Docker socket یا اختیار مشابه نیاز دارد «بله» را بزنید. این مورد پیش از اجرا باید جداگانه تأیید شود.",
   "command.adminAccess": "نشست انسانی با cookie امن و HttpOnly در مرورگر نگهداری می‌شود؛ مقدار آن برای JavaScript قابل خواندن نیست و عملیات همچنان با نقش و مجوز پروژه کنترل می‌شود.",
   "command.statusOverview": "نمای فشردهٔ شاخص‌های سازمان، AI، درخواست‌ها و وضعیت کنترل‌ها؛ این شاخص‌ها به‌تنهایی مجوز اجرا نیستند.",
   "command.currentGates": "گیت‌ها مشخص می‌کنند کدام مرحله آماده، نیازمند تصمیم یا مسدود است و اقدام بعدی چیست.",
@@ -127,7 +134,6 @@ export const HERO_FEATURE_HELP = Object.freeze({
   "studio.operationalControls": "پیوند به Collaboration، Command، Catalog، Health، Inbox، Infrastructure و Delivery همان پروژه.",
   "studio.versionedEndpoints": "Endpointهای نسخه‌دار Workspace و Operations که درخواست‌های همین Project را بدون تغییر Scope هدایت می‌کنند.",
   "workspace.projectContext": "Project و نشست انسانی فعلی که تمام خواندن‌ها و تغییرات Workspace به آن محدود می‌شوند.",
-  "workspace.intake": "ویرایش نسخه‌دار هدف، کاربران و شیوهٔ تأیید پروژه.",
   "workspace.foundationProposal": "تأیید یا بازگرداندن Foundation پیشنهادی پیش از شروع Flow پروژه.",
   "workspace.projectInputs": "ثبت ورودی خصوصی پس از کنترل ایمنی؛ فهرست فقط metadata و نتیجهٔ scan/parse را نشان می‌دهد.",
   "workspace.recall": "فراخوانی، آخرین دادهٔ ثبت‌شده در همین Scope پروژه را فقط به فرم بازمی‌گرداند؛ تا زمانی که دکمهٔ ثبت را نزنید هیچ نسخهٔ جدیدی ساخته نمی‌شود. متن خصوصی فقط با کلیک صریح Owner یا Admin، کنترل مجوز و تطبیق checksum بازخوانی می‌شود.",
@@ -1366,7 +1372,7 @@ export function getHeroShellScript() {
     // a target that cannot exist on the current page.
     const walkthroughStepForSurface = surface => ({
       portfolio: 'project-selection',
-      workspace: 'intake',
+      workspace: 'foundation',
       studio: 'studio-review',
       command: 'command-center',
       control: 'operations-review'
@@ -1390,7 +1396,7 @@ export function getHeroShellScript() {
       const projectId = stateProjectId(active);
       const routeSteps = {
         portfolio: new Set(['project-selection', 'create-project']),
-        workspace: new Set(['intake', 'inputs', 'foundation', 'settings']),
+        workspace: new Set(['inputs', 'foundation', 'settings']),
         studio: new Set(['studio-review']),
         command: new Set(['command-center']),
         control: new Set(['operations-review', 'team-research', 'live-execution', 'test-delivery', 'production'])
@@ -1528,7 +1534,7 @@ export function getHeroShellScript() {
         if (placementFrame !== null) return;
         placementFrame = requestAnimationFrame(() => { placementFrame = null; placeCoach(); });
       };
-      const requiresRecordedCompletion = new Set(['identity', 'project-selection', 'intake', 'foundation', 'settings']);
+      const requiresRecordedCompletion = new Set(['identity', 'project-selection', 'foundation', 'settings']);
       // These are genuine product-delivery gates, not presentation steps. The
       // guide must remain honest and cannot mark them complete before the
       // corresponding execution/evidence capability exists.
@@ -1562,12 +1568,11 @@ export function getHeroShellScript() {
           const response = await fetch('/api/projects/' + encodeURIComponent(scopedProjectId) + '/workspace-overview', { credentials: 'same-origin', cache: 'no-store' });
           const body = await response.json().catch(() => ({}));
           if (!response.ok) throw new Error(body.message || body.code || 'دادهٔ پروژه خوانده نشد.');
-          const overview = body.overview || {}; const intake = overview.intake || {}; const foundation = overview.foundationProposal || {};
-          const complete = currentStep.id === 'intake' ? Boolean(intake.goal && intake.users && intake.autonomy)
-            : currentStep.id === 'foundation' ? foundation.state === 'approved'
-                : currentStep.id === 'settings' ? Array.isArray(overview.settings) && overview.settings.some(item => item.path !== 'backoffice.walkthrough.enabled')
-                  : true;
-          if (!complete) { const labels = { intake: 'هدف، کاربران و سطح خودکارسازی را ثبت کنید.', foundation: 'Foundation را تأیید یا بازنگری کنید تا وضعیت واقعی آن به‌روز شود.', settings: 'حداقل یک تنظیم نسخه‌دار پروژه ثبت کنید.' }; completion.textContent = labels[currentStep.id] || 'این گام هنوز کامل نشده است.'; return false; }
+          const overview = body.overview || {}; const foundation = overview.foundationProposal || {};
+          const complete = currentStep.id === 'foundation' ? foundation.state === 'approved'
+            : currentStep.id === 'settings' ? Array.isArray(overview.settings) && overview.settings.some(item => item.path !== 'backoffice.walkthrough.enabled')
+              : true;
+          if (!complete) { const labels = { foundation: 'Foundation را تأیید یا بازنگری کنید تا وضعیت واقعی آن به‌روز شود.', settings: 'حداقل یک تنظیم نسخه‌دار پروژه ثبت کنید.' }; completion.textContent = labels[currentStep.id] || 'این گام هنوز کامل نشده است.'; return false; }
           completion.textContent = 'معیار تکمیل از دادهٔ واقعی این پروژه تأیید شد.'; next.disabled = false; return true;
         } catch (error) { completion.textContent = error.message || 'بازخوانی معیار تکمیل ناموفق بود.'; return false; }
         finally { schedulePlacement(); }

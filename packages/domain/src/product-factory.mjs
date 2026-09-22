@@ -2,6 +2,7 @@ import {
   PRODUCT_AUTONOMY_MODES,
   PRODUCT_FACTORY_CONTRACT_VERSION,
   PRODUCT_NETWORK_POLICIES,
+  PRODUCT_RISK_ANSWERS,
   PRODUCT_RISK_LEVELS,
   PRODUCT_RUNTIME_DEFAULTS,
   PRODUCT_RUNTIME_EFFECTS,
@@ -45,17 +46,39 @@ export function normalizeRiskFlags(value = {}) {
   return Object.freeze(Object.fromEntries(RISK_FLAGS.map(key => [key, value[key] === true])));
 }
 
-export function classifyProductRisk({ projectType = "application", requestedLevel = "standard", riskFlags = {} } = {}) {
+export function normalizeRiskAnswers(value = undefined, legacyFlags = {}) {
+  if (value !== undefined && (!value || typeof value !== "object" || Array.isArray(value))) throw new Error("riskAnswers must be an object.");
+  if (value !== undefined) {
+    const unknown = Object.keys(value).filter(key => !RISK_FLAGS.includes(key));
+    if (unknown.length) throw new Error(`Unknown risk answer: ${unknown[0]}.`);
+  }
+  const flags = normalizeRiskFlags(legacyFlags ?? {});
+  // Old boolean records cannot tell an unchecked control from an explicit
+  // "no". Preserve true signals, but migrate every false/missing value to
+  // unknown rather than inventing certainty during hydration.
+  return Object.freeze(Object.fromEntries(RISK_FLAGS.map(key => {
+    const answer = value?.[key] ?? (flags[key] ? "yes" : "unknown");
+    if (!PRODUCT_RISK_ANSWERS.includes(answer)) throw new Error(`risk answer is invalid: ${key}.`);
+    return [key, answer];
+  })));
+}
+
+export function classifyProductRisk({ projectType = "application", requestedLevel = "standard", riskFlags = {}, riskAnswers = undefined } = {}) {
   if (!PRODUCT_TYPES.includes(projectType)) throw new Error(`projectType must be one of: ${PRODUCT_TYPES.join(", ")}.`);
   if (!PRODUCT_RISK_LEVELS.includes(requestedLevel)) throw new Error(`riskLevel must be one of: ${PRODUCT_RISK_LEVELS.join(", ")}.`);
-  const flags = normalizeRiskFlags(riskFlags);
+  const answers = normalizeRiskAnswers(riskAnswers, riskFlags);
+  const flags = Object.freeze(Object.fromEntries(RISK_FLAGS.map(key => [key, answers[key] === "yes"])));
+  const unknownRiskFlags = RISK_FLAGS.filter(key => answers[key] === "unknown");
   let level = requestedLevel;
   const reasons = [];
   if (projectType === "security-tool") { level = maxRisk(level, "high"); reasons.push("نوع محصول امنیتی است."); }
   for (const key of RISK_FLAGS) if (flags[key]) { level = maxRisk(level, ["regulatedData", "requiresPrivilegedAccess"].includes(key) ? "high" : "standard"); reasons.push(FLAG_REASONS[key]); }
   if (flags.securitySensitive && flags.internetFacing) { level = maxRisk(level, "critical"); reasons.push("محصول امنیتی و در معرض اینترنت است؛ بررسی مالک پیش از هر اجرای واقعی الزامی است."); }
+  if (unknownRiskFlags.length > 0) reasons.push("بخشی از پاسخ‌های ریسک هنوز «نمی‌دانم» است؛ پیش از اجرای Test یا هر اثر خارجی باید بازبینی شود.");
   if (!reasons.length) reasons.push(level === "low" ? "هیچ سیگنال ریسک اضافه‌ای در Intake ثبت نشده است." : "سطح پایهٔ استاندارد برای محصول انتخاب شده است.");
-  return copy({ level, requestedLevel, flags, reasons, requiredApprovals: level === "critical" ? ["foundation-approval", "owner-risk-approval", "execution-authorization"] : level === "high" ? ["foundation-approval", "owner-risk-review", "execution-authorization"] : ["foundation-approval", "execution-authorization"], blockedActions: ["repositoryMutation", "containerStart", "databaseProvision", "secretWrite", "deployment", "externalSpend", "externalMessage"] });
+  const requiredApprovals = level === "critical" ? ["foundation-approval", "owner-risk-approval", "execution-authorization"] : level === "high" ? ["foundation-approval", "owner-risk-review", "execution-authorization"] : ["foundation-approval", "execution-authorization"];
+  if (unknownRiskFlags.length > 0) requiredApprovals.push("risk-classification-confirmation");
+  return copy({ level, requestedLevel, flags, answers, unknownRiskFlags, completeness: unknownRiskFlags.length === 0 ? "complete" : "needs-review", reasons, requiredApprovals, blockedActions: ["repositoryMutation", "containerStart", "databaseProvision", "secretWrite", "deployment", "externalSpend", "externalMessage"] });
 }
 
 export function createProductRuntimePlan({ projectId, riskLevel = "standard", targetKind = "product-test-local-isolated" } = {}) {
@@ -112,7 +135,7 @@ export function normalizeProductIntake({ name, intake = {} } = {}) {
   const requestedLevel = intake.riskLevel ?? "standard";
   const autonomy = intake.autonomy ?? "approval-each-stage";
   if (!PRODUCT_AUTONOMY_MODES.includes(autonomy)) throw new Error("autonomy is invalid.");
-  const riskAssessment = classifyProductRisk({ projectType, requestedLevel, riskFlags: intake.riskFlags });
+  const riskAssessment = classifyProductRisk({ projectType, requestedLevel, riskFlags: intake.riskFlags, riskAnswers: intake.riskAnswers });
   return copy({
     intent: requiredText(intake.intent ?? name, "intake.intent"),
     goal: requiredText(intake.goal ?? "Define the desired product outcome", "intake.goal"),
@@ -124,6 +147,7 @@ export function normalizeProductIntake({ name, intake = {} } = {}) {
     riskLevel: riskAssessment.level,
     requestedRiskLevel: requestedLevel,
     riskFlags: riskAssessment.flags,
+    riskAnswers: riskAssessment.answers,
     riskAssessment
   });
 }

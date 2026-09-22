@@ -9,6 +9,7 @@ import { validateProjectWorkspaceContract } from "../packages/contracts/src/proj
 import { validateProductFactoryContract, validateProductRuntimePlan } from "../packages/contracts/src/product-factory.mjs";
 import { createProjectSettingsRegistry, ProjectSettingsError } from "../packages/domain/src/project-settings.mjs";
 import { classifyProductRisk, createProductRuntimePlan, evaluateProductRuntimeAdmission } from "../packages/domain/src/product-factory.mjs";
+import { ProjectIntakeAdvisorError, createProjectIntakeAdvisor } from "../packages/domain/src/project-intake-advisor.mjs";
 import { createProjectWorkspace, ProjectWorkspaceError } from "../packages/domain/src/project-workspace.mjs";
 import { createPrivateObjectStore } from "../packages/adapters/src/private-object-store.mjs";
 import { createHeroServer } from "../apps/control-plane/src/server.mjs";
@@ -25,13 +26,13 @@ function setup() {
   return { settings, workspace };
 }
 
-test("project registry creates isolated projects, safe intake, proposal and clone exclusions", () => {
+test("project registry creates isolated projects, sends the initial definition directly to Foundation review, and preserves clone exclusions", () => {
   assert.deepEqual(validateProjectWorkspaceContract(), []);
   assert.deepEqual(validateProductFactoryContract(), []);
   const { workspace } = setup();
   const vpn = workspace.createProject({ actor: owner, projectId: "project-vpn", name: "VPN", intake: { intent: "Build a VPN", goal: "Private connectivity", users: "Remote teams", constraints: ["No production deployment"], expectedOutputs: ["Web application"] } });
-  assert.equal(vpn.project.lifecycle, "draft");
-  assert.equal(vpn.project.status, "draft");
+  assert.equal(vpn.project.lifecycle, "foundation-review");
+  assert.equal(vpn.project.status, "foundation-review");
   assert.equal(vpn.foundationProposal.state, "proposed");
   assert.equal(workspace.getProject("project-vpn").intake.riskLevel, "standard");
   assert.equal(vpn.project.riskAssessment.level, "standard");
@@ -48,7 +49,7 @@ test("project registry creates isolated projects, safe intake, proposal and clon
 test("project inputs are optional and an empty workspace remains valid", () => {
   const { workspace } = setup();
   const created = workspace.createProject({ actor: owner, projectId: "project-empty", name: "Empty brief" });
-  assert.equal(created.project.lifecycle, "draft");
+  assert.equal(created.project.lifecycle, "foundation-review");
   assert.equal(typeof created.project.intake.goal, "string");
   assert.ok(created.project.intake.goal.length > 0, "safe intake defaults remain available without a sample input");
   assert.deepEqual(workspace.listInputs({ projectId: "project-empty" }), []);
@@ -80,6 +81,40 @@ test("high-risk Foundation requires explicit owner risk approval", () => {
 test("project intake rejects unknown risk flags instead of silently weakening policy", () => {
   const { workspace } = setup();
   assert.throws(() => workspace.createProject({ actor: owner, projectId: "project-risk", name: "Risk", intake: { riskFlags: { unknownFlag: true } } }), error => error instanceof ProjectWorkspaceError && error.code === "INVALID_INTAKE");
+});
+
+test("optional risk answers preserve unknown instead of silently recording no", () => {
+  const assessment = classifyProductRisk({
+    projectType: "web",
+    requestedLevel: "standard",
+    riskAnswers: { internetFacing: "yes", personalData: "unknown", regulatedData: "no", securitySensitive: "no", externalIntegrations: "unknown", requiresPrivilegedAccess: "no" }
+  });
+  assert.equal(assessment.flags.internetFacing, true);
+  assert.equal(assessment.flags.personalData, false);
+  assert.equal(assessment.answers.personalData, "unknown");
+  assert.equal(assessment.completeness, "needs-review");
+  assert.ok(assessment.requiredApprovals.includes("risk-classification-confirmation"));
+  const { workspace } = setup();
+  const created = workspace.createProject({ actor: owner, projectId: "project-unknown-risk", name: "Unknown risk", intake: { riskAnswers: assessment.answers } });
+  assert.equal(created.project.intake.riskAnswers.personalData, "unknown");
+  assert.throws(() => workspace.createProject({ actor: owner, projectId: "project-invalid-risk", name: "Invalid risk", intake: { riskAnswers: { extra: "yes" } } }), error => error instanceof ProjectWorkspaceError && error.code === "INVALID_INTAKE");
+});
+
+test("creation-time advisor uses only the first five answers and returns review-only suggestions", () => {
+  const firstFive = { projectId: "myblog", name: "مای بلاگ", description: "ساخت یک وبسایت شخصی با طراحی مدرن و دو صفحه.", goal: "یک وبسایت با CMS", users: "خود من به عنوان شخص حقیقی" };
+  const advisor = createProjectIntakeAdvisor({ actor: owner, firstFive });
+  assert.equal(advisor.mode, "local");
+  assert.equal(advisor.reviewOnly, true);
+  assert.equal(advisor.suggestions.length, 3);
+  assert.equal(advisor.suggestions[0].values.projectType, "web");
+  assert.equal(advisor.suggestions[0].values.riskAnswers.internetFacing, "yes");
+  assert.equal(advisor.suggestions[0].values.riskAnswers.personalData, "unknown");
+  assert.equal(advisor.suggestions[0].values.riskAnswers.externalIntegrations, "unknown");
+  assert.doesNotMatch(JSON.stringify(advisor), /مای بلاگ|خود من به عنوان شخص حقیقی/);
+  const refined = createProjectIntakeAdvisor({ actor: owner, firstFive, feedback: "فقط دو صفحه را نگه دار و CMS را ساده کن." });
+  assert.match(refined.feedbackResponse, /بازخورد/);
+  assert.ok(refined.suggestions[0].values.constraints.some(item => item.includes("بازخورد ادمین")));
+  assert.throws(() => createProjectIntakeAdvisor({ actor: owner, firstFive: { ...firstFive, projectId: "Bad Id" } }), error => error instanceof ProjectIntakeAdvisorError);
 });
 
 test("Product Request creation is idempotent, fingerprint-bound and survives project hydration", () => {
@@ -303,7 +338,7 @@ test("Workspace Console is network-protected and delegates mutations to the huma
   const text = await page.text();
   assert.match(text, /فضای کاری و تنظیمات پروژه/);
   assert.match(text, /\/api\/projects\//);
-  assert.match(text, /\/intake/);
+  assert.doesNotMatch(text, /\/intake/);
   assert.match(text, /credentials: 'same-origin'/);
   assert.equal((await fetch(`${base}/workspace?projectId=project-vpn`, { method: "POST", headers })).status, 405);
 });

@@ -214,6 +214,33 @@ test("the browser portal keeps an active Human session inside AI Connections and
   assert.equal(basicOnly.status, 302, "Basic Auth alone must never bypass the Human session portal");
 });
 
+test("creation-time Advisor is transient, review-only and never dispatches a live provider", async t => {
+  const { access, identity } = setup();
+  const owner = ownerLogin(identity);
+  const app = createHeroServer({ host: "127.0.0.1", port: 0, now, projectAccessRegistry: access, humanIdentity: identity });
+  const address = await app.start();
+  t.after(() => app.stop());
+  const base = `http://127.0.0.1:${address.port}`;
+  const headers = { authorization: `Bearer ${owner.token}`, origin: base, "content-type": "application/json" };
+  const options = await fetch(`${base}/api/project-intake-advisor/options`, { headers });
+  assert.equal(options.status, 200);
+  assert.equal((await options.json()).advisor.preCreationLiveEligible, false);
+  const firstFive = { projectId: "myblog", name: "مای بلاگ", description: "وب‌سایت شخصی مدرن با دو صفحه", goal: "وب‌سایت شخصی با CMS", users: "یک شخص حقیقی" };
+  const initial = await fetch(`${base}/api/project-intake-advisor`, { method: "POST", headers, body: JSON.stringify({ selectedAdvisor: "local", firstFive }) });
+  assert.equal(initial.status, 200);
+  const advisor = (await initial.json()).advisor;
+  assert.equal(advisor.reviewOnly, true);
+  assert.equal(advisor.suggestions.length, 3);
+  assert.equal(advisor.suggestions[0].values.projectType, "web");
+  assert.doesNotMatch(JSON.stringify(advisor), /مای بلاگ|یک شخص حقیقی/);
+  const refined = await fetch(`${base}/api/project-intake-advisor/refine`, { method: "POST", headers, body: JSON.stringify({ selectedAdvisor: "local", firstFive, feedback: "CMS را ساده و دامنهٔ نخست را محدود کن." }) });
+  assert.equal(refined.status, 200);
+  assert.match((await refined.json()).advisor.feedbackResponse, /بازخورد/);
+  const live = await fetch(`${base}/api/project-intake-advisor`, { method: "POST", headers, body: JSON.stringify({ selectedAdvisor: "unready-live-profile", firstFive }) });
+  assert.equal(live.status, 403);
+  assert.equal((await live.json()).code, "PROJECT_INTAKE_ADVISOR_LIVE_DEFERRED");
+});
+
 test("Human Identity issues a six-hour HttpOnly browser session that survives refreshes and tabs", async t => {
   const { access, identity } = setup();
   const app = createHeroServer({ host: "127.0.0.1", port: 0, now, projectAccessRegistry: access, humanIdentity: identity });
@@ -252,14 +279,14 @@ test("Human Identity issues a six-hour HttpOnly browser session that survives re
   const advice = await fetch(`${base}/api/walkthrough/advice?projectId=project-vpn`, {
     method: "POST",
     headers: { cookie, origin: base, "content-type": "application/json" },
-    body: JSON.stringify({ stepId: "intake", projectId: "project-vpn", question: "برای هدف چه پیشنهادی داری؟" })
+    body: JSON.stringify({ stepId: "inputs", projectId: "project-vpn", question: "برای ورودی‌های اختیاری چه پیشنهادی داری؟" })
   });
   assert.equal(advice.status, 200);
   const advisor = (await advice.json()).advisor;
   assert.equal(advisor.mode, "local-contextual-guidance");
   assert.equal(advisor.providerInvoked, false);
-  assert.equal(advisor.stepId, "intake");
-  assert.equal(advisor.proposedFields.some(field => field.name === "goal"), true);
+  assert.equal(advisor.stepId, "inputs");
+  assert.equal(advisor.proposedFields.some(field => field.name === "filename"), true);
   assert.equal(JSON.stringify(advisor).includes("برای هدف چه پیشنهادی داری؟"), false, "questions must not be persisted or echoed");
 
   const smartTesterQuery = new URLSearchParams({ surface: "/workspace", featureKey: "workspace.intake", projectId: "project-vpn", boxId: "intake-card", boxTitle: "تعریف اولیهٔ پروژه", boxDescription: "این باکس مسئله، هدف و شیوهٔ تأیید پروژه را برای شروع جریان Hero ثبت می‌کند." }).toString();
@@ -443,14 +470,14 @@ test("Walk-Through lists active global advisor Profiles and preserves the projec
     selectionNotice: "پاسخ deterministic و بدون هزینهٔ Provider خارجی است."
   });
   assert.equal(JSON.stringify(payload).includes("credentialRef"), false);
-  const advice = await fetch(`${base}/api/walkthrough/advice?projectId=project-vpn`, { method: "POST", headers, body: JSON.stringify({ stepId: "intake", projectId: "project-vpn", advisorProfileId: "walkthrough-analyst-v1", question: "برای هدف چه پیشنهادی داری؟" }) });
+  const advice = await fetch(`${base}/api/walkthrough/advice?projectId=project-vpn`, { method: "POST", headers, body: JSON.stringify({ stepId: "inputs", projectId: "project-vpn", advisorProfileId: "walkthrough-analyst-v1", question: "برای ورودی‌های اختیاری چه پیشنهادی داری؟" }) });
   assert.equal(advice.status, 200);
   const selected = (await advice.json()).advisor.selectedAdvisor;
   assert.deepEqual(selected, { kind: "profile", profileId: "walkthrough-analyst-v1", providerId: "deterministic", modelId: "local-advisor-v1", profileVersion: 1, dispatch: "local-response" });
   const unavailable = await fetch(`${base}/api/walkthrough/advice?projectId=project-vpn`, {
     method: "POST",
     headers,
-    body: JSON.stringify({ stepId: "intake", projectId: "project-vpn", advisorProfileId: "missing-advisor-v1", question: "راهنمای Intake" })
+    body: JSON.stringify({ stepId: "inputs", projectId: "project-vpn", advisorProfileId: "missing-advisor-v1", question: "راهنمای ورودی‌ها" })
   });
   assert.equal(unavailable.status, 400, "a caller cannot bypass the picker with an unbound or unavailable profile");
   assert.equal((await unavailable.json()).code, "WALKTHROUGH_ADVISOR_PROFILE_UNAVAILABLE");
@@ -567,14 +594,14 @@ test("Project-bound live advisor profiles invoke through the bounded authorizati
   const firstNewProjectWalkthrough = await fetch(`${base}/api/walkthrough/advice?projectId=project-new`, {
     method: "POST",
     headers,
-    body: JSON.stringify({ stepId: "intake", projectId: "project-new", advisorProfileId: "live-advisor-profile", question: "راهنمای پروژهٔ تازه چیست؟" })
+    body: JSON.stringify({ stepId: "inputs", projectId: "project-new", advisorProfileId: "live-advisor-profile", question: "راهنمای ورودی‌های پروژهٔ تازه چیست؟" })
   });
   assert.equal(firstNewProjectWalkthrough.status, 200);
   assert.equal((await firstNewProjectWalkthrough.json()).advisor.providerInvoked, true);
   const autoProvisionedBinding = dashboard.aiOrchestration.resolveBinding({ projectId: "project-new", role: "analyst" });
   assert.equal(autoProvisionedBinding?.profileId, "live-advisor-profile");
   assert.match(autoProvisionedBinding?.bindingId ?? "", /^advisor-service-project-new-/);
-  const walkthrough = await fetch(`${base}/api/walkthrough/advice?projectId=project-vpn`, { method: "POST", headers, body: JSON.stringify({ stepId: "intake", projectId: "project-vpn", advisorProfileId: "live-advisor-profile", question: "گام بعدی چیست؟" }) });
+  const walkthrough = await fetch(`${base}/api/walkthrough/advice?projectId=project-vpn`, { method: "POST", headers, body: JSON.stringify({ stepId: "inputs", projectId: "project-vpn", advisorProfileId: "live-advisor-profile", question: "گام بعدی چیست؟" }) });
   assert.equal(walkthrough.status, 200);
   const walkthroughAdvisor = (await walkthrough.json()).advisor;
   assert.equal(walkthroughAdvisor.providerInvoked, true);
@@ -742,13 +769,13 @@ test("HTTP middleware enforces grants, Viewer read-only access and cross-project
   const viewerAdvice = await fetch(`${base}/api/walkthrough/advice?projectId=project-vpn`, {
     method: "POST",
     headers: viewerHeaders,
-    body: JSON.stringify({ stepId: "intake", projectId: "project-vpn", question: "راهنمای Intake" })
+    body: JSON.stringify({ stepId: "inputs", projectId: "project-vpn", question: "راهنمای ورودی‌ها" })
   });
   assert.equal(viewerAdvice.status, 200, "a Viewer may read local guidance for a granted project");
   assert.equal((await fetch(`${base}/api/walkthrough/advice?projectId=project-crm`, {
     method: "POST",
     headers: viewerHeaders,
-    body: JSON.stringify({ stepId: "intake", projectId: "project-crm" })
+    body: JSON.stringify({ stepId: "inputs", projectId: "project-crm" })
   })).status, 403, "the advisor must not cross a Project Grant boundary");
   assert.equal((await fetch(`${base}/api/smart-tester/context?surface=%2Fworkspace&featureKey=workspace.intake&projectId=project-vpn`, { headers: viewerHeaders })).status, 403, "Smart Tester remains owner-only even when a Viewer can read project guidance");
   assert.equal((await fetch(`${base}/api/projects/project-vpn/access`, { method: "POST", headers: viewerHeaders, body: JSON.stringify({ userId: "project-viewer", role: "viewer" }) })).status, 403);

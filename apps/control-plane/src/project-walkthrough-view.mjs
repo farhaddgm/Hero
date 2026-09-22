@@ -42,8 +42,8 @@ export function getProjectWalkthroughHtml({ projectId = null } = {}) {
     const $ = id => document.getElementById(id);
     const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
     const state = { projectId: initial.projectId, principal: null, overview: null, serviceEnabled: initial.projectId ? null : true };
-    const configuredSteps = new Set(['intake','inputs','foundation','settings']);
-    const requiredSetupSteps = new Set(['intake','foundation','settings']);
+    const configuredSteps = new Set(['inputs','foundation','settings']);
+    const requiredSetupSteps = new Set(['foundation','settings']);
     const surfaceFor = step => {
       const route = new URL(step.route, location.origin);
       if (route.pathname === '/identity') return 'identity';
@@ -76,11 +76,10 @@ export function getProjectWalkthroughHtml({ projectId = null } = {}) {
     };
     const setGuideSettingsStatus = (text, kind = '') => { const node = $('guide-settings-status'); node.textContent = text; node.className = 'status ' + kind; };
     const complete = step => {
-      const overview = state.overview || {}; const intake = overview.intake || {}; const foundation = overview.foundationProposal || {};
+      const overview = state.overview || {}; const foundation = overview.foundationProposal || {};
       if (step.id === 'create-project') return false;
       if (step.completion === 'human-session') return Boolean(state.principal);
       if (step.completion === 'selected-project') return Boolean(state.projectId);
-      if (step.completion === 'intake-complete') return Boolean(intake.goal && intake.users && intake.autonomy);
       if (step.completion === 'optional-input') return (overview.inputs || []).length > 0;
       if (step.completion === 'foundation-approved') return foundation.state === 'approved';
       if (step.completion === 'setting-registered') return (overview.settings || []).length > 0;
