@@ -578,9 +578,9 @@ export function createHeroServer(options = {}) {
     if (persistedWorkspaceRecords.has(key)) return;
     const request = project.version === 1 ? project.productRequest : null;
     if (request && postgresRuntime.projectWorkspace.appendProjectWithRequest) {
-      await postgresRuntime.projectWorkspace.appendProjectWithRequest({ projectId: project.projectId, version: project.version, name: project.name, description: project.description, lifecycle: project.lifecycle, status: project.status, intake: project.intake, actorId: project.createdBy ?? identityOwner.userId, reason, requestId: request.requestId, requestVersion: request.version, idempotencyKey: request.idempotencyKey, requestFingerprint: request.fingerprint, requestMetadata: { projectId: request.projectId, source: "owner-project-intake" }, requestState: request.state });
+      await postgresRuntime.projectWorkspace.appendProjectWithRequest({ projectId: project.projectId, version: project.version, name: project.name, description: project.description, lifecycle: project.lifecycle, status: project.status, intake: project.intake, archivedLifecycle: project.archivedLifecycle ?? null, actorId: project.createdBy ?? identityOwner.userId, reason, requestId: request.requestId, requestVersion: request.version, idempotencyKey: request.idempotencyKey, requestFingerprint: request.fingerprint, requestMetadata: { projectId: request.projectId, source: "owner-project-intake" }, requestState: request.state });
     } else {
-      await postgresRuntime.projectWorkspace.appendProject({ projectId: project.projectId, version: project.version, name: project.name, description: project.description, lifecycle: project.lifecycle, status: project.status, intake: project.intake, actorId: project.createdBy ?? identityOwner.userId, reason });
+      await postgresRuntime.projectWorkspace.appendProject({ projectId: project.projectId, version: project.version, name: project.name, description: project.description, lifecycle: project.lifecycle, status: project.status, intake: project.intake, archivedLifecycle: project.archivedLifecycle ?? null, actorId: project.createdBy ?? identityOwner.userId, reason });
     }
     persistedWorkspaceRecords.add(key);
   }
@@ -617,6 +617,7 @@ export function createHeroServer(options = {}) {
         lifecycle: project.lifecycle,
         status: project.status,
         intake: project.intake,
+        archivedLifecycle: project.archivedLifecycle ?? null,
         actorId: project.createdBy ?? identityOwner.userId,
         reason,
         requestId: request.requestId,
@@ -655,6 +656,16 @@ export function createHeroServer(options = {}) {
     if (persistedWorkspaceRecords.has(key)) return;
     await postgresRuntime.projectWorkspace.recordImportPlan({ importId: plan.importId, projectId: plan.projectId, repositoryUrl: plan.repositoryUrl, state: plan.state, inventory: plan.inventory, adoptionPlan: plan.adoptionPlan, actorId: plan.createdBy ?? identityOwner.userId });
     persistedWorkspaceRecords.add(key);
+  }
+
+  async function persistWorkspacePurge(purge) {
+    if (!postgresRuntime?.projectWorkspace?.recordProjectPurge || !purge) return;
+    await postgresRuntime.projectWorkspace.recordProjectPurge({
+      projectId: purge.projectId,
+      deletedBy: purge.deletedBy,
+      reason: purge.reason,
+      deletedObjectCount: purge.deletedObjectCount
+    });
   }
 
   function backofficeSnapshot() {
@@ -1592,13 +1603,16 @@ export function createHeroServer(options = {}) {
     });
   }
 
-  function portfolioSnapshot(principal = null) {
+  function portfolioSnapshot(principal = null, { view = "active" } = {}) {
     const accessible = principal?.source === "human-identity" ? projectAccessRegistry.listAccessibleProjectIds({ principal }) : null;
-    const projects = projectWorkspace.listProjects().filter(project => accessible === null || accessible.includes(project.projectId));
+    const archiveView = view === "archived";
+    const visibleProjects = projectWorkspace.listProjects().filter(project => accessible === null || accessible.includes(project.projectId));
+    const projects = visibleProjects.filter(project => archiveView ? project.lifecycle === "archived" : project.lifecycle !== "archived");
     const model = rebuildPortfolioReadModel({ projects });
     const cards = model.projects.map(project => ({
       projectId: project.projectId,
       name: project.name,
+      version: project.version,
       lifecycle: project.lifecycle,
       health: project.health,
       roadmap: project.nextTasks,
@@ -1607,7 +1621,7 @@ export function createHeroServer(options = {}) {
       latestOutput: project.latestOutput,
       drillDown: { href: `/product-studio?projectId=${encodeURIComponent(project.projectId)}`, projectId: project.projectId }
     }));
-    return Object.freeze({ ...model, cards, informationArchitecture: ["Portfolio", "Project Studio", "Overview", "Roadmap", "Inputs", "Settings", "Outputs"] });
+    return Object.freeze({ ...model, cards, archiveCount: visibleProjects.filter(project => project.lifecycle === "archived").length, view: archiveView ? "archived" : "active", informationArchitecture: ["Portfolio", "Project Studio", "Overview", "Roadmap", "Inputs", "Settings", "Outputs"] });
   }
 
   function pruneSmartTesterReports() {
@@ -1994,6 +2008,14 @@ export function createHeroServer(options = {}) {
       const projectMatch = url.pathname.match(/^\/api\/projects\/([A-Za-z][A-Za-z0-9._:-]{2,127})(?:\/|$)/);
       const projectId = projectMatch?.[1] ?? url.searchParams.get("projectId");
       if (!projectId) throw new ProjectAccessError("PROJECT_SCOPE_REQUIRED", "A projectId is required for human-identity API access.", 403);
+      // Older control-plane routes also serve established projects that
+      // predate Project Workspace.  Reject only a known purged scope here:
+      // treating every legacy project as absent would turn valid owner and
+      // human-session routes into 404s.  A tombstoned project still behaves
+      // as absent and cannot be recreated through a stale URL.
+      if (projectMatch && projectWorkspace.isPurgedProject?.(projectId)) {
+        throw new ProjectWorkspaceError("PROJECT_NOT_FOUND", "Project was not found.", 404);
+      }
       const action = request.method === "GET" ? "project.read" : "project.write";
       projectAccessMiddleware.requireProject({ principal, projectId, action });
       return;
@@ -2186,7 +2208,8 @@ export function createHeroServer(options = {}) {
         if (surface === "portfolio") {
           const destinationCandidate = url.searchParams.get("next") ?? url.searchParams.get("open");
           const destination = ["command", "studio", "workspace", "control", "walkthrough"].includes(destinationCandidate) ? destinationCandidate : null;
-          return html(response, getPortfolioHtml({ portfolio: portfolioSnapshot(principal), destination, selectionRequired: url.searchParams.get("select") === "project" || Boolean(destination) }));
+          const view = url.searchParams.get("view") === "archived" ? "archived" : "active";
+          return html(response, getPortfolioHtml({ portfolio: portfolioSnapshot(principal, { view }), destination, selectionRequired: url.searchParams.get("select") === "project" || Boolean(destination), archiveView: view === "archived" }));
         }
         if (surface === "command") {
           return html(response, getProjectControlRoomHtml({
@@ -2218,7 +2241,7 @@ export function createHeroServer(options = {}) {
           if (principal.role !== "project-owner") throw new ProjectAccessError("OWNER_REQUIRED", "The global AI catalog is available only to the Owner.", 403);
           return json(response, 200, { service: HERO_SERVICE, backoffice: backofficeSnapshot() }, { maxBytes: backofficeResponseLimitBytes });
         }
-        if (surface === "portfolio") return json(response, 200, { service: HERO_SERVICE, portfolio: portfolioSnapshot(principal) }, { maxBytes: backofficeResponseLimitBytes });
+        if (surface === "portfolio") return json(response, 200, { service: HERO_SERVICE, portfolio: portfolioSnapshot(principal, { view: url.searchParams.get("view") === "archived" ? "archived" : "active" }) }, { maxBytes: backofficeResponseLimitBytes });
         if (!["command", "studio", "workspace", "control", "walkthrough"].includes(surface)) return plain(response, 404, "Hero browser portal data surface not found.");
         requirePortalProjectScope(principal, projectId);
         if (surface === "studio") return json(response, 200, productStudioSnapshot({ projectId }), { maxBytes: backofficeResponseLimitBytes });
@@ -2352,7 +2375,8 @@ export function createHeroServer(options = {}) {
         }
         const destinationCandidate = url.searchParams.get("next") ?? url.searchParams.get("open");
         const destination = ["command", "studio", "workspace", "control", "walkthrough"].includes(destinationCandidate) ? destinationCandidate : null;
-        return html(response, getPortfolioHtml({ portfolio: portfolioSnapshot(), destination, selectionRequired: url.searchParams.get("select") === "project" || Boolean(destination) }));
+        const view = url.searchParams.get("view") === "archived" ? "archived" : "active";
+        return html(response, getPortfolioHtml({ portfolio: portfolioSnapshot(null, { view }), destination, selectionRequired: url.searchParams.get("select") === "project" || Boolean(destination), archiveView: view === "archived" }));
       }
 
       if (request.method === "GET" && url.pathname === "/portfolio-data") {
@@ -2362,7 +2386,7 @@ export function createHeroServer(options = {}) {
           await recordReadAccess("/backoffice-data", "accepted", { kind: backofficeAuth ? "backoffice-basic-auth" : "project-owner", id: backofficeAuth ? "backoffice-user" : "development-local" });
           return json(response, 200, { service: HERO_SERVICE, controlRoom: projectControlSnapshot(projectId) }, { maxBytes: backofficeResponseLimitBytes });
         }
-        return json(response, 200, { service: HERO_SERVICE, portfolio: portfolioSnapshot() }, { maxBytes: backofficeResponseLimitBytes });
+        return json(response, 200, { service: HERO_SERVICE, portfolio: portfolioSnapshot(null, { view: url.searchParams.get("view") === "archived" ? "archived" : "active" }) }, { maxBytes: backofficeResponseLimitBytes });
       }
 
       const authenticatedOwner = url.pathname.startsWith("/api/") && !PUBLIC_IDENTITY_PATHS.has(url.pathname) && !PUBLIC_UI_ASSET_PATHS.has(url.pathname)
@@ -2907,7 +2931,7 @@ export function createHeroServer(options = {}) {
       }
 
       if (request.method === "GET" && url.pathname === "/api/portfolio") {
-        return json(response, 200, { service: HERO_SERVICE, portfolio: portfolioSnapshot(authenticatedOwner) });
+        return json(response, 200, { service: HERO_SERVICE, portfolio: portfolioSnapshot(authenticatedOwner, { view: url.searchParams.get("view") === "archived" ? "archived" : "active" }) });
       }
 
       if (request.method === "GET" && url.pathname === "/api/portfolio/search") {
@@ -2937,12 +2961,41 @@ export function createHeroServer(options = {}) {
         return json(response, 200, { service: HERO_SERVICE, project });
       }
 
+      const projectRestoreMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/restore$/);
+      if (projectRestoreMatch && request.method === "POST") {
+        const input = await readJson(request);
+        const project = projectWorkspace.restoreProject({ actor: authenticatedOwner, projectId: projectRestoreMatch[1], expectedVersion: input.expectedVersion });
+        await persistWorkspaceProject(project, "Project restored");
+        return json(response, 200, { service: HERO_SERVICE, project });
+      }
+
+      const projectPurgeMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})$/);
+      if (projectPurgeMatch && request.method === "DELETE") {
+        const input = await readJson(request);
+        const prepared = projectWorkspace.preparePurge({ actor: authenticatedOwner, projectId: projectPurgeMatch[1], expectedVersion: input.expectedVersion, confirmationProjectId: input.confirmationProjectId, reason: input.reason });
+        // Persist the minimal tombstone before removing any private bytes. If a
+        // later cleanup fails, the project still cannot be revived on restart.
+        await persistWorkspacePurge(prepared);
+        let purge;
+        try {
+          purge = projectWorkspace.purgeProject({ actor: authenticatedOwner, projectId: projectPurgeMatch[1], expectedVersion: input.expectedVersion, confirmationProjectId: input.confirmationProjectId, reason: input.reason });
+        } catch (error) {
+          projectWorkspace.hydratePurgeTombstone?.({ projectId: prepared.projectId });
+          projectSettings.purgeProject?.({ projectId: prepared.projectId });
+          throw error;
+        }
+        projectSettings.purgeProject?.({ projectId: purge.projectId });
+        const revokedGrants = projectAccessRegistry?.revokeProjectGrants?.({ actor: authenticatedOwner, projectId: purge.projectId }) ?? [];
+        for (const grant of revokedGrants) {
+          if (postgresRuntime?.projectIdentity?.appendGrant) await postgresRuntime.projectIdentity.appendGrant({ projectId: grant.projectId, userId: grant.userId, role: grant.role, status: "revoked", grantedBy: authenticatedOwner.subject });
+          await persistIdentityAudit({ userId: grant.userId, eventType: "identity.project-grant-revoked", data: { projectId: grant.projectId, revokedBy: authenticatedOwner.subject, reason: "project-purged" } });
+        }
+        return json(response, 200, { service: HERO_SERVICE, purge, revokedGrantCount: revokedGrants.length });
+      }
+
       const projectDeletionMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/deletion-request$/);
       if (projectDeletionMatch && request.method === "POST") {
-        const input = await readJson(request);
-        const deletionRequest = projectWorkspace.requestDeletion({ actor: authenticatedOwner, projectId: projectDeletionMatch[1], expectedVersion: input.expectedVersion, reason: input.reason });
-        await persistWorkspaceProject(projectWorkspace.getProject(projectDeletionMatch[1]), input.reason);
-        return json(response, 202, { service: HERO_SERVICE, deletionRequest });
+        throw new ProjectWorkspaceError("PROJECT_PURGE_CONFIRMATION_REQUIRED", "Use DELETE /api/projects/:projectId after archiving and confirming the exact project identifier.", 400);
       }
 
       const projectReturnToDraftMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/return-to-draft$/);
@@ -3917,31 +3970,43 @@ export function createHeroServer(options = {}) {
       }
       if (postgresRuntime?.projectWorkspace) {
         const workspaceStore = postgresRuntime.projectWorkspace;
+        const purgedProjectIds = new Set();
+        if (workspaceStore.listProjectPurgeTombstones && projectWorkspace.hydratePurgeTombstone) {
+          for (const tombstone of await workspaceStore.listProjectPurgeTombstones()) {
+            projectWorkspace.hydratePurgeTombstone({ projectId: tombstone.projectId });
+            purgedProjectIds.add(tombstone.projectId);
+          }
+        }
         if (workspaceStore.listSettings && projectSettings.hydrateRecord) {
           for (const setting of await workspaceStore.listSettings()) {
+            if (purgedProjectIds.has(setting.projectId)) continue;
             projectSettings.hydrateRecord({ ...setting, actorId: setting.actor });
             persistedWorkspaceRecords.add(workspaceRecordKey("setting", setting));
           }
         }
         if (workspaceStore.listProjects && projectWorkspace.hydrateProject) {
           for (const project of await workspaceStore.listProjects()) {
+            if (purgedProjectIds.has(project.projectId)) continue;
             projectWorkspace.hydrateProject({ project });
             persistedWorkspaceRecords.add(workspaceRecordKey("project", project));
           }
         }
         if (workspaceStore.listInputs && projectWorkspace.hydrateInput) {
           for (const input of await workspaceStore.listInputs()) {
+            if (purgedProjectIds.has(input.projectId)) continue;
             try { projectWorkspace.hydrateInput({ input }); persistedWorkspaceRecords.add(workspaceRecordKey("input", input)); } catch { /* a corrupt input row must not expose bytes or stop unrelated startup */ }
           }
         }
         if (workspaceStore.listFoundationProposals && projectWorkspace.hydrateFoundation) {
           for (const proposal of await workspaceStore.listFoundationProposals()) {
+            if (purgedProjectIds.has(proposal.projectId)) continue;
             projectWorkspace.hydrateFoundation({ proposal });
             persistedWorkspaceRecords.add(workspaceRecordKey("proposal", proposal));
           }
         }
         if (workspaceStore.listImportPlans && projectWorkspace.hydrateImport) {
           for (const plan of await workspaceStore.listImportPlans()) {
+            if (purgedProjectIds.has(plan.projectId)) continue;
             projectWorkspace.hydrateImport({ plan });
             persistedWorkspaceRecords.add(workspaceRecordKey("import", plan));
           }

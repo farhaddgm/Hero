@@ -129,6 +129,13 @@ export function createProjectSettingsRegistry({ now = () => new Date().toISOStri
       if (projectId) assertId("projectId", projectId);
       return Object.freeze([...records.values()].filter(item => !projectId || item.projectId === projectId).sort((a, b) => a.projectId.localeCompare(b.projectId) || a.path.localeCompare(b.path) || a.version - b.version).map(copy));
     },
+    purgeProject({ projectId }) {
+      const normalizedProjectId = assertId("projectId", projectId);
+      for (const [recordKey, record] of records) if (record.projectId === normalizedProjectId) records.delete(recordKey);
+      for (const historyKey of history.keys()) if (historyKey.startsWith(`${normalizedProjectId}:`)) history.delete(historyKey);
+      policyPacks.delete(normalizedProjectId);
+      return copy({ projectId: normalizedProjectId, purged: true });
+    },
     removeOverride({ actor, projectId, path, layer = "project-override", runId = null, expectedVersion, reason }) {
       const current = records.get(key(assertId("projectId", projectId), assertPath(path), layer, runId));
       if (!current) throw new ProjectSettingsError("SETTING_NOT_FOUND", "No override exists to remove.", 404);

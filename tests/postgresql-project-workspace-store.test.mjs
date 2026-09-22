@@ -19,7 +19,7 @@ test("Product Request and project metadata are committed together and remain sec
   const fingerprint = "a".repeat(64);
   const result = await store.appendProjectWithRequest({ projectId: "project-replay", version: 1, name: "Replayable", lifecycle: "draft", status: "draft", intake: { goal: "safe" }, actorId: "hero-owner", requestId: "product-request-001", idempotencyKey: "product-request-key-001", requestFingerprint: fingerprint, requestMetadata: { projectId: "project-replay", source: "owner-project-intake" } });
   assert.equal(result.requestId, "product-request-001");
-  assert.deepEqual(queries.map(item => item.sql), ["BEGIN", "INSERT INTO product_request_versions (request_id, request_version, idempotency_key, request_fingerprint, project_id, state, request_metadata, actor_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)", "INSERT INTO project_registry_versions (project_id, project_version, name, description, lifecycle, status, intake, actor_id, reason) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)", "COMMIT"]);
+  assert.deepEqual(queries.map(item => item.sql), ["BEGIN", "INSERT INTO product_request_versions (request_id, request_version, idempotency_key, request_fingerprint, project_id, state, request_metadata, actor_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)", "INSERT INTO project_registry_versions (project_id, project_version, name, description, lifecycle, status, intake, archived_lifecycle, actor_id, reason) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)", "COMMIT"]);
   await assert.rejects(() => store.appendProjectWithRequest({ projectId: "project-replay", version: 1, name: "Replayable", lifecycle: "draft", status: "draft", intake: { goal: "safe", apiKey: "never" }, actorId: "hero-owner", requestId: "product-request-002", idempotencyKey: "product-request-key-002", requestFingerprint: fingerprint }), error => error.code === "SENSITIVE_PERSISTENCE_FORBIDDEN");
 
   const rollbackQueries = [];
@@ -49,7 +49,7 @@ test("new Product Request, Project and Foundation are committed in one transacti
     proposal: { suggested: { runtimePlan: { effects: { secretWrite: false } } } }
   });
   assert.equal(result.proposalId, "foundation-atomic");
-  assert.deepEqual(queries.map(item => item.sql), ["BEGIN", "INSERT INTO product_request_versions (request_id, request_version, idempotency_key, request_fingerprint, project_id, state, request_metadata, actor_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)", "INSERT INTO project_registry_versions (project_id, project_version, name, description, lifecycle, status, intake, actor_id, reason) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)", "INSERT INTO foundation_proposal_versions (proposal_id, project_id, proposal_version, state, proposal, actor_id) VALUES ($1,$2,$3,$4,$5,$6)", "COMMIT"]);
+  assert.deepEqual(queries.map(item => item.sql), ["BEGIN", "INSERT INTO product_request_versions (request_id, request_version, idempotency_key, request_fingerprint, project_id, state, request_metadata, actor_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)", "INSERT INTO project_registry_versions (project_id, project_version, name, description, lifecycle, status, intake, archived_lifecycle, actor_id, reason) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)", "INSERT INTO foundation_proposal_versions (proposal_id, project_id, proposal_version, state, proposal, actor_id) VALUES ($1,$2,$3,$4,$5,$6)", "COMMIT"]);
   const rollbackQueries = [];
   const rollbackStore = createPostgresProjectWorkspaceStore({ client: { async query(sql, values) { rollbackQueries.push({ sql, values }); if (sql.startsWith("INSERT INTO foundation_proposal_versions")) throw new Error("foundation insert failed"); return { rows: [] }; } } });
   await assert.rejects(() => rollbackStore.appendProjectWithRequestAndFoundation({ projectId: "project-atomic-fail", version: 1, name: "Atomic fail", lifecycle: "draft", status: "draft", intake: {}, actorId: "hero-owner", requestId: "product-request-atomic-fail", idempotencyKey: "product-request-atomic-fail-key", requestFingerprint: "b".repeat(64), proposalId: "foundation-atomic-fail", proposalVersion: 1, proposalState: "proposed", proposal: {} }), /foundation insert failed/);
@@ -89,6 +89,20 @@ test("project workspace store reads latest projects and all append-only metadata
   assert.equal((await store.listFoundationProposals())[0].state, "proposed");
   assert.equal((await store.listSettings({ projectId: "project-vpn" }))[0].value, "luna");
   assert.equal((await store.listImportPlans())[0].repositoryUrl, "https://github.com/acme/vpn");
+});
+
+test("project purge persistence retains only a minimal tombstone for startup exclusion", async () => {
+  const queries = [];
+  const store = createPostgresProjectWorkspaceStore({ client: { async query(sql, values) {
+    queries.push({ sql, values });
+    if (sql.includes("FROM project_purge_tombstones")) return { rows: [{ project_id: "project-vpn", deleted_by: "hero-owner", reason: "owner removal", deleted_object_count: 2, deleted_at: "2026-09-21T00:00:00.000Z" }] };
+    return { rows: [] };
+  } } });
+  const recorded = await store.recordProjectPurge({ projectId: "project-vpn", deletedBy: "hero-owner", reason: "owner removal", deletedObjectCount: 2 });
+  assert.equal(recorded.projectId, "project-vpn");
+  assert.match(queries[0].sql, /INSERT INTO project_purge_tombstones/);
+  assert.equal((await store.listProjectPurgeTombstones())[0].deletedObjectCount, 2);
+  await assert.rejects(() => store.recordProjectPurge({ projectId: "project-vpn", deletedBy: "hero-owner", reason: "", deletedObjectCount: 0 }), error => error.code === "INVALID_PURGE_REASON");
 });
 
 test("project read-model carries Product Request project scope for restart hydration", async () => {

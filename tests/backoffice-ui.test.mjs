@@ -574,6 +574,19 @@ test("Portfolio turns an unscoped Workspace or Operations entry into an explicit
   assert.match(html, /ورود به فضای پروژه/);
 });
 
+test("Portfolio keeps archived projects out of active cards and exposes owner-only archive recovery controls", () => {
+  const html = getPortfolioHtml({ portfolio: { archiveCount: 1, cards: [{ projectId: "project-vpn", name: "VPN", version: 4, lifecycle: "active", health: "unknown", roadmap: [] }] } });
+  assert.match(html, /آرشیوها \(1\)/);
+  assert.match(html, /data-project-archive/);
+  assert.match(html, /project-lifecycle-dialog/);
+  assert.match(html, /confirmationProjectId/);
+  assert.match(html, /const method = action === 'purge' \? 'DELETE' : 'POST';/);
+  const archiveHtml = getPortfolioHtml({ portfolio: { cards: [{ projectId: "project-vpn", name: "VPN", version: 4, lifecycle: "archived", health: "unknown", roadmap: [] }] }, archiveView: true });
+  assert.match(archiveHtml, /پروژه‌های آرشیوشده/);
+  assert.match(archiveHtml, /data-project-restore/);
+  assert.match(archiveHtml, /data-project-purge/);
+});
+
 test("Portfolio serialization cannot break out of its inline script", () => {
   const html = getPortfolioHtml({ portfolio: { cards: [{
     projectId: "project-safe",

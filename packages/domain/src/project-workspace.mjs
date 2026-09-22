@@ -54,8 +54,8 @@ export function createProjectWorkspace({ ownerUserId = "hero-owner", now = () =>
   assertId("ownerUserId", ownerUserId);
   if (!Number.isInteger(uploadQuotaBytes) || uploadQuotaBytes < 1024 || uploadQuotaBytes > 100 * 1024 * 1024) throw new Error("uploadQuotaBytes must be a safe integer quota.");
   if (objectStoreAdapter !== null && typeof objectStoreAdapter?.put !== "function") throw new ProjectWorkspaceError("OBJECT_STORE_INVALID", "Object store adapter must provide put().", 500);
-  const projects = new Map(); const uploads = new Map(); const proposals = new Map(); const imports = new Map(); const deletionRequests = new Map(); const objectStore = new Map(); const productRequests = new Map();
-  function project(projectId) { const row = projects.get(assertProjectId(projectId)); if (!row) throw new ProjectWorkspaceError("PROJECT_NOT_FOUND", "Project was not found.", 404); return row; }
+  const projects = new Map(); const uploads = new Map(); const proposals = new Map(); const imports = new Map(); const deletionRequests = new Map(); const objectStore = new Map(); const productRequests = new Map(); const purgedProjectIds = new Set();
+  function project(projectId) { const id = assertProjectId(projectId); const row = projects.get(id); if (!row || purgedProjectIds.has(id)) throw new ProjectWorkspaceError("PROJECT_NOT_FOUND", "Project was not found.", 404); return row; }
   function assertVersion(row, expectedVersion) { if (expectedVersion !== undefined && expectedVersion !== row.version) throw new ProjectWorkspaceError("STALE_PROJECT_VERSION", "Project changed before this command was applied.", 409); }
   function update(row, patch) { const next = copy({ ...row, ...patch, version: row.version + 1, updatedAt: now() }); projects.set(row.projectId, next); return next; }
   function projectUploads(projectId) { return [...uploads.values()].filter(item => item.projectId === projectId); }
@@ -96,6 +96,7 @@ export function createProjectWorkspace({ ownerUserId = "hero-owner", now = () =>
         const foundationProposal = currentFoundation(priorProject.projectId) ?? makeFoundationProposal(priorProject, actor);
         return copy({ project: priorProject, foundationProposal, policyPack: settings?.policyPack(priorProject.projectId) ?? null, request: requestMetadata(priorRequest), replayed: true });
       }
+      if (purgedProjectIds.has(id)) throw new ProjectWorkspaceError("PROJECT_ID_RETIRED", "A permanently deleted project identifier cannot be reused.", 409);
       if (projects.has(id)) throw new ProjectWorkspaceError("PROJECT_EXISTS", "ProjectId already exists.", 409);
       const request = copy({ requestId: `product-request-${randomUUID()}`, version: 1, idempotencyKey: key, fingerprint: requestFingerprint, projectId: id, state: "accepted", submittedBy: actor.subject, submittedAt: now() });
       // The create form is the authoritative capture point for product
@@ -105,13 +106,15 @@ export function createProjectWorkspace({ ownerUserId = "hero-owner", now = () =>
       const foundation = makeFoundationProposal(row, actor); return copy({ project: row, foundationProposal: foundation, policyPack: settings?.policyPack(id) ?? null, request, replayed: false });
     },
     getProject(projectId) { return copy(project(projectId)); },
-    listProjects() { return Object.freeze([...projects.values()].sort((a, b) => a.projectId.localeCompare(b.projectId)).map(copy)); },
+    isPurgedProject(projectId) { return purgedProjectIds.has(assertProjectId(projectId)); },
+    listProjects() { return Object.freeze([...projects.values()].filter(item => !purgedProjectIds.has(item.projectId)).sort((a, b) => a.projectId.localeCompare(b.projectId)).map(copy)); },
     hydrateProject({ project }) {
       const normalizedInput = project?.intake ?? {};
       let normalizedIntake;
       try { normalizedIntake = normalizeProductIntake({ name: project?.name, intake: normalizedInput }); } catch (error) { throw new ProjectWorkspaceError("INVALID_HYDRATION", error.message, 500); }
       const normalized = copy({ ...project, intake: normalizedIntake, riskAssessment: project.riskAssessment ?? normalizedIntake.riskAssessment });
       assertProjectId(normalized.projectId);
+      if (purgedProjectIds.has(normalized.projectId)) return null;
       if (!Number.isInteger(normalized.version) || normalized.version < 1) throw new ProjectWorkspaceError("INVALID_HYDRATION", "Project version is invalid.", 500);
       hydrateProductRequest(normalized);
       const current = projects.get(normalized.projectId);
@@ -121,8 +124,40 @@ export function createProjectWorkspace({ ownerUserId = "hero-owner", now = () =>
       }
       return copy(projects.get(normalized.projectId));
     },
-    archiveProject({ actor, projectId, expectedVersion, reason }) { assertOwner(actor); const row = project(projectId); assertVersion(row, expectedVersion); return update(row, { lifecycle: "archived", status: "archived", archiveReason: string(reason, "reason", 500), archivedBy: actor.subject, archivedAt: now() }); },
-    requestDeletion({ actor, projectId, expectedVersion, reason }) { assertOwner(actor); const row = project(projectId); assertVersion(row, expectedVersion); const request = copy({ deletionRequestId: `deletion-${randomUUID()}`, projectId: row.projectId, state: "requested", reason: string(reason, "reason", 500), requestedBy: actor.subject, requestedAt: now(), historyPreserved: true }); deletionRequests.set(row.projectId, request); update(row, { lifecycle: "deletion-requested", status: "deletion-requested" }); return request; },
+    archiveProject({ actor, projectId, expectedVersion, reason }) { assertOwner(actor); const row = project(projectId); assertVersion(row, expectedVersion); if (row.lifecycle === "archived") throw new ProjectWorkspaceError("PROJECT_ALREADY_ARCHIVED", "Project is already archived.", 409); return update(row, { lifecycle: "archived", status: "archived", archivedLifecycle: row.lifecycle, archiveReason: string(reason, "reason", 500), archivedBy: actor.subject, archivedAt: now() }); },
+    restoreProject({ actor, projectId, expectedVersion }) { assertOwner(actor); const row = project(projectId); assertVersion(row, expectedVersion); if (row.lifecycle !== "archived") throw new ProjectWorkspaceError("PROJECT_RESTORE_INVALID", "Only an archived project can be restored.", 409); const lifecycle = PROJECT_LIFECYCLES.includes(row.archivedLifecycle) && row.archivedLifecycle !== "archived" ? row.archivedLifecycle : "draft"; return update(row, { lifecycle, status: lifecycle, restoredAt: now(), restoredBy: actor.subject }); },
+    preparePurge({ actor, projectId, expectedVersion, confirmationProjectId, reason }) {
+      assertOwner(actor); const row = project(projectId); assertVersion(row, expectedVersion);
+      if (row.lifecycle !== "archived") throw new ProjectWorkspaceError("PROJECT_PURGE_REQUIRES_ARCHIVE", "Archive the project before permanent deletion.", 409);
+      if (confirmationProjectId !== row.projectId) throw new ProjectWorkspaceError("PROJECT_PURGE_CONFIRMATION_REQUIRED", "Type the exact project identifier to permanently delete it.", 400);
+      const safeReason = string(reason, "reason", 500);
+      const deletedObjectKeys = projectUploads(row.projectId).map(item => item.objectKey).filter(Boolean);
+      if (deletedObjectKeys.length > 0 && objectStoreAdapter && typeof objectStoreAdapter.delete !== "function") {
+        throw new ProjectWorkspaceError("PROJECT_PURGE_OBJECT_STORE_UNSUPPORTED", "Private files cannot be deleted safely by the configured object store.", 409);
+      }
+      // Confirm each object is still reachable before the first irreversible
+      // deletion, so a stale metadata record cannot leave a half-purged scope.
+      if (objectStoreAdapter?.metadata) for (const objectKey of deletedObjectKeys) objectStoreAdapter.metadata({ objectKey });
+      return copy({ projectId: row.projectId, name: row.name, expectedVersion: row.version, deletedBy: actor.subject, reason: safeReason, deletedObjectCount: deletedObjectKeys.length });
+    },
+    purgeProject({ actor, projectId, expectedVersion, confirmationProjectId, reason }) {
+      const prepared = this.preparePurge({ actor, projectId, expectedVersion, confirmationProjectId, reason });
+      const row = project(prepared.projectId);
+      const deletedObjectKeys = projectUploads(row.projectId).map(item => item.objectKey).filter(Boolean);
+      for (const objectKey of deletedObjectKeys) {
+        if (objectStoreAdapter?.delete) objectStoreAdapter.delete({ objectKey });
+        objectStore.delete(objectKey);
+      }
+      for (const [uploadId, item] of uploads) if (item.projectId === row.projectId) uploads.delete(uploadId);
+      for (const [proposalId, item] of proposals) if (item.projectId === row.projectId) proposals.delete(proposalId);
+      for (const [importId, item] of imports) if (item.projectId === row.projectId) imports.delete(importId);
+      for (const [key, item] of productRequests) if (item.projectId === row.projectId) productRequests.delete(key);
+      deletionRequests.delete(row.projectId); projects.delete(row.projectId); purgedProjectIds.add(row.projectId);
+      return copy({ projectId: row.projectId, name: row.name, deletedAt: now(), deletedBy: prepared.deletedBy, reason: prepared.reason, deletedObjectCount: deletedObjectKeys.length, auditRetention: "minimal-project-purge-tombstone" });
+    },
+    // Retained only to give legacy callers a clear, failure-safe migration
+    // path. A destructive operation is never inferred from an old endpoint.
+    requestDeletion() { throw new ProjectWorkspaceError("PROJECT_PURGE_CONFIRMATION_REQUIRED", "Use the archive-then-purge flow with an exact project identifier confirmation.", 400); },
     returnToDraft({ actor, projectId, expectedVersion, reason }) {
       assertOwner(actor);
       const row = project(projectId);
@@ -204,6 +239,7 @@ export function createProjectWorkspace({ ownerUserId = "hero-owner", now = () =>
       return Object.freeze({ uploadId: item.uploadId, filename: item.filename, mimeType: item.mimeType, bytes: Buffer.from(bytes) });
     },
     privateObjectMetadata({ actor, projectId, uploadId }) { assertProjectEditor(actor); project(projectId); const item = uploads.get(assertId("uploadId", uploadId)); if (!item || item.projectId !== projectId) throw new ProjectWorkspaceError("UPLOAD_NOT_FOUND", "Upload was not found.", 404); return copy({ uploadId: item.uploadId, objectKey: item.objectKey, checksum: item.checksum, byteLength: item.byteLength }); },
+    hydratePurgeTombstone({ projectId }) { const id = assertProjectId(projectId); purgedProjectIds.add(id); projects.delete(id); for (const [key, item] of productRequests) if (item.projectId === id) productRequests.delete(key); return copy({ projectId: id }); },
     deletionRequest(projectId) { project(projectId); return deletionRequests.get(projectId) ?? null; }
   });
 }

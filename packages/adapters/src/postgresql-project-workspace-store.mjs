@@ -33,12 +33,13 @@ export class ProjectWorkspaceStoreError extends Error { constructor(code, messag
 export function createPostgresProjectWorkspaceStore({ client, pool } = {}) {
   const target = targetOf({ client, pool });
   return Object.freeze({
-    async appendProject({ projectId, version, name, description = "", lifecycle, status, intake, actorId, reason = null }) {
+    async appendProject({ projectId, version, name, description = "", lifecycle, status, intake, archivedLifecycle = null, actorId, reason = null }) {
       assertId("projectId", projectId); assertId("actorId", actorId); if (!Number.isInteger(version) || version < 1) throw new ProjectWorkspaceStoreError("INVALID_VERSION", "Project version is invalid."); safe(intake);
-      await target.query(`INSERT INTO project_registry_versions (project_id, project_version, name, description, lifecycle, status, intake, actor_id, reason) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`, [projectId, version, String(name).slice(0, 160), String(description).slice(0, 2000), lifecycle, status, intake, actorId, reason]);
+      if (archivedLifecycle !== null && typeof archivedLifecycle !== "string") throw new ProjectWorkspaceStoreError("INVALID_ARCHIVED_LIFECYCLE", "Archived lifecycle is invalid.");
+      await target.query(`INSERT INTO project_registry_versions (project_id, project_version, name, description, lifecycle, status, intake, archived_lifecycle, actor_id, reason) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, [projectId, version, String(name).slice(0, 160), String(description).slice(0, 2000), lifecycle, status, intake, archivedLifecycle, actorId, reason]);
       return copy({ projectId, version, lifecycle, status });
     },
-    async appendProjectWithRequest({ projectId, version, name, description = "", lifecycle, status, intake, actorId, reason = null, requestId, requestVersion = 1, idempotencyKey, requestFingerprint, requestMetadata = {}, requestState = "accepted" }) {
+    async appendProjectWithRequest({ projectId, version, name, description = "", lifecycle, status, intake, archivedLifecycle = null, actorId, reason = null, requestId, requestVersion = 1, idempotencyKey, requestFingerprint, requestMetadata = {}, requestState = "accepted" }) {
       assertId("projectId", projectId); assertId("actorId", actorId); assertId("requestId", requestId); assertId("idempotencyKey", idempotencyKey);
       if (!Number.isInteger(version) || version < 1 || !Number.isInteger(requestVersion) || requestVersion < 1) throw new ProjectWorkspaceStoreError("INVALID_VERSION", "Project or request version is invalid.");
       if (typeof requestFingerprint !== "string" || !FINGERPRINT.test(requestFingerprint)) throw new ProjectWorkspaceStoreError("INVALID_FINGERPRINT", "Product request fingerprint is invalid.");
@@ -46,11 +47,11 @@ export function createPostgresProjectWorkspaceStore({ client, pool } = {}) {
       safe(intake); safe(requestMetadata);
       await transaction(target, async connection => {
         await connection.query(`INSERT INTO product_request_versions (request_id, request_version, idempotency_key, request_fingerprint, project_id, state, request_metadata, actor_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`, [requestId, requestVersion, idempotencyKey, requestFingerprint, projectId, requestState, requestMetadata, actorId]);
-        await connection.query(`INSERT INTO project_registry_versions (project_id, project_version, name, description, lifecycle, status, intake, actor_id, reason) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`, [projectId, version, String(name).slice(0, 160), String(description).slice(0, 2000), lifecycle, status, intake, actorId, reason]);
+        await connection.query(`INSERT INTO project_registry_versions (project_id, project_version, name, description, lifecycle, status, intake, archived_lifecycle, actor_id, reason) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, [projectId, version, String(name).slice(0, 160), String(description).slice(0, 2000), lifecycle, status, intake, archivedLifecycle, actorId, reason]);
       });
       return copy({ projectId, version, requestId, requestVersion, idempotencyKey, lifecycle, status });
     },
-    async appendProjectWithRequestAndFoundation({ projectId, version, name, description = "", lifecycle, status, intake, actorId, reason = null, requestId, requestVersion = 1, idempotencyKey, requestFingerprint, requestMetadata = {}, requestState = "accepted", proposalId, proposalVersion, proposalState, proposal, proposalActorId }) {
+    async appendProjectWithRequestAndFoundation({ projectId, version, name, description = "", lifecycle, status, intake, archivedLifecycle = null, actorId, reason = null, requestId, requestVersion = 1, idempotencyKey, requestFingerprint, requestMetadata = {}, requestState = "accepted", proposalId, proposalVersion, proposalState, proposal, proposalActorId }) {
       assertId("projectId", projectId); assertId("actorId", actorId); assertId("requestId", requestId); assertId("idempotencyKey", idempotencyKey); assertId("proposalId", proposalId); assertId("proposalActorId", proposalActorId ?? actorId);
       if (!Number.isInteger(version) || version < 1 || !Number.isInteger(requestVersion) || requestVersion < 1 || !Number.isInteger(proposalVersion) || proposalVersion < 1) throw new ProjectWorkspaceStoreError("INVALID_VERSION", "Project, request or proposal version is invalid.");
       if (typeof requestFingerprint !== "string" || !FINGERPRINT.test(requestFingerprint)) throw new ProjectWorkspaceStoreError("INVALID_FINGERPRINT", "Product request fingerprint is invalid.");
@@ -59,14 +60,25 @@ export function createPostgresProjectWorkspaceStore({ client, pool } = {}) {
       safe(intake); safe(requestMetadata); safe(proposal);
       await transaction(target, async connection => {
         await connection.query(`INSERT INTO product_request_versions (request_id, request_version, idempotency_key, request_fingerprint, project_id, state, request_metadata, actor_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`, [requestId, requestVersion, idempotencyKey, requestFingerprint, projectId, requestState, requestMetadata, actorId]);
-        await connection.query(`INSERT INTO project_registry_versions (project_id, project_version, name, description, lifecycle, status, intake, actor_id, reason) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`, [projectId, version, String(name).slice(0, 160), String(description).slice(0, 2000), lifecycle, status, intake, actorId, reason]);
+        await connection.query(`INSERT INTO project_registry_versions (project_id, project_version, name, description, lifecycle, status, intake, archived_lifecycle, actor_id, reason) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, [projectId, version, String(name).slice(0, 160), String(description).slice(0, 2000), lifecycle, status, intake, archivedLifecycle, actorId, reason]);
         await connection.query(`INSERT INTO foundation_proposal_versions (proposal_id, project_id, proposal_version, state, proposal, actor_id) VALUES ($1,$2,$3,$4,$5,$6)`, [proposalId, projectId, proposalVersion, proposalState, proposal, proposalActorId ?? actorId]);
       });
       return copy({ projectId, version, requestId, requestVersion, idempotencyKey, proposalId, proposalVersion, lifecycle, status });
     },
     async listProjects() {
-      const result = await target.query(`SELECT DISTINCT ON (p.project_id) p.project_id, p.project_version, p.name, p.description, p.lifecycle, p.status, p.intake, p.actor_id, p.reason, p.recorded_at, r.request_id, r.request_version, r.idempotency_key, r.request_fingerprint, r.state AS request_state, r.actor_id AS request_actor_id, r.recorded_at AS request_recorded_at FROM project_registry_versions p LEFT JOIN product_request_versions r ON r.project_id = p.project_id AND r.request_version = 1 ORDER BY p.project_id, p.project_version DESC`);
-      return Object.freeze((result.rows ?? []).map(row => copy({ projectId: row.project_id, version: row.project_version, name: row.name, description: row.description, lifecycle: row.lifecycle, status: row.status, intake: row.intake ?? {}, createdBy: row.actor_id, updatedAt: row.recorded_at, createdAt: row.recorded_at, archiveReason: row.reason ?? undefined, ...(row.request_id ? { productRequest: { requestId: row.request_id, version: row.request_version, idempotencyKey: row.idempotency_key, fingerprint: row.request_fingerprint, projectId: row.project_id, state: row.request_state, submittedBy: row.request_actor_id, submittedAt: row.request_recorded_at } } : {}) })));
+      const result = await target.query(`SELECT DISTINCT ON (p.project_id) p.project_id, p.project_version, p.name, p.description, p.lifecycle, p.status, p.intake, p.archived_lifecycle, p.actor_id, p.reason, p.recorded_at, r.request_id, r.request_version, r.idempotency_key, r.request_fingerprint, r.state AS request_state, r.actor_id AS request_actor_id, r.recorded_at AS request_recorded_at FROM project_registry_versions p LEFT JOIN product_request_versions r ON r.project_id = p.project_id AND r.request_version = 1 ORDER BY p.project_id, p.project_version DESC`);
+      return Object.freeze((result.rows ?? []).map(row => copy({ projectId: row.project_id, version: row.project_version, name: row.name, description: row.description, lifecycle: row.lifecycle, status: row.status, intake: row.intake ?? {}, archivedLifecycle: row.archived_lifecycle ?? undefined, createdBy: row.actor_id, updatedAt: row.recorded_at, createdAt: row.recorded_at, archiveReason: row.reason ?? undefined, ...(row.request_id ? { productRequest: { requestId: row.request_id, version: row.request_version, idempotencyKey: row.idempotency_key, fingerprint: row.request_fingerprint, projectId: row.project_id, state: row.request_state, submittedBy: row.request_actor_id, submittedAt: row.request_recorded_at } } : {}) })));
+    },
+    async recordProjectPurge({ projectId, deletedBy, reason, deletedObjectCount = 0 }) {
+      assertId("projectId", projectId); assertId("deletedBy", deletedBy);
+      if (typeof reason !== "string" || reason.trim().length === 0 || reason.length > 500) throw new ProjectWorkspaceStoreError("INVALID_PURGE_REASON", "Project purge reason is invalid.");
+      if (!Number.isInteger(deletedObjectCount) || deletedObjectCount < 0 || deletedObjectCount > 100000) throw new ProjectWorkspaceStoreError("INVALID_PURGE_OBJECT_COUNT", "Project purge object count is invalid.");
+      await target.query(`INSERT INTO project_purge_tombstones (project_id, deleted_by, reason, deleted_object_count) VALUES ($1,$2,$3,$4) ON CONFLICT (project_id) DO NOTHING`, [projectId, deletedBy, reason.trim(), deletedObjectCount]);
+      return copy({ projectId, deletedBy, deletedObjectCount });
+    },
+    async listProjectPurgeTombstones() {
+      const result = await target.query(`SELECT project_id, deleted_by, reason, deleted_object_count, deleted_at FROM project_purge_tombstones ORDER BY project_id`);
+      return Object.freeze((result.rows ?? []).map(row => copy({ projectId: row.project_id, deletedBy: row.deleted_by, reason: row.reason, deletedObjectCount: Number(row.deleted_object_count ?? 0), deletedAt: row.deleted_at instanceof Date ? row.deleted_at.toISOString() : row.deleted_at })));
     },
     async findProductRequest({ idempotencyKey }) {
       assertId("idempotencyKey", idempotencyKey);

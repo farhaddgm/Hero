@@ -215,11 +215,13 @@ test("private object store persists Hero upload bytes below an isolated project-
     const input = workspace.upload({ actor: admin, projectId: "project-vpn", type: "text", filename: "brief.txt", content: "private project brief", mimeType: "text/plain" });
     assert.equal(input.storage, "hero-private-volume");
     assert.equal(store.read({ objectKey: input.objectKey }).toString("utf8"), "private project brief");
+    assert.equal(store.delete({ objectKey: input.objectKey }).deleted, true);
+    assert.throws(() => store.read({ objectKey: input.objectKey }), error => error.code === "ENOENT");
     assert.throws(() => store.read({ objectKey: "hero/uploads/project-vpn/../../escape" }), error => error.code === "OBJECT_STORE_KEY_INVALID");
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
-test("Foundation approval applies a policy pack, owner can return to Draft with a new Foundation, and archive/delete preserve history", () => {
+test("Foundation approval applies a policy pack; archived projects can be restored or permanently purged only with explicit confirmation", () => {
   const { settings, workspace } = setup();
   const created = workspace.createProject({ actor: owner, projectId: "project-vpn", name: "VPN" });
   const approved = workspace.approveFoundation({ actor: admin, projectId: "project-vpn", proposalId: created.foundationProposal.proposalId, expectedVersion: 1 });
@@ -238,8 +240,18 @@ test("Foundation approval applies a policy pack, owner can return to Draft with 
   assert.throws(() => workspace.returnToDraft({ actor: admin, projectId: "project-vpn", expectedVersion: 3, reason: "not owner" }), error => error.code === "OWNER_REQUIRED");
   const archived = workspace.archiveProject({ actor: owner, projectId: "project-vpn", expectedVersion: 3, reason: "pause" });
   assert.equal(archived.lifecycle, "archived");
-  const deletion = workspace.requestDeletion({ actor: owner, projectId: "project-vpn", expectedVersion: 4, reason: "owner request" });
-  assert.equal(deletion.historyPreserved, true);
+  assert.throws(() => workspace.purgeProject({ actor: owner, projectId: "project-vpn", expectedVersion: 4, confirmationProjectId: "wrong-project", reason: "owner request" }), error => error.code === "PROJECT_PURGE_CONFIRMATION_REQUIRED");
+  const restored = workspace.restoreProject({ actor: owner, projectId: "project-vpn", expectedVersion: 4 });
+  assert.equal(restored.lifecycle, "draft");
+  const archivedAgain = workspace.archiveProject({ actor: owner, projectId: "project-vpn", expectedVersion: 5, reason: "remove safely" });
+  const afterRestart = setup().workspace;
+  afterRestart.hydrateProject({ project: archivedAgain });
+  assert.equal(afterRestart.restoreProject({ actor: owner, projectId: "project-vpn", expectedVersion: archivedAgain.version }).lifecycle, "draft", "archive preserves its prior lifecycle across hydration");
+  const purged = workspace.purgeProject({ actor: owner, projectId: "project-vpn", expectedVersion: archivedAgain.version, confirmationProjectId: "project-vpn", reason: "owner request" });
+  assert.equal(purged.auditRetention, "minimal-project-purge-tombstone");
+  assert.throws(() => workspace.getProject("project-vpn"), error => error.code === "PROJECT_NOT_FOUND");
+  assert.throws(() => workspace.createProject({ actor: owner, projectId: "project-vpn", name: "Reused" }), error => error.code === "PROJECT_ID_RETIRED");
+  assert.throws(() => workspace.requestDeletion({ actor: owner, projectId: "project-vpn", expectedVersion: 1, reason: "legacy" }), error => error.code === "PROJECT_PURGE_CONFIRMATION_REQUIRED");
 });
 
 test("settings resolve with provenance, reject invariant weakening and preserve versioned rollback history", () => {
@@ -445,6 +457,26 @@ test("project HTTP APIs enforce owner create, project grant isolation, settings 
   assert.equal((await fetch(`${base}/api/projects/project-vpn/inputs/${encodeURIComponent(uploadedBody.input.uploadId)}/recall`, { headers: viewerHeaders })).status, 403);
   assert.equal((await fetch(`${base}/api/projects/project-vpn/inputs/${encodeURIComponent(uploadedBody.input.uploadId)}/download`, { headers: viewerHeaders })).status, 403);
   assert.equal((await fetch(`${base}/api/projects/project-vpn/settings`, { method: "POST", headers: viewerHeaders, body: JSON.stringify({ path: "ai.defaultModel", value: "luna", reason: "no" }) })).status, 403);
+  const archived = await fetch(`${base}/api/projects/project-vpn/archive`, { method: "POST", headers, body: JSON.stringify({ expectedVersion: 3, reason: "pause" }) });
+  const archivedBody = await archived.json();
+  assert.equal(archived.status, 200, JSON.stringify(archivedBody));
+  assert.equal(archivedBody.project.lifecycle, "archived");
+  const activePortfolio = await fetch(`${base}/api/portfolio`, { headers });
+  assert.equal((await activePortfolio.json()).portfolio.cards.some(card => card.projectId === "project-vpn"), false);
+  const archivedPortfolio = await fetch(`${base}/api/portfolio?view=archived`, { headers });
+  assert.equal((await archivedPortfolio.json()).portfolio.cards.some(card => card.projectId === "project-vpn"), true);
+  const restore = await fetch(`${base}/api/projects/project-vpn/restore`, { method: "POST", headers, body: JSON.stringify({ expectedVersion: archivedBody.project.version }) });
+  const restoreBody = await restore.json();
+  assert.equal(restore.status, 200, JSON.stringify(restoreBody));
+  const archivedAgain = await fetch(`${base}/api/projects/project-vpn/archive`, { method: "POST", headers, body: JSON.stringify({ expectedVersion: restoreBody.project.version, reason: "permanent removal" }) });
+  const archivedAgainBody = await archivedAgain.json();
+  const rejectPurge = await fetch(`${base}/api/projects/project-vpn`, { method: "DELETE", headers, body: JSON.stringify({ expectedVersion: archivedAgainBody.project.version, confirmationProjectId: "not-project-vpn", reason: "owner removal" }) });
+  assert.equal(rejectPurge.status, 400);
+  const purged = await fetch(`${base}/api/projects/project-vpn`, { method: "DELETE", headers, body: JSON.stringify({ expectedVersion: archivedAgainBody.project.version, confirmationProjectId: "project-vpn", reason: "owner removal" }) });
+  const purgedBody = await purged.json();
+  assert.equal(purged.status, 200, JSON.stringify(purgedBody));
+  assert.equal(purgedBody.purge.projectId, "project-vpn");
+  assert.equal((await fetch(`${base}/api/projects/project-vpn/workspace-overview`, { headers })).status, 404);
 });
 
 test("HTTP project creation uses the atomic PostgreSQL persistence boundary when available", async t => {
