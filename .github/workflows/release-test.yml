@@ -58,11 +58,11 @@ jobs:
         run: |
           node --input-type=module -e '
             const artifact = process.env.ARTIFACT ?? "";
-            if (!/^ghcr\\.io\\/farhaddgm\\/hero@sha256:[a-f0-9]{64}$/.test(artifact)) process.exit(1);
+            if (!/^ghcr\.io\/farhaddgm\/hero@sha256:[a-f0-9]{64}$/.test(artifact)) process.exit(1);
             const commit = process.env.COMMIT_SHA ?? "";
             if (!/^[0-9a-f]{7,64}$/i.test(commit)) process.exit(1);
             const version = process.env.RELEASE_VERSION ?? "";
-            if (!/^(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$/.test(version)) process.exit(1);
+            if (!/^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(version)) process.exit(1);
           '
           docker pull "$ARTIFACT"
           IMAGE_VERSION="$(docker image inspect --format='{{index .Config.Labels "org.opencontainers.image.version"}}' "$ARTIFACT")"

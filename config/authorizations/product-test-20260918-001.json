@@ -1,0 +1,61 @@
+{
+  "schema": "hero.authorization-snapshot/v1",
+  "authorizationId": "PRODUCT-TEST-20260918-001",
+  "status": "active",
+  "grantedBy": "project-owner",
+  "grantedAt": "2026-09-18T00:00:00Z",
+  "grantSource": "owner-chat-authorization-for-safe-test-product-lifecycle",
+  "validUntil": "owner-revocation",
+  "globalStop": false,
+  "operations": [
+    "product-test-build",
+    "product-test-test",
+    "product-test-start",
+    "product-test-stop",
+    "product-test-cleanup",
+    "product-test-health",
+    "product-test-rollback"
+  ],
+  "excludedOperations": [
+    "production-deploy",
+    "pilot-execution",
+    "secret-change",
+    "live-provider",
+    "external-spend",
+    "external-message",
+    "destructive-data-operation",
+    "irreversible-operation"
+  ],
+  "documents": [
+    { "documentId": "HERO-OPS-PRODUCT-TEST-SAFE-SAMPLE", "documentVersion": "1.0.0" },
+    { "documentId": "HERO-EVIDENCE-PRODUCT-FACTORY-PF3-20260918", "documentVersion": "1.0.0" }
+  ],
+  "steps": [
+    { "stepId": "PF3-PRODUCT-TEST-001", "documentVersion": "1.0.0" },
+    { "stepId": "PF3-PRODUCT-TEST-002", "documentVersion": "1.0.0" },
+    { "stepId": "PF3-PRODUCT-TEST-003", "documentVersion": "1.0.0" },
+    { "stepId": "PF3-PRODUCT-TEST-004", "documentVersion": "1.0.0" },
+    { "stepId": "PF3-PRODUCT-TEST-005", "documentVersion": "1.0.0" }
+  ],
+  "scope": {
+    "environment": "test",
+    "repository": "farhaddgm/Hero",
+    "projectId": "safe-sample",
+    "target": "hero-product-safe-sample-test",
+    "allowedActions": [
+      "build-sample-image",
+      "run-test-container",
+      "start-test-container",
+      "health-check",
+      "stop-test-container",
+      "cleanup-test-resources",
+      "record-redacted-evidence"
+    ],
+    "production": false,
+    "pilot": false,
+    "secrets": false,
+    "liveProvider": false,
+    "externalSpend": false
+  },
+  "note": "Owner-authorized harmless Product Test lifecycle only. The sample has no host mounts, ports, volumes, network access, secrets, live Provider, external spend or Production/Pilot relationship. Stop and cleanup are mandatory; rollback means returning the Test target to no sample resources."
+}

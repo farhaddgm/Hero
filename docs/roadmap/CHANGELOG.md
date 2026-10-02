@@ -1,5 +1,322 @@
 # تغییرات رودمپ شرکت
 
+# ۲۰۲۶-۰۹-۲۱ — سرویس سراسری Test برای Advisor، Walk-Through و Smart Tester
+
+- اصلاح‌شده: سه دستیار Back Office برای Project تازه دیگر به Binding تحلیل‌گر یا Scope دستیِ همان Project وابسته نیستند. Profile فعال و سالم در همهٔ Projectها انتخاب‌پذیر است و، پس از گذر از مجوز صریح Test-wide، نخستین درخواست فقط یک Binding داخلیِ append-only و project-scoped می‌سازد.
+- سخت‌سازی‌شده: authorization جدید `AUTH-AI-TEST-002 / v1.2` با سقف تجمعی `200,000` واحد فقط با `HERO_EXTERNAL_SPEND_PROJECT_SCOPE=all-test-projects`، `HERO_EXTERNAL_SPEND_PROJECT_ID=all-test-projects` و `HERO_EXTERNAL_SPEND_ENVIRONMENT=test` معتبر است. این حالت در هر محیط دیگر fail-closed می‌شود. سقف هر درخواست همچنان از Profile read-only و policy درخواست محدود است. authorization، audit و حسابداری هر فراخوانی همچنان `projectId` واقعی همان Project را ثبت می‌کنند؛ هیچ context یا مجوزی میان Projectها به اشتراک گذاشته نمی‌شود.
+- اصلاح‌شده: پیام‌های UI و API دیگر از ادمین نمی‌خواهند برای این سه دستیار در Project تازه Binding یا Scope بسازد؛ در نبود گیت واقعی فقط وضعیت «مجوز سراسری Test یا Health آماده نیست» نمایش داده می‌شود.
+- شواهد source: `git diff --check`، تست متمرکز Linux container `52/52` PASS و زنجیرهٔ کامل معادل `pnpm check` با `490/490` تست، `149` سند با صفر خطا و build `299` ماژول / `55` JSON PASS است. سناریوی Project تازه، policy تک‌پروژه‌ای، authorization صریح Test-wide، provision داخلی و رد scope جهانی بیرون از Test پوشش داده شده‌اند. هیچ Provider زنده، هزینهٔ خارجی، Secret، Profile/Binding runtime، Pilot یا Production تغییر نکرد.
+
+# ۲۰۲۶-۰۹-۲۱ — انتخاب سراسری AI و چیدمان پایدار Advisor
+
+- اصلاح‌شده: AI/Profile سازگار و دارای Health در سه سرویس Advisor، Walk-Through Guide و Smart Tester دیگر به Binding پروژهٔ باز وابسته نیست و در انتخاب‌گر همهٔ پروژه‌ها نمایش داده و قابل انتخاب می‌شود. انتخاب اخیر هر سرویس نیز فقط به‌عنوان preference مرورگر و بدون ذخیرهٔ متن/Secret، بین پروژه‌ها حفظ می‌شود.
+- سخت‌سازی‌شده: «قابل انتخاب بودن در سرویس» از «آماده‌بودن dispatch زنده در پروژه» جدا شد. Provider call همچنان بدون Binding تحلیل‌گر، Scope قابلیت و authorization هزینهٔ همان Project انجام نمی‌شود؛ گزینهٔ انتخابی در این حالت علت امن و روشن نشان می‌دهد و API نیز fail-closed می‌ماند.
+- اصلاح‌شده: در تکرار Profileهای یک Provider/Model، Profile آمادهٔ dispatch برای Project جاری بر نسخهٔ قدیمی یا unbound اولویت دارد؛ بنابراین یک گزینهٔ ناسالم، AI سالم را پنهان نمی‌کند.
+- اصلاح‌شده: بدنهٔ Popup ادوایزر اکنون یک scroll region کنترل‌شده دارد. کارت‌های پیشنهاد و متن‌ها فشرده‌تر شده‌اند و input بازخورد با `min-width: 0` و responsive layout در کادر قابل‌مشاهده می‌ماند.
+- شواهد source: تست متمرکز Linux container برای Advisor UI و API برابر `27/27` PASS است؛ این تغییر هیچ Provider زنده، Secret، Profile/Binding، authorization، هزینه، Pilot یا Production را تغییر نداده است. Candidate و promotion Test مرحلهٔ بعدیِ جداگانه‌اند.
+
+# ۲۰۲۶-۰۹-۲۱ — Candidate فقط-Test برای ارتقای سه دستیار Back Office
+
+- source مربوط به ارتقای Walk-Through، Smart Tester و Advisor در commit `2cd6f4e` روی branch مرجع push شد و workflow `35529180861` Candidate `v1.1.5-rc.27` را با artifact immutable `sha256:62354d79a8266bcc857ed1111f31f15a727ebed171d36722dd803cafafa2cd09` ساخت.
+- این Candidate روی Runtime Test promote و verify شد؛ `/health`، `/ready` و smoke نهایی PASS شدند. `connection reset` هنگام restart گذرا بود و با readiness/smoke نهایی برطرف‌نشدنِ اختلال تأیید شد. ثبت Target واقعی، Agent enrollment، lifecycle محصول نمونه، portability/recovery واقعی، Owner acceptance و browser/accessibility/load evidence گیت‌های جداگانهٔ بعدی‌اند.
+- هیچ Production، Pilot، Secret، Provider زنده یا هزینهٔ خارجی در این Candidate تغییر نکرده است.
+
+# ۲۰۲۶-۰۹-۲۱ — رندر مقاوم اتاق کنترل پروژه
+
+- اتاق کنترل پروژه اکنون محتوای امن و project-scoped را از سمت سرور هم رندر می‌کند؛ اگر JavaScript مرورگر خطا بخورد، کاربر فقط header خالی نمی‌بیند و وضعیت زیرساخت/Target و پیام نبود Target را مشاهده می‌کند.
+- برای این رفتار تست regression اضافه شد. این تغییر هنوز در Candidate rc27 نیست و برای Runtime Test به Candidate و promotion جداگانه نیاز دارد.
+
+# ۲۰۲۶-۰۹-۲۰ — ارتقای یکپارچهٔ Walk-Through، Smart Tester و Advisor
+
+- Walk-Through نسخهٔ `1.9.0` پیشرفت لازم، blocker و اقدام بعدی را از نشست و read model واقعی محاسبه می‌کند. «ورودی پروژه» اکنون مطابق قرارداد Workspace اختیاری است و نبود Brief/سند ادامهٔ مسیر را مسدود نمی‌کند. Project دارای Grant ولی فاقد read model نیز به‌جای 404، راهنمای امن با وضعیت تکمیل‌نشده دریافت می‌کند. Context زنده فقط summary و شناسه‌های وضعیت را می‌گیرد و مقدار فرم را نگه نمی‌دارد.
+- Smart Tester نسخهٔ `1.6.0` و گزارش خطای `1.3.0` برای هر یافته fingerprint پایدار پاک‌سازی‌شده، category، severity، confidence، evidence type، observed/expected/impact، پیشنهاد اصلاح و verification می‌سازند. `remediationBrief/v1` برای تحویل امن به عامل توسعه، incident و فرصت‌های کیفیتِ صریحاً اجرا‌نشده به دفتر خطا افزوده شده‌اند؛ prompt، Secret و source خام ذخیره نمی‌شوند.
+- نام canonical دستیار تکمیل فرم «Advisor / ادوایزر» است. APIهای `/api/advisor*` و facade دامنه اضافه شدند؛ مسیر، export، localStorage و capability قبلی `form-suggestions` برای سازگاری authorization نسخه‌دار حفظ شده‌اند. Advisor علاوه بر پیشنهادهای فرم، assumptions، risks، tests و improvements و برای file input فقط brief امن سند/تصویر، filename، alt text و معیار پذیرش ارائه می‌دهد؛ فایل یا upload خودکار ندارد. Owner/Admin ثبت نهایی را جداگانه انجام می‌دهد.
+- دسترسی Admin به refinement canonical و legacy تکمیل شد. هیچ قابلیت قبلی حذف و هیچ Secret، Provider، Profile، Binding، authorization، Pilot یا Production تغییر داده نشد.
+- Benchmark رسمی از GOV.UK Task List، Microsoft HAX، Google PAIR، OpenTelemetry semantic conventions، GitHub Issue Forms، Google SRE postmortem culture و WAI-ARIA modal dialog در اسناد معماری/عملیاتی ثبت شد.
+- شواهد source: `pnpm check` معادل در Linux source-snapshot container کامل PASS شد؛ `487/487` تست، documentation برابر `148` سند و صفر خطا، build برابر `299` ماژول و `54` فایل JSON، به‌همراه governance، deployment contract، environment parity، roadmap و Back Office audit همگی موفق‌اند.
+
+# ۲۰۲۶-۰۹-۲۰ — اجرای دقیق بازخورد در فرم‌های چندفیلدی
+
+- اصلاح تعاملی پیشنهاد فرم اکنون field-aware است: Hero عبارت‌های صریحی مانند «فیلد اول را کوتاه‌تر کن و فیلد دوم را مفصل‌تر کن» را فقط در حافظهٔ همان درخواست به نام، برچسب و جایگاه field واقعی نگاشت می‌کند. Provider علاوه بر متن بازخورد، قرارداد روشنِ هر فیلدِ هدف را می‌گیرد؛ بنابراین تغییر مربوط به یک field نباید به field دیگر سرایت کند.
+- برای field متنی که «کوتاه» خواسته شده، پاسخ Provider حداکثر ۲۲۰ نویسه و برای «مفصل» دست‌کم ۲۲۰ نویسهٔ مرتبط با همان field باید داشته باشد. اگر پاسخ ساخت‌یافته این قرارداد را رعایت نکند، فقط همان field با یک مقدار ایمن و متناسب با همان دستور تکمیل می‌شود؛ select/radio و گزینه‌های مجاز همچنان از خود فرم خوانده می‌شوند و هرگز حدس زده نمی‌شوند.
+- `feedbackResponse` همچنان پاسخ کوتاه و قابل‌نمایش AI است، نه زنجیرهٔ فکر؛ Provider باید در آن نام fieldهای تغییرکرده را بگوید. متن خام بازخورد یا نگاشت آن به context ساخت‌یافته، event، audit، تاریخچه، storage مرورگر یا پاسخ پایدار وارد نمی‌شود و با بسته‌شدن Popup از بین می‌رود.
+- شواهد این برش: تست domain و integration در Linux container ایزوله با شبکهٔ خاموش `25/25` PASS شد؛ سناریوی چندفیلدی هم نگاشت «اول/دوم»، هم اعمال حد طول و هم عدم ماندگاری بازخورد را پوشش می‌دهد. زنجیرهٔ کامل معادل `pnpm check` نیز با Node مرجع در همان container PASS شد: `484/484` تست، `148` سند با صفر خطا و build شامل `298` ماژول و `54` فایل JSON. Candidate فقط-Test `1.1.5-rc.26` از workflow `35523233494` برای commit `2ffebdeb2f9db6aea8ec2848d7a9a936dc74f104` با artifact immutable `ghcr.io/farhaddgm/hero@sha256:9965fbce6f9ab1dcf1f11103a66dff01c1983f573cf93b9f3da8f085be72602f` با موفقیت ساخته شد؛ promotion و verify روی سرور Test هنوز جداست. هیچ Provider زنده، Secret، Profile، Binding، authorization، Pilot یا Production در این بررسی تغییر نکرد.
+
+# ۲۰۲۶-۰۹-۲۰ — بازخورد معنادار و پیش‌نویس سند در پیشنهاد فرم
+
+- هر اصلاح زندهٔ پیشنهاد فرم اکنون علاوه بر یک کارت تازه، فیلد موقت `feedbackResponse` دارد: Provider باید در یک تا سه جملهٔ کوتاه توضیح دهد بازخورد ادمین را چگونه تفسیر کرده و چه تغییری در پیشنهاد داده است. این توضیحِ کاربرمحور جای پاسخ ثابت UI را می‌گیرد؛ زنجیرهٔ فکر داخلی نمایش داده نمی‌شود. اگر Provider این بخش را ناقص بفرستد، Hero فقط یک توضیح ایمنِ گذرا نشان می‌دهد و پیشنهاد معتبر را رد نمی‌کند.
+- دستور Provider صریحاً تغییر محسوسِ جزئیات، تأکید یا ساختار پیشنهادی را مطالبه می‌کند تا پاسخ قالبیِ تکراری به‌جای بازخورد ادمین نمایش داده نشود. مقدارهای هر field همچنان فقط در برابر فرم واقعی، گزینه‌های مجاز و فیلتر دادهٔ حساس اعتبارسنجی می‌شوند.
+- برای فرم موجودِ «ورودی پروژه» (`upload-form`)، Provider فقط در صورت مفیدبودن می‌تواند یک پیش‌نویس متنِ قابل‌خواندن با نام فایل امن `.txt` یا `.md` پیشنهاد کند. پیش‌نویس حداکثر ۶٬۰۰۰ نویسه است، فقط در همان Popup دیده می‌شود و دکمهٔ آن صرفاً نام/متن را در فرم اصلی می‌گذارد؛ ذخیره یا upload خودکار ندارد. فقط ثبت جداگانهٔ فرم توسط ادمین آن را به ورودی خصوصی همان پروژه تبدیل می‌کند.
+- بازخورد، پاسخ گفت‌وگویی و پیش‌نویسِ تأییدنشده با بستن Popup حذف می‌شوند و به context ساخت‌یافته، event، audit، تاریخچهٔ پروژه یا storage مرورگر نوشته نمی‌شوند. تست‌های هدفمند domain/UI/API برابر `24/24` و `pnpm check` کامل برابر `483/483` موفق‌اند؛ Documentation برابر `148` سند با صفر خطا و build برابر `298` ماژول و `54` فایل JSON بود. هیچ Provider زنده، Secret، Profile، Binding، authorization، Pilot یا Production تغییر نکرد.
+
+# ۲۰۲۶-۰۹-۲۰ — اعمال واقعی بازخورد در پیشنهاد فرم
+
+- علت کارت‌های ظاهراً یکسان رفع شد: Provider ممکن است `type` یک field را حذف کند یا برای `textarea` مقدار کلی‌ترِ `text` برگرداند. Hero پیش‌تر به‌اشتباه همان مقدارِ معتبر را رد و fallback ثابت تولید می‌کرد؛ نشانهٔ آن پیام «مقدار کم‌ریسک افزوده شد» برای همهٔ کارت‌ها بود.
+- نوع فیلد اکنون فقط از فرم واقعی گرفته می‌شود. اگر نام field و مقدار آن امن و معتبر باشند، مقدار Provider پذیرفته و با نوع واقعی فرم نمایش داده می‌شود؛ گزینه‌های select/radio، مقدارهای حساس، fieldهای ناشناخته و مقدارهای ناسازگار همچنان رد می‌شوند.
+- fallbackِ ناگزیر برای fieldهای جاافتاده نیز برای هر گزینه متفاوت است و در اصلاح تعاملی، بازخوردِ اعتبارسنجی‌شدهٔ همان نوبت را در متنِ قابل‌بررسی منعکس می‌کند. بازخورد به context ساخت‌یافته، event، audit یا record پایدار اضافه نمی‌شود.
+- تست هدفمند domain/UI/API برابر `23/23` موفق است؛ سناریوی type عمومی Provider و پیشنهادِ متفاوت پس از بازخورد نیز پوشش دارد.
+
+# ۲۰۲۶-۰۹-۲۰ — ده گزینهٔ تدریجی در پیشنهاد فرم
+
+- یک نشست پیشنهاد فرم اکنون با دقیقاً سه گزینهٔ قابل‌بررسی شروع می‌شود. هر بازخورد معتبرِ AI دقیقاً یک گزینهٔ تازه به همان فهرست اضافه می‌کند؛ کارت‌های قبلی حذف یا جایگزین نمی‌شوند و سقف کل جلسه ده گزینه است.
+- قرارداد Provider برای درخواست نخست دقیقاً سه گزینه و برای هر اصلاح دقیقاً یک گزینه مطالبه می‌کند. اگر پاسخ ساخت‌یافته کمتر از تعداد درخواستی گزینه داشته باشد، Hero فقط گزینه‌های جاافتاده را با مقدارهای کم‌ریسک و قابل‌بازبینیِ خود فرم تکمیل می‌کند؛ مقدار ناسازگار یا دادهٔ حساس همچنان هرگز اعمال نمی‌شود.
+- سقف اصلاح از سه به هفت دور افزایش یافت تا از سه گزینهٔ آغازین به ده گزینه برسد. Scope پروژه، نشست انسانی، Profile، Binding، Health، capability، authorization نسخه‌دار، cost cap و redaction بدون تغییر باقی مانده‌اند. تست هدفمند domain/UI/API برابر `22/22` و `pnpm check` کامل برابر `481/481` موفق، build `298` ماژول و بررسی مستندات `148` سند با صفر خطا بود.
+
+# ۲۰۲۶-۰۹-۱۹ — تحمل امن خروجی ناقص Provider در پیشنهاد فرم
+
+- ریشهٔ خطای `Provider suggestion … does not contain one entry per form field` رفع شد: بعضی فرم‌ها مانند Foundation فقط یک فیلد قابل‌تکمیل و دکمه‌های عملیاتی دارند، اما Provider گاهی فیلد اختیاری را حذف یا دکمه را به‌اشتباه به‌عنوان ورودی پیشنهاد می‌کرد.
+- قرارداد Provider اکنون صریحاً همهٔ فیلدهای واقعی را، حتی اگر اختیاری باشند، دقیقاً یک‌بار و بدون دکمه/Action مطالبه می‌کند. اگر با وجود این، فقط فیلدِ جاافتاده یا کنترل UI نامربوط وجود داشته باشد، آن بخش هرگز به فرم اعمال نمی‌شود و Hero فقط فیلدهای واقعی را با مقدار محافظه‌کارانه و قابل‌بازبینی کامل می‌کند؛ کارت پیشنهاد نیز این تکمیل را شفاف اعلام می‌کند.
+- مقدار یا نوع نامعتبر برای یک فیلد واقعی، گزینهٔ خارج از فهرست فرم، field تکراری و هر دادهٔ حساس هرگز اعمال نمی‌شود و همان field با مقدار محافظه‌کارانهٔ فرم جایگزین می‌گردد؛ بنابراین fail-closed باقی می‌ماند، اما کاربر خطای غیرضروری نمی‌بیند. هیچ retry پنهان، تغییر Provider، Secret، Profile، Binding یا authorization رخ نمی‌دهد.
+- بازتولید Foundation با field اختیاری و Action نامربوط در تست پوشش داده شد. تست هدفمند `21/21` و `pnpm check` کامل شامل ۴۸۰ تست موفق، build ۲۹۸ ماژول و ۵۴ فایل JSON، و بررسی ۱۴۸ سند با صفر خطا بود.
+
+# ۲۰۲۶-۰۹-۱۹ — گفت‌وگوی بازخوردی برای بهبود پیشنهاد فرم
+
+- Popup «پیشنهاد فرم» اکنون پس از ساخت پیشنهاد زنده، یک گفت‌وگوی کوتاه در همان پنجره دارد: ادمین بازخورد می‌دهد، AI همان باکس را دوباره تحلیل می‌کند و یک تا سه پیشنهاد تازه و قابل انتخاب برمی‌گرداند. هر انتخاب مانند قبل فقط مقدارها را در فرم واقعی می‌گذارد و ثبت نهایی همچنان با ادمین است.
+- این گفت‌وگو فقط با AI/Model فعال و مجاز کار می‌کند؛ حالت راهنمای محلی بدون هزینه حفظ شده، اما برای جلوگیری از القای تعامل زنده، امکان اصلاح در آن غیرفعال است. هر پنجره حداکثر سه دور اصلاح دارد و با تغییر AI یا ساخت پیشنهاد جدید، جلسهٔ قبلی پاک می‌شود.
+- بازخورد ورودی از نظر طول، دادهٔ حساس و مسیر میزبان fail-closed اعتبارسنجی می‌شود. بازخورد فقط در درخواست گذرای Provider استفاده می‌شود؛ در context ساخت‌یافته، event، audit و پاسخ پایدار ذخیره یا بازتاب داده نمی‌شود. Scope پروژه، نشست انسانی، Profile، Binding، Health، capability `form-suggestions`، authorization نسخه‌دار، سقف هزینه و timeout همان مسیر امن پیشنهاد اولیه را دارند.
+- اندازهٔ Popup، ناحیهٔ اسکرول پیشنهادها، کارت‌های مقدار و بخش گفت‌وگو برای صفحهٔ دسکتاپ و موبایل بازچینش شد تا اجزای بلند از پنجره بیرون نزنند. تست هدفمند domain/UI/integration برابر ۲۰ موفق و صفر شکست و `pnpm check` کامل برابر ۴۷۹ تست موفق، build شامل ۲۹۸ ماژول و ۵۴ فایل JSON، و بررسی اسناد شامل ۱۴۸ سند با صفر خطا بود؛ هیچ Secret، اتصال Provider، Profile، Binding یا authorization تغییر نکرد.
+
+# ۲۰۲۶-۰۹-۱۹ — تحلیل معنادار هدف باکس در پیشنهاد فرم
+
+- پنجرهٔ «پیشنهاد فرم» دیگر «هدف کوتاه نرم‌افزار» را نمایش نمی‌دهد؛ هدف کل پروژه همچنان فقط در backend و در Scope همان پروژه برای زمینهٔ پیشنهاد استفاده می‌شود.
+- استخراج عنوان و هدف فرم اصلاح شد: دکمهٔ راهنمای «i»، شناسه‌های فنی، UUID و نسخه به‌عنوان هدف باکس نمایش داده نمی‌شوند. فرم‌های اصلی شرح کاربردی canonical دارند و فرم‌های دیگر از عنوان، توضیح و برچسب فیلدهای امن یک زمینهٔ قابل فهم می‌سازند.
+- Provider زنده اکنون باید پیش از پیشنهاد مقدارها، کاربرد فرم را تحلیل کند و فیلد boxPurpose فارسیِ ۲ تا ۴ جمله‌ای برگرداند؛ خروجی ناقص fail-closed است. شرح نهایی همراه پیشنهادها در همان Popup نمایش داده می‌شود و ثبت نهایی همچنان فقط با ادمین است.
+- اتصال، Profile، Binding، authorization، Secret و کلید OpenAI تغییر نکردند. تست هدفمند domain/UI/integration برابر ۱۹ موفق و صفر شکست بود؛ بررسی کامل پروژه نیز ۴۷۸ تست موفق، صفر شکست، build شامل ۲۹۸ ماژول و ۵۴ فایل JSON، و بررسی اسناد شامل ۱۴۸ سند با صفر خطا داشت.
+
+# ۲۰۲۶-۰۹-۱۸ — یکسان‌سازی آمادگی انتخاب AI در همهٔ پنجره‌ها
+
+- ریشهٔ غیرفعال‌بودن ChatGPT در پنجره‌های «مشاوره»، Smart Tester و «پیشنهاد فرم» اصلاح شد: هر سه سطح اکنون از یک ارزیاب مشترک و provider-agnostic استفاده می‌کنند و هفت گیت Provider، Model، Profile، Binding پروژه، Health، Scope و مجوز نسخه‌دار را با هم بررسی می‌کنند.
+- گزینهٔ AI فقط وقتی قابل انتخاب است که همهٔ گیت‌ها موفق باشند؛ در غیر این صورت گزینه حذف نمی‌شود، اما غیرفعال می‌ماند و کد/علت امن و قابل تشخیص آن به UI و `title` گزینه می‌رسد. هیچ مسیر انتخابی با دورزدن Scope یا authorization فعال نشده است.
+- پس از «تست آماده‌بودن»، Back Office علاوه بر سلامت اتصال، آماده‌بودن واقعی ChatGPT برای Smart Tester را گزارش می‌کند؛ بنابراین «کلید سالم» با «قابل انتخاب بودن» اشتباه نمی‌شود.
+- تست‌های هدفمند `38/38` و `pnpm check` کامل `472/472` موفق شدند؛ build برابر `298` ماژول و `51` فایل JSON بود. هیچ Secret، Production، Pilot یا فراخوانی Provider زنده در این تغییر استفاده نشد.
+- commit source: `932c9ac`؛ این commit تا promotion جداگانه، Runtime Test را تغییر نمی‌دهد. برای فعال‌شدن در Test باید Candidate همین commit ساخته و فقط روی Test promote شود.
+
+# ۲۰۲۶-۰۹-۱۸ — اتصال امن API Provider به ماژول پیشنهاد فرم
+
+- backend ماژول پیشنهاد فرم از حالت محلیِ اجباری خارج شد و با همان مسیر انتخاب Profile، Binding، Health، Scope، Role، Tool Policy، timeout، cost cap و external-spend authorization کار می‌کند؛ رابط کاربری به Provider خاصی وابسته نشده است.
+- پاسخ زنده با قرارداد بیرونی `analysis-v1` و Schema داخلی `form-suggestions-v1` پذیرفته می‌شود؛ تعداد پیشنهادها یک تا سه، هر پیشنهاد دقیقاً یک مقدار برای هر field، گزینه‌های select/radio فقط از گزینه‌های فرم، و فیلد/مقدار حساس یا مسیر میزبان fail-closed رد می‌شود.
+- در جدول «نقشهٔ تخصیص AI در پروژه» ردیف «پیشنهاد فرم» و در فرم Scope پروژه قابلیت `form-suggestions` اضافه شد. حالت local همچنان بدون هزینه و بدون Provider باقی می‌ماند.
+- authorization مستقل و نسخه‌دار `config/authorizations/AUTH-AI-TEST-001-v1.1.json` برای Test ثبت شد؛ شامل همان سقف `50,000` و پایان `2027-02-23T23:59:59Z` و فقط capability افزودهٔ `form-suggestions` است. تا promotion و اعمال تنظیم غیرمحرمانهٔ v1.1 در Test، اجرای زنده عمداً blocked می‌ماند.
+
+# ۲۰۲۶-۰۹-۱۸ — فعال‌شدن واقعی OpenAI برای Smart Tester و Walk-Through در Test
+
+- ریشهٔ خطا مشخص و اصلاح شد: سقف محافظه‌کارانهٔ `100` واحد پیش از dispatch، برای Context محدودِ خواندنی و خروجی ساخت‌یافته کافی نبود و با `COST_POLICY_INSUFFICIENT` جلوی فراخوانی مجاز را می‌گرفت؛ سقف هر درخواست به `10,000` افزایش یافت و سقف تجمعی authorization بدون تغییر روی `50,000` باقی ماند.
+- candidate `v1.1.5-rc.5` از workflow `35393885561`، commit `4527bd73c0b078313867be9d9a142b1bb189cde5` و digest `sha256:0860c09fbd815ef381690ff354e68dee185786279ed34499cf7a5a3bdf1e2bf3` فقط روی Test promote و verify شد؛ `/health`، `/ready` و smoke موفق و کانتینر healthy بود.
+- Evidence زندهٔ redacted: Smart Tester با `200`، OpenAI / `gpt-5.6-luna` / `analyst`، Profile `hero-profile-v1`، `providerInvoked=true`، schema `analysis-v1`، latency `4291ms` و `57` cost units؛ Walk-Through با `200`، همان Provider/Model/Role/Profile، `providerInvoked=true`، schema `analysis-v1`، latency `4310ms` و `53` cost units. مجموع `110/50000` ثبت شد؛ prompt، response و Secret ثبت یا چاپ نشدند.
+- فهرست Smart Tester در Test فقط یک Profile فعال و قابل‌انتخاب برای Hero برگرداند؛ گزینه‌های تکراری/غیرفعال ناشی از دادهٔ ناسازگار در این مسیر مشاهده نشدند. Provider-agnostic boundary، policy، role، scope، timeout، redaction و fail-closed حفظ شده‌اند.
+- مرز: فقط Test تغییر کرد؛ Production، Pilot، Secret Store/Secret و Providerهای دیگر لمس نشدند. مستندات وضعیت و Catalog evidence با نتیجهٔ واقعی همگام شدند.
+
+# ۲۰۲۶-۰۹-۱۸ — رفع گیت هزینهٔ اشتباه در مشاورهٔ زندهٔ Smart Tester
+
+- بررسی runtime Test نشان داد Provider `openai`، مدل `gpt-5.6-luna`، Profile تحلیلگر، Binding پروژهٔ `hero`، Credential و authorization معتبر بودند و گزینهٔ Smart Tester با `selectable=true` برمی‌گشت؛ مشکل از اتصال یا کلید نبود.
+- فراخوانی واقعی پیش از ارسال به Provider با `COST_POLICY_INSUFFICIENT` متوقف می‌شد، چون سقف محافظه‌کارانهٔ هر درخواست `100` واحد از برآورد متن Context خواندنی و خروجی ۵۱۲ توکن کمتر بود. سقف هر درخواست به `10,000` واحد افزایش یافت؛ سقف تجمعی authorization همان `50,000` واحد باقی ماند و این تغییر فقط Test است.
+- regression مربوط به clamp سقف Profile به سقف نسخه‌دار به‌روزرسانی شد؛ هیچ Secret، Production، Pilot یا Provider دیگری تغییر نکرد.
+- health check موجود عمداً `configured-no-network-health-check` است و جایگزین فراخوانی واقعی نیست؛ evidence زندهٔ نهایی فقط پس از promotion همین source به Test و اجرای سناریوی بی‌خطر ثبت می‌شود.
+
+# ۲۰۲۶-۰۹-۱۸ — اختیاری‌شدن ورودی پروژه
+
+- در صفحهٔ «فضای پروژه»، بخش «ورودی پروژه» اکنون با برچسب «اختیاری» و توضیح روشن نمایش داده می‌شود؛ نمونهٔ محصول، متن سند یا لینک عمومی فقط در صورت وجود اضافه می‌شود و نبود آن مانع ادامهٔ پروژه نیست.
+- فیلدهای ورودی متن و لینک دیگر به‌صورت HTML اجباری نیستند؛ ارسال کاملاً خالی به‌عنوان «بدون نمونه» بی‌خطر نادیده گرفته می‌شود، اما لینک ناقص (فقط آدرس یا فقط عنوان) همچنان ثبت نمی‌شود.
+- قرارداد Workspace صراحتاً `inputRequirement: optional` را اعلام می‌کند و رفتار domain قبلیِ ساخت پروژه بدون ورودی حفظ شده است. هیچ محتوای حساس، Secret، Provider زنده یا external spend به این تغییر اضافه نشد.
+- تست‌های UI و Workspace برابر `40 pass / 0 fail` شدند؛ فایل‌های نامرتبط موجود در worktree وارد این تغییر نشدند.
+
+# ۲۰۲۶-۰۹-۱۸ — دستیار پیشنهاد AI برای فرم‌های محتوایی
+
+- دکمهٔ مشترک «پیشنهاد AI» برای فرم‌های امن محتوایی به همهٔ سطوح Back Office اضافه شد و با کلید هدر قابل خاموش/روشن‌کردن است؛ فرم‌های هویت، ورود، MFA، Grant، Credential، Secret و فیلدهای حساس از ابتدا مستثنا هستند.
+- Popup شامل انتخاب AI/Model، هدف کوتاه نرم‌افزار، هدف باکس، «اعلام پیشنهاد» و حداکثر سه کارت پیشنهاد قابل اسکرول است. انتخاب ادمین فقط مقدارهای فرم واقعی را پر می‌کند و ثبت نهایی خودکار نیست.
+- موتور `hero-local` بدون هزینه و بدون Provider call، با validation، redaction boundary، عدم خواندن مقدارهای فعلی فرم و رد فیلدهای حساس اضافه شد. مسیرهای API project-scoped و admin/owner-gated هستند و پیشنهادها persist نمی‌شوند.
+- تست هدفمند UI/domain برابر `22 pass / 0 fail` و syntax هر سه ماژول موفق است؛ `docs/registry/document-registry.json` و `hero-release-manifest.json` عمداً در این تغییر وارد نشده‌اند.
+
+# ۲۰۲۶-۰۹-۱۸ — انتخاب Target پروژه‌ای برای محیط Test
+
+- commit `be9ee96` قرارداد infrastructure-control را به `1.1` رساند و انتخاب Target را فقط برای `test`، با project scope، نسخهٔ موردانتظار و conflict guard اضافه کرد؛ سرور revoked قابل انتخاب نیست.
+- اتاق کنترل پروژه اکنون فهرست سرورهای Test را به‌صورت redacted نشان می‌دهد و Admin/Owner می‌تواند Target انتخاب‌شده را ثبت کند؛ وضعیت صریح `selected-not-dispatched` است و این مسیر build، start، stop، cleanup یا dispatch انجام نمی‌دهد.
+- مسیر POST project-scoped برای `select-target` و regressionهای domain/UI اضافه شد؛ تست هدفمند `23/23` موفق است و هیچ Secret، Provider زنده، هزینهٔ خارجی، Pilot یا Production لمس نشد.
+- preflight سرور Test `185.204.168.171` قبلاً با SSH بدون رمز و Docker `29.1.3`/Compose `2.40.3` موفق شده بود؛ تا تعیین شناسهٔ دقیق پروژه، Target/Agent واقعی در registry ثبت نشد و هیچ شناسه‌ای حدس زده نشد.
+
+# ۲۰۲۶-۰۹-۱۸ — PF-5 portability/recovery و PF-6 hardening evidence
+
+- قرارداد `hero.product-delivery-bundle/v1` برای artifact immutable، SBOM/attestation/test/quality digest، config schema بدون Secret، migration، backup/restore و compatibility matrix اضافه شد؛ منبع در `HERO-OPS-PRODUCT-DELIVERY-BUNDLE-AND-CLEAN-TARGET@1.0.0` ثبت است.
+- harness `pf5-rehearsal-20260918a` با Clean Target و Recovery Proof در clean-room اجرا شد؛ `PORTABILITY_VERIFIED`، network calls صفر و evidence digest `sha256:30814f40287ed355b0988664a6c9384f5a8c02e765cddaa2cfa68b2c7960e87c` ثبت شد. انتقال واقعی به Target جدا عمداً انجام نشد.
+- harness `pf6-simulation-20260918a` روی دو project scope با ۱۰۲ trace و auditهای correlation، deduplication، stale/recovery، retention، isolation، accessibility، security، load، backup/restore و role regression PASS شد؛ evidence digest `sha256:fb5d1766f5dcc930c2682c19c3a42f351bb17cf2ff85aac4731d9c75cfee0962` است.
+- Browser E2E واقعی، screen-reader/axe و load/soak روی deployment واقعی هنوز گیت‌های باقی‌ماندهٔ PF-6 هستند؛ Production، Pilot، Secret، Provider زنده و external spend لمس نشدند.
+
+# ۲۰۲۶-۰۹-۱۸ — PF-4 قرارداد Node Agent کم‌اختیار و شبیه‌سازی امن
+
+- قرارداد versioned `remote-agent` و registry provider-agnostic اضافه شد: Test-only target inventory، outbound-only transport، Ed25519 signed dispatch، allowlist عملیات، immutable digest، expiry، replay guard، redaction، heartbeat و revoke.
+- تست‌های PF-4 شامل enrollment، fingerprint، tamper، shell-field rejection، replay، expiry، scope، mutable artifact، sensitive input و revoke هستند؛ ترکیب آن با regression زیرگام infrastructure برابر `9 pass / 0 fail` شد.
+- harness رسمی `tools/run-pf4-remote-agent-simulation.mjs` با run `pf4-simulation-20260918b` اجرا شد؛ evidence digest برابر `sha256:837c46fc39fafaea36d00ad561e6ac9651ff021203111c9494499ba315f27b4b` است؛ network calls صفر و side effect واقعی صفر ثبت شد.
+- PF-4 واقعی هنوز blocked است: target owner، authorization مستقل، key/Secret channel و connector واقعی در اختیار اجرا نبود و عمداً هیچ remote server، Production، Pilot، Secret یا external spend لمس نشد.
+
+# ۲۰۲۶-۰۹-۱۸ — PF-3 رسمی: executor، quality/security evidence و cleanup کامل
+
+- commit جاری `2b4ec6ae389f059cc7eee7cd3b39529fe7f4874e` چرخهٔ `stop`/`cleanup` را اصلاح کرد؛ cleanup پس از stop idempotent است و فقط در project/run مجاز عمل می‌کند.
+- harness رسمی `tools/run-product-test-official.mjs` با `createDockerProductRunner` و `createDockerProductExecutor` اجرا شد؛ run `official-pf3-20260918f` برای safe sample در Test، build/test/start/health/stop/cleanup/rollback و no-impact را PASS کرد.
+- artifact immutable برابر `hero-product-official-sample@sha256:873bb0e4f49fb8d875232e6478e2a6847c02e3a645b85342c1407b6c858dc884` است؛ SBOM، attestation، test evidence و quality/security evidence در manifest validate شدند.
+- quality/security sample gate شامل network `none`، non-root، read-only، no-new-privileges، cap-drop، نبود host escape/secret و redacted output PASS شد؛ browser E2E و dependency scan برای safe sample صادقانه not-applicable ثبت شدند.
+- PF-3 sample اکنون `ready-for-owner-acceptance` است. Product واقعی، clean-target portability/recovery، ظرفیت پایدار/reconciliation host، Node Agent، Pilot و Production خارج از این batch باقی ماندند.
+
+# ۲۰۲۶-۰۹-۱۸ — Product Test نمونهٔ بی‌خطر، evidence واقعی و گیت‌های Compose
+
+- authorization جداگانهٔ `PRODUCT-TEST-20260918-001` فقط برای Test ثبت شد؛ Production، Pilot، Secret، Provider زنده و external spend در scope نیستند.
+- Product Runner به `testCommand` اجراییِ بدون shell، build network=`none` و flagهای سازگار با نسخهٔ Compose میزبان مجهز شد؛ shell escape و Compose isolation قبل از executor رد می‌شوند.
+- نمونهٔ `safe-sample` با run `20260918061633`، source commit `000389632db4644c9288afe69acea42b42383dc1` و artifact immutable `hero-product-safe-sample@sha256:5190827dfc642ffc4d97518de450083890eb3c50f6ac91e3eda18a772d921ef7` چرخهٔ build/test/start/health/stop/cleanup/rollback را با no-impact روی Hero Test و Production با موفقیت گذراند.
+- SBOM SPDX، attestation in-toto/SLSA و test evidence redacted تولید و manifest با قرارداد `hero.product-artifact/v1` validate شد؛ evidence در `HERO-EVIDENCE-PRODUCT-FACTORY-PF3-20260918@1.1.0` است.
+- گیت باقی‌مانده: official Control Plane executor، ظرفیت پایدار/reconciliation، security/quality gate کامل، promotion commit جدید به Hero Test و Owner acceptance؛ Pilot/Production همچنان جدا و خارج از scope هستند.
+
+# ۲۰۲۶-۰۹-۱۸ — lease lifecycle، capacity probe، immutable artifact و candidate rc.14
+
+- migration `020` و قرارداد lease اضافه شد؛ reservation پایدار و process-local اکنون TTL، heartbeat و reconciliation report-only دارند و expiry بدون تأیید صریح mutation نمی‌کند.
+- probe ظرفیت Docker با argv ثابت اضافه شد؛ فقط CPU/RAM metadata امن را مشاهده می‌کند و در خطای Docker یا خروجی نامعتبر fail-closed است.
+- قرارداد immutable product artifact برای Test شامل source commit، OCI digest، SBOM، attestation و test-evidence digest اضافه شد و Runner تطبیق digest را enforce می‌کند.
+- تست هدفمند برابر `44 pass / 0 fail` و معادل کامل `pnpm check` برابر `447 pass / 0 fail` است؛ build برابر `280 module / 49 JSON` است.
+- candidate `v1.1.4-rc.14` با run `35311782701`، commit `c3d1334c03a291baf804ccc190fb75a8f719fd76` و digest `sha256:6fba080967039dde9e884e5c8ca86e8343b6512577061bde55cfdd5dcb006228` با workflow کامل موفق ساخته و منتشر شد؛ promotion آن pending است و rc.12 روی Test فعال است.
+- PF-3 از نظر قرارداد source آمادهٔ ورود است، اما Product Test واقعی، artifact واقعی محصول، health/rollback و Owner acceptance هنوز اجرا نشده‌اند؛ Production/Pilot/Secrets و external spend لمس نشدند.
+
+# ۲۰۲۶-۰۹-۱۸ — capacity enforcement و candidate rc.13
+
+- قرارداد Capacity snapshot و migration `019` اضافه شد؛ reservation پایدار اکنون CPU، RAM، PID و تعداد اجرای هم‌زمان را با ظرفیت مشاهده‌شده مقایسه می‌کند و ظرفیت ناشناخته یا lease قدیمی ناقص را fail-closed رد می‌کند.
+- تست هدفمند PF-2 برابر `32 pass / 0 fail` و معادل کامل `pnpm check` برابر `435 pass / 0 fail` است؛ build برابر `274 module / 49 JSON` است.
+- candidate `v1.1.4-rc.13` با run `35310489330` و digest `sha256:1a3b7727c2b969bf80e21f9a41351a05eaeb0e7e27fd06aaacab1e72e0800ebe` ساخته و منتشر شد؛ promotion آن pending است و rc.12 روی Test فعال است.
+- Product Test، Production، Pilot، Secret Store/Secret، Provider زنده و external spend لمس نشدند.
+
+# ۲۰۲۶-۰۹-۱۸ — promotion موفق rc.12 روی Hero Test
+
+- `v1.1.4-rc.12` با run `35309418424`، commit runtime `d1b4d0600c4a2d360ec4e94266b63efb439cc380` و digest immutable `sha256:a9caf69e2240ec0a211325b1269e8213924eba673b67d039857a3cb17606d39e` فقط روی Hero Test promote و verify شد.
+- rc.11 پیش از تغییر pull و به‌عنوان rollback point metadata-only ثبت شد؛ پس از restart، `/health`، `/ready` و `Hero Test smoke check: PASS` ثبت شدند. خطای موقت connection reset در restart با شواهد نهایی سلامت دنبال شد.
+- این promotion فقط Hero Test است؛ Product Test، Production، Pilot، Secret Store/Secret، Provider زنده و external spend لمس نشدند.
+
+# ۲۰۲۶-۰۹-۱۸ — candidate rc.12 آمادهٔ promotion روی Test
+
+- workflow `35309418424` برای `v1.1.4-rc.12` با commit `d1b4d0600c4a2d360ec4e94266b63efb439cc380` موفق شد؛ artifact immutable برابر `ghcr.io/farhaddgm/hero@sha256:a9caf69e2240ec0a211325b1269e8213924eba673b67d039857a3cb17606d39e` است.
+- push branch توسعه موفق بود. Promotion روی host Test هنوز انجام نشده، چون اجرای `sudo` رمز عبور می‌خواهد؛ تا آن زمان rc.11 نسخهٔ فعال Test است.
+- Production، Pilot، Secret Store/Secret، Provider زنده، Product Test و external spend لمس نشدند.
+
+# ۲۰۲۶-۰۹-۱۸ — رزرو پایدار منابع Product Test در PF-2
+
+- migration `018_product_runtime_reservations` و store PostgreSQL اضافه شد؛ رزروها فقط metadata امن دارند، با advisory transaction lock سریال می‌شوند و replay، تعارض پورت/منبع، release و reuse رکورد را کنترل می‌کنند.
+- Runner اکنون storeهای async را پشتیبانی می‌کند و stop/cleanup فقط reservation فعال را می‌پذیرد؛ guard process-local نیز برای fallback وضعیت `active` صریح دارد.
+- تست هدفمند PF-2 برابر `26 pass / 0 fail` و معادل کامل `pnpm check` برابر `429 pass / 0 fail` است؛ build برابر `272 module / 49 JSON` و documentation برابر `141 document / 0 error` است.
+- commit کد: `73a7b453306d2aa6a467766bfd6c34b99a68e216`. این تغییر هنوز candidate جدیدی روی Test نیست؛ Product Test، Production، Pilot، Secret Store/Secret، Provider زنده و external spend لمس نشدند.
+
+# ۲۰۲۶-۰۹-۱۸ — promotion موفق rc.11 روی Hero Test
+
+- `v1.1.4-rc.11` با digest immutable `sha256:7a42b5592e60ae5d8b61c10040ee20d56a22a276bae76e3258920e76ed51bba2`، run `35307457878` و runtime commit `dd95723f6cbd5d4ec75aafb59e72941b185e2e2f` فقط روی Hero Test promote و verify شد.
+- پس از restart، `/health` و `/ready` موفق و `Hero Test smoke check: PASS` ثبت شد؛ rollback point metadata-only در `/etc/hero/hero-test.env.release-state.before-7a42b5592e60ae5d8b61c10040ee20d56a22a276bae76e3258920e76ed51bba2.json` ثبت است. خطای موقت connection reset در لحظهٔ restart با شواهد نهایی سلامت دنبال شد.
+- این release اجرای Product Test یا محصول هدف نیست؛ Production، Pilot، Secret Store/Secret، Provider زنده و external spend لمس نشدند.
+
+# ۲۰۲۶-۰۹-۱۸ — guard رزرو منابع Product Test و candidate rc.11
+
+- افزوده‌شده: reservation guard process-local برای Product Runner؛ تعارض namespace، port و resource پیش از executor fail-closed می‌شود، replay/release کنترل‌شده است و stop/cleanup رزرو held را آزاد می‌کند. این guard جایگزین inventory پایدار host یا رزرو cross-process نیست.
+- تست‌شده: تست هدفمند برابر `18/18` و اجرای معادل `pnpm check` برابر `424 pass / 0 fail`؛ build برابر `270 module / 49 JSON` است. یک هشدار مورد انتظار دربارهٔ نبود Docker socket در clean-room باقی است.
+- ساخته و منتشر شد: `v1.1.4-rc.11` از commit `dd95723f6cbd5d4ec75aafb59e72941b185e2e2f` با run `35307457878` و digest immutable `sha256:7a42b5592e60ae5d8b61c10040ee20d56a22a276bae76e3258920e76ed51bba2`؛ verification، build، GHCR publish، tag، prerelease، manifest و artifact upload موفق شدند.
+- وضعیت هنگام ساخت candidate: Hero Test روی rc.10 بود؛ promotion rc.11 بعداً در entry بالاتر ثبت شد. Product Test، Production، Pilot، Secret Store/Secret، Provider زنده و external spend لمس نشدند.
+
+# ۲۰۲۶-۰۹-۱۸ — promotion موفق rc.10 روی Hero Test
+
+- `v1.1.4-rc.10` با digest immutable `sha256:496d740ce2d650c1a02d1fb3f22e2f67f1f8373ec47e6fa528cd2b8a1f6b2257`، run `35292057200` و runtime commit `3fabefe15ff10926d60b804c2deace63fc936397` فقط روی Hero Test promote و verify شد.
+- پس از restart، `/health` و `/ready` موفق و `Hero Test smoke check: PASS` ثبت شد؛ rollback point metadata-only در `/etc/hero/hero-test.env.release-state.before-496d740ce2d650c1a02d1fb3f22e2f67f1f8373ec47e6fa528cd2b8a1f6b2257.json` ثبت است. خطای موقت connection reset در لحظهٔ restart با شواهد نهایی سلامت دنبال شد.
+- این release اجرای Product Test یا محصول هدف نیست؛ Production، Pilot، Secret Store/Secret، Provider زنده و external spend لمس نشدند.
+
+# ۲۰۲۶-۰۹-۱۸ — candidate rc.10 برای بررسی PF-2
+
+- ساخته و منتشر شد: `v1.1.4-rc.10` از commit `3fabefe15ff10926d60b804c2deace63fc936397` با run `35292057200` و digest immutable `sha256:496d740ce2d650c1a02d1fb3f22e2f67f1f8373ec47e6fa528cd2b8a1f6b2257`؛ workflow verification، build، GHCR publish، tag و manifest همگی موفق شدند.
+- وضعیت: Hero Test فعلاً روی rc.9 است؛ promotion rc.10 به‌علت نبود دسترسی SSH از محیط Codex انجام نشد و باید با همان manifest روی host Test اجرا شود.
+- مرز: این candidate فقط برای Test است؛ Product container/Product Test، Production، Pilot، Secret، Provider live، external spend و سرویس‌های دیگر host لمس نشدند.
+
+# ۲۰۲۶-۰۹-۱۸ — adapter گیت‌دار Product Runner در PF-2
+
+- افزوده‌شده: قرارداد نسخه‌دار Product Runner و endpoint metadata-only برای actions، authorization operationهای جدا و decision codeهای قابل‌ردگیری.
+- افزوده‌شده: adapter Docker برای workspace مستقل محصول با Compose preflight، argv-only/shell-free، digest immutable، network `none`، non-root، read-only، no-new-privileges، cap-drop، quotaهای CPU/RAM/PID، timeout، concurrency و redaction خروجی.
+- اصلاح‌شده: approval Foundation اکنون وضعیت `runtimePlan` را نیز از `proposed` به `approved` می‌برد؛ مسیر معتبر دیگر به‌اشتباه برای Runner غیرقابل‌اجرا نمی‌ماند. بررسی زنجیرهٔ workspace و Compose security نیز fail-closed شد.
+- تست: `tests/product-runner-adapter.test.mjs` برابر ۱۲/۱۲ و regression ترکیبی برابر ۴۴/۴۴ موفق شد؛ full check معادل `pnpm check` برابر ۴۱۸/۴۱۸، build برابر ۲۶۸ module و ۴۹ JSON، و documentation برابر ۱۴۱ سند و ۰ خطا ثبت شد.
+- مرز: executor در Control Plane پیش‌فرض خاموش است؛ هیچ Product container، Product Test، host reservation، Secret، Provider live، external spend، Pilot، Production یا سرویس دیگر host لمس نشد.
+- commit کد: `c22d556c2bb08d10e160dbdd1536a4eb1870965c`؛ این تغییر هنوز به‌عنوان Product Test اجرا نشده است.
+
+# ۲۰۲۶-۰۹-۱۸ — سخت‌گیری قرارداد و admission در PF-2
+
+- افزوده‌شده: اعتبارسنجی نسخه‌دار برای timeout، هم‌زمانی، CPU، حافظه، PID، پورت و host-mount در runtime plan محصول؛ سقف‌ها به‌صورت fail-closed به Test محدود هستند.
+- اصلاح‌شده: admission دیگر `bridge` را برای طرح network-disabled، مسیر میزبان با host-mount خاموش یا quota بالاتر از plan نمی‌پذیرد؛ malformed plan نیز بدون exception و بدون side effect رد می‌شود.
+- Evidence: targeted PF-2 برابر `20/20` و اجرای معادل `pnpm check` در Linux container برابر `406 pass / 0 fail`، build برابر `265 module / 49 JSON`؛ زیرگام contract/admission ثبت شد، اما Product Runner واقعی، Product Test و start کانتینر هنوز باز هستند.
+- commit کد: `788746c`. این تغییر فقط روی source/تست اعمال شد؛ Production، Pilot، Secret، Provider زنده، external spend و اپ‌های دیگر host لمس نشدند.
+- candidate Test `v1.1.4-rc.9` از run `35289669314` با commit `e8de500e4278b1f4cf805e87c02d62ce05847709` و digest `sha256:499d00f88ac705f2b47d221d4396887291f7293c4d8c6ca7b67dff764b7c0b12` promote و verify شد؛ container healthy، restart count صفر، `/health` و `/ready` هر دو ۲۰۰ و rc.9 نسخهٔ فعال Test است.
+
+# ۲۰۲۶-۰۹-۱۸ — تأیید نهایی PF-1 روی Test
+
+- `v1.1.4-rc.8` با digest `sha256:e87e6063975fdea86d81682f19668a6458209afc3aeaff77cfeb896478d1d8ee` از run `35287418094` روی Hero Test promote و smoke شد؛ container `healthy`، restart count صفر، `/health` و `/ready` هر دو ۲۰۰ و PostgreSQL آماده است.
+- سناریوهای واقعی PF-1 ثبت شدند: ایجاد C و D هرکدام ۲۰۱، replay هرکدام ۲۰۰، تغییر داده با همان idempotency key برابر ۴۰۹، درخواست بدون مجوز برابر ۴۰۱ و replay/repair رکوردهای قدیمی A و B هرکدام ۲۰۰.
+- شمارش امن Test برای PF-1: ۴ Product Request، ۴ Project و ۴ Foundation؛ Exit Gate PF-1 تا Foundation Proposal `verified` شد.
+- PF-2، ساخت repository/container محصول، Product Runner، deploy محصول، انتقال به سرور دیگر، Pilot و Production همچنان خارج از این گام هستند.
+
+# ۲۰۲۶-۰۹-۱۸ — audit ریشه‌ای persistence و candidate rc.8
+
+- ریشه‌یابی شد: rc.6 بعد از restart به‌علت حذف `productRequest.projectId` از read model با `Product request metadata is invalid` crash-loop می‌شد؛ read model اصلاح شد و regression test اضافه شد.
+- اصلاح شد: ثبت Product Request، Project و Foundation اکنون در یک تراکنش PostgreSQL انجام می‌شود و خطای مرحلهٔ Foundation هر دو metadata قبلی را rollback می‌کند؛ replay امن برای رکوردهای نیمه‌ثبت‌شده فقط Foundation گمشده را repair می‌کند.
+- تأیید شد: targeted persistence/API برابر `24/24` و full assurance برابر `404 pass / 0 fail`، build برابر `265 module / 49 JSON` و documentation برابر `140 document / 0 error` است.
+- ساخته شد: candidate تست `v1.1.4-rc.8` از run `35287418094`، commit `790bfe8097236e285fcf9cb8f6699dc62f5e07b4` و digest `sha256:e87e6063975fdea86d81682f19668a6458209afc3aeaff77cfeb896478d1d8ee`؛ promotion به Test به‌علت نیاز به sudo هنوز pending است.
+- وضعیت صریح: Test فعلاً روی rc.6 crash-loop است؛ پس از promotion rc.8 باید smoke، replay repair و دو درخواست مستقل PF-1 اجرا و ثبت شود. Production، Pilot، Secret و Provider زنده لمس نشدند.
+
+# ۲۰۲۶-۰۹-۱۸ — اصلاح مسیر Idempotency-Key و آماده‌سازی rc.5
+
+- اصلاح‌شده: route ساخت Product Request اکنون هدر `Idempotency-Key` را مطابق API Node HTTP از object هدر می‌خواند؛ خطای قبلی `request.headers.get is not a function` و پاسخ 500 رفع شد.
+- تست‌شده: تست header-only و بدنهٔ نامعتبر اضافه شد؛ targeted `16/16` و `pnpm check` برابر `400 pass / 0 fail` است.
+- ساخته‌شده: کاندیدای Test `v1.1.4-rc.5` از run `35283381777` با digest `sha256:4e8bb963f6036d3663b7173613a1f47a122de78b77b5dd08d26441125e7c13a8`؛ promotion به Test به‌علت نیاز به رمز sudo باقی مانده است.
+- تا زمان promotion، Runtime Test روی rc.4 است؛ هیچ Production، Pilot، Secret یا Provider زنده لمس نشد.
+
+# ۲۰۲۶-۰۹-۱۸ — Promotion کاندیدای PF-1 و تأیید migration در Test
+
+- کاندیدای `v1.1.4-rc.4` از GitHub Actions run `35280773195` با digest immutable `sha256:3b3685cb448ee18c1c7e635c70722f5c138cd0d3b4abfe8bb3c234a0e6ac3677` فقط روی Hero Test promote شد.
+- شواهد واقعی بعد از restart: container در وضعیت running، `/health` و `/ready` موفق، و `Hero Test smoke check: PASS`.
+- migration `017` و جدول `product_request_versions` در PostgreSQL Test تأیید شدند؛ تعداد رکورد Product Request هنگام بررسی `0` بود، پس Exit Gate PF-1 هنوز باز است.
+- Production، Pilot، Secret Store، Secretهای Provider، Product Runner، Product Test و Provider زنده لمس نشدند؛ GHCR/Actions فقط در scope انتشار Test استفاده شدند.
+
+# ۲۰۲۶-۰۹-۱۸ — Product Request پایدار و idempotent در PF-1
+
+- افزوده‌شده: جدول append-only `product_request_versions` و migration `017` برای نگهداری metadata امن Product Request، fingerprint و کلید idempotency یکتا؛ فرم خام، Secret و credential ذخیره نمی‌شوند.
+- افزوده‌شده: ایجاد Product Request و Project در PostgreSQL با تراکنش مشترک؛ خطای میانی با rollback کامل متوقف می‌شود.
+- اصلاح‌شده: API ساخت پروژه کلید idempotency را از body یا هدر `Idempotency-Key` می‌پذیرد؛ replay همان داده پاسخ ۲۰۰ می‌دهد و تغییر داده با همان کلید fail-closed با ۴۰۹ رد می‌شود.
+- شواهد: targeted برش `۲۰/۲۰` و `pnpm check` برابر `۴۰۰ pass / ۰ fail`، build برابر `۲۶۵ module / ۴۹ JSON` و documentation برابر `۱۴۰ document / ۰ error`.
+- commit کد: `e17b9f79bfec10620067531a62c4bc2a16ee8d31`. PF-1 هنوز تا migration/restart واقعی Test و دو درخواست مستقل project-scoped در وضعیت `in_progress` است؛ هیچ Product Runner، deployment، Secret، Provider زنده، external spend، Pilot یا Production لمس نشد.
+
+# ۲۰۲۶-۰۹-۱۷ — پیاده‌سازی برش اول PF-1 کارخانهٔ کنترل‌شدهٔ محصول
+
+- افزوده‌شده: قرارداد و منطق provider-agnostic برای Intake محصول، طبقه‌بندی محافظه‌کارانهٔ ریسک (`low/standard/high/critical`)، علت‌های قابل‌فهم و گیت تأیید صریح Owner برای ریسک بالا/بحرانی.
+- افزوده‌شده: Foundation Proposal اکنون runtime plan نسخه‌دار برای Product Test ایزوله دارد: repository/Compose/database/volume/network مستقل، network و port پیش‌فرض بسته، resource quota، non-root/read-only/no-new-privileges و همهٔ side effectها خاموش تا authorization بعدی.
+- اصلاح‌شده: Portfolio فیلدهای نوع محصول، سطح ریسک، محدودیت، خروجی و flagهای ریسک را می‌گیرد؛ Product Studio ارزیابی ریسک، گیت‌ها، طرح runtime و اثرهای قفل‌شده را نمایش می‌دهد.
+- Evidence source: `pnpm check` برابر `398 pass / 0 fail`، build برابر `265 module / 49 JSON`، documentation برابر `140 document / 0 error`. Exit Gate PF-1 هنوز به‌دلیل نبود دو Product Request مستقل و persistence/replay کامل `open` است.
+- commit کد این برش: `56c45ab6266f475fc53fa2000849de0d7fef8d0a`؛ commit مستندات پس از ثبت آن در همین شاخه درج می‌شود.
+- برش PF-2 طراحی: admission policy پیش از اجرای runtime افزوده شد تا host network/path، collision پورت/منبع و quota ناامن را fail-closed رد کند؛ بدون start یا side effect. commit کد: `ac26f49cbf28f68e776653969e6c6cd6d2d4dee6`.
+- هیچ Product Runner، container، server خارجی، deploy، Secret، Provider زنده، external spend، Pilot یا Production در این برش لمس نشد.
+
+# ۲۰۲۶-۰۹-۱۷ — رودمپ کنترل‌شدهٔ کارخانهٔ محصول و تصحیح وضعیت Test
+
+- وضعیت canonical به `HERO-ROADMAP-STATUS-20260917@1.1.0` تصحیح شد: Hero Test اکنون `v1.1.4-rc.3` با digest `sha256:996da1112d0c30ec419fb7ace035f2cb2106191a41cb4eb1d08c1e09a37f4896` است؛ GitHub run `35266951191`، promotion Owner و smoke واقعی موفق‌اند. نتیجهٔ source همان candidate `394 pass / 0 fail` و build `263 module / 49 JSON` است.
+- `HERO-ROADMAP-CONTROLLED-PRODUCT-FACTORY-20260917@1.0.0` به‌عنوان sequencing فعال اضافه شد. مسیر مسئله تا Proposal، runner ایزوله، Product Test، artifact immutable، انتقال/recovery و Target خارجی را با Exit Gateهای جدا تعریف می‌کند.
+- امکان آیندهٔ اجرای محصول روی همان host ParsPack فقط با namespace و resourceهای مستقل Product (repo/worktree، Compose project، network، volume، database، port، Secret reference، quota و rollback) پذیرفته است؛ Docker socket، privileged، host network/mount و reuse منابع Hero ممنوع‌اند.
+- چهار roadmap تاریخی Next برای sequencing superseded شدند، اما جدول‌ها و evidence آن‌ها حذف نشد. برنامهٔ ۱۷۰ گام Back Office `active` و هنجاری باقی ماند؛ Pilot اکنون صریحاً بعد از BO-169 و مجوز مستقل است.
+- هیچ Product Runner، server خارجی، deploy محصول، Secret، Provider واقعی، هزینهٔ بیرونی، Pilot یا Production در این تغییر ایجاد یا فعال نشد. evidence تازهٔ live OpenAI نیز ادعا نشده است.
+
+# ۲۰۲۶-۰۹-۱۷ — snapshot تاریخی پیش از rc.3 (superseded by entry above)
+
+- سند مرجع وضعیت جاری به `HERO-ROADMAP-STATUS-20260917@1.0.0` ارتقا یافت و وضعیت source، Runtime Test، Release، AI live و تمام گیت‌های باز را یکجا ثبت کرد.
+- source فعلی `cd4df73aa72341b0596ad3fbe117c9fc36742017` است؛ Runtime Test هنوز روی `v1.1.2` با digest `sha256:641e6c75b5f871e87053cf2d959fe250a20067b8ecc7fe0571e15345f31c0d10` اجرا می‌شود.
+- Smoke Test مالک برای artifact فعلی `PASS` است؛ مسیر عمومی `/build-info` به‌دلیل allowlist فعلی Caddy هنوز `404` است و به‌عنوان گیت observability باز ثبت شد.
+- ممیزی جاری همچنان `20 verified / 150 remaining` برای ۱۷۰ گام و `5 implemented / 76 partial / 0 missing` برای ۸۱ نیازمندی است؛ این اعداد بدون Evidence جدید ارتقا داده نمی‌شوند.
+
+# ۲۰۲۶-۰۹-۱۷ — Smart Tester 1.5 و تشخیص قابل‌اقدام (source snapshot تاریخی)
+
+- نسخهٔ Smart Tester در source به `1.5.0` رسید؛ گزارش خطا اکنون نتیجهٔ کوتاه و قابل‌اقدام («چه اتفاقی افتاد؟»، «چرا؟»، «چه‌کار کنم؟»، «بعد از اصلاح») می‌دهد و جزئیات حساس یا غیرقابل‌اثبات را نمایش نمی‌دهد.
+- ثبت تشخیص پس از تأیید Owner در سند project-scoped خطا به‌صورت append-only باقی می‌ماند؛ مسیر live Provider فقط با Profile/Binding فعال، Health، Cost Catalog و authorization دقیق مجاز است.
+- این اصلاحات روی source جاری هستند و تا انتشار artifact جدید، در Runtime Test نسخهٔ `v1.1.2` فعال نشده‌اند.
+
+# ۲۰۲۶-۰۹-۱۷ — Walk-Through و Smart Tester: orchestration ایمن و release gate (source snapshot تاریخی)
+
+- تکمیل‌شده در source: هر دو capability از Back Office به AI Orchestration، context/role/policy، Profile/Binding و Provider adapter می‌رسند؛ UI به Provider خاص وابسته نیست و نتیجهٔ live با schema `analysis-v1`، evidence متادیتایی امن و usage/cost/latency قابل‌ردیابی برمی‌گردد.
+- اصلاح‌شده: timeout با abort در HTTP adapter، retry محدود، provider/network/invalid-output failure، redaction credential و fail-closed برای Role/Tool Policy/authorization/Binding اعمال شد. Smart Tester برای ثبت durable خطا به `project.write` نیاز دارد و اجرای live همچنان side-effect مستقل ندارد.
+- تأیید source: branch `codex/test-release-reliability-20260916`، implementation commit جاری `cd4df73aa72341b0596ad3fbe117c9fc36742017` و اجرای source-snapshot برابر ۳۹۰ pass و ۰ fail؛ build مرجع نیز verification را گذراند، اما artifact این commit به GHCR publish نشده و release محسوب نمی‌شود.
+- وضعیت release: Test روی artifact قبلی `1.1.2` و digest قبلی باقی ماند؛ GHCR publish candidate به‌دلیل `permission_denied` و scope ناکافی token انجام نشد، پس tag/manifest/promotion جدید وجود ندارد.
+- وضعیت live: authorization و Test Secret Store metadata حاضر است، ولی Profile/Binding فعال برای Project `hero` در snapshot AI وجود ندارد؛ Walk-Through و Smart Tester واقعی اجرا نشدند و هیچ Provider، Secret، هزینه یا prompt/response حساسی لمس/ذخیره نشد.
+
 # ۲۰۲۶-۰۹-۱۵ — AI Connections 1.1.1 و مسیر دسترسی روشن
 
 - اصلاح‌شده: سرصفحهٔ صفحهٔ «اتصال‌های AI» اکنون دکمهٔ مستقیم `رفتن به ثبت امن کلید` دارد که فرم Owner-only `ثبت امن کلید Provider` را در همان صفحه باز می‌کند.
@@ -613,3 +930,39 @@
 - افزوده‌شده: تست‌های hydration، store read، HTTP snapshot و حذف محتوای حساس از read model؛
 - شواهد: build لینوکس با ۲۲۵ ماژول و ۳۱۶ تست موفق؛ `check:docs` و `pnpm check` باید روی commit تحویلی دوباره اجرا شوند؛
 - مرز: private object storage، malware scanner/parser واقعی، browser acceptance، Provider، Secret، هزینه، Production و Pilot در این بسته فعال نشده‌اند.
+
+# ۲۰۲۶-۰۹-۱۸ — Scope نسخه‌دار AI برای پروژه‌های متعدد
+
+- افزوده‌شده: مدل provider-agnostic برای تنظیم Scope هر Project در Back Office با حالت‌های `enabled`، `local-only` و `disabled`؛
+- افزوده‌شده: capabilityهای نسخه‌دار `walkthrough-guide`، `smart-tester` و `invocation` با کنترل optimistic-concurrency و event append-only؛
+- افزوده‌شده: انتخاب Project و ثبت Scope از فرم «ثبت تغییر نسخه‌دار»، نمایش Scopeهای موجود و اعلام صریح اینکه Scope به‌تنهایی مجوز هزینهٔ خارجی نیست؛
+- اصلاح‌شده: مسیر انتخاب Advisor و اجرای live اکنون Scope پروژه را قبل از authorization هزینه و Provider call بررسی می‌کند و برای پروژهٔ نامجاز fail-closed است؛
+- شواهد: تست‌های هدفمند AI و Back Office برابر ۳۰/۳۰ موفق و full check برابر ۴۶۲/۴۶۲ تست موفق؛
+- مرز: Provider، Secret، هزینهٔ خارجی، Pilot و Production تغییر نکردند. برای اجرای زنده روی پروژهٔ جدید، authorization مستقل و دقیق همان پروژه همچنان الزامی است.
+
+# ۲۰۲۶-۰۹-۱۸ — Preflight سرور Test جدا
+
+- شواهد: اتصال SSH بدون رمز به `185.204.168.171` با `id -u=0` موفق شد؛ سیستم Ubuntu 24.04.4، دو CPU، حدود ۴ GiB RAM و حدود ۲۵ GiB فضای آزاد دارد؛
+- آماده‌سازی: Docker `29.1.3` و Docker Compose `2.40.3` فقط روی همین Target Test نصب و سرویس Docker فعال شد؛
+- preflight: تعداد container و image برابر صفر بود؛ فقط شبکه‌های پیش‌فرض Docker و سرویس‌های پایهٔ SSH/DNS/containerd مشاهده شدند؛
+- مرز: هیچ محصول، image، Secret، Provider زنده، Port اختصاصی Hero، Production یا Pilot روی Target اجرا نشد؛
+- گیت بعدی: ثبت Target/Agent و heartbeat واقعی فقط پس از تعیین `projectId`، `targetId` و authorization نسخه‌دار مخصوص همان Target مجاز است؛ هیچ شناسه‌ای حدس زده نمی‌شود.
+# 2026-09-19 — تشخیص و راهنمای رفع Profile Advisor
+
+- اصلاح شد: اگر Model و Provider ثبت باشند اما Health هنوز مانع ثبت Profile باشد، Planner بهترین Provider/Model موجود در کاتالوگ را بدون ادعای آماده‌بودن نمایش می‌دهد و ثبت تخصیص همچنان fail-closed و غیرفعال می‌ماند.
+- اصلاح شد: readiness مشترک Advisor برای گیت‌های شکست‌خورده `nextAction` غیرمحرمانه و قابل‌فهم برمی‌گرداند؛ برای نبود Profile، اقدام پیشنهادی ساخت Profile فعال با Policy امن است و هیچ Secret یا credentialی نمایش داده نمی‌شود.
+- اصلاح شد: Smart Tester، پیشنهاد فرم و ماتریس تخصیص به‌جای پیام مبهم «Profile فعال ندارد»، مسیر «پیشنهاد اتصال همهٔ نقش‌ها» را معرفی می‌کنند؛ Health check همچنان فقط Health check است و ساخت خودکار پنهانی انجام نمی‌شود.
+- سخت‌سازی شد: خواندن وضعیت اتصال Provider در گزینه‌های Advisor در برابر دادهٔ ناقص null-safe شد.
+- تست‌های افزوده‌شده: readiness بدون Profile، Planner با Health تأییدنشده و assertion رابط کاربری برای مسیر پیشنهاد تخصیص؛ اجرای کامل نهایی باید در CI انجام شود.
+- شواهد انتشار پس از این batch: Candidate `v1.1.5-rc.8` در run `35401564319` با `474/474` تست موفق، `0` شکست، build برابر `298` ماژول و `50` فایل JSON و documentation برابر `148` سند و `0` خطا ساخته شد؛ promotion روی Runtime Test هنوز انجام نشده است.
+
+# ۲۰۲۶-۰۹-۱۹ — سخت‌سازی promotion محیط Test در برابر duplicate env key
+
+- اصلاح شد: `promote-test-immutable.sh` پیش از هر pull، تغییر env یا recreate کانتینر، فایل env Test را از نظر کلیدهای تکراری بررسی می‌کند و در صورت ابهام fail-closed متوقف می‌شود؛ فقط نام کلید گزارش می‌شود و مقدار Secret هرگز چاپ نمی‌شود.
+- شواهد: Candidate `v1.1.5-rc.10` از commit `e52e437` با run `35402316316` و digest immutable `sha256:e808aedc95075a3af4270aaaf971281de14a5a05c40570511ecd3948c6efb225` ساخته شد؛ `474/474` تست، build و documentation check موفق بودند. این candidate هنوز روی Runtime Test promote نشده است.
+
+# ۲۰۲۶-۰۹-۱۹ — promotion موفق rc.10 روی Hero Test
+
+- طبق گزارش اپراتور، duplicate متناقض `HERO_ENABLE_REAL_PROVIDERS` در فایل env Test رفع شد؛ مقدار فعال `true` باقی ماند و هیچ Secretی نمایش یا تغییر داده نشد.
+- `v1.1.5-rc.10` با digest immutable `sha256:e808aedc95075a3af4270aaaf971281de14a5a05c40570511ecd3948c6efb225` فقط روی Hero Test promote و verify شد؛ `/health`، `/ready` و smoke PASS شدند.
+- هنگام restart یک `connection reset` موقت رخ داد و با readiness و smoke موفق نهایی شد. rollback point metadata-only در `/etc/hero/hero-test.env.release-state.before-e808aedc95075a3af4270aaaf971281de14a5a05c40570511ecd3948c6efb225.json` ثبت شد. Production، Pilot و Secretها untouched هستند.

@@ -113,3 +113,20 @@ export {
   HeroSecretStoreError,
   createHeroSecretStore
 } from "./hero-secret-store.mjs";
+
+export {
+  createDockerProductExecutor,
+  createDockerProductRunner
+} from "./product-runner.mjs";
+
+export {
+  createProductRuntimeReservationRegistry
+} from "./product-runtime-reservations.mjs";
+
+export {
+  createPostgresProductRuntimeReservationStore
+} from "./postgresql-product-runtime-reservation-store.mjs";
+
+export {
+  createDockerProductRuntimeCapacityProbe
+} from "./product-runtime-capacity.mjs";

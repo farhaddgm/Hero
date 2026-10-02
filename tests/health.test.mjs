@@ -40,7 +40,9 @@ test("build-info exposes the exact release identity without changing health cont
     releaseVersion: "1.2.3",
     sourceCommit: "0123456",
     imageDigest,
-    serviceVersion: "0.1.0"
+    serviceVersion: "0.1.0",
+    smartTesterRepositoryContext: "read-only/1.0.0",
+    walkthroughGuideRepositoryContext: "read-only/1.0.0"
   });
 });
 
@@ -205,6 +207,8 @@ test("runner endpoint exposes only the isolated execution contract", async t => 
   assert.equal(payload.runnerContract.defaultLimits.network, "disabled");
   assert.equal(payload.runnerContract.defaultLimits.maxConcurrentRunners, 1);
   assert.ok(payload.runnerContract.states.includes("checkpointed"));
+  assert.equal(payload.productRunnerContract.defaults.networkMode, "none");
+  assert.equal(payload.productRunnerContract.defaults.shell, false);
 });
 
 test("fake agent endpoint exposes deterministic no-provider scenarios only", async t => {

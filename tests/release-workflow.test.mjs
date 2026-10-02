@@ -38,10 +38,11 @@ test("test verification pulls the exact published candidate instead of rebuildin
   assert.match(source, /docker\/login-action@v3/);
   assert.match(source, /artifact_digest:/);
   assert.match(source, /commit_sha:/);
+  assert.ok(source.includes("if (!/^ghcr\\.io\\/farhaddgm\\/hero@sha256:[a-f0-9]{64}$/.test(artifact))"));
+  assert.ok(source.includes("if (!/^(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$/.test(version))"));
   assert.match(source, /ref: \$\{\{ inputs\.commit_sha \}\}/);
   assert.match(source, /docker pull "\$ARTIFACT"/);
   assert.match(source, /org\.opencontainers\.image\.version/);
   assert.match(source, /org\.opencontainers\.image\.revision/);
-  assert.match(source, /ghcr\\\\\.io\\\\\/farhaddgm\\\\\/hero@sha256/);
   assert.doesNotMatch(source, /docker build/);
 });

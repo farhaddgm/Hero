@@ -148,6 +148,15 @@ export function createProjectAccessRegistry({ ownerUserId = "hero-owner", ownerU
       grantsByKey.set(key, revoked);
       return revoked;
     },
+    revokeProjectGrants({ actor, projectId }) {
+      assertOwner(actor); const normalizedProjectId = assertIdentifier("projectId", projectId); const revoked = [];
+      for (const [key, prior] of grantsByKey) {
+        if (prior.projectId !== normalizedProjectId || prior.status !== "active") continue;
+        const next = copy({ ...prior, status: "revoked", version: prior.version + 1, revokedAt: now(), revokedBy: actor.subject });
+        grantsByKey.set(key, next); revoked.push(copy(next));
+      }
+      return Object.freeze(revoked);
+    },
     listProjectGrants({ principal, projectId }) {
       authorize({ principal, projectId, action: "project.grant.read" });
       return Object.freeze([...grantsByKey.values()].filter(grant => grant.projectId === projectId).map(copy));

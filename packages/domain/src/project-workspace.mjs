@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { FOUNDATION_PROPOSAL_STATES, PROJECT_INPUT_TYPES, PROJECT_LIFECYCLES } from "../../contracts/src/project-workspace.mjs";
+import { createProductRuntimePlan, normalizeProductIntake } from "./product-factory.mjs";
 
 const ID = /^[A-Za-z][A-Za-z0-9._:-]{2,127}$/;
 const PROJECT_SLUG = /^[a-z][a-z0-9-]{2,62}$/;
@@ -9,6 +10,8 @@ const PRIVATE_HOST = /(?:localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]|10\.|192\.168
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 const MAX_TEXT_BYTES = 512 * 1024;
 const MAX_ZIP_EXPANDED_BYTES = 50 * 1024 * 1024;
+const IDEMPOTENCY_KEY = /^[A-Za-z][A-Za-z0-9._:-]{2,127}$/;
+const FINGERPRINT = /^[a-f0-9]{64}$/;
 
 function copy(value) { return Object.freeze(structuredClone(value)); }
 function assertId(label, value) { if (typeof value !== "string" || !ID.test(value)) throw new ProjectWorkspaceError("INVALID_IDENTIFIER", `${label} is invalid.`, 400); return value; }
@@ -33,6 +36,12 @@ function signatureValid(type, value) {
   return false;
 }
 function previewText(type, data) { return type === "text" ? data.toString("utf8").slice(0, 4096) : null; }
+function canonical(value) {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (value && typeof value === "object") return Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])]));
+  return value;
+}
+function fingerprint(value) { return createHash("sha256").update(JSON.stringify(canonical(value))).digest("hex"); }
 
 export class ProjectWorkspaceError extends Error {
   constructor(code, message, statusCode = 409) { super(message); this.name = "ProjectWorkspaceError"; this.code = code; this.statusCode = statusCode; }
@@ -45,42 +54,110 @@ export function createProjectWorkspace({ ownerUserId = "hero-owner", now = () =>
   assertId("ownerUserId", ownerUserId);
   if (!Number.isInteger(uploadQuotaBytes) || uploadQuotaBytes < 1024 || uploadQuotaBytes > 100 * 1024 * 1024) throw new Error("uploadQuotaBytes must be a safe integer quota.");
   if (objectStoreAdapter !== null && typeof objectStoreAdapter?.put !== "function") throw new ProjectWorkspaceError("OBJECT_STORE_INVALID", "Object store adapter must provide put().", 500);
-  const projects = new Map(); const uploads = new Map(); const proposals = new Map(); const imports = new Map(); const deletionRequests = new Map(); const objectStore = new Map();
-  function project(projectId) { const row = projects.get(assertProjectId(projectId)); if (!row) throw new ProjectWorkspaceError("PROJECT_NOT_FOUND", "Project was not found.", 404); return row; }
+  const projects = new Map(); const uploads = new Map(); const proposals = new Map(); const imports = new Map(); const deletionRequests = new Map(); const objectStore = new Map(); const productRequests = new Map(); const purgedProjectIds = new Set();
+  function project(projectId) { const id = assertProjectId(projectId); const row = projects.get(id); if (!row || purgedProjectIds.has(id)) throw new ProjectWorkspaceError("PROJECT_NOT_FOUND", "Project was not found.", 404); return row; }
   function assertVersion(row, expectedVersion) { if (expectedVersion !== undefined && expectedVersion !== row.version) throw new ProjectWorkspaceError("STALE_PROJECT_VERSION", "Project changed before this command was applied.", 409); }
   function update(row, patch) { const next = copy({ ...row, ...patch, version: row.version + 1, updatedAt: now() }); projects.set(row.projectId, next); return next; }
   function projectUploads(projectId) { return [...uploads.values()].filter(item => item.projectId === projectId); }
+  function policyRiskLevel(riskLevel) { return riskLevel === "critical" ? "high" : riskLevel; }
+  function currentFoundation(projectId) { return [...proposals.values()].filter(item => item.projectId === projectId).sort((a, b) => b.version - a.version)[0] ?? null; }
+  function assertIdempotencyKey(value) { if (typeof value !== "string" || !IDEMPOTENCY_KEY.test(value)) throw new ProjectWorkspaceError("INVALID_IDEMPOTENCY_KEY", "idempotencyKey must be a stable safe identifier.", 400); return value; }
+  function requestMetadata(row) { return copy({ requestId: row.requestId, version: row.version, idempotencyKey: row.idempotencyKey, fingerprint: row.fingerprint, projectId: row.projectId, state: row.state, submittedBy: row.submittedBy, submittedAt: row.submittedAt }); }
+  function hydrateProductRequest(row) {
+    if (!row?.productRequest) return;
+    const request = row.productRequest;
+    if (typeof request.requestId !== "string" || typeof request.idempotencyKey !== "string" || !FINGERPRINT.test(request.fingerprint ?? "") || request.projectId !== row.projectId || request.version !== 1) throw new ProjectWorkspaceError("INVALID_HYDRATION", "Product request metadata is invalid.", 500);
+    const prior = productRequests.get(request.idempotencyKey);
+    if (prior && prior.fingerprint !== request.fingerprint) throw new ProjectWorkspaceError("INVALID_HYDRATION", "Product request idempotency metadata conflicts.", 500);
+    productRequests.set(request.idempotencyKey, requestMetadata({ ...request, state: request.state ?? "accepted", submittedBy: request.submittedBy ?? row.createdBy, submittedAt: request.submittedAt ?? row.createdAt, projectId: row.projectId }));
+  }
   function makeFoundationProposal(row, actor) {
     const existing = [...proposals.values()].find(item => item.projectId === row.projectId && ["proposed", "revision-requested"].includes(item.state));
     if (existing) return existing;
-    const policyPack = settings?.suggestPolicyPack({ projectId: row.projectId, projectType: row.intake.projectType, riskLevel: row.intake.riskLevel, actor }) ?? null;
+    const policyPack = settings?.suggestPolicyPack({ projectId: row.projectId, projectType: row.intake.projectType, riskLevel: policyRiskLevel(row.intake.riskLevel), actor }) ?? null;
     const nextVersion = Math.max(0, ...[...proposals.values()].filter(item => item.projectId === row.projectId).map(item => item.version)) + 1;
-    const proposal = copy({ proposalId: `foundation-${randomUUID()}`, projectId: row.projectId, version: nextVersion, state: "proposed", createdAt: now(), createdBy: actor?.subject ?? ownerUserId, brief: { intent: row.intake.intent, goal: row.intake.goal, users: row.intake.users, constraints: row.intake.constraints, expectedOutputs: row.intake.expectedOutputs, autonomy: row.intake.autonomy }, suggested: { roadmap: [{ id: "research", status: "proposed" }, { id: "analysis", status: "proposed" }, { id: "implementation", status: "proposed" }, { id: "test", status: "proposed" }], team: ["راهبرو", "محصولو", "تحلیلگرو", "معمارو", "دولوپرو", "تسترو"], models: policyPack?.values ?? {}, budget: policyPack?.values?.["budget.tokenHardCap"] ?? null, environments: ["development", "test", "production"], gates: ["foundation-approval", "test-evidence", "production-separate-approval"] }, revisions: [] });
+    const runtimePlan = createProductRuntimePlan({ projectId: row.projectId, riskLevel: row.riskAssessment?.level ?? row.intake.riskLevel });
+    const proposal = copy({ proposalId: `foundation-${randomUUID()}`, projectId: row.projectId, version: nextVersion, state: "proposed", createdAt: now(), createdBy: actor?.subject ?? ownerUserId, brief: { intent: row.intake.intent, goal: row.intake.goal, users: row.intake.users, constraints: row.intake.constraints, expectedOutputs: row.intake.expectedOutputs, autonomy: row.intake.autonomy, projectType: row.intake.projectType }, riskAssessment: row.riskAssessment, suggested: { roadmap: [{ id: "research", status: "proposed" }, { id: "analysis", status: "proposed" }, { id: "implementation", status: "proposed" }, { id: "test", status: "proposed" }], team: ["راهبرو", "محصولو", "تحلیلگرو", "معمارو", "دولوپرو", "تسترو"], models: policyPack?.values ?? {}, budget: policyPack?.values?.["budget.tokenHardCap"] ?? null, environments: ["development", "test", "production"], gates: ["foundation-approval", "test-evidence", "production-separate-approval"], runtimePlan, effects: runtimePlan.effects }, revisions: [] });
     proposals.set(proposal.proposalId, proposal); return proposal;
   }
   return Object.freeze({
-    createProject({ actor, projectId, name, description = "", intake = {} }) {
-      assertOwner(actor); const id = assertProjectId(projectId); if (projects.has(id)) throw new ProjectWorkspaceError("PROJECT_EXISTS", "ProjectId already exists.", 409);
-      noSensitive(intake);
-      const normalized = { intent: string(intake.intent ?? name, "intake.intent"), goal: string(intake.goal ?? "Define the desired product outcome", "intake.goal"), users: string(intake.users ?? "Owner-defined users", "intake.users"), constraints: Array.isArray(intake.constraints) ? intake.constraints.map(item => string(item, "constraint", 240)) : [], expectedOutputs: Array.isArray(intake.expectedOutputs) ? intake.expectedOutputs.map(item => string(item, "expected output", 240)) : [], autonomy: ["approval-each-stage", "approved-autonomous"].includes(intake.autonomy) ? intake.autonomy : "approval-each-stage", projectType: intake.projectType ?? "application", riskLevel: intake.riskLevel ?? "standard" };
-      noSensitive(normalized); const row = copy({ projectId: id, name: string(name, "name", 160), description: String(description).slice(0, 2000), lifecycle: "draft", status: "draft", version: 1, createdAt: now(), updatedAt: now(), createdBy: actor.subject, intake: normalized }); projects.set(id, row);
-      const foundation = makeFoundationProposal(row, actor); return copy({ project: row, foundationProposal: foundation, policyPack: settings?.policyPack(id) ?? null });
+    createProject({ actor, projectId, name, description = "", intake = {}, idempotencyKey = undefined }) {
+      assertOwner(actor); const id = assertProjectId(projectId); noSensitive(intake);
+      let normalized;
+      try { normalized = normalizeProductIntake({ name, intake }); } catch (error) { throw new ProjectWorkspaceError("INVALID_INTAKE", error.message, 400); }
+      const safeName = string(name, "name", 160); const safeDescription = String(description).slice(0, 2000); noSensitive(normalized);
+      const key = idempotencyKey === undefined ? `product-request-${randomUUID()}` : assertIdempotencyKey(idempotencyKey);
+      const requestFingerprint = fingerprint({ projectId: id, name: safeName, description: safeDescription, intake: normalized });
+      const priorRequest = productRequests.get(key);
+      if (priorRequest) {
+        if (priorRequest.fingerprint !== requestFingerprint) throw new ProjectWorkspaceError("IDEMPOTENCY_KEY_REUSED", "idempotencyKey was already used for different project data.", 409);
+        const priorProject = projects.get(priorRequest.projectId);
+        if (!priorProject) throw new ProjectWorkspaceError("REQUEST_RECOVERY_REQUIRED", "The accepted Product Request has no recoverable project.", 409);
+        const foundationProposal = currentFoundation(priorProject.projectId) ?? makeFoundationProposal(priorProject, actor);
+        return copy({ project: priorProject, foundationProposal, policyPack: settings?.policyPack(priorProject.projectId) ?? null, request: requestMetadata(priorRequest), replayed: true });
+      }
+      if (purgedProjectIds.has(id)) throw new ProjectWorkspaceError("PROJECT_ID_RETIRED", "A permanently deleted project identifier cannot be reused.", 409);
+      if (projects.has(id)) throw new ProjectWorkspaceError("PROJECT_EXISTS", "ProjectId already exists.", 409);
+      const request = copy({ requestId: `product-request-${randomUUID()}`, version: 1, idempotencyKey: key, fingerprint: requestFingerprint, projectId: id, state: "accepted", submittedBy: actor.subject, submittedAt: now() });
+      // The create form is the authoritative capture point for product
+      // definition. Re-asking its goal/users/autonomy in a second Intake
+      // form added no decision value and only delayed Foundation review.
+      const row = copy({ projectId: id, name: safeName, description: safeDescription, lifecycle: "foundation-review", status: "foundation-review", version: 1, createdAt: now(), updatedAt: now(), createdBy: actor.subject, intake: normalized, riskAssessment: normalized.riskAssessment, productRequest: request }); projects.set(id, row); productRequests.set(key, request);
+      const foundation = makeFoundationProposal(row, actor); return copy({ project: row, foundationProposal: foundation, policyPack: settings?.policyPack(id) ?? null, request, replayed: false });
     },
     getProject(projectId) { return copy(project(projectId)); },
-    listProjects() { return Object.freeze([...projects.values()].sort((a, b) => a.projectId.localeCompare(b.projectId)).map(copy)); },
+    isPurgedProject(projectId) { return purgedProjectIds.has(assertProjectId(projectId)); },
+    listProjects() { return Object.freeze([...projects.values()].filter(item => !purgedProjectIds.has(item.projectId)).sort((a, b) => a.projectId.localeCompare(b.projectId)).map(copy)); },
     hydrateProject({ project }) {
-      const normalized = copy(project);
+      const normalizedInput = project?.intake ?? {};
+      let normalizedIntake;
+      try { normalizedIntake = normalizeProductIntake({ name: project?.name, intake: normalizedInput }); } catch (error) { throw new ProjectWorkspaceError("INVALID_HYDRATION", error.message, 500); }
+      const normalized = copy({ ...project, intake: normalizedIntake, riskAssessment: project.riskAssessment ?? normalizedIntake.riskAssessment });
       assertProjectId(normalized.projectId);
+      if (purgedProjectIds.has(normalized.projectId)) return null;
       if (!Number.isInteger(normalized.version) || normalized.version < 1) throw new ProjectWorkspaceError("INVALID_HYDRATION", "Project version is invalid.", 500);
+      hydrateProductRequest(normalized);
       const current = projects.get(normalized.projectId);
       if (!current || normalized.version >= current.version) projects.set(normalized.projectId, normalized);
       if (settings?.policyPack && settings?.suggestPolicyPack && !settings.policyPack(normalized.projectId)) {
-        settings.suggestPolicyPack({ projectId: normalized.projectId, projectType: normalized.intake?.projectType ?? "application", riskLevel: normalized.intake?.riskLevel ?? "standard", actor: { subject: normalized.createdBy ?? ownerUserId } });
+        settings.suggestPolicyPack({ projectId: normalized.projectId, projectType: normalized.intake?.projectType ?? "application", riskLevel: policyRiskLevel(normalized.intake?.riskLevel ?? "standard"), actor: { subject: normalized.createdBy ?? ownerUserId } });
       }
       return copy(projects.get(normalized.projectId));
     },
-    archiveProject({ actor, projectId, expectedVersion, reason }) { assertOwner(actor); const row = project(projectId); assertVersion(row, expectedVersion); return update(row, { lifecycle: "archived", status: "archived", archiveReason: string(reason, "reason", 500), archivedBy: actor.subject, archivedAt: now() }); },
-    requestDeletion({ actor, projectId, expectedVersion, reason }) { assertOwner(actor); const row = project(projectId); assertVersion(row, expectedVersion); const request = copy({ deletionRequestId: `deletion-${randomUUID()}`, projectId: row.projectId, state: "requested", reason: string(reason, "reason", 500), requestedBy: actor.subject, requestedAt: now(), historyPreserved: true }); deletionRequests.set(row.projectId, request); update(row, { lifecycle: "deletion-requested", status: "deletion-requested" }); return request; },
+    archiveProject({ actor, projectId, expectedVersion, reason }) { assertOwner(actor); const row = project(projectId); assertVersion(row, expectedVersion); if (row.lifecycle === "archived") throw new ProjectWorkspaceError("PROJECT_ALREADY_ARCHIVED", "Project is already archived.", 409); return update(row, { lifecycle: "archived", status: "archived", archivedLifecycle: row.lifecycle, archiveReason: string(reason, "reason", 500), archivedBy: actor.subject, archivedAt: now() }); },
+    restoreProject({ actor, projectId, expectedVersion }) { assertOwner(actor); const row = project(projectId); assertVersion(row, expectedVersion); if (row.lifecycle !== "archived") throw new ProjectWorkspaceError("PROJECT_RESTORE_INVALID", "Only an archived project can be restored.", 409); const lifecycle = PROJECT_LIFECYCLES.includes(row.archivedLifecycle) && row.archivedLifecycle !== "archived" ? row.archivedLifecycle : "draft"; return update(row, { lifecycle, status: lifecycle, restoredAt: now(), restoredBy: actor.subject }); },
+    preparePurge({ actor, projectId, expectedVersion, confirmationProjectId, reason }) {
+      assertOwner(actor); const row = project(projectId); assertVersion(row, expectedVersion);
+      if (row.lifecycle !== "archived") throw new ProjectWorkspaceError("PROJECT_PURGE_REQUIRES_ARCHIVE", "Archive the project before permanent deletion.", 409);
+      if (confirmationProjectId !== row.projectId) throw new ProjectWorkspaceError("PROJECT_PURGE_CONFIRMATION_REQUIRED", "Type the exact project identifier to permanently delete it.", 400);
+      const safeReason = string(reason, "reason", 500);
+      const deletedObjectKeys = projectUploads(row.projectId).map(item => item.objectKey).filter(Boolean);
+      if (deletedObjectKeys.length > 0 && objectStoreAdapter && typeof objectStoreAdapter.delete !== "function") {
+        throw new ProjectWorkspaceError("PROJECT_PURGE_OBJECT_STORE_UNSUPPORTED", "Private files cannot be deleted safely by the configured object store.", 409);
+      }
+      // Confirm each object is still reachable before the first irreversible
+      // deletion, so a stale metadata record cannot leave a half-purged scope.
+      if (objectStoreAdapter?.metadata) for (const objectKey of deletedObjectKeys) objectStoreAdapter.metadata({ objectKey });
+      return copy({ projectId: row.projectId, name: row.name, expectedVersion: row.version, deletedBy: actor.subject, reason: safeReason, deletedObjectCount: deletedObjectKeys.length });
+    },
+    purgeProject({ actor, projectId, expectedVersion, confirmationProjectId, reason }) {
+      const prepared = this.preparePurge({ actor, projectId, expectedVersion, confirmationProjectId, reason });
+      const row = project(prepared.projectId);
+      const deletedObjectKeys = projectUploads(row.projectId).map(item => item.objectKey).filter(Boolean);
+      for (const objectKey of deletedObjectKeys) {
+        if (objectStoreAdapter?.delete) objectStoreAdapter.delete({ objectKey });
+        objectStore.delete(objectKey);
+      }
+      for (const [uploadId, item] of uploads) if (item.projectId === row.projectId) uploads.delete(uploadId);
+      for (const [proposalId, item] of proposals) if (item.projectId === row.projectId) proposals.delete(proposalId);
+      for (const [importId, item] of imports) if (item.projectId === row.projectId) imports.delete(importId);
+      for (const [key, item] of productRequests) if (item.projectId === row.projectId) productRequests.delete(key);
+      deletionRequests.delete(row.projectId); projects.delete(row.projectId); purgedProjectIds.add(row.projectId);
+      return copy({ projectId: row.projectId, name: row.name, deletedAt: now(), deletedBy: prepared.deletedBy, reason: prepared.reason, deletedObjectCount: deletedObjectKeys.length, auditRetention: "minimal-project-purge-tombstone" });
+    },
+    // Retained only to give legacy callers a clear, failure-safe migration
+    // path. A destructive operation is never inferred from an old endpoint.
+    requestDeletion() { throw new ProjectWorkspaceError("PROJECT_PURGE_CONFIRMATION_REQUIRED", "Use the archive-then-purge flow with an exact project identifier confirmation.", 400); },
     returnToDraft({ actor, projectId, expectedVersion, reason }) {
       assertOwner(actor);
       const row = project(projectId);
@@ -96,7 +173,7 @@ export function createProjectWorkspace({ ownerUserId = "hero-owner", now = () =>
       });
       return copy({ project: next, foundationProposal: makeFoundationProposal(next, actor) });
     },
-    submitIntake({ actor, projectId, expectedVersion, intake }) { assertProjectEditor(actor); const row = project(projectId); assertVersion(row, expectedVersion); noSensitive(intake); const next = update(row, { intake: { ...row.intake, ...intake }, lifecycle: "foundation-review" }); return copy({ project: next, foundationProposal: makeFoundationProposal(next, actor) }); },
+    submitIntake({ actor, projectId, expectedVersion, intake }) { assertProjectEditor(actor); const row = project(projectId); assertVersion(row, expectedVersion); noSensitive(intake); let normalizedIntake; try { normalizedIntake = normalizeProductIntake({ name: row.name, intake: { ...row.intake, ...intake } }); } catch (error) { throw new ProjectWorkspaceError("INVALID_INTAKE", error.message, 400); } const next = update(row, { intake: normalizedIntake, riskAssessment: normalizedIntake.riskAssessment, lifecycle: "foundation-review" }); return copy({ project: next, foundationProposal: makeFoundationProposal(next, actor) }); },
     upload({ actor, projectId, type, filename, content, mimeType = "application/octet-stream", zipExpandedBytes = null }) {
       assertProjectEditor(actor); const row = project(projectId); if (!PROJECT_INPUT_TYPES.includes(type) || type === "link" || type === "github-repository") throw new ProjectWorkspaceError("INVALID_UPLOAD_TYPE", "This input type cannot use binary upload.", 400);
       const bytes = asBuffer(content); if (bytes.length === 0 || bytes.length > uploadQuotaBytes) throw new ProjectWorkspaceError("UPLOAD_QUOTA_EXCEEDED", "Upload exceeds the private project quota.", 413);
@@ -121,7 +198,7 @@ export function createProjectWorkspace({ ownerUserId = "hero-owner", now = () =>
       uploads.set(normalized.uploadId, normalized);
       return normalized;
     },
-    foundationProposal({ projectId }) { project(projectId); return [...proposals.values()].filter(item => item.projectId === projectId).sort((a, b) => b.version - a.version)[0] ?? null; },
+    foundationProposal({ projectId }) { project(projectId); return currentFoundation(projectId); },
     listFoundationProposals({ projectId } = {}) {
       if (projectId) project(projectId);
       return Object.freeze([...proposals.values()].filter(item => !projectId || item.projectId === projectId).sort((a, b) => a.projectId.localeCompare(b.projectId) || a.version - b.version).map(copy));
@@ -135,7 +212,7 @@ export function createProjectWorkspace({ ownerUserId = "hero-owner", now = () =>
       return copy(proposals.get(normalized.proposalId));
     },
     reviseFoundation({ actor, projectId, proposalId, expectedVersion, changes, reason }) { assertProjectEditor(actor); project(projectId); const prior = proposals.get(assertId("proposalId", proposalId)); if (!prior || prior.projectId !== projectId) throw new ProjectWorkspaceError("FOUNDATION_NOT_FOUND", "Foundation proposal was not found.", 404); if (prior.version !== expectedVersion || !["proposed", "revision-requested"].includes(prior.state)) throw new ProjectWorkspaceError("STALE_FOUNDATION", "Foundation proposal is not editable in this version/state.", 409); noSensitive(changes); const next = copy({ ...prior, ...changes, state: "revision-requested", version: prior.version + 1, updatedAt: now(), revisions: [...prior.revisions, { actor: actor.subject, reason: string(reason, "reason", 500), at: now() }] }); proposals.set(proposalId, next); return next; },
-    approveFoundation({ actor, projectId, proposalId, expectedVersion }) { assertProjectEditor(actor); const row = project(projectId); const proposal = proposals.get(assertId("proposalId", proposalId)); if (!proposal || proposal.projectId !== projectId || proposal.version !== expectedVersion || !["proposed", "revision-requested"].includes(proposal.state)) throw new ProjectWorkspaceError("FOUNDATION_APPROVAL_INVALID", "Foundation proposal cannot be approved.", 409); const approved = copy({ ...proposal, state: "approved", approvedAt: now(), approvedBy: actor.subject }); proposals.set(proposalId, approved); if (settings) { if (!settings.policyPack(projectId) && settings.suggestPolicyPack) settings.suggestPolicyPack({ projectId, projectType: row.intake?.projectType ?? "application", riskLevel: row.intake?.riskLevel ?? "standard", actor }); settings.applyPolicyPack({ actor, projectId, reason: "Foundation proposal approved" }); } update(row, { lifecycle: "active", foundationProposalId: proposalId }); return approved; },
+    approveFoundation({ actor, projectId, proposalId, expectedVersion, riskApproval = false }) { assertProjectEditor(actor); const row = project(projectId); const proposal = proposals.get(assertId("proposalId", proposalId)); if (!proposal || proposal.projectId !== projectId || proposal.version !== expectedVersion || !["proposed", "revision-requested"].includes(proposal.state)) throw new ProjectWorkspaceError("FOUNDATION_APPROVAL_INVALID", "Foundation proposal cannot be approved.", 409); const riskLevel = row.riskAssessment?.level ?? row.intake?.riskLevel ?? "standard"; if (["high", "critical"].includes(riskLevel) && (actor.role !== "project-owner" || riskApproval !== true)) throw new ProjectWorkspaceError("OWNER_RISK_APPROVAL_REQUIRED", "High-risk Foundation requires an explicit owner risk approval.", 403); const runtimePlan = proposal.suggested?.runtimePlan ? { ...proposal.suggested.runtimePlan, state: "approved" } : null; const suggested = runtimePlan ? { ...proposal.suggested, runtimePlan, effects: runtimePlan.effects } : proposal.suggested; const approved = copy({ ...proposal, state: "approved", suggested, approvedAt: now(), approvedBy: actor.subject, riskApproval: ["high", "critical"].includes(riskLevel) ? { approved: true, approvedBy: actor.subject, approvedAt: now() } : null }); proposals.set(proposalId, approved); if (settings) { if (!settings.policyPack(projectId) && settings.suggestPolicyPack) settings.suggestPolicyPack({ projectId, projectType: row.intake?.projectType ?? "application", riskLevel: policyRiskLevel(riskLevel), actor }); settings.applyPolicyPack({ actor, projectId, reason: "Foundation proposal approved" }); } update(row, { lifecycle: "active", foundationProposalId: proposalId }); return approved; },
     importGithubReadOnly({ actor, projectId, repositoryUrl, inventory = {} }) { assertProjectEditor(actor); project(projectId); if (typeof repositoryUrl !== "string" || !URL.test(repositoryUrl)) throw new ProjectWorkspaceError("GITHUB_REPOSITORY_INVALID", "Only a public-form GitHub repository URL is accepted for read-only import planning.", 400); noSensitive(inventory); const plan = copy({ importId: `github-import-${randomUUID()}`, projectId, repositoryUrl: repositoryUrl.replace(/\.git\/?$/, ""), mode: "read-only-inventory", state: "awaiting-separate-fetch-authorization", inventory: { branches: Array.isArray(inventory.branches) ? inventory.branches.map(String) : [], dependencies: Array.isArray(inventory.dependencies) ? inventory.dependencies.map(String) : [], workflows: Array.isArray(inventory.workflows) ? inventory.workflows.map(String) : [], documents: Array.isArray(inventory.documents) ? inventory.documents.map(String) : [] }, adoptionPlan: { actions: ["inspect repository metadata", "compare catalog", "prepare adoption proposal"], prohibited: ["commit", "refactor", "secret change", "deploy"] }, createdAt: now(), createdBy: actor.subject }); imports.set(plan.importId, plan); return plan; },
     listImportPlans({ projectId } = {}) { if (projectId) project(projectId); return Object.freeze([...imports.values()].filter(item => !projectId || item.projectId === projectId).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map(copy)); },
     hydrateImport({ plan }) { const normalized = copy(plan); assertId("importId", normalized.importId); assertProjectId(normalized.projectId); imports.set(normalized.importId, normalized); return normalized; },
@@ -151,7 +228,18 @@ export function createProjectWorkspace({ ownerUserId = "hero-owner", now = () =>
       if (checksum !== item.checksum) throw new ProjectWorkspaceError("TEXT_INPUT_RECALL_INTEGRITY_FAILED", "The private text source failed its integrity check.", 409);
       return copy({ uploadId: item.uploadId, filename: item.filename, mimeType: item.mimeType, content: bytes.toString("utf8") });
     },
+    downloadInput({ actor, projectId, uploadId }) {
+      assertProjectEditor(actor); project(projectId);
+      const item = uploads.get(assertId("uploadId", uploadId));
+      if (!item || item.projectId !== projectId || item.type === "link") throw new ProjectWorkspaceError("PROJECT_INPUT_DOWNLOAD_NOT_AVAILABLE", "Only a stored project input from this project may be downloaded.", 404);
+      const bytes = objectStoreAdapter?.read ? objectStoreAdapter.read({ objectKey: item.objectKey }) : objectStore.get(item.objectKey);
+      if (!Buffer.isBuffer(bytes)) throw new ProjectWorkspaceError("PROJECT_INPUT_DOWNLOAD_UNAVAILABLE", "The private project input is not available for download.", 409);
+      const checksum = createHash("sha256").update(bytes).digest("hex");
+      if (checksum !== item.checksum) throw new ProjectWorkspaceError("PROJECT_INPUT_DOWNLOAD_INTEGRITY_FAILED", "The private project input failed its integrity check.", 409);
+      return Object.freeze({ uploadId: item.uploadId, filename: item.filename, mimeType: item.mimeType, bytes: Buffer.from(bytes) });
+    },
     privateObjectMetadata({ actor, projectId, uploadId }) { assertProjectEditor(actor); project(projectId); const item = uploads.get(assertId("uploadId", uploadId)); if (!item || item.projectId !== projectId) throw new ProjectWorkspaceError("UPLOAD_NOT_FOUND", "Upload was not found.", 404); return copy({ uploadId: item.uploadId, objectKey: item.objectKey, checksum: item.checksum, byteLength: item.byteLength }); },
+    hydratePurgeTombstone({ projectId }) { const id = assertProjectId(projectId); purgedProjectIds.add(id); projects.delete(id); for (const [key, item] of productRequests) if (item.projectId === id) productRequests.delete(key); return copy({ projectId: id }); },
     deletionRequest(projectId) { project(projectId); return deletionRequests.get(projectId) ?? null; }
   });
 }

@@ -40,6 +40,13 @@ export function createPrivateObjectStore({ root }) {
       return Object.freeze({ objectKey, byteLength: stored.size, storage: "hero-private-volume" });
     },
     read({ objectKey }) { return Buffer.from(readFileSync(target(objectKey))); },
-    metadata({ objectKey }) { const stored = statSync(target(objectKey)); return Object.freeze({ objectKey, byteLength: stored.size, storage: "hero-private-volume" }); }
+    metadata({ objectKey }) { const stored = statSync(target(objectKey)); return Object.freeze({ objectKey, byteLength: stored.size, storage: "hero-private-volume" }); },
+    delete({ objectKey }) {
+      const destination = target(objectKey);
+      try { unlinkSync(destination); } catch (error) {
+        if (error?.code !== "ENOENT") throw error;
+      }
+      return Object.freeze({ objectKey, deleted: true });
+    }
   });
 }

@@ -19,7 +19,8 @@ import {
   HERO_PROJECT_WALKTHROUGH_STATE_VERSION,
   HERO_PROJECT_WALKTHROUGH_STEPS,
   HERO_PROJECT_WALKTHROUGH_VERSION,
-  createProjectWalkthroughAdvisory
+  createProjectWalkthroughAdvisory,
+  createProjectWalkthroughProgress
 } from "../apps/control-plane/src/project-walkthrough.mjs";
 
 function scripts(html) {
@@ -41,6 +42,11 @@ test("the shared Hero shell provides accessible project-aware navigation", () =>
   assert.match(getHeroShellScript(), /hero\.active-project-id/);
   assert.match(html, /data-hero-command-dialog/);
   assert.match(html, /data-hero-smart-tester-toggle/);
+  assert.match(html, /data-hero-form-suggestions-toggle/);
+  assert.match(getHeroShellScript(), /hero-form-suggestion-trigger/);
+  assert.match(getHeroShellScript(), /اعلام پیشنهاد/);
+  assert.match(getHeroShellScript(), /انتخاب این پیشنهاد/);
+  assert.match(getHeroShellStyles(), /hero-form-suggestion-dialog/);
   assert.match(html, /Portfolio/);
   assert.match(html, /انتخاب پروژه/);
   assert.match(html, /class="hero-side-nav"/);
@@ -48,6 +54,11 @@ test("the shared Hero shell provides accessible project-aware navigation", () =>
   assert.match(getHeroShellStyles(), /prefers-reduced-motion: reduce/);
   assert.match(getHeroShellStyles(), /--hero-danger/);
   assert.match(getHeroShellStyles(), /hero-smart-tester-panel/);
+  assert.match(getHeroShellStyles(), /helper-copy\[data-hero-info-moved="true"\]/);
+  assert.match(getHeroShellScript(), /infoSupplement/);
+  assert.match(getHeroShellScript(), /heroInfoSupplement/);
+  assert.match(getBackofficeHtml({ initialData: null }), /Advisor|ادوایزر/);
+  assert.match(getBackofficeHtml({ initialData: null }), /form-suggestions/);
   assert.ok(getHeroShellStyles().includes(".hero-side-nav { position: fixed;"));
   assert.ok(getHeroShellStyles().includes(".hero-global-nav { display: grid; align-content: start; min-width: 0; gap: 4px; overflow-y: auto;"));
   const script = getHeroShellScript().match(/<script>([\s\S]*?)<\/script>/)?.[1];
@@ -65,13 +76,23 @@ test("AI Connections exposes safe provider setup, readiness checks and a project
   assert.match(html, /href="#ai-credential-entry">رفتن به ثبت امن کلید<\/a>/);
   assert.match(html, /id="ai-credential-entry"/);
   assert.match(html, /\/api\/ai\/providers\//);
+  assert.match(html, /\/api\/ai\/credentials\/.*\/health/);
+  assert.ok(html.indexOf('/api/ai/credentials/') < html.indexOf('/api/ai/providers/'), 'credential readiness precedes provider health');
   assert.match(html, /پاسخ عملیات قابل خواندن نیست \(HTTP/);
   assert.match(html, /نشست انسانی یا دسترسی Proxy محیط Test را بررسی کنید/);
   assert.match(html, /ai-assignment-project/);
+  assert.match(html, /project-scope/);
+  assert.match(html, /\/api\/ai\/project-scopes/);
+  assert.match(html, /Scope پروژه/);
   assert.match(html, /Walk-Through Guide/);
   assert.match(html, /Smart Tester/);
   assert.match(html, /vault:hero\/test\/cursor\/default/);
   assert.match(html, /Workflow مخزن\/Agent جداگانه/);
+  assert.match(html, /پیشنهاد اتصال همهٔ نقش‌ها/);
+  assert.match(html, /function currentBindingForConfig/);
+  assert.match(html, /شناسهٔ نسخهٔ فعلی خودکار درج می‌شود/);
+  assert.match(html, /supersedesBindingId = configValue\('config-binding-supersedes'\) \|\| currentBinding\?\.bindingId \|\| null/);
+  assert.match(html, /BINDING_VERSION_CONFLICT/);
 });
 
 test("global navigation never sends an unscoped project action to a 400 route", () => {
@@ -84,8 +105,23 @@ test("global navigation never sends an unscoped project action to a 400 route", 
   assert.doesNotMatch(html, /href="\/project-control"/);
 });
 
+test("project control room exposes a project-scoped Test target selector without dispatch", () => {
+  const html = getProjectControlRoomHtml({ initialData: { controlRoom: { project: { projectId: "project-vpn", name: "VPN", lifecycle: "draft" }, infrastructure: { items: [], servers: [{ serverId: "test-server", address: "185.204.168.171", environment: "test", state: "planned-no-connection" }], targetSelections: [] }, metrics: {}, collaboration: { teams: [] }, commands: { items: [] }, catalog: { items: [] }, performance: { items: [] }, observability: { items: [] }, delivery: { items: [] }, hardening: { items: [] }, readiness: { items: [] } } } });
+  assert.match(html, /id="target-selection-form"/);
+  assert.match(html, /ثبت Target برای این پروژه/);
+  assert.match(html, /action: 'select-target'/);
+  assert.match(html, /اجرای محصول هنوز جداگانه نیازمند مجوز Test است/);
+});
+
+test("project control room server-renders safe content when browser JavaScript is unavailable", () => {
+  const html = getProjectControlRoomHtml({ initialData: { controlRoom: { project: { projectId: "project-vpn", name: "VPN", lifecycle: "draft" }, metrics: { teams: 2, commands: 1, entities: 3, notifications: 0, readiness: "draft" }, infrastructure: { items: [], servers: [], targetSelections: [] }, collaboration: { teams: [{ title: "تحلیلگرو", state: "active", meta: "teamId: analyst" }] }, commands: { items: [] }, catalog: { items: [] }, performance: { items: [] }, observability: { items: [] }, delivery: { items: [] }, hardening: { items: [] }, readiness: { items: [] } } } });
+  assert.match(html, /id="metrics"[\s\S]*>[^<]*<article class="card metric">/);
+  assert.match(html, /id="sections"[\s\S]*همکاری و حافظه/);
+  assert.match(html, /Targetی برای انتخاب وجود ندارد/);
+});
+
 test("the project Walk-Through covers the real setup path, all management surfaces and explicit gated work", () => {
-  assert.equal(HERO_PROJECT_WALKTHROUGH_VERSION, "1.8.0");
+  assert.equal(HERO_PROJECT_WALKTHROUGH_VERSION, "1.9.0");
   assert.equal(HERO_PROJECT_WALKTHROUGH_STATE_VERSION, 1);
   assert.equal(HERO_PROJECT_WALKTHROUGH_ENABLED_SETTING, "backoffice.walkthrough.enabled");
   assert.ok(HERO_PROJECT_WALKTHROUGH_STEPS.length >= 12);
@@ -117,7 +153,8 @@ test("the project Walk-Through covers the real setup path, all management surfac
   assert.deepEqual(Object.keys(HERO_PROJECT_WALKTHROUGH_FIELD_GUIDANCE).sort(), [...ids].sort(), "field coaching must cover exactly the guide steps");
   for (const step of HERO_PROJECT_WALKTHROUGH_STEPS) if (step.nextId) assert.ok(ids.has(step.nextId), `${step.id} points to a missing next step`);
   assert.equal(mainSteps.at(-1).nextId, null, "the final main stage must expose completion instead of another step");
-  assert.ok(HERO_PROJECT_WALKTHROUGH_STEPS.some(step => step.id === "intake" && step.completion === "intake-complete"));
+  assert.equal(HERO_PROJECT_WALKTHROUGH_STEPS.some(step => step.id === "intake"), false, "project creation captures Intake once and does not add a duplicate guide stage");
+  assert.ok(HERO_PROJECT_WALKTHROUGH_STEPS.some(step => step.id === "inputs" && step.completion === "optional-input" && step.optional === true));
   assert.ok(HERO_PROJECT_WALKTHROUGH_STEPS.some(step => step.id === "foundation" && step.completion === "foundation-approved"));
   assert.ok(HERO_PROJECT_WALKTHROUGH_STEPS.some(step => step.availability === "gated" && step.id === "production"));
   const html = getProjectWalkthroughHtml({ projectId: "project-vpn" });
@@ -135,22 +172,42 @@ test("the project Walk-Through covers the real setup path, all management surfac
   for (const source of scripts(html)) assert.doesNotThrow(() => new vm.Script(source, { filename: "project-walkthrough-inline.js" }));
 });
 
+test("Walk-Through progress uses real project evidence and never blocks on optional inputs", () => {
+  const progress = createProjectWalkthroughProgress({
+    authenticated: true,
+    projectId: "project-vpn",
+    overview: {
+      intake: { goal: "هدف", users: "کاربران", autonomy: "approval-each-stage" },
+      inputs: [],
+      foundationProposal: { state: "approved" },
+      settings: [{ path: "product.locale", value: "fa" }]
+    }
+  });
+  assert.equal(progress.summary.percent, 100);
+  assert.equal(progress.summary.nextRequiredStepId, null);
+  const optionalInput = progress.steps.find(step => step.stepId === "inputs");
+  assert.equal(optionalInput.state, "optional");
+  assert.equal(optionalInput.required, false);
+  assert.match(optionalInput.evidence, /اختیاری/);
+  assert.doesNotMatch(JSON.stringify(progress), /approval-each-stage|product\.locale/, "progress does not retain project form values");
+});
+
 test("Walk-Through advisor starts empty, analyses the current step and never invokes a provider", () => {
-  const intake = createProjectWalkthroughAdvisory({ stepId: "intake", projectId: "project-vpn", question: "برای هدف و خودکارسازی چه پیشنهادی داری؟" });
-  assert.equal(intake.mode, HERO_PROJECT_WALKTHROUGH_ADVISOR_MODE);
-  assert.equal(intake.providerInvoked, false);
-  assert.equal(intake.stepId, "intake");
-  assert.match(intake.response, /هدف/);
-  assert.ok(intake.proposedFields.length >= 3);
-  assert.ok(intake.proposedFields.every(field => field.formId === "intake-form"));
-  assert.ok(intake.proposedFields.every(field => !/(?:password|secret|token|credential|mfa)/i.test(field.name)));
-  const blank = createProjectWalkthroughAdvisory({ stepId: "intake", projectId: "project-vpn" });
+  const creation = createProjectWalkthroughAdvisory({ stepId: "create-project", question: "برای هدف و خودکارسازی چه پیشنهادی داری؟" });
+  assert.equal(creation.mode, HERO_PROJECT_WALKTHROUGH_ADVISOR_MODE);
+  assert.equal(creation.providerInvoked, false);
+  assert.equal(creation.stepId, "create-project");
+  assert.match(creation.response, /هدف/);
+  assert.ok(creation.proposedFields.length >= 3);
+  assert.ok(creation.proposedFields.every(field => field.formId === "create-project-form"));
+  assert.ok(creation.proposedFields.every(field => !/(?:password|secret|token|credential|mfa)/i.test(field.name)));
+  const blank = createProjectWalkthroughAdvisory({ stepId: "create-project" });
   assert.equal(blank.response, "", "opening consultation must not show a pre-written answer");
   const gated = createProjectWalkthroughAdvisory({ stepId: "production", projectId: "project-vpn", question: "برای Production چه Approval لازم است؟" });
   assert.equal(gated.proposedFields.length, 0);
   assert.match(gated.response, /Approval|تأیید/);
-  assert.throws(() => createProjectWalkthroughAdvisory({ stepId: "intake" }), RangeError);
-  assert.throws(() => createProjectWalkthroughAdvisory({ stepId: "intake", projectId: "project-vpn", question: "a".repeat(HERO_PROJECT_WALKTHROUGH_ADVISOR_MAX_QUESTION_LENGTH + 1) }), RangeError);
+  assert.throws(() => createProjectWalkthroughAdvisory({ stepId: "missing-step" }), RangeError);
+  assert.throws(() => createProjectWalkthroughAdvisory({ stepId: "create-project", question: "a".repeat(HERO_PROJECT_WALKTHROUGH_ADVISOR_MAX_QUESTION_LENGTH + 1) }), RangeError);
 });
 
 test("Walk-Through routes have an on-page target on the exact surface they explain", () => {
@@ -203,7 +260,9 @@ test("Walk-Through routes have an on-page target on the exact surface they expla
   assert.match(shell, /walkthrough-advisor\/options/);
   assert.match(shell, /advisorProfileId: selector\.value === 'local' \? null : selector\.value/);
   assert.match(shell, /AI و نسخه/);
-  assert.match(shell, /hero\.project-walkthrough\.advisor\./);
+  assert.match(shell, /پاسخ سرویس قابل‌خواندن نیست/);
+  assert.match(shell, /نشست انسانی و Proxy محیط Test را بررسی کنید/);
+  assert.match(shell, /hero\.advisor\.selection\.walkthrough-guide\.v1/);
   assert.match(shell, /hero-walkthrough-advisor-messages/);
   assert.match(shell, /در حال تحلیل پرسش در زمینهٔ همین گام/);
   assert.doesNotMatch(shell, /askAdvisor\(''\)/);
@@ -254,9 +313,18 @@ test("Smart Tester is an opt-in floating development assistant on every shared B
   assert.match(shell, /عملیات با موفقیت انجام شد/);
   assert.match(shell, /عملیات ناموفق بود/);
   assert.match(shell, /تحلیل با اسمارت تستر/);
+  assert.match(shell, /heroActionCode/);
+  assert.match(shell, /چه اتفاقی افتاد؟/);
+  assert.match(shell, /چه‌کار کنم؟/);
+  assert.match(shell, /hero-smart-tester-diagnosis/);
+  assert.doesNotMatch(shell, /rowTitle\.textContent = 'گام بازتولید'/);
   assert.match(shell, /انتقال به لبهٔ چپ/);
   assert.match(shell, /انتقال به لبهٔ راست/);
-  assert.match(shell, /actions\.append\(moveLeft, moveRight, next\)/);
+  assert.match(shell, /heroActionFeedbackSide = \(\) => 'left'/);
+  assert.match(shell, /scheduleHeroActionFeedbackDismiss/);
+  assert.match(shell, /6_500/);
+  assert.match(shell, /popup\.setAttribute\('role', record\.ok \? 'status' : 'dialog'\)/);
+  assert.match(shell, /actions\.append\(close\)/);
   assert.match(shell, /actions\.prepend\(moveLeft, moveRight\)/);
   assert.match(shell, /window\.fetch = async/);
   assert.match(shell, /heroActionIsProcess/);
@@ -264,10 +332,15 @@ test("Smart Tester is an opt-in floating development assistant on every shared B
   assert.ok(styles.includes(".hero-action-feedback { position: fixed;"));
   assert.match(styles, /\.hero-action-feedback\[data-state="success"\]/);
   assert.match(styles, /\.hero-action-feedback\[data-state="error"\]/);
+  assert.match(styles, /\.hero-action-feedback\[data-state="success"\] \{ width: min\(380px/);
   assert.match(styles, /\.hero-action-feedback\[data-hero-action-feedback-side="left"\]/);
   assert.match(styles, /\.hero-action-feedback\[data-hero-action-feedback-side="right"\]/);
+  assert.match(styles, /--hero-control-height/);
+  assert.match(styles, /--hero-space-3/);
   assert.match(shell, /credentials: 'same-origin'/);
   assert.match(shell, /تحلیلگر محلی Hero/);
+  assert.match(shell, /مشاوره اجرا نشد:/);
+  assert.match(shell, /item\.dataset\.state = state/);
   assert.match(shell, /smartTesterCandidateSelector/);
   assert.match(shell, /getSmartTesterDescription/);
   assert.match(shell, /boxDescription/);
@@ -296,16 +369,33 @@ test("AI connection command surface lists connection health and token usage with
 
 test("Workspace has scoped recall controls, safe presets and a complete Run override form", () => {
   const html = getProjectWorkspaceHtml({ projectId: "project-vpn" });
-  for (const id of ["intake-recall", "foundation-recall", "input-recall", "setting-recall", "rollback-recall", "setting-preset", "setting-run-id-field"]) assert.match(html, new RegExp(`id=\"${id}\"`));
+  for (const id of ["foundation-recall", "input-recall", "setting-recall", "rollback-recall", "setting-preset", "setting-run-id-field"]) assert.match(html, new RegExp(`id=\"${id}\"`));
+  assert.doesNotMatch(html, /id="intake-recall"/);
   assert.match(html, /name="runId"/);
   assert.match(html, /برای Run override، شناسهٔ Run را وارد کنید/);
   assert.match(html, /\/inputs\/.*\/recall/);
+  assert.match(html, /\/inputs\/.*\/download/);
+  assert.match(html, /data-input-download/);
+  assert.match(html, /foundationSummary/);
+  assert.match(html, /settingLabel/);
+  assert.match(html, /form-label-with-info/);
   assert.match(html, /متن خصوصی پس از کنترل مجوز و checksum/);
   assert.match(html, /<select name="impact">/);
   assert.match(html, /byId\('studio'\)\.href = '\/api\/portal\?surface=studio&projectId='/);
   assert.match(html, /byId\('control'\)\.href = '\/api\/portal\?surface=control&projectId='/);
   assert.doesNotMatch(html, /\.href = '\/(?:product-studio|project-control)\?projectId='/);
   for (const source of scripts(html)) assert.doesNotThrow(() => new vm.Script(source, { filename: "workspace-inline.js" }));
+});
+
+test("Advisor launchers are icon-only overlays and do not consume form layout", () => {
+  const styles = getHeroShellStyles();
+  const shell = getHeroShellScript();
+  assert.match(styles, /\.hero-advisable-form \{ position: relative;/);
+  assert.match(styles, /\.hero-form-suggestion-trigger \{ position: absolute;/);
+  assert.match(styles, /width: 24px; height: 24px;/);
+  assert.match(shell, /trigger\.textContent = '💡'/);
+  assert.match(shell, /form\.classList\.add\('hero-advisable-form'\)/);
+  assert.match(shell, /form\.classList\.remove\('hero-advisable-form'\)/);
 });
 
 test("the shared InfoTip contract is accessible, keyboard-aware and injection-safe", () => {
@@ -326,7 +416,8 @@ test("the shared InfoTip contract is accessible, keyboard-aware and injection-sa
   assert.match(script, /focusin/);
   assert.match(script, /event\.key === 'Escape'/);
   assert.match(script, /getBoundingClientRect/);
-  assert.match(script, /featureTooltip\.textContent = text/);
+  assert.match(script, /featureTooltip\.textContent = supplement \? text/);
+  assert.match(script, /infoSupplement/);
   assert.doesNotMatch(script, /featureTooltip\.innerHTML/);
 });
 
@@ -362,7 +453,7 @@ test("all back-office surfaces expose their required feature help without nestin
     [getPortfolioHtml({ portfolio: { cards: [] } }), ["portfolio.projects", "portfolio.health", "portfolio.ownerBriefing", "portfolio.createProject"]],
     [getBackofficeHtml(), ["command.statusOverview", "capability.portfolioHealth", "capability.identityAccess", "teams.contracts", "ai.versionedConfiguration", "project.globalSettings", "operations.ownerActions", "guide.conceptsContracts"]],
     [getProductStudioHtml(), ["studio.sourceOfTruth", "studio.productsMetric", "studio.canonicalDocuments", "studio.projectWorkspace", "studio.versionedEndpoints"]],
-    [getProjectWorkspaceHtml({ projectId: "project-vpn" }), ["workspace.projectContext", "workspace.intake", "workspace.foundationProposal", "workspace.projectInputs", "workspace.versionedSettings", "workspace.policyPack", "workspace.rollback"]],
+    [getProjectWorkspaceHtml({ projectId: "project-vpn" }), ["workspace.projectContext", "workspace.foundationProposal", "workspace.projectInputs", "workspace.versionedSettings", "workspace.policyPack", "workspace.rollback"]],
     [getProjectControlRoomHtml(), ["control.activeTeams", "control.collaborationMemory", "control.commandOperations", "control.infrastructure", "control.finalReadiness"]],
     [getIdentityHtml(), ["identity.configurationStatus", "identity.loginSteps", "identity.humanLogin", "identity.ownerAdmin", "identity.viewer", "identity.projectGrant", "identity.createViewer", "identity.assignGrant"]],
     [getDashboardHtml(), ["lab.newRequest", "lab.autonomy", "lab.globalStop", "lab.currentScope", "lab.aiRoles", "lab.releases"]]
@@ -376,6 +467,33 @@ test("all back-office surfaces expose their required feature help without nestin
   const backoffice = surfaces[1][0];
   assert.equal((backoffice.match(/class="capability-card"/g) ?? []).length, 12);
   assert.equal((backoffice.match(/class="capability-info"/g) ?? []).length, 12);
+});
+
+test("project definition is captured once before Foundation review", () => {
+  const portfolio = getPortfolioHtml({ portfolio: { cards: [] } });
+  const workspace = getProjectWorkspaceHtml({ projectId: "project-vpn" });
+  assert.match(portfolio, /name="goal" required/);
+  assert.match(portfolio, /name="users" required/);
+  assert.match(portfolio, /مستقیم Foundation قابل بازبینی می‌سازد/);
+  assert.match(portfolio, /id="open-intake-advisor"/);
+  assert.match(portfolio, /\/api\/project-intake-advisor/);
+  assert.match(portfolio, /name="riskAnswer\.internetFacing"/);
+  assert.match(portfolio, /نمی‌دانم.*به معنی «خیر» نیست/);
+  assert.match(portfolio, /portfolio\.riskPersonalData/);
+  assert.doesNotMatch(portfolio, /name="riskFlag"/);
+  assert.doesNotMatch(workspace, /id="intake-form"/);
+  assert.doesNotMatch(workspace, /ثبت Intake/);
+});
+
+test("Project Workspace makes project inputs explicitly optional", () => {
+  const html = getProjectWorkspaceHtml({ projectId: "project-vpn" });
+  assert.match(html, /ورودی پروژه <span class="optional-badge">اختیاری<\/span>/);
+  assert.match(html, /نداشتن ورودی مانع ادامهٔ پروژه نیست/);
+  assert.match(html, /name="content" maxlength="524288" placeholder=/);
+  assert.match(html, /name="url" type="url" placeholder=/);
+  assert.doesNotMatch(html, /name="content"[^>]*required/);
+  assert.doesNotMatch(html, /name="url"[^>]*required/);
+  assert.match(html, /ورودی پروژه اختیاری است؛ بدون نمونه می‌توانید پروژه را ادامه دهید/);
 });
 
 test("Identity separates the three Test login gates with plain-language field guidance", () => {
@@ -454,6 +572,19 @@ test("Portfolio turns an unscoped Workspace or Operations entry into an explicit
   assert.match(html, /انتخاب پروژه لازم است/);
   assert.match(html, /href="\/api\/portal\?surface=workspace&projectId=project-vpn"/);
   assert.match(html, /ورود به فضای پروژه/);
+});
+
+test("Portfolio keeps archived projects out of active cards and exposes owner-only archive recovery controls", () => {
+  const html = getPortfolioHtml({ portfolio: { archiveCount: 1, cards: [{ projectId: "project-vpn", name: "VPN", version: 4, lifecycle: "active", health: "unknown", roadmap: [] }] } });
+  assert.match(html, /آرشیوها \(1\)/);
+  assert.match(html, /data-project-archive/);
+  assert.match(html, /project-lifecycle-dialog/);
+  assert.match(html, /confirmationProjectId/);
+  assert.match(html, /const method = action === 'purge' \? 'DELETE' : 'POST';/);
+  const archiveHtml = getPortfolioHtml({ portfolio: { cards: [{ projectId: "project-vpn", name: "VPN", version: 4, lifecycle: "archived", health: "unknown", roadmap: [] }] }, archiveView: true });
+  assert.match(archiveHtml, /پروژه‌های آرشیوشده/);
+  assert.match(archiveHtml, /data-project-restore/);
+  assert.match(archiveHtml, /data-project-purge/);
 });
 
 test("Portfolio serialization cannot break out of its inline script", () => {

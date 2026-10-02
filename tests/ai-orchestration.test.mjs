@@ -103,6 +103,40 @@ test("Provider, Model, Profile and Role Binding are versioned independently", ()
   );
 });
 
+test("AI project scope is versioned, project-specific and never an external-spend grant", () => {
+  const orchestration = createAiOrchestration();
+  const first = orchestration.configureProjectScope({
+    projectId: "project-beta",
+    mode: "enabled",
+    capabilities: ["walkthrough-guide", "smart-tester"],
+    actor: OWNER,
+    idempotencyKey: "project-beta-ai-scope-v1"
+  });
+  assert.equal(first.projectScope.projectId, "project-beta");
+  assert.equal(first.projectScope.version, 1);
+  assert.deepEqual(first.projectScope.capabilities, ["walkthrough-guide", "smart-tester"]);
+  assert.equal(first.projectScope.externalSpendBoundary, "separate-authorization-required");
+  assert.equal(orchestration.projectScopeAllows("project-beta", "walkthrough-guide"), true);
+  assert.equal(orchestration.projectScopeAllows("project-beta", "invocation"), false);
+  assert.equal(orchestration.projectScopeAllows("project-gamma", "invocation"), true, "unconfigured legacy projects remain backward-compatible until explicitly scoped");
+  assert.throws(() => orchestration.configureProjectScope({
+    projectId: "project-beta",
+    mode: "disabled",
+    expectedVersion: 0,
+    actor: OWNER,
+    idempotencyKey: "project-beta-ai-scope-stale"
+  }), error => error.code === "VERSION_CONFLICT");
+  const disabled = orchestration.configureProjectScope({
+    projectId: "project-beta",
+    mode: "disabled",
+    expectedVersion: 1,
+    actor: OWNER,
+    idempotencyKey: "project-beta-ai-scope-v2"
+  });
+  assert.equal(disabled.projectScope.version, 2);
+  assert.equal(orchestration.projectScopeAllows("project-beta", "walkthrough-guide"), false);
+});
+
 test("deterministic invocation records an immutable profile snapshot and no secret material", async () => {
   const orchestration = createAiOrchestration();
   registerBase(orchestration);

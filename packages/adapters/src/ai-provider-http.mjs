@@ -36,8 +36,19 @@ function assertCredentialEnv(value) {
   return value;
 }
 
+function isSafeCredentialReference(value) {
+  if (typeof value !== "string") return false;
+  if (/^(?:runtime|env):[A-Za-z0-9._:-]{3,120}$/.test(value)) return true;
+  if (!value.startsWith("vault:")) return false;
+  const segments = value.slice("vault:".length).split("/");
+  return segments.length >= 2
+    && segments.length <= 5
+    && value.length <= 160
+    && segments.every(segment => /^[A-Za-z0-9._:-]{1,80}$/.test(segment) && segment !== "." && segment !== "..");
+}
+
 function resolveCredential({ credentialRef, credentialEnv, env }) {
-  if (typeof credentialRef !== "string" || !/^(?:runtime|vault|env):[A-Za-z0-9._:-]{3,120}$/.test(credentialRef)) {
+  if (!isSafeCredentialReference(credentialRef)) {
     throw new AiProviderAdapterError("CREDENTIAL_REFERENCE_INVALID", "The runtime credential reference is invalid.");
   }
   const envName = credentialRef.startsWith("env:") ? credentialRef.slice(4) : credentialEnv;
@@ -118,12 +129,34 @@ function parseStructuredText(text) {
   }
 }
 
+function redactCredential(value, credential) {
+  if (typeof value === "string") return credential ? value.split(credential).join("[redacted]") : value;
+  if (Array.isArray(value)) return value.map(item => redactCredential(item, credential));
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, redactCredential(child, credential)]));
+  }
+  return value;
+}
+
 async function readResponse(response) {
   let body = null;
   try { body = await response.json(); } catch { body = null; }
   if (!response.ok) {
     const status = Number(response.status) || 0;
-    throw new AiProviderAdapterError("PROVIDER_HTTP_ERROR", `Provider request failed with HTTP ${status}.`, { retryable: status === 408 || status === 409 || status === 429 || status >= 500 });
+    const failure = status === 401
+      ? ["PROVIDER_AUTHENTICATION_FAILED", "Provider دسترسی را رد کرد؛ وضعیت Credential محیط Test را بررسی کنید.", false]
+      : status === 403
+        ? ["PROVIDER_PERMISSION_DENIED", "Provider اجازهٔ این درخواست را نداد؛ دسترسی حساب یا پروژه را بررسی کنید.", false]
+        : status === 404
+          ? ["PROVIDER_MODEL_OR_ENDPOINT_NOT_FOUND", "Provider مدل یا مسیر درخواست را پیدا نکرد.", false]
+          : status === 400 || status === 422
+            ? ["PROVIDER_REQUEST_REJECTED", "Provider ساختار درخواست یا تنظیم مدل را رد کرد.", false]
+            : status === 429
+              ? ["PROVIDER_RATE_LIMITED", "Provider موقتاً محدودیت نرخ یا سهمیه اعمال کرده است.", true]
+              : status === 408 || status >= 500
+                ? ["PROVIDER_UPSTREAM_UNAVAILABLE", "Provider موقتاً در دسترس نیست؛ بعداً دوباره تلاش کنید.", true]
+                : ["PROVIDER_HTTP_ERROR", `Provider درخواست را با HTTP ${status} رد کرد.`, false];
+    throw new AiProviderAdapterError(failure[0], `${failure[1]} (HTTP ${status}).`, { retryable: failure[2] });
   }
   return body ?? {};
 }
@@ -135,6 +168,24 @@ function inputEnvelope(input) {
     role: input.role,
     outputSchema: input.outputSchema,
     instruction: "Return only a JSON object whose schema field exactly matches outputSchema. Do not include credentials, host paths, or tool calls."
+  });
+}
+
+function openAiStructuredOutputFormat(outputSchema) {
+  const schema = typeof outputSchema === "string" ? outputSchema : "generic-json-v1";
+  return Object.freeze({
+    type: "json_schema",
+    name: `hero_${schema.replace(/[^A-Za-z0-9_-]/g, "_")}`,
+    strict: true,
+    schema: Object.freeze({
+      type: "object",
+      additionalProperties: false,
+      required: ["schema", "answer"],
+      properties: Object.freeze({
+        schema: Object.freeze({ type: "string", const: schema }),
+        answer: Object.freeze({ type: "string" })
+      })
+    })
   });
 }
 
@@ -201,13 +252,26 @@ function createHttpAdapter({ providerId, endpoint, credentialEnv, credentialReso
     const credential = await credentialFor(input);
     const request = buildRequest({ input, endpoint: normalizedEndpoint, credential });
     let response;
+    const timeoutMs = Number.isInteger(input.timeoutMs) && input.timeoutMs >= 100 && input.timeoutMs <= 600_000
+      ? input.timeoutMs
+      : 120_000;
+    const controller = typeof AbortController === "function" ? new AbortController() : null;
+    const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
     try {
-      response = await fetchImpl(request.url, request.options);
-    } catch {
+      const options = controller
+        ? { ...request.options, signal: request.options?.signal ?? controller.signal }
+        : request.options;
+      response = await fetchImpl(request.url, options);
+    } catch (error) {
+      if (controller?.signal.aborted || error?.name === "AbortError") {
+        throw new AiProviderAdapterError("PROVIDER_TIMEOUT", `Provider did not respond within ${timeoutMs}ms.`, { retryable: true });
+      }
       throw new AiProviderAdapterError("PROVIDER_NETWORK_ERROR", "The provider network request failed.", { retryable: true });
+    } finally {
+      if (timer) clearTimeout(timer);
     }
     const body = await readResponse(response);
-    const output = parseStructuredText(parseResponse.text(body));
+    const output = redactCredential(parseStructuredText(parseResponse.text(body)), credential);
     return copy({ output, usage: buildUsage(parseResponse.usage(body), costAccountingFor(input)), providerRequestId: typeof body?.id === "string" ? body.id : null, pricing: readiness.pricing });
   }
 
@@ -251,8 +315,13 @@ export function createOpenAiResponsesAdapter(options = {}) {
           model: input.modelId,
           store: false,
           max_output_tokens: input.maxOutputTokens,
+          // Advisor requests are short, read-only and structured.  Explicitly
+          // disable reasoning tokens by default so a bounded 512-token Test
+          // response cannot be consumed before the answer is emitted.  A
+          // caller may opt into a supported effort through the adapter input.
+          reasoning: { effort: ["none", "low", "medium", "high", "xhigh", "max"].includes(input.reasoningEffort) ? input.reasoningEffort : "none" },
           input: [{ role: "user", content: [{ type: "input_text", text: inputEnvelope(input) }] }],
-          text: { format: { type: "json_object" } }
+          text: { format: openAiStructuredOutputFormat(input.outputSchema) }
         })
       }
     }),

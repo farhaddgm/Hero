@@ -26,6 +26,9 @@ curl --fail --silent --show-error http://127.0.0.1:43101/health
 curl --fail --silent --show-error http://127.0.0.1:43101/ready
 build_info="$(curl --fail --silent --show-error http://127.0.0.1:43101/build-info)"
 [[ "$(release_json_get_text "$build_info" imageDigest)" == "$EXPECTED_IMAGE" ]] || { echo "Build info image digest mismatch." >&2; exit 1; }
+expected_repository_context='read-only/1.0.0'
+[[ "$(release_json_get_text "$build_info" smartTesterRepositoryContext)" == "$expected_repository_context" ]] || { echo "Build info is missing the Smart Tester repository read-only context." >&2; exit 1; }
+[[ "$(release_json_get_text "$build_info" walkthroughGuideRepositoryContext)" == "$expected_repository_context" ]] || { echo "Build info is missing the Walk-Through repository read-only context." >&2; exit 1; }
 for path in workspace project-control; do
   code="$(curl --silent --output /dev/null --write-out '%{http_code}' "http://127.0.0.1:43101/$path?projectId=project-vpn")"
   [[ "$code" == "401" ]] || { echo "$path expected 401 without Basic Auth, got $code" >&2; exit 1; }

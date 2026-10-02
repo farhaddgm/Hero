@@ -161,10 +161,11 @@ function projectContractCatalog() {
 }
 
 export class DashboardCommandError extends Error {
-  constructor(code, message) {
+  constructor(code, message, statusCode = undefined) {
     super(message);
     this.name = "DashboardCommandError";
     this.code = code;
+    if (statusCode !== undefined) this.statusCode = statusCode;
   }
 }
 
@@ -827,6 +828,16 @@ export function createControlDashboard(options = {}) {
           profileVersion: binding.profileVersion,
           boundAt: binding.boundAt
         }))),
+        projectScopes: Object.freeze((aiConfiguration.projectScopes ?? []).map(scope => Object.freeze({
+          scopeId: scope.scopeId,
+          projectId: scope.projectId,
+          mode: scope.mode,
+          capabilities: Object.freeze([...(scope.capabilities ?? [])]),
+          version: scope.version,
+          configuredAt: scope.configuredAt,
+          configuredBy: scope.configuredBy?.id ?? scope.configuredBy?.subject ?? null,
+          externalSpendBoundary: scope.externalSpendBoundary
+        }))),
         activity: current.aiOrchestration.activity,
         usageByProvider: current.aiOrchestration.usageByProvider ?? [],
         providerMode: current.providerMode,
@@ -1357,6 +1368,10 @@ export function createControlDashboard(options = {}) {
     return runMemoryCommand(projectMemory.record, input);
   }
 
+  function findProjectMemory({ projectId, memoryKey } = {}) {
+    return projectMemory.list().find(record => record.projectId === projectId && record.memoryKey === memoryKey) ?? null;
+  }
+
   function assembleAiContext(input = {}) {
     return runAiCommand(aiOrchestration.assembleContext, input, { kind: "system", id: "hero-ai-orchestration" });
   }
@@ -1393,6 +1408,11 @@ export function createControlDashboard(options = {}) {
   function bindAiRole(input = {}) {
     const { actor: inputActor, ...payload } = input;
     return runAiCommand(aiOrchestration.bindRole, payload, inputActor ?? { kind: "project-owner", id: "hero-owner" });
+  }
+
+  function configureAiProjectScope(input = {}) {
+    const { actor: inputActor, ...payload } = input;
+    return runAiCommand(aiOrchestration.configureProjectScope, payload, inputActor ?? { kind: "project-owner", id: "hero-owner" });
   }
 
   function registerAiSkill(input = {}) {
@@ -1811,12 +1831,14 @@ export function createControlDashboard(options = {}) {
     rebuildReadModel,
     aiOrchestration,
     recordProjectMemory,
+    findProjectMemory,
     assembleAiContext,
     registerAiProvider,
     checkAiProviderHealth,
     registerAiModel,
     registerAiProfile,
     bindAiRole,
+    configureAiProjectScope,
     registerAiSkill,
     bindAiSkill,
     setAiRolePolicy,

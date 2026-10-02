@@ -6,8 +6,8 @@
  * HTTP layer supplies a safe rendered page and a project-scoped read probe;
  * this module turns their result into an honest, contextual report.
  */
-export const HERO_SMART_TESTER_VERSION = "1.3.0";
-export const HERO_SMART_TESTER_ERROR_REPORT_VERSION = "1.0.0";
+export const HERO_SMART_TESTER_VERSION = "1.6.0";
+export const HERO_SMART_TESTER_ERROR_REPORT_VERSION = "1.3.0";
 export const HERO_SMART_TESTER_REPORT_TTL_MS = 30 * 60 * 1000;
 export const HERO_SMART_TESTER_MAX_QUESTION_LENGTH = 1_500;
 
@@ -15,6 +15,9 @@ const PROJECT_ID_PATTERN = /^[A-Za-z][A-Za-z0-9._:-]{2,127}$/;
 const FEATURE_KEY_PATTERN = /^[a-z][a-zA-Z0-9]*(?:\.[a-z][a-zA-Z0-9]*)+$/;
 const ADVISOR_PROFILE_ID_PATTERN = /^[A-Za-z][A-Za-z0-9._:-]{2,127}$/;
 const BOX_ID_PATTERN = /^[A-Za-z][A-Za-z0-9._:-]{0,127}$/;
+const SENSITIVE_ASSIGNMENT = /(?:\b(?:password|secret|credential|api[ _-]?key|token|mfa|توکن|رمز(?:\s*عبور)?|کلید\s*api)\b\s*[:=])\s*\S+/iu;
+const SENSITIVE_VALUE = /(?:\bsk-[A-Za-z0-9_-]{12,}\b|\bBearer\s+[A-Za-z0-9._-]{12,}\b|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----)/iu;
+const HOST_PATH = /(?:^|[\s"'(])(?:[A-Za-z]:[\\/]|\/(?:home|Users|mnt|opt)\/)/u;
 
 const SURFACES = Object.freeze({
   "/portfolio": Object.freeze({
@@ -77,6 +80,17 @@ function immutable(value) {
   return Object.freeze(value);
 }
 
+function stableFingerprint(parts) {
+  // A non-cryptographic, deterministic identifier is sufficient for grouping
+  // the same sanitized symptom. It contains no raw prompt or form value.
+  let hash = 2166136261;
+  for (const character of parts.filter(Boolean).join("|").toLocaleLowerCase()) {
+    hash ^= character.codePointAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `hst-${(hash >>> 0).toString(16).padStart(8, "0")}`;
+}
+
 function nonEmptyString(value, name, maximum = 256) {
   if (typeof value !== "string" || value.trim().length === 0 || value.length > maximum) {
     throw new RangeError(`${name} is invalid.`);
@@ -89,7 +103,7 @@ function safeQuestion(value) {
   const question = nonEmptyString(value, "question", HERO_SMART_TESTER_MAX_QUESTION_LENGTH);
   // The assistant has no reason to receive or retain sensitive material. This
   // is a narrow guard, not a promise to detect every secret format.
-  if (/(?:\b(?:password|secret|credential|api[ _-]?key|mfa|توکن|رمز(?:\s*عبور)?|کلید\s*api)\b\s*[:=])/i.test(question)) {
+  if (SENSITIVE_ASSIGNMENT.test(question) || SENSITIVE_VALUE.test(question) || HOST_PATH.test(question)) {
     throw new RangeError("Sensitive values must not be sent to Smart Tester.");
   }
   return question;
@@ -98,7 +112,7 @@ function safeQuestion(value) {
 function safeBoxText(value, name, fallback, maximum) {
   if (value === undefined || value === null || value === "") return fallback;
   const text = nonEmptyString(value, name, maximum).replace(/\s+/g, " ");
-  if (/(?:\b(?:password|secret|credential|api[ _-]?key|mfa|token|توکن|رمز(?:\s*عبور)?|کلید\s*api)\b\s*[:=]\s*)\S+/i.test(text)) {
+  if (SENSITIVE_ASSIGNMENT.test(text) || SENSITIVE_VALUE.test(text) || HOST_PATH.test(text)) {
     throw new RangeError(`${name} must not contain sensitive material.`);
   }
   return text;
@@ -113,7 +127,9 @@ function safeBoxId(value, fallback) {
 function redactActionText(value, maximum = 500) {
   if (value === undefined || value === null || value === "") return "";
   return String(value)
-    .replace(/((?:password|secret|credential|api[ _-]?key|token|mfa|رمز(?:\s*عبور)?|کلید\s*api)\s*[:=]\s*)[^\s,;]+/gi, "$1[redacted]")
+    .replace(/((?:password|secret|credential|api[ _-]?key|token|mfa|رمز(?:\s*عبور)?|کلید\s*api)\s*[:=]\s*)[^\s,;]+/giu, "$1[redacted]")
+    .replace(SENSITIVE_VALUE, "[redacted]")
+    .replace(HOST_PATH, "[redacted]")
     .slice(0, maximum);
 }
 
@@ -127,6 +143,86 @@ function normalizeActionFailure(value) {
   const label = redactActionText(value.label, 160) || "اقدام فرایندی";
   if (!path && !status && !message) return null;
   return immutable({ label, method, path: path || "/api/unknown", status, code, message });
+}
+
+function diagnoseActionFailure(actionFailure) {
+  const failure = normalizeActionFailure(actionFailure);
+  if (!failure) return null;
+  const code = failure.code.toUpperCase();
+  let classification = "service-action-failure";
+  let problem = `اقدام «${failure.label}» با پاسخ ${failure.status ?? "نامشخص"} از مسیر ${failure.method} ${failure.path} کامل نشد.`;
+  let likelyRootCause = "جزئیات پاسخ پاک‌سازی‌شده نشان می‌دهد درخواست در یکی از گیت‌های اعتبارسنجی، دسترسی یا قرارداد سرویس متوقف شده است.";
+  let proposedFix = "کد خطا، Scope پروژه و دادهٔ ورودی همین اقدام را بررسی کنید؛ پس از اصلاح، همان اقدام را دوباره اجرا کنید.";
+  let verification = "اقدام را با همان نشست انسانی و همان Scope تکرار کنید و نتیجهٔ موفق یا کد خطای جدید را ثبت کنید.";
+
+  if (failure.status === 0) {
+    classification = "network-or-proxy";
+    likelyRootCause = "مرورگر پاسخ HTTP دریافت نکرده است؛ ارتباط شبکه، Proxy یا نشست مرورگر ممکن است قطع شده باشد.";
+    proposedFix = "اتصال به محیط Test و ورود انسانی را بررسی کنید، سپس صفحه را تازه‌سازی و همان اقدام را تکرار کنید.";
+  } else if (failure.status === 401) {
+    classification = "human-session-required";
+    likelyRootCause = "نشست انسانی معتبر نیست یا منقضی شده است.";
+    proposedFix = "با Human Identity و MFA دوباره وارد شوید؛ از Basic Auth به‌تنهایی برای عملیات مالک استفاده نکنید.";
+  } else if (failure.status === 403) {
+    classification = "permission-or-scope-denied";
+    likelyRootCause = "نقش، پروژهٔ انتخابی یا مجوز مستقل موردنیاز با درخواست هم‌خوان نیست.";
+    proposedFix = "Project انتخاب‌شده، نقش Owner و مجوز لازم برای همین عملیات را بررسی کنید؛ مجوز را گسترده‌تر نکنید.";
+  } else if (failure.status === 404) {
+    classification = "resource-or-context-not-found";
+    likelyRootCause = "منبع یا Context موردنظر در Scope فعلی وجود ندارد یا با شناسهٔ دیگری ساخته شده است.";
+    proposedFix = "شناسه و Scope پروژه را بررسی کنید و مطمئن شوید منبع موردنظر پیش از این اقدام ایجاد شده است.";
+  } else if (failure.status === 409) {
+    classification = "state-or-version-conflict";
+    likelyRootCause = "وضعیت یا نسخهٔ منبع از زمان باز شدن فرم تغییر کرده و سرویس برای جلوگیری از overwrite درخواست را رد کرده است.";
+    proposedFix = "دادهٔ صفحه را تازه‌سازی کنید، تغییر هم‌زمان را بررسی کنید و فرم را با نسخهٔ جدید دوباره ارسال کنید.";
+  } else if (failure.status === 429) {
+    classification = "rate-limited";
+    likelyRootCause = "محدودیت نرخ برای حفاظت از سرویس فعال شده است.";
+    proposedFix = "پس از زمان اعلام‌شده دوباره تلاش کنید و از ارسال تکراری هم‌زمان خودداری کنید.";
+  } else if (failure.status !== null && failure.status >= 500) {
+    classification = "server-or-provider-failure";
+    likelyRootCause = "سرویس داخلی یا Provider وابسته نتوانسته درخواست را کامل کند؛ این خطا از دادهٔ فرم به‌تنهایی قابل رفع نیست.";
+    proposedFix = "کد خطا و زمان رخداد را در دفتر خطا ثبت کنید، سلامت وابستگی‌های همان مسیر را بررسی کنید و پس از رفع سرویس، اقدام را تکرار کنید.";
+  }
+
+  if (code === "ROLE_PROFILE_MISMATCH") {
+    classification = "role-profile-mismatch";
+    problem = "نقش انتخاب‌شده برای این اتصال با نقش پروفایل AI انتخاب‌شده یکسان نیست.";
+    likelyRootCause = "هر پروفایل AI برای یک نقش مشخص ساخته می‌شود و سیستم اجازه نمی‌دهد پروفایلِ یک نقش به نقش دیگری تخصیص داده شود.";
+    proposedFix = "در فرم اتصال، نقش را با نقش همان پروفایل یکسان کنید یا پروفایل مناسبِ نقش انتخاب‌شده را برگزینید؛ سپس دوباره ثبت کنید.";
+    verification = "پس از ثبت، در نقشهٔ تخصیص باید نام نقش و پروفایل انتخاب‌شده با هم سازگار نشان داده شوند.";
+  } else if (code === "PROFILE_NOT_ACTIVE") {
+    classification = "profile-not-active";
+    problem = "پروفایل AI انتخاب‌شده هنوز فعال نیست و نمی‌تواند به پروژه تخصیص داده شود.";
+    likelyRootCause = "سیستم فقط پروفایل‌های فعال را برای جلوگیری از استفاده از تنظیمات ناقص می‌پذیرد.";
+    proposedFix = "وضعیت پروفایل را بررسی کنید؛ فقط پس از کامل بودن Provider، Model و تنظیمات آن، نسخهٔ فعال را انتخاب کنید.";
+    verification = "پروفایل باید با وضعیت «فعال» در فهرست دیده شود و ثبت تخصیص بدون خطا انجام شود.";
+  } else if (code === "LIVE_ADVISOR_BINDING_MISMATCH") {
+    classification = "live-advisor-binding-mismatch";
+    problem = "پروفایل انتخاب‌شده با تخصیص فعال همین پروژه هم‌خوان نیست.";
+    likelyRootCause = "برای این پروژه، یک Binding فعالِ دیگر ثبت شده یا Binding انتخاب‌شده به Profile دیگری اشاره می‌کند.";
+    proposedFix = "Binding فعال پروژه را با Profile موردنظر هماهنگ کنید؛ از ساختن تخصیص تکراری خودداری کنید.";
+    verification = "پس از اصلاح، همان Profile باید در فهرست راهنما و Smart Tester به‌عنوان گزینهٔ آماده دیده شود.";
+  } else if (code === "CONTEXT_NOT_FOUND" || code === "CONTEXT_ASSEMBLY_BLOCKED") {
+    classification = "ai-context-missing";
+    likelyRootCause = "Context تأییدشدهٔ پروژه برای Role انتخاب‌شده پیدا نشده است.";
+    proposedFix = "Project و Binding فعال را بررسی کنید؛ Context حداقلی و پاک‌سازی‌شده را از مسیر مجاز پروژه آماده کنید، سپس درخواست را تکرار کنید.";
+  } else if (code === "LIVE_ADVISOR_OUTPUT_INVALID") {
+    classification = "provider-structured-output-invalid";
+    likelyRootCause = "Provider پاسخ را با قرارداد ساخت‌یافتهٔ Profile برنگردانده است.";
+    proposedFix = "Profile، Model و قابلیت Structured Outputs را بررسی کنید؛ پاسخ بدون schema معتبر نباید نمایش داده یا ثبت شود.";
+  } else if (/^(?:IDENTITY_AUTH_REQUIRED|SMART_TESTER_PROJECT_REQUIRED)$/.test(code)) {
+    classification = "identity-or-project-scope";
+  }
+
+  return immutable({
+    classification,
+    problem,
+    likelyRootCause,
+    proposedFix,
+    verification,
+    confidence: "bounded-by-observed-http-result"
+  });
 }
 
 export function resolveSmartTesterContext({ pathname, featureKey, projectId = null, boxId = null, boxTitle = null, boxDescription = null } = {}) {
@@ -196,6 +292,11 @@ export function createSmartTesterReport({ context, renderedHtml = "", backendPro
       notRun: checks.filter(check => check.status === "not-run").length
     }),
     checks,
+    qualityOpportunities: immutable([
+      immutable({ type: "test", title: "پوشش تعامل مرورگر", recommendation: "سناریوی موفق، خطای اعتبارسنجی و بازگشت فوکوس را در E2E همین featureKey پوشش دهید.", status: "suggested-not-run" }),
+      immutable({ type: "accessibility", title: "بازبینی دسترس‌پذیری", recommendation: "ترتیب فوکوس، نام قابل‌دسترسی کنترل‌ها، اعلان وضعیت و کار با صفحه‌کلید را بررسی کنید.", status: "suggested-not-run" }),
+      immutable({ type: "resilience", title: "رفتار شکست و بازیابی", recommendation: "timeout، پاسخ غیر JSON، نشست منقضی و retry امن را بدون side effect آزمایش کنید.", status: "suggested-not-run" })
+    ]),
     limits: immutable([
       "این گزارش جایگزین مرور انسانی، آزمون E2E یا acceptance نیست.",
       "هیچ دادهٔ خصوصی، Secret یا متن خام گفتگو در گزارش نگهداری نمی‌شود.",
@@ -234,26 +335,62 @@ export function createSmartTesterErrorReport({ context, renderedHtml = "", backe
   const baseReport = report ?? createSmartTesterReport({ context, renderedHtml, backendProbe });
   const findings = baseReport.checks.filter(check => check.status === "attention").map(check => immutable({
     findingId: `smart-tester.${check.id}`,
+    fingerprint: stableFingerprint([context.pathname, context.featureKey, context.boxId, check.id]),
+    category: "defect",
     severity: check.area === "Security" ? "high" : check.area === "Backend" ? "high" : "medium",
+    confidence: "medium",
+    evidenceType: "bounded-probe",
     area: check.area,
     title: `${check.area} · ${check.id}`,
+    observed: check.detail,
     evidence: check.detail,
     expected: "قرارداد این بخش باید بدون خطا و با دادهٔ Scope‌شده اجرا شود.",
+    impact: "این بخش ممکن است برای ادمین ناقص، مبهم یا غیرقابل استفاده باشد.",
     recommendation: `مسیر ${check.id} را بررسی کنید و پس از اصلاح، Smart Tester و آزمون تخصصی همان سطح را دوباره اجرا کنید.`,
+    verification: "Probe محدود، تست تخصصی همان ماژول و سناریوی مرورگر مربوط را دوباره اجرا کنید.",
     sourceFiles: context.sourceFiles
   }));
   const normalizedActionFailure = normalizeActionFailure(actionFailure);
+  const actionDiagnosis = diagnoseActionFailure(normalizedActionFailure);
   if (normalizedActionFailure) findings.unshift(immutable({
     findingId: "smart-tester.action-failure",
+    fingerprint: stableFingerprint([context.pathname, context.featureKey, context.boxId, normalizedActionFailure.method, normalizedActionFailure.path, normalizedActionFailure.status, normalizedActionFailure.code]),
+    category: "defect",
     severity: normalizedActionFailure.status >= 500 ? "high" : "medium",
+    confidence: "high",
+    evidenceType: "observed-http-result",
     area: "Action",
     title: `${normalizedActionFailure.label} ناموفق بود`,
+    observed: `${normalizedActionFailure.method} ${normalizedActionFailure.path} · HTTP ${normalizedActionFailure.status ?? "نامشخص"}${normalizedActionFailure.code ? ` · ${normalizedActionFailure.code}` : ""}`,
     evidence: `${normalizedActionFailure.status ?? "خطای نامشخص"}${normalizedActionFailure.code ? ` · ${normalizedActionFailure.code}` : ""}${normalizedActionFailure.message ? ` · ${normalizedActionFailure.message}` : ""}`,
     expected: "اقدام فرایندی باید پاسخ موفق و قابل‌اعتماد برگرداند.",
-    recommendation: "علت خطای اقدام را بررسی کنید، وضعیت Scope و اعتبار نشست را کنترل کنید و پس از اصلاح همان اقدام را دوباره اجرا کنید.",
+    impact: "اقدام ادمین کامل نشده و وضعیت قبلی باید بدون overwrite ناخواسته حفظ شده باشد.",
+    recommendation: actionDiagnosis.proposedFix,
+    verification: actionDiagnosis.verification,
     sourceFiles: context.sourceFiles
   }));
   const severity = findings.some(item => item.severity === "high") ? "high" : findings.length ? "medium" : "none";
+  const primaryFinding = findings[0] ?? null;
+  const incidentFingerprint = primaryFinding?.fingerprint ?? stableFingerprint([context.pathname, context.featureKey, context.boxId, "no-confirmed-error"]);
+  const remediationBrief = immutable({
+    schema: "hero.smart-tester.remediation-brief/v1",
+    fingerprint: incidentFingerprint,
+    projectId: context.projectId ?? null,
+    surface: context.pathname,
+    featureKey: context.featureKey,
+    boxId: context.boxId,
+    problem: actionDiagnosis?.problem ?? primaryFinding?.observed ?? "در Probe محدود فعلی خطای قطعی تأیید نشد.",
+    suspectedCause: actionDiagnosis?.likelyRootCause ?? "برای تعیین علت، Evidence بیشتری از تست تخصصی همان ماژول لازم است.",
+    proposedFix: actionDiagnosis?.proposedFix ?? primaryFinding?.recommendation ?? "ابتدا تست تخصصی همان مسیر را اجرا کنید.",
+    verificationPlan: immutable([
+      actionDiagnosis?.verification ?? primaryFinding?.verification ?? "Probe محدود همین بخش را تکرار کنید.",
+      "تست unit/integration مرتبط با فایل‌های مسئول را اجرا کنید.",
+      "سناریوی مرورگر همان اقدام را با Scope پروژه و نشست انسانی معتبر بررسی کنید."
+    ]),
+    rollbackBoundary: "اگر اصلاح وضعیت را بدتر کرد، فقط تغییر همان ماژول را بازگردانید؛ داده، Secret، Production و Pilot خارج از این گزارش‌اند.",
+    sourceFiles: context.sourceFiles,
+    safeForAgentHandoff: true
+  });
   return immutable({
     version: HERO_SMART_TESTER_ERROR_REPORT_VERSION,
     smartTesterVersion: HERO_SMART_TESTER_VERSION,
@@ -261,6 +398,9 @@ export function createSmartTesterErrorReport({ context, renderedHtml = "", backe
     generatedAt: new Date().toISOString(),
     chatInformed: chatInformed === true,
     actionFailure: normalizedActionFailure,
+    diagnosis: actionDiagnosis,
+    incident: immutable({ fingerprint: incidentFingerprint, severity, scope: `${context.pathname}:${context.featureKey}:${context.boxId}`, confirmed: findings.length > 0 }),
+    remediationBrief,
     summary: immutable({
       state: findings.length ? "errors-found" : "no-confirmed-errors",
       severity,
@@ -268,17 +408,18 @@ export function createSmartTesterErrorReport({ context, renderedHtml = "", backe
       attention: baseReport.summary.attention,
       notRun: baseReport.summary.notRun,
       statement: findings.length
-        ? `${findings.length} مورد نیازمند رسیدگی از Probe فعلی استخراج شد.`
+        ? `${findings.length} مورد نیازمند رسیدگی از Probe فعلی و نتیجهٔ پاک‌سازی‌شدهٔ اقدام استخراج شد.`
         : "در Probe فعلی خطای قطعی تأیید نشد؛ آزمون‌های اجرا‌نشده هنوز پوشش داده نشده‌اند."
     }),
     findings: immutable(findings),
     reproductionSteps: immutable([
       `ورود با نشست انسانی Owner و باز کردن «${context.title}».`,
       `باز کردن Smart Tester روی «${context.boxTitle ?? context.featureKey}».`,
-      "زدن «خطایاب» و ثبت زمان/Scope همین گزارش.",
-      "برای یافته‌های attention، مسیر پیشنهادی و فایل‌های مسئول را بررسی و تست تخصصی را تکرار کنید."
+      normalizedActionFailure ? `تکرار کنترل‌شدهٔ «${normalizedActionFailure.label}» در همان Scope و ثبت HTTP ${normalizedActionFailure.status ?? "نامشخص"}.` : "زدن «خطایاب» و ثبت زمان/Scope همین گزارش.",
+      "برای یافته‌های نیازمند رسیدگی، راه‌حل پیشنهادی را اجرا و بررسی تخصصی همان بخش را تکرار کنید."
     ]),
     limitations: immutable(baseReport.limits),
+    qualityOpportunities: baseReport.qualityOpportunities,
     sourceReport: immutable({ version: baseReport.version, generatedAt: baseReport.generatedAt, summary: baseReport.summary })
   });
 }

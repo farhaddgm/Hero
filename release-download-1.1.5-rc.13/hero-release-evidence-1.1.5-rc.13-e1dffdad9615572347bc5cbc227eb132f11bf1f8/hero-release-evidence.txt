@@ -1,0 +1,5 @@
+release_version=1.1.5-rc.13
+commit_sha=e1dffdad9615572347bc5cbc227eb132f11bf1f8
+artifact=ghcr.io/farhaddgm/hero@sha256:554b9dda91b2eb1ad89b65d58bfafb99fba7f10feedf194fca4f30f14f5aca16
+artifact_id=sha256:75f7c5e0964db65efaa80e87ec38cae9b038b3d762fe62a89bf77f475c149ba0
+release_url=https://github.com/farhaddgm/Hero/releases/tag/v1.1.5-rc.13

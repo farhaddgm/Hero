@@ -44,6 +44,8 @@ import {
   getProjectIdentityContractSummary,
   getProjectSettingsContractSummary,
   getProjectWorkspaceContractSummary,
+  getProductFactoryContractSummary,
+  getProductRunnerContractSummary,
   getBackofficeCollaborationContractSummary,
   getBackofficeCommandCenterContractSummary,
   getSystemCatalogContractSummary,
@@ -63,7 +65,7 @@ import { getIdentityHtml } from "./identity-view.mjs";
 import { getProjectControlRoomHtml } from "./project-control-room-view.mjs";
 import { getProjectWorkspaceHtml } from "./project-workspace-view.mjs";
 import { getProjectWalkthroughHtml } from "./project-walkthrough-view.mjs";
-import { createProjectWalkthroughAdvisory } from "./project-walkthrough.mjs";
+import { createProjectWalkthroughAdvisory, createProjectWalkthroughProgress } from "./project-walkthrough.mjs";
 import {
   HERO_SMART_TESTER_ERROR_REPORT_VERSION,
   HERO_SMART_TESTER_REPORT_TTL_MS,
@@ -74,6 +76,7 @@ import {
   resolveSmartTesterContext
 } from "./smart-tester.mjs";
 import { createPrivateObjectStore } from "../../../packages/adapters/src/private-object-store.mjs";
+import { createRepositoryReadContext, HERO_REPOSITORY_READ_CONTEXT_VERSION } from "./repository-read-context.mjs";
 import { OwnerAuthError, createOwnerAuth } from "../../../packages/domain/src/owner-auth.mjs";
 import { AdminAuthError, createAdminAuth } from "../../../packages/domain/src/admin-auth.mjs";
 import { createHumanIdentity, HumanIdentityError, HUMAN_IDENTITY_SESSION_TTL_SECONDS } from "../../../packages/domain/src/human-identity.mjs";
@@ -91,9 +94,14 @@ import { createDeliveryControl, DeliveryError } from "../../../packages/domain/s
 import { createOperationalHardening, HardeningError } from "../../../packages/domain/src/operational-hardening.mjs";
 import { createFinalReadiness, FinalReadinessError } from "../../../packages/domain/src/final-readiness.mjs";
 import { createBackofficeCompletion, BackofficeCompletionError } from "../../../packages/domain/src/backoffice-completion.mjs";
+import { AiOrchestrationError } from "../../../packages/domain/src/ai-orchestration.mjs";
+import { evaluateAiAdvisorReadiness } from "../../../packages/domain/src/ai-advisor-readiness.mjs";
+import { FormSuggestionsError, FORM_PROVIDER_SUGGESTIONS_SCHEMA, FORM_SUGGESTION_INITIAL_SUGGESTIONS, FORM_SUGGESTIONS_VERSION, createFormSuggestions, createProviderFormSuggestions, prepareFormSuggestionRefinement, prepareFormSuggestionRequest } from "../../../packages/domain/src/advisor.mjs";
+import { ProjectIntakeAdvisorError, createProjectIntakeAdvisor } from "../../../packages/domain/src/project-intake-advisor.mjs";
 import { rebuildPortfolioReadModel, rebuildProjectReadModel } from "../../../packages/domain/src/backoffice-read-models.mjs";
 import { ProductDevelopmentError, createProductDevelopmentCatalog } from "../../../packages/domain/src/product-development.mjs";
-import { HeroSecretStoreError, createConfiguredAiProviderAdapters, createHeroSecretStore, createNotionApiAdapter, createPostgresRuntime, createPricingCatalogRegistry, createRuntimeExternalSpendAuthorizer } from "../../../packages/adapters/src/index.mjs";
+import { HeroSecretStoreError, createConfiguredAiProviderAdapters, createHeroSecretStore, createNotionApiAdapter, createPostgresRuntime, createPricingCatalogRegistry, createRuntimeExternalSpendAuthorizer, readRuntimeExternalSpendPolicy } from "../../../packages/adapters/src/index.mjs";
+import { advisorProfileOptions, createAiAssignmentProposal } from "./ai-assignment-planner.mjs";
 
 const PRIVATE_ROBOTS_POLICY = "noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate";
 const READ_MODEL_AUDIT_RESOURCES = new Set([
@@ -128,6 +136,46 @@ const BROWSER_PORTAL_DATA_PATH = "/api/portal-data";
 const BROWSER_PORTAL_DOCUMENT_PATH = "/api/portal-document";
 const BROWSER_PORTAL_SURFACES = new Set(["identity", "portfolio", "command", "studio", "workspace", "control", "walkthrough", "ai"]);
 const DEFAULT_BACKOFFICE_RESPONSE_LIMIT_BYTES = 512 * 1024;
+const OPENAI_TEST_ADVISOR = Object.freeze({
+  providerId: "openai",
+  modelId: "gpt-5.6-luna",
+  profileId: "openai-gpt-5.6-luna-analyst-v1",
+  role: "analyst",
+  catalogVersion: "openai-gpt-5.6-luna-20260916-v1",
+  catalogSourceUrl: "https://developers.openai.com/api/docs/models/gpt-5.6-luna",
+  catalogFetchedAt: "2026-09-16T00:00:00.000Z",
+  catalogValidUntil: "2026-10-16T00:00:00.000Z",
+  maxOutputTokens: 512,
+  // The request includes a bounded, read-only repository context.  A 100-unit
+  // ceiling was lower than the adapter's conservative preflight estimate for
+  // that context, so valid requests were blocked before reaching the provider.
+  // Keep this as a per-request cap well below the separately authorized
+  // 50,000-unit Test ceiling while leaving room for the fixed context envelope.
+  maxCostUnits: 10_000
+});
+const OPENAI_TEST_PRICING_CATALOG = Object.freeze({
+  catalogVersion: OPENAI_TEST_ADVISOR.catalogVersion,
+  sourceUrl: OPENAI_TEST_ADVISOR.catalogSourceUrl,
+  fetchedAt: OPENAI_TEST_ADVISOR.catalogFetchedAt,
+  validUntil: OPENAI_TEST_ADVISOR.catalogValidUntil,
+  entries: Object.freeze([Object.freeze({
+    providerId: OPENAI_TEST_ADVISOR.providerId,
+    modelId: OPENAI_TEST_ADVISOR.modelId,
+    pricingMode: "tokens",
+    inputPricePer1mTokens: 0.2,
+    cachedInputPricePer1mTokens: 0.02,
+    outputPricePer1mTokens: 1.2,
+    currency: "USD",
+    sourceUrl: OPENAI_TEST_ADVISOR.catalogSourceUrl,
+    fetchedAt: OPENAI_TEST_ADVISOR.catalogFetchedAt,
+    validUntil: OPENAI_TEST_ADVISOR.catalogValidUntil
+  })])
+});
+const LIVE_ADVISOR_ROLE = "analyst";
+const LIVE_ADVISOR_OUTPUT_SCHEMA = "analysis-v1";
+const LIVE_ADVISOR_SENSITIVE_ASSIGNMENT = /(?:\b(?:password|secret|credential|api[ _-]?key|token|mfa|توکن|رمز(?:\s*عبور)?|کلید\s*api)\b\s*[:=])\s*\S+/iu;
+const LIVE_ADVISOR_SENSITIVE_VALUE = /(?:\bsk-[A-Za-z0-9_-]{12,}\b|\bBearer\s+[A-Za-z0-9._-]{12,}\b|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----)/iu;
+const LIVE_ADVISOR_HOST_PATH = /(?:^|[\s"'(])(?:[A-Za-z]:[\\/]|\/(?:home|Users|mnt|opt)\/)/u;
 const DEFAULT_BACKOFFICE_RATE_LIMIT_WINDOW_MS = 60_000;
 const DEFAULT_BACKOFFICE_RATE_LIMIT_MAX = 60;
 const ADMIN_ALLOWED_MUTATIONS = new Set([
@@ -135,9 +183,14 @@ const ADMIN_ALLOWED_MUTATIONS = new Set([
   "/api/ai/models",
   "/api/ai/profiles",
   "/api/ai/bindings",
+  "/api/ai/project-scopes",
   "/api/ai/skills",
   "/api/ai/skill-bindings",
-  "/api/ai/role-policies"
+  "/api/ai/role-policies",
+  "/api/form-suggestions",
+  "/api/form-suggestions/refine",
+  "/api/advisor",
+  "/api/advisor/refine"
 ]);
 // Human Identity is the browser-facing authority. Global AI catalog entries
 // affect the whole private Hero installation, so they remain Owner-only.
@@ -397,10 +450,24 @@ export function createHeroServer(options = {}) {
       environment: "test"
     })
     : null);
+  if (secretStore?.enabled === true && secretStore.environment !== "test") {
+    throw new HeroSecretStoreError("SECRET_STORE_ENVIRONMENT_UNSUPPORTED", "The embedded Secret Store is Test-only.", 500);
+  }
   const pricingCatalog = options.pricingCatalogRegistry ?? createPricingCatalogRegistry({ now: options.clock ?? (() => Date.now()) });
   if (options.pricingCatalog) {
     pricingCatalog.publish(options.pricingCatalog);
     pricingCatalog.activate(options.pricingCatalog.catalogVersion ?? options.pricingCatalog.catalog_version);
+  }
+  // Test credentials need a versioned cost catalog even before a Provider is
+  // registered. The embedded store itself is Test-only; check its declared
+  // environment as well so an injected store can never make this Test
+  // catalog available to another environment. The short-lived,
+  // source-controlled entry prevents manual rates and fails closed when it
+  // reaches its review date.
+  const testSecretStoreEnabled = secretStore?.enabled === true && secretStore.environment === "test";
+  if (testSecretStoreEnabled) {
+    pricingCatalog.publish(OPENAI_TEST_PRICING_CATALOG);
+    pricingCatalog.activate(OPENAI_TEST_PRICING_CATALOG.catalogVersion);
   }
   const requestedProviderAdapterOptions = options.providerAdapterOptions ?? {};
   const providerAdapterOptions = Object.fromEntries(AI_CREDENTIAL_PROVIDERS.map(providerId => [
@@ -421,9 +488,22 @@ export function createHeroServer(options = {}) {
     ? createConfiguredAiProviderAdapters(providerAdapterOptions)
     : Object.freeze({}));
   const externalSpendAuthorizer = options.externalSpendAuthorizer ?? createRuntimeExternalSpendAuthorizer();
+  // The picker/preflight path and the orchestration authorizer must evaluate
+  // the same immutable Test authorization snapshot. Reading them separately
+  // allowed a version/step/capability rotation to pass one gate and fail the
+  // next one as ACTIVE_AUTHORIZATION_SNAPSHOT_REJECTED.
+  const liveAdvisorPolicy = options.liveAdvisorPolicy
+    ?? (typeof externalSpendAuthorizer?.policySnapshot === "function"
+      ? externalSpendAuthorizer.policySnapshot
+      : (() => readRuntimeExternalSpendPolicy()));
   const dashboard = options.dashboard ?? createControlDashboard({ now: options.now, providerAdapters, externalSpendAuthorizer });
+  const repositoryRoot = options.repositoryRoot ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
+  const repositoryReadContext = options.repositoryReadContext ?? createRepositoryReadContext({
+    root: repositoryRoot,
+    now: options.now ?? (() => new Date().toISOString())
+  });
   const productDevelopment = options.productDevelopment ?? createProductDevelopmentCatalog({
-    root: options.repositoryRoot ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../.."),
+    root: repositoryRoot,
     sourceCommit,
     now: options.now ?? (() => new Date().toISOString())
   });
@@ -479,6 +559,10 @@ export function createHeroServer(options = {}) {
   const smartTesterReports = new Map();
   const smartTesterErrorReports = new Map();
   const smartTesterErrorDocuments = new Map();
+  // Assignment proposals are short-lived, owner-scoped capabilities. They
+  // contain only public catalog metadata and expected binding versions.
+  const aiAssignmentProposals = new Map();
+  const AI_ASSIGNMENT_PROPOSAL_TTL_MS = 30 * 60 * 1000;
 
   function workspaceRecordKey(kind, value) {
     if (kind === "project") return `${kind}:${value.projectId}:${value.version}`;
@@ -492,7 +576,12 @@ export function createHeroServer(options = {}) {
     if (!postgresRuntime?.projectWorkspace || !project) return;
     const key = workspaceRecordKey("project", project);
     if (persistedWorkspaceRecords.has(key)) return;
-    await postgresRuntime.projectWorkspace.appendProject({ projectId: project.projectId, version: project.version, name: project.name, description: project.description, lifecycle: project.lifecycle, status: project.status, intake: project.intake, actorId: project.createdBy ?? identityOwner.userId, reason });
+    const request = project.version === 1 ? project.productRequest : null;
+    if (request && postgresRuntime.projectWorkspace.appendProjectWithRequest) {
+      await postgresRuntime.projectWorkspace.appendProjectWithRequest({ projectId: project.projectId, version: project.version, name: project.name, description: project.description, lifecycle: project.lifecycle, status: project.status, intake: project.intake, archivedLifecycle: project.archivedLifecycle ?? null, actorId: project.createdBy ?? identityOwner.userId, reason, requestId: request.requestId, requestVersion: request.version, idempotencyKey: request.idempotencyKey, requestFingerprint: request.fingerprint, requestMetadata: { projectId: request.projectId, source: "owner-project-intake" }, requestState: request.state });
+    } else {
+      await postgresRuntime.projectWorkspace.appendProject({ projectId: project.projectId, version: project.version, name: project.name, description: project.description, lifecycle: project.lifecycle, status: project.status, intake: project.intake, archivedLifecycle: project.archivedLifecycle ?? null, actorId: project.createdBy ?? identityOwner.userId, reason });
+    }
     persistedWorkspaceRecords.add(key);
   }
 
@@ -513,6 +602,44 @@ export function createHeroServer(options = {}) {
     persistedWorkspaceRecords.add(key);
   }
 
+  async function persistWorkspaceProjectAndProposal(project, proposal, reason = null) {
+    if (!postgresRuntime?.projectWorkspace || !project) return;
+    const projectKey = workspaceRecordKey("project", project);
+    const proposalKey = proposal ? workspaceRecordKey("proposal", proposal) : null;
+    const request = project.version === 1 ? project.productRequest : null;
+    const store = postgresRuntime.projectWorkspace;
+    if (!persistedWorkspaceRecords.has(projectKey) && !persistedWorkspaceRecords.has(proposalKey) && request && proposal && store.appendProjectWithRequestAndFoundation) {
+      await store.appendProjectWithRequestAndFoundation({
+        projectId: project.projectId,
+        version: project.version,
+        name: project.name,
+        description: project.description,
+        lifecycle: project.lifecycle,
+        status: project.status,
+        intake: project.intake,
+        archivedLifecycle: project.archivedLifecycle ?? null,
+        actorId: project.createdBy ?? identityOwner.userId,
+        reason,
+        requestId: request.requestId,
+        requestVersion: request.version,
+        idempotencyKey: request.idempotencyKey,
+        requestFingerprint: request.fingerprint,
+        requestMetadata: { projectId: request.projectId, source: "owner-project-intake" },
+        requestState: request.state,
+        proposalId: proposal.proposalId,
+        proposalVersion: proposal.version,
+        proposalState: proposal.state,
+        proposal,
+        proposalActorId: proposal.approvedBy ?? proposal.createdBy ?? identityOwner.userId
+      });
+      persistedWorkspaceRecords.add(projectKey);
+      persistedWorkspaceRecords.add(proposalKey);
+      return;
+    }
+    await persistWorkspaceProject(project, reason);
+    await persistWorkspaceProposal(proposal);
+  }
+
   async function persistWorkspaceSettings(projectId) {
     if (!postgresRuntime?.projectWorkspace || !projectSettings.listRecords) return;
     for (const setting of projectSettings.listRecords({ projectId })) {
@@ -531,6 +658,16 @@ export function createHeroServer(options = {}) {
     persistedWorkspaceRecords.add(key);
   }
 
+  async function persistWorkspacePurge(purge) {
+    if (!postgresRuntime?.projectWorkspace?.recordProjectPurge || !purge) return;
+    await postgresRuntime.projectWorkspace.recordProjectPurge({
+      projectId: purge.projectId,
+      deletedBy: purge.deletedBy,
+      reason: purge.reason,
+      deletedObjectCount: purge.deletedObjectCount
+    });
+  }
+
   function backofficeSnapshot() {
     const snapshot = dashboard.backofficeSnapshot();
     const settings = snapshot.settings ?? {};
@@ -547,7 +684,20 @@ export function createHeroServer(options = {}) {
     }));
     return Object.freeze({
       ...snapshot,
-      ai: Object.freeze({ ...snapshot.ai, credentials }),
+      ai: Object.freeze({
+        ...snapshot.ai,
+        credentials,
+        projectScopes: Object.freeze((snapshot.ai?.projectScopes ?? []).map(scope => Object.freeze({
+          scopeId: scope.scopeId,
+          projectId: scope.projectId,
+          mode: scope.mode,
+          capabilities: Object.freeze([...(scope.capabilities ?? [])]),
+          version: scope.version,
+          configuredAt: scope.configuredAt,
+          configuredBy: scope.configuredBy?.id ?? scope.configuredBy?.subject ?? null,
+          externalSpendBoundary: scope.externalSpendBoundary
+        })))
+      }),
       projects: Object.freeze(projectWorkspace.listProjects().map(project => Object.freeze({
         projectId: project.projectId,
         name: project.name,
@@ -564,6 +714,196 @@ export function createHeroServer(options = {}) {
         })
       })
     });
+  }
+
+  function assignmentProposalSnapshot(projectId, advisorProfileId = null) {
+    const snapshot = backofficeSnapshot();
+    const ai = snapshot.ai ?? {};
+    const proposal = createAiAssignmentProposal({
+      projectId,
+      roles: ai.roles ?? ai.contract?.roles,
+      providers: ai.providers,
+      models: ai.models,
+      profiles: ai.profiles,
+      bindings: ai.bindings,
+      defaultRolePolicies: ai.defaultRolePolicies
+    });
+    const advisors = advisorProfileOptions({ profiles: ai.profiles, providers: ai.providers, models: ai.models });
+    const selectedAdvisor = advisorProfileId && advisors.find(item => item.profileId === advisorProfileId);
+    const advisor = advisorProfileId && !selectedAdvisor
+      ? Object.freeze({ source: "local", requestedProfileId: advisorProfileId, status: "not-eligible", reason: "Profile انتخابی برای بازبینی این پیشنهاد آماده و سازگار نیست." })
+      : Object.freeze({ source: selectedAdvisor ? "connected-profile" : "local", profile: selectedAdvisor ?? null, status: "metadata-only", reason: selectedAdvisor ? "بازبینی Provider انتخابی فقط با اقدام جداگانه و مجوز زنده انجام می‌شود؛ ساخت پیشنهاد فعلی محلی و بدون هزینه است." : "پیشنهاد بر اساس Policy و کاتالوگ موجود Hero ساخته شد؛ بدون فراخوانی خارجی و بدون هزینه." });
+    const proposalId = `ai-assignment-proposal-${crypto.randomUUID()}`;
+    const assignments = proposal.assignments.map(item => {
+      if (item.status !== "ready") return item;
+      const recommendedProfile = item.requiresProfileCreation
+        ? Object.freeze({ ...item.recommendedProfile, profileId: `hero-${projectId}-${item.role}-profile-${crypto.randomUUID()}`, profileVersion: 1 })
+        : item.recommendedProfile;
+      return Object.freeze({ ...item, recommendedProfile, bindingId: `hero-${projectId}-${item.role}-binding-${crypto.randomUUID()}`, idempotencyKey: `ai-assignment-${proposalId}-${item.role}` });
+    });
+    const stored = Object.freeze({
+      proposalId,
+      ownerId: identityOwner.userId,
+      projectId,
+      expiresAt: Date.now() + AI_ASSIGNMENT_PROPOSAL_TTL_MS,
+      proposal: Object.freeze({ ...proposal, proposalId, advisor, assignments: Object.freeze(assignments) }),
+      applied: new Set()
+    });
+    aiAssignmentProposals.set(proposalId, stored);
+    setTimeout(() => aiAssignmentProposals.delete(proposalId), AI_ASSIGNMENT_PROPOSAL_TTL_MS).unref?.();
+    return stored.proposal;
+  }
+
+  function readAssignmentProposal(proposalId, ownerId) {
+    const stored = aiAssignmentProposals.get(proposalId);
+    if (!stored || stored.expiresAt <= Date.now() || stored.ownerId !== ownerId) {
+      aiAssignmentProposals.delete(proposalId);
+      throw new DashboardCommandError("AI_ASSIGNMENT_PROPOSAL_NOT_FOUND", "پیشنهاد تخصیص پیدا نشد یا منقضی شده است؛ دوباره پیشنهاد بسازید.", 404);
+    }
+    return stored;
+  }
+
+  async function applyAssignmentProposal({ proposalId, projectId, actor }) {
+    const stored = readAssignmentProposal(proposalId, identityOwner.userId);
+    if (stored.projectId !== projectId) throw new DashboardCommandError("AI_ASSIGNMENT_PROJECT_MISMATCH", "پیشنهاد برای این پروژه ساخته نشده است.", 409);
+    const current = dashboard.aiOrchestrationSnapshot();
+    const direct = role => (current.bindings ?? []).find(binding => binding.projectId === projectId && binding.role === role && !binding.teamId && !binding.skillId) ?? null;
+    const providers = new Map((current.providers ?? []).map(provider => [provider.providerId, provider]));
+    const pending = stored.proposal.assignments.filter(item => item.status === "ready" && !stored.applied.has(item.role));
+    const conflicts = pending.filter(item => {
+      const actual = direct(item.role);
+      return (item.existingBindingId ?? null) !== (actual?.bindingId ?? null);
+    });
+    if (conflicts.length) {
+      throw new DashboardCommandError("AI_ASSIGNMENT_PROPOSAL_STALE", `دادهٔ تخصیص ${conflicts.map(item => item.roleLabel).join("، ")} بعد از ساخت پیشنهاد تغییر کرده است؛ پیشنهاد جدید بسازید.`, 409);
+    }
+    const results = [];
+    for (const item of pending) {
+      let profileCreated = false;
+      try {
+        if (item.requiresProfileCreation === true) {
+          const provider = providers.get(item.recommendedProfile.providerId);
+          const profileId = item.recommendedProfile.profileId;
+          const existingProfile = (dashboard.aiOrchestrationSnapshot().profiles ?? []).find(profile => profile.profileId === profileId);
+          if (existingProfile) {
+            if (existingProfile.role !== item.role || existingProfile.providerId !== item.recommendedProfile.providerId || existingProfile.modelId !== item.recommendedProfile.modelId || existingProfile.status !== "active") {
+              results.push({ role: item.role, roleLabel: item.roleLabel, status: "failed", code: "AI_ASSIGNMENT_PROFILE_CONFLICT" });
+              break;
+            }
+          } else {
+            if (!provider) {
+              results.push({ role: item.role, roleLabel: item.roleLabel, status: "failed", code: "AI_ASSIGNMENT_PROVIDER_CHANGED" });
+              break;
+            }
+            const credentialRef = provider.mode === "live"
+              ? `vault:hero/test/${provider.providerId}/default`
+              : `runtime:hero-assignment-${provider.providerId}`;
+            try {
+              await executeDashboardCommand("ai.assignment-plan-profile-create", {
+                projectId,
+                role: item.role,
+                profileId,
+                providerId: item.recommendedProfile.providerId,
+                modelId: item.recommendedProfile.modelId,
+                idempotencyKey: `${item.idempotencyKey}-profile`,
+                actor
+              }, () => dashboard.registerAiProfile({
+                actor,
+                profileId,
+                role: item.role,
+                providerId: item.recommendedProfile.providerId,
+                modelId: item.recommendedProfile.modelId,
+                credentialRef,
+                promptVersion: `hero-auto-${item.role}-v1`,
+                contextPolicy: "project-approved-context",
+                toolPolicy: item.recommendedProfile.toolPolicy,
+                outputSchema: item.recommendedProfile.outputSchema,
+                status: "active",
+                timeoutMs: 120_000,
+                maxRetries: 0,
+                maxOutputTokens: 1_024,
+                maxCostUnits: 10_000,
+                costLatencyPriority: "balanced",
+                idempotencyKey: `${item.idempotencyKey}-profile`
+              }), actor);
+              profileCreated = true;
+            } catch (profileError) {
+              const afterProfileFailure = (dashboard.aiOrchestrationSnapshot().profiles ?? []).find(profile => profile.profileId === profileId);
+              if (!afterProfileFailure || afterProfileFailure.role !== item.role || afterProfileFailure.providerId !== item.recommendedProfile.providerId || afterProfileFailure.modelId !== item.recommendedProfile.modelId || afterProfileFailure.status !== "active") {
+                results.push({ role: item.role, roleLabel: item.roleLabel, status: "failed", code: profileError?.code ?? "AI_ASSIGNMENT_PROFILE_FAILED" });
+                break;
+              }
+              profileCreated = true;
+            }
+          }
+        }
+        const result = await executeDashboardCommand("ai.assignment-plan-apply", {
+          projectId,
+          role: item.role,
+          profileId: item.recommendedProfile.profileId,
+          bindingId: item.bindingId,
+          idempotencyKey: item.idempotencyKey,
+          actor
+        }, () => dashboard.bindAiRole({
+          actor,
+          bindingId: item.bindingId,
+          projectId,
+          role: item.role,
+          profileId: item.recommendedProfile.profileId,
+          supersedesBindingId: item.existingBindingId ?? null,
+          idempotencyKey: item.idempotencyKey
+        }), actor);
+        stored.applied.add(item.role);
+        results.push({ role: item.role, roleLabel: item.roleLabel, status: "applied", bindingId: result.binding?.bindingId ?? item.bindingId, profileId: item.recommendedProfile.profileId, profileCreated });
+      } catch (error) {
+        // The domain write happens before optional persistence/audit work in
+        // executeDashboardCommand. If that follow-up fails, recognize the
+        // already-applied immutable binding so a retry cannot duplicate it.
+        const afterFailure = dashboard.aiOrchestrationSnapshot().bindings?.find(binding => binding.bindingId === item.bindingId);
+        if (afterFailure?.projectId === projectId && afterFailure.role === item.role && afterFailure.profileId === item.recommendedProfile.profileId) {
+          stored.applied.add(item.role);
+          results.push({ role: item.role, roleLabel: item.roleLabel, status: "applied-with-audit-warning", bindingId: item.bindingId, profileId: item.recommendedProfile.profileId, profileCreated, code: error?.code ?? "AUDIT_PERSISTENCE_FAILED" });
+        } else {
+          results.push({ role: item.role, roleLabel: item.roleLabel, status: "failed", code: error?.code ?? "AI_ASSIGNMENT_FAILED" });
+        }
+        break;
+      }
+    }
+    const remaining = stored.proposal.assignments.filter(item => item.status === "ready" && !stored.applied.has(item.role)).length;
+    const appliedCount = results.filter(item => item.status === "applied" || item.status === "applied-with-audit-warning").length;
+    const auditWarnings = results.filter(item => item.status === "applied-with-audit-warning").length;
+    return Object.freeze({
+      proposalId,
+      projectId,
+      status: remaining === 0 ? (auditWarnings ? "completed-with-audit-warning" : "completed") : "partial",
+      counts: Object.freeze({ applied: appliedCount, failed: results.filter(item => item.status === "failed").length, auditWarnings, remaining }),
+      results: Object.freeze(results),
+      blockedRoles: Object.freeze(stored.proposal.assignments.filter(item => item.status === "needs-admin-setup").map(item => ({ role: item.role, roleLabel: item.roleLabel, reason: item.reason }))),
+      safety: Object.freeze({ providerCalls: 0, providerModelEntriesCreated: 0, profileEntriesCreated: results.filter(item => item.profileCreated === true).length, existingBindingsPreserved: true })
+    });
+  }
+
+  async function reviewAssignmentProposal({ proposalId, projectId }) {
+    const stored = readAssignmentProposal(proposalId, identityOwner.userId);
+    if (stored.projectId !== projectId) throw new DashboardCommandError("AI_ASSIGNMENT_PROJECT_MISMATCH", "پیشنهاد برای این پروژه ساخته نشده است.", 409);
+    const selectedProfile = stored.proposal.advisor?.profile;
+    if (!selectedProfile) {
+      return Object.freeze({ proposalId, projectId, status: "local-only", providerInvoked: false, message: "پیشنهاد محلی بر اساس Policy و کاتالوگ موجود ساخته شده است؛ AI متصل برای بازبینی انتخاب نشده است." });
+    }
+    if (selectedProfile.connectionState === "local-ready") {
+      return Object.freeze({ proposalId, projectId, status: "local-provider", providerInvoked: false, provider: selectedProfile.providerId, model: selectedProfile.modelId, profileId: selectedProfile.profileId, message: "Provider انتخابی محلی است؛ پیشنهاد بدون هزینه تولید شده و فراخوانی خارجی انجام نشد." });
+    }
+    const localSummary = stored.proposal.assignments.map(item => ({ role: item.role, status: item.status, recommendedProfileId: item.recommendedProfile?.profileId ?? null, reason: item.reason }));
+    const live = await invokeSelectedLiveAdvisor({
+      purpose: "ai-assignment-planner",
+      projectId,
+      selectedProfile,
+      question: "این طرح تخصیص را فقط از نظر سازگاری نقش، Policy و ریسک بررسی کن؛ تصمیم نهایی با ادمین است.",
+      context: { featureKey: "ai.assignment-proposal" },
+      localResponse: JSON.stringify(localSummary)
+    });
+    if (!live) return Object.freeze({ proposalId, projectId, status: "not-invoked", providerInvoked: false, provider: selectedProfile.providerId, model: selectedProfile.modelId, profileId: selectedProfile.profileId, message: "فراخوانی این Provider در این حالت مجاز نیست؛ پیشنهاد محلی همچنان معتبر و قابل بررسی است." });
+    return Object.freeze({ proposalId, projectId, status: "reviewed", providerInvoked: true, provider: selectedProfile.providerId, model: selectedProfile.modelId, profileId: selectedProfile.profileId, result: live.result, evidence: live.evidence });
   }
 
   function productStudioSnapshot({ projectId = null } = {}) {
@@ -663,8 +1003,9 @@ export function createHeroServer(options = {}) {
    * are deliberately absent.  A registered Provider is not presented as
    * connected until its recorded mode and health evidence support that claim.
    */
-  function walkthroughAdvisorOptions(projectId, { includeUnbound = false } = {}) {
+  function walkthroughAdvisorOptions(projectId, { includeUnbound = false, purpose = "walkthrough-guide" } = {}) {
     const ai = dashboard.aiOrchestrationSnapshot();
+    const projectScope = (ai.projectScopes ?? []).find(scope => scope.projectId === projectId) ?? null;
     const latestHealth = new Map();
     for (const event of dashboard.aiOrchestrationEvents(0)) {
       if (event.type !== "ai.provider-health-checked" || !event.data?.providerId) continue;
@@ -709,13 +1050,78 @@ export function createHeroServer(options = {}) {
     });
     const providerById = new Map(providers.map(provider => [provider.providerId, provider]));
     const modelByKey = new Map((ai.models ?? []).map(model => [`${model.providerId}:${model.modelId}`, model]));
-    const profileIdsBoundToProject = new Set((ai.bindings ?? []).filter(binding => binding.projectId === projectId && !binding.teamId && !binding.skillId).map(binding => binding.profileId));
+    const bindingsByProfile = new Map();
+    for (const binding of ai.bindings ?? []) {
+      if (binding.projectId !== projectId || binding.teamId || binding.skillId) continue;
+      if (!bindingsByProfile.has(binding.profileId)) bindingsByProfile.set(binding.profileId, binding);
+    }
     const profiles = (ai.profiles ?? [])
-      .filter(profile => profile.status === "active" && (includeUnbound || profileIdsBoundToProject.has(profile.profileId)))
+      // Walk-Through and Smart Tester are advisor surfaces, not a general
+      // role picker.  Other role Profiles may legitimately share the same
+      // Provider/Model, but they have different schemas and permissions and
+      // must never appear as disabled advisor choices.
+      .filter(profile => profile.status === "active"
+        && profile.role === LIVE_ADVISOR_ROLE
+        && profile.outputSchema === LIVE_ADVISOR_OUTPUT_SCHEMA
+        && profile.toolPolicy === "read-only")
       .map(profile => {
         const provider = providerById.get(profile.providerId);
         const model = modelByKey.get(`${profile.providerId}:${profile.modelId}`);
-        const selectable = provider?.advisorCompatible === true && (provider?.mode === "deterministic" || (provider?.mode === "live" && provider.connection.state === "healthy"));
+        const binding = bindingsByProfile.get(profile.profileId) ?? null;
+        let liveAuthorization = provider?.mode === "deterministic"
+          ? { authorized: true, code: "LOCAL_PROVIDER", expiresAtMs: Number.POSITIVE_INFINITY }
+          : null;
+        if (provider?.mode === "live") {
+          try {
+            liveAuthorization = { ...activeLiveAdvisorAuthorization({
+              purpose,
+              projectId,
+              providerId: profile.providerId,
+              modelId: profile.modelId,
+              role: profile.role
+            }), expiresAtMs: Number.POSITIVE_INFINITY };
+          } catch (error) {
+            liveAuthorization = { authorized: false, code: error?.code ?? "LIVE_ADVISOR_AUTHORIZATION_UNAVAILABLE", expiresAtMs: 0 };
+          }
+        }
+        // Advisor services use one global Profile contract.  Per-project
+        // bindings are provisioned just-in-time only after all live gates
+        // pass, so they never become an admin setup task or an authorization
+        // shortcut.  A project still keeps its own context and audit trail.
+        const readinessBinding = binding ?? Object.freeze({
+          bindingId: `advisor-service-${profile.profileId}`,
+          projectId,
+          role: profile.role,
+          profileId: profile.profileId,
+          source: "backoffice-advisor-service"
+        });
+        const readiness = evaluateAiAdvisorReadiness({
+          purpose,
+          projectId,
+          provider: provider ? { ...provider, advisorCompatible: provider.advisorCompatible } : null,
+          model,
+          profile,
+          binding: readinessBinding,
+          // Advisor availability is a Back Office service policy rather than
+          // a project configuration. Explicit project scopes remain available
+          // to other AI orchestration flows, but do not gate these three
+          // human-facing read-only advisor surfaces.
+          projectScope: null,
+          health: provider?.mode === "deterministic" ? { status: "healthy", code: "LOCAL_PROVIDER_READY" } : provider?.connection?.latestHealth,
+          authorization: liveAuthorization
+        });
+        // The connected AI/profile is Back Office configuration, not a
+        // per-project setting. Show a healthy compatible profile in every
+        // project picker. Dispatch remains fail-closed behind the explicit
+        // Test authorization snapshot; an internal binding is provisioned
+        // only after that authorization passes.
+        // `selectable` means a service can be selected as the global UI
+        // preference; `dispatchReady` means this particular project may send
+        // a live request right now.
+        const serviceReady = readiness.checks
+          .filter(check => ["provider", "model", "profile", "health"].includes(check.id))
+          .every(check => check.passed === true);
+        const dispatchReady = readiness.selectable;
         return Object.freeze({
           profileId: profile.profileId,
           role: profile.role,
@@ -725,37 +1131,375 @@ export function createHeroServer(options = {}) {
           modelName: model?.displayName ?? profile.modelId,
           profileVersion: profile.profileVersion,
           outputSchema: profile.outputSchema,
-          connectionState: provider?.connection.state ?? "not-registered",
-          selectable,
-          selectionNotice: selectable
+          connectionState: provider?.connection?.state ?? "not-registered",
+          selectable: serviceReady,
+          dispatchReady,
+          ...(dispatchReady ? {} : { readiness }),
+          selectionNotice: dispatchReady
             ? provider.mode === "deterministic"
               ? "پاسخ deterministic و بدون هزینهٔ Provider خارجی است."
-              : "برای فراخوانی زنده، مجوز هزینهٔ جداگانه و سقف مصرف معتبر نیز باید برقرار باشد."
-            : provider?.advisorCompatible === false
-              ? "Cursor در Hero فعلاً یک Coding Agent جداگانه است و برای گفت‌وگوی مستقیم Walk-Through/Smart Tester انتخاب نمی‌شود."
-              : "این Profile هنوز برای مشاورهٔ Walk-Through آماده نیست؛ وضعیت اتصال، Binding یا گیت هزینه را بررسی کنید."
+              : "برای فراخوانی زنده آماده است؛ سقف مصرف و مجوز نسخه‌دار همچنان اعمال می‌شود."
+            : serviceReady
+              ? "این AI به‌صورت سراسری در Back Office قابل انتخاب است؛ اجرای زنده پس از فعال‌شدن مجوز صریح سرویس سراسری Test در دسترس می‌شود."
+            : `${readiness.selectionNotice} (${readiness.code})${readiness.nextAction ? ` اقدام بعدی: ${readiness.nextAction}` : ""}`
         });
       });
+    // Multiple advisor Profiles may still point at one Provider/Model (for
+    // example after a versioned replacement). Keep the catalog intact, but
+    // expose one deterministic choice per Provider/Model in advisor UIs.
+    const seenAdvisorModels = new Set();
+    // Prefer the profile that is dispatch-ready for the current project when
+    // a versioned replacement shares Provider/Model with an older profile.
+    // This avoids showing a globally selectable-but-not-yet-bound duplicate
+    // in place of the ready one.
+    const uniqueProfiles = [...profiles].sort((left, right) => (
+      Number(right.dispatchReady === true) - Number(left.dispatchReady === true)
+      || String(left.profileId).localeCompare(String(right.profileId))
+    )).filter(profile => {
+      const key = `${profile.providerId}:${profile.modelId}`;
+      if (seenAdvisorModels.has(key)) return false;
+      seenAdvisorModels.add(key);
+      return true;
+    });
     return Object.freeze({
       projectId,
+      selectionScope: "backoffice-service",
+      projectScope: projectScope ?? Object.freeze({ projectId, mode: "implicit", capabilities: [purpose], version: 0, externalSpendBoundary: "separate-authorization-required" }),
       localAdvisor: Object.freeze({ id: "local", label: "راهنمای محلی Hero", mode: "local-contextual-guidance", selectable: true, notice: "بدون اتصال خارجی، بدون هزینه و بدون ذخیرهٔ متن گفتگو." }),
       providers: Object.freeze(providers),
       models: Object.freeze((ai.models ?? []).map(model => Object.freeze({ providerId: model.providerId, modelId: model.modelId, displayName: model.displayName }))),
-      profiles: Object.freeze(profiles)
+      profiles: Object.freeze(uniqueProfiles)
     });
   }
 
   function smartTesterAdvisorOptions(projectId = null) {
-    const options = walkthroughAdvisorOptions(projectId, { includeUnbound: true });
+    // A project-scoped Smart Tester request may invoke a live Provider. Keep
+    // it bound to the same project boundary as Walk-Through; the global panel
+    // may still show unbound profiles as local-only selections.
+    const options = walkthroughAdvisorOptions(projectId, { includeUnbound: projectId === null, purpose: "smart-tester" });
     return Object.freeze({
       ...options,
       projectId: projectId ?? null,
       defaultAdvisorId: "local",
-      note: "انتخاب Profile در این نسخه ثبت می‌شود؛ فراخوانی Provider زنده، هزینه و تغییر بیرونی عمداً انجام نمی‌شود.",
+      note: "AIهای آماده یک‌بار برای سرویس Back Office انتخاب می‌شوند و در همهٔ پروژه‌ها نمایش داده می‌شوند؛ اجرای زنده تنها با Health و مجوز صریح سرویس سراسری Test انجام می‌شود.",
       models: Object.freeze(options.models.map(model => Object.freeze({
         ...model,
-        selectable: options.providers.some(provider => provider.providerId === model.providerId && provider.advisorCompatible === true && ["local-ready", "healthy"].includes(provider.connection.state))
+        selectable: options.profiles.some(profile => profile.providerId === model.providerId && profile.modelId === model.modelId && profile.selectable === true),
+        selectionNotice: options.profiles.find(profile => profile.providerId === model.providerId && profile.modelId === model.modelId)?.selectionNotice ?? "Profile سازگار و آماده‌ای برای این Model وجود ندارد؛ از «پیشنهاد اتصال همهٔ نقش‌ها» برای ساخت امن آن استفاده کنید.",
+        setupAction: "ai-assignment-proposal"
       })))
+    });
+  }
+
+  function formSuggestionOptions(projectId = null) {
+    const options = walkthroughAdvisorOptions(projectId, { includeUnbound: projectId === null, purpose: "form-suggestions" });
+    return Object.freeze({
+      version: FORM_SUGGESTIONS_VERSION,
+      projectId,
+      localAdvisor: options.localAdvisor,
+      providers: options.providers,
+      models: Object.freeze(options.models.map(model => Object.freeze({
+        ...model,
+        selectable: options.profiles.some(profile => profile.providerId === model.providerId && profile.modelId === model.modelId && profile.selectable === true),
+        selectionNotice: options.profiles.find(profile => profile.providerId === model.providerId && profile.modelId === model.modelId)?.selectionNotice ?? "Profile سازگار و آماده‌ای برای این Model وجود ندارد؛ از «پیشنهاد اتصال همهٔ نقش‌ها» برای ساخت امن آن استفاده کنید.",
+        setupAction: "ai-assignment-proposal"
+      }))),
+      profiles: options.profiles,
+      note: "Advisor محلی همیشه در دسترس است. AIهای سازگار یک‌بار برای سرویس Back Office انتخاب می‌شوند و در همهٔ پروژه‌ها نمایش داده می‌شوند؛ اجرای زنده با مجوز صریح سرویس سراسری Test و سقف مصرف همان مجوز انجام می‌شود."
+    });
+  }
+
+  function activeLiveAdvisorAuthorization({ purpose, projectId, providerId, modelId, role }) {
+    let policy;
+    try { policy = typeof liveAdvisorPolicy === "function" ? liveAdvisorPolicy() : liveAdvisorPolicy; } catch (error) {
+      throw new ProjectWorkspaceError("LIVE_ADVISOR_AUTHORIZATION_UNAVAILABLE", `مجوز هزینهٔ AI قابل‌خواندن نیست: ${error?.code ?? "CONFIGURATION_INVALID"}.`, 503);
+    }
+    if (!policy?.active || policy.globalStop === true) {
+      throw new ProjectWorkspaceError("LIVE_ADVISOR_AUTHORIZATION_UNAVAILABLE", "مجوز هزینهٔ AI فعال نیست یا توقف اضطراری برقرار است.", 503);
+    }
+    const projectMatches = policy.projectScope === "all-test-projects"
+      ? /^[a-z][a-z0-9-]{2,62}$/.test(projectId)
+      : policy.projectId === projectId;
+    if (Date.now() >= policy.expiresAtMs || !projectMatches || policy.providerId !== providerId || !policy.modelIds?.includes(modelId) || !policy.roleIds?.includes(role) || !policy.capabilities?.includes(purpose)) {
+      throw new ProjectWorkspaceError("LIVE_ADVISOR_AUTHORIZATION_SCOPE_MISMATCH", "مجوز هزینهٔ AI با Project، Provider، Model یا Role انتخاب‌شده هم‌خوان نیست.", 403);
+    }
+    return Object.freeze({
+      authorized: true,
+      action: "external-spend",
+      code: "AUTHORIZED",
+      authorizationId: policy.authorizationId,
+      projectId,
+      ...(policy.projectScope === "all-test-projects" ? { projectScope: "all-test-projects" } : {}),
+      stepId: policy.stepId,
+      documentVersion: policy.documentVersion,
+      capability: purpose,
+      providerId,
+      modelId,
+      role,
+      // The authorization remains the cumulative ceiling.  Live advisors
+      // additionally use the small, versioned per-request bound published
+      // with this Test-only model catalog, leaving room for both approved
+      // scenarios under one authorization.
+      maxCostUnits: Math.min(policy.maxCostUnits, OPENAI_TEST_ADVISOR.maxCostUnits),
+      globalStop: false
+    });
+  }
+
+  function liveAdvisorResult(invocation) {
+    const output = invocation?.response?.output;
+    const candidate = [output?.answer, output?.response, output?.summary].find(value => typeof value === "string" && value.trim());
+    if (output?.schema !== LIVE_ADVISOR_OUTPUT_SCHEMA || !candidate) {
+      throw new ProjectWorkspaceError("LIVE_ADVISOR_OUTPUT_INVALID", "پاسخ ساخت‌یافتهٔ قابل‌نمایش از Provider دریافت نشد.", 502);
+    }
+    if (LIVE_ADVISOR_SENSITIVE_VALUE.test(candidate) || LIVE_ADVISOR_HOST_PATH.test(candidate)) {
+      throw new ProjectWorkspaceError("LIVE_ADVISOR_OUTPUT_SENSITIVE", "پاسخ Provider شامل دادهٔ حساس یا مسیر میزبان بود و رد شد.", 502);
+    }
+    return Object.freeze({
+      schema: LIVE_ADVISOR_OUTPUT_SCHEMA,
+      answer: candidate.replace(LIVE_ADVISOR_SENSITIVE_ASSIGNMENT, "[redacted]").slice(0, 4_000)
+    });
+  }
+
+  function liveAdvisorEvidence({ purpose, projectId, selectedProfile, binding, invocation, result }) {
+    const usage = invocation?.response?.usage ?? {};
+    const pricing = usage.pricing ?? {};
+    return Object.freeze({
+      schemaVersion: "hero.ai-advisor-evidence/v1",
+      scenarioId: `${purpose}-${invocation.invocationId}`,
+      capability: purpose,
+      provider: selectedProfile.providerId,
+      model: selectedProfile.modelId,
+      role: selectedProfile.role,
+      projectId,
+      bindingId: binding?.bindingId ?? null,
+      profileId: selectedProfile.profileId,
+      profileVersion: selectedProfile.profileVersion,
+      status: invocation.status,
+      code: invocation.code,
+      attempts: invocation.attempts ?? null,
+      latencyMs: invocation.latencyMs ?? null,
+      usage: Object.freeze({
+        inputTokens: usage.inputTokens ?? null,
+        outputTokens: usage.outputTokens ?? null,
+        totalTokens: usage.totalTokens ?? null,
+        cachedInputTokens: usage.cachedInputTokens ?? null,
+        costUnits: usage.costUnits ?? null,
+        accountedCostUnits: invocation.accountedCostUnits ?? null,
+        pricingCatalog: pricing.catalogVersion ?? null,
+        currency: pricing.currency ?? null,
+        inputPricePer1mTokens: pricing.inputPricePer1mTokens ?? null,
+        outputPricePer1mTokens: pricing.outputPricePer1mTokens ?? null,
+        cachedInputPricePer1mTokens: pricing.cachedInputPricePer1mTokens ?? null
+      }),
+      resultSchema: result.schema,
+      timestamp: invocation.completedAt ?? invocation.requestedAt ?? null
+    });
+  }
+
+  function liveAdvisorFailureMessage(code, reason = null) {
+    const messages = {
+      CREDENTIAL_NOT_CONFIGURED: "کلید Provider در Secret Store محیط Test برای اجرای زنده در دسترس نیست.",
+      PROVIDER_AUTHENTICATION_FAILED: "Provider کلید یا اعتبارنامهٔ محیط Test را نپذیرفت.",
+      PROVIDER_PERMISSION_DENIED: "Provider اجازهٔ این درخواست را نداد؛ دسترسی حساب یا پروژه را بررسی کنید.",
+      PROVIDER_MODEL_OR_ENDPOINT_NOT_FOUND: "مدل یا مسیر API در Provider پیدا نشد.",
+      PROVIDER_REQUEST_REJECTED: "Provider ساختار درخواست یا تنظیم مدل را رد کرد.",
+      PROVIDER_RATE_LIMITED: "Provider موقتاً محدودیت نرخ یا سهمیه اعمال کرده است.",
+      PROVIDER_UPSTREAM_UNAVAILABLE: "Provider موقتاً در دسترس نیست؛ بعداً دوباره تلاش کنید.",
+      PROVIDER_NETWORK_ERROR: "ارتباط شبکه با Provider برقرار نشد.",
+      PROVIDER_TIMEOUT: "Provider در مهلت تعیین‌شده پاسخ نداد.",
+      PROVIDER_OUTPUT_NOT_JSON: "Provider پاسخ ساخت‌یافتهٔ JSON برنگرداند.",
+      PROVIDER_OUTPUT_EMPTY: "Provider پاسخ متنی قابل‌نمایش برنگرداند.",
+      COST_POLICY_INSUFFICIENT: "سقف هزینهٔ هر درخواست برای Context فعلی کافی نیست.",
+      PROVIDER_UNHEALTHY: "بررسی سلامت Provider ناموفق بود.",
+      PROVIDER_CIRCUIT_OPEN: "Provider پس از خطاهای مکرر موقتاً متوقف شده است.",
+      ACTIVE_AUTHORIZATION_SNAPSHOT_REJECTED: "مجوز نسخه‌دار هزینه با درخواست فعلی هم‌خوان نیست؛ تنظیمات نسخه، Step، Provider، Model، Role و قابلیت باید از یک snapshot واحد خوانده شوند."
+    };
+    const base = messages[code] ?? "فراخوانی Provider کامل نشد.";
+    if (code !== "ACTIVE_AUTHORIZATION_SNAPSHOT_REJECTED" || typeof reason !== "string") return base;
+    // The domain layer emits only a safe field-name list. Keep the UI useful
+    // without ever copying credentials, prompts, or raw provider messages.
+    const allowedFields = new Set([
+      "authorizationId",
+      "projectId",
+      "stepId",
+      "documentVersion",
+      "providerId",
+      "modelId",
+      "role",
+      "capability",
+      "maxCostUnits",
+      "stop-control"
+    ]);
+    const fields = [...new Set(reason.match(/[A-Za-z][A-Za-z0-9-]*/g) ?? [])].filter(field => allowedFields.has(field));
+    return fields.length > 0 ? `${base} فیلد ناسازگار: ${fields.join("، ")}.` : base;
+  }
+
+  async function invokeSelectedLiveAdvisor({ purpose, projectId, selectedProfile, question, context, localResponse }) {
+    const ai = dashboard.aiOrchestrationSnapshot();
+    const provider = (ai.providers ?? []).find(item => item.providerId === selectedProfile.providerId);
+    const configuredProfile = (ai.profiles ?? []).find(item => item.profileId === selectedProfile.profileId);
+    if (provider?.mode !== "live") return null;
+    if (selectedProfile.role !== LIVE_ADVISOR_ROLE || selectedProfile.outputSchema !== LIVE_ADVISOR_OUTPUT_SCHEMA || configuredProfile?.toolPolicy !== "read-only") {
+      throw new ProjectWorkspaceError("LIVE_ADVISOR_POLICY_MISMATCH", "Live advisor فقط با Role، Output Schema و Tool Policy مجاز قابل اجراست.", 403);
+    }
+    const authorization = activeLiveAdvisorAuthorization({ purpose, projectId, providerId: selectedProfile.providerId, modelId: selectedProfile.modelId, role: selectedProfile.role });
+    let binding = dashboard.aiOrchestration.resolveBinding({ projectId, role: selectedProfile.role });
+    if (!binding) {
+      // This is an internal, append-only service provisioning record. It is
+      // created only after the exact Test authorization has passed, contains
+      // no credential, and gives a new Project the globally configured
+      // read-only analyst Profile without an admin visiting AI Connections.
+      try {
+        dashboard.bindAiRole({
+          bindingId: `advisor-service-${projectId}-${crypto.randomUUID()}`,
+          projectId,
+          teamId: null,
+          skillId: null,
+          role: selectedProfile.role,
+          profileId: selectedProfile.profileId,
+          supersedesBindingId: null,
+          idempotencyKey: `advisor-service-binding-${projectId}-${selectedProfile.profileId}`,
+          actor: { kind: "admin", id: "hero-backoffice-advisor-service" }
+        });
+      } catch (error) {
+        // A concurrent first request may have won the append-only binding
+        // race. Re-read once; any incompatible existing binding still fails
+        // closed below instead of being replaced automatically.
+        binding = dashboard.aiOrchestration.resolveBinding({ projectId, role: selectedProfile.role });
+        if (!binding) throw error;
+      }
+      binding = dashboard.aiOrchestration.resolveBinding({ projectId, role: selectedProfile.role });
+    }
+    if (!binding || binding.profileId !== selectedProfile.profileId) {
+      throw new ProjectWorkspaceError("LIVE_ADVISOR_BINDING_MISMATCH", "Binding تحلیل‌گر این Project با سرویس سراسری انتخاب‌شده هم‌خوان نیست و به‌صورت خودکار جایگزین نمی‌شود.", 403);
+    }
+    const requestedFormSuggestionCount = Number(context?.formSuggestion?.requestedSuggestionCount);
+    const formSuggestionCountInstruction = Number.isInteger(requestedFormSuggestionCount) && requestedFormSuggestionCount >= 1 && requestedFormSuggestionCount <= FORM_SUGGESTION_INITIAL_SUGGESTIONS
+      ? `Return exactly ${requestedFormSuggestionCount} suggestion${requestedFormSuggestionCount === 1 ? "" : "s"}.`
+      : "Return one to three suggestions.";
+    const repositoryContext = ["smart-tester", "walkthrough-guide"].includes(purpose)
+      ? repositoryReadContext.build({
+        sourceFiles: [
+          ...(Array.isArray(context?.sourceFiles) ? context.sourceFiles : []),
+          ...(purpose === "smart-tester" ? [
+            "apps/control-plane/src/smart-tester.mjs",
+            "apps/control-plane/src/repository-read-context.mjs"
+          ] : [
+            "apps/control-plane/src/project-walkthrough.mjs",
+            "apps/control-plane/src/project-walkthrough-view.mjs",
+            "apps/control-plane/src/hero-shell.mjs"
+          ])
+        ],
+        surface: context?.pathname ?? (purpose === "walkthrough-guide" ? "/walkthrough" : null),
+        featureKey: context?.featureKey ?? (purpose === "walkthrough-guide" ? "guide.walkthrough" : null),
+        question
+      })
+      : null;
+    const dispatchInput = Object.freeze({
+      invocationId: `advisor-${purpose}-${crypto.randomUUID()}`,
+      projectId,
+      role: selectedProfile.role,
+      taskId: `advisor-${purpose}`,
+      stepId: authorization.stepId,
+      documentVersion: authorization.documentVersion,
+      contextSnapshotId: `advisor-context-${crypto.randomUUID()}`,
+      idempotencyKey: `advisor-request-${crypto.randomUUID()}`,
+      request: Object.freeze({
+        purpose,
+        locale: "fa-IR",
+        question: typeof question === "string" ? question : "",
+        localGuidance: localResponse,
+        constraints: Object.freeze([
+          "Return only JSON.",
+          "Set the outer schema exactly to analysis-v1.",
+          ...(purpose === "form-suggestions" ? [
+            "Set the answer field to a JSON string whose parsed object schema is form-suggestions-v1.",
+            "Analyze the supplied form title, purpose hint, field labels, required flags and allowed options before suggesting values.",
+            "Set boxPurpose to a clear Persian explanation of 2 to 4 sentences (80 to 700 characters) describing why this box exists, what decision or record it controls, and what does not happen automatically.",
+            "Do not use raw identifiers, UUIDs, version strings or the overall software goal as the box purpose.",
+            `${formSuggestionCountInstruction} Each suggestion.entries must include every supplied form field exactly once, in the supplied order, even when it is optional. Every entry must contain the supplied field name exactly, a string value, and the exact supplied type when available; select/radio values must be one of the supplied options. Never include submit buttons, actions or UI-only controls.`,
+            ...(context?.formSuggestion?.refinement === true ? [
+              "Include feedbackResponse: a concise Persian explanation of how the feedback was interpreted and what materially changed in this one new suggestion. It is a short user-facing rationale, not hidden chain-of-thought, and must not quote sensitive data or claim a write was performed.",
+              "Make the new values materially different in detail, emphasis or structure whenever the feedback requests a change. Do not recycle a generic prior-template answer.",
+              "When the transient request names individual fields, apply each numbered instruction only to its matching field. A field requested to be concise must be a single clear statement of at most 220 characters; a field requested to be detailed must contain at least 220 characters of concrete, form-relevant detail. Mention the affected field labels in feedbackResponse."
+            ] : []),
+            ...(context?.formSuggestion?.documentProposalEligible === true ? [
+              "Only when an optional project-input document would help, you may include one documentProposal with title, filename ending in .txt or .md, compact Persian content, and rationale. It is a review-only draft: never claim it has been uploaded, stored or applied."
+            ] : ["Do not include documentProposal for this form."])
+          ] : []),
+          "Use concise Persian.",
+          "Do not include secrets, credentials, host paths, tools, or executable actions."
+        ])
+      }),
+      context: Object.freeze({
+        advisor: purpose,
+        projectId,
+        bindingId: binding.bindingId,
+        surface: context?.pathname ?? null,
+        featureKey: context?.featureKey ?? null,
+        stepId: context?.stepId ?? null,
+        ...(context?.formSuggestion ? { formSuggestion: context.formSuggestion } : {}),
+        ...(repositoryContext ? { repositoryContext } : {})
+      }),
+      // Form Suggestions is an explicitly ephemeral browser dialog. The
+      // provider output is needed for this response but must not enter the
+      // invocation registry snapshot or become project history.
+      transientResponse: purpose === "form-suggestions",
+      requireHealthyProvider: true,
+      externalSpendAuthorization: authorization
+    });
+    // Live advisor calls must use the same command boundary as every other
+    // dashboard mutation. This persists invocation success/blocks and the
+    // redacted domain event to PostgreSQL, while keeping provider output out
+    // of audit data.
+    const dispatch = () => executeDashboardCommand("ai.invoke", { projectId }, () => dashboard.invokeAi({
+      ...dispatchInput,
+      // A context bootstrap retry is a new idempotent command. Reusing the
+      // first attempt's idempotency key would look like a conflicting memory
+      // write after the fixed redacted anchor is created.
+      invocationId: `advisor-${purpose}-${crypto.randomUUID()}`,
+      contextSnapshotId: `advisor-context-${crypto.randomUUID()}`,
+      idempotencyKey: `advisor-request-${crypto.randomUUID()}`
+    }));
+    let result;
+    try {
+      result = await dispatch();
+    } catch (error) {
+      const contextMissing = error?.code === "CONTEXT_ASSEMBLY_BLOCKED" && /\bCONTEXT_NOT_FOUND\b/.test(error?.message ?? "");
+      if (!contextMissing) throw error;
+      // This anchor contains no user prompt, provider credential, server path, or
+      // mutable instruction.  It is created only after all human, binding,
+      // provider-health, and Test-spend gates above have passed.  It closes the
+      // otherwise empty project-memory bootstrap gap without weakening context
+      // assembly for any non-empty or stale context.
+      if (!dashboard.findProjectMemory({ projectId, memoryKey: "live-advisor.context-v1" })) {
+        dashboard.recordProjectMemory({
+          memoryId: `live-advisor-context-v1-${projectId}`,
+          projectId,
+          memoryKey: "live-advisor.context-v1",
+          kind: "rule",
+          scope: "project",
+          status: "approved",
+          content: "Live advisor requests may use only redacted project-scoped metadata. User questions, secrets, credentials, host paths, and executable actions are never stored in this context.",
+          tags: ["live-advisor", "redacted"],
+          recipientRoles: ["planner"],
+          source: { kind: "policy", reference: "hero://ai/live-advisor-context-v1", documentVersion: authorization.documentVersion },
+          idempotencyKey: `live-advisor-context-v1-${projectId}`
+        });
+      }
+      result = await dispatch();
+    }
+    if (result?.invocation?.status !== "completed") {
+      const code = result?.invocation?.code ?? "UNKNOWN";
+      throw new ProjectWorkspaceError("LIVE_ADVISOR_INVOCATION_FAILED", `${liveAdvisorFailureMessage(code, result?.invocation?.reason)} کد امن: ${code}.`, 502);
+    }
+    const structuredResult = liveAdvisorResult(result.invocation);
+    return Object.freeze({
+      response: structuredResult.answer,
+      result: structuredResult,
+      invocationId: result.invocation.invocationId,
+      costUnits: result.invocation.accountedCostUnits ?? null,
+      evidence: liveAdvisorEvidence({ purpose, projectId, selectedProfile, binding, invocation: result.invocation, result: structuredResult })
     });
   }
 
@@ -821,10 +1565,13 @@ export function createHeroServer(options = {}) {
           ...infrastructure.environments.map(environment => row(environment, "defined", "desired/observed state is project-scoped")),
           row("Repositories", "metadata-only", `${infrastructure.repositories.length} registered; no GitHub fetch`),
           row("Servers", "plan-only", `${infrastructure.servers.length} registered; no connection executed`),
+          ...infrastructure.targetSelections.map(selection => row(`Target ${selection.serverId}`, selection.state, `Test · version ${selection.version} · separate Product Test authorization required`)),
           row("Nodes", "identity-bound", `${infrastructure.nodes.length} enrolled`),
           row("Secret references", "never-revealed", `${infrastructure.secrets.length} reference-only record`),
           row("Egress", infrastructure.egress?.default ?? "not-configured", `${infrastructure.egress?.domains?.length ?? 0} allowed domain record`)
-        ])
+        ]),
+        servers: Object.freeze(infrastructure.servers.map(server => Object.freeze({ serverId: server.serverId, address: server.address, environment: server.environment, state: server.state }))),
+        targetSelections: Object.freeze(infrastructure.targetSelections.map(selection => Object.freeze({ selectionId: selection.selectionId, projectId: selection.projectId, environment: selection.environment, serverId: selection.serverId, serverAddress: selection.serverAddress, version: selection.version, state: selection.state, execution: selection.execution })))
       }),
       delivery: Object.freeze({
         items: Object.freeze([
@@ -856,13 +1603,16 @@ export function createHeroServer(options = {}) {
     });
   }
 
-  function portfolioSnapshot(principal = null) {
+  function portfolioSnapshot(principal = null, { view = "active" } = {}) {
     const accessible = principal?.source === "human-identity" ? projectAccessRegistry.listAccessibleProjectIds({ principal }) : null;
-    const projects = projectWorkspace.listProjects().filter(project => accessible === null || accessible.includes(project.projectId));
+    const archiveView = view === "archived";
+    const visibleProjects = projectWorkspace.listProjects().filter(project => accessible === null || accessible.includes(project.projectId));
+    const projects = visibleProjects.filter(project => archiveView ? project.lifecycle === "archived" : project.lifecycle !== "archived");
     const model = rebuildPortfolioReadModel({ projects });
     const cards = model.projects.map(project => ({
       projectId: project.projectId,
       name: project.name,
+      version: project.version,
       lifecycle: project.lifecycle,
       health: project.health,
       roadmap: project.nextTasks,
@@ -871,7 +1621,7 @@ export function createHeroServer(options = {}) {
       latestOutput: project.latestOutput,
       drillDown: { href: `/product-studio?projectId=${encodeURIComponent(project.projectId)}`, projectId: project.projectId }
     }));
-    return Object.freeze({ ...model, cards, informationArchitecture: ["Portfolio", "Project Studio", "Overview", "Roadmap", "Inputs", "Settings", "Outputs"] });
+    return Object.freeze({ ...model, cards, archiveCount: visibleProjects.filter(project => project.lifecycle === "archived").length, view: archiveView ? "archived" : "active", informationArchitecture: ["Portfolio", "Project Studio", "Overview", "Roadmap", "Inputs", "Settings", "Outputs"] });
   }
 
   function pruneSmartTesterReports() {
@@ -1007,7 +1757,11 @@ export function createHeroServer(options = {}) {
       findings: report.findings,
       reproductionSteps: report.reproductionSteps,
       limitations: report.limitations,
-      sourceReport: report.sourceReport
+      sourceReport: report.sourceReport,
+      diagnosis: report.diagnosis ?? null,
+      incident: report.incident ?? null,
+      remediationBrief: report.remediationBrief ?? null,
+      qualityOpportunities: report.qualityOpportunities ?? []
     });
     const current = smartTesterErrorDocuments.get(documentId) ?? Object.freeze({
       documentId,
@@ -1029,7 +1783,13 @@ export function createHeroServer(options = {}) {
         findings: entry.findings,
         reproductionSteps: entry.reproductionSteps,
         limitations: entry.limitations,
-        sourceReport: entry.sourceReport,
+        sourceReport: {
+          ...entry.sourceReport,
+          diagnosis: entry.diagnosis,
+          incident: entry.incident,
+          remediationBrief: entry.remediationBrief,
+          qualityOpportunities: entry.qualityOpportunities
+        },
         actorId: principal.subject
       });
     }
@@ -1045,7 +1805,13 @@ export function createHeroServer(options = {}) {
     if (current) return current;
     if (postgresRuntime?.projectWorkspace?.listSmartTesterErrors) {
       const entries = await postgresRuntime.projectWorkspace.listSmartTesterErrors({ projectId });
-      return Object.freeze({ documentId, projectId, title: `دفتر خطاهای Smart Tester · ${projectId}`, entries: Object.freeze(entries.map(entry => Object.freeze(entry))) });
+      return Object.freeze({ documentId, projectId, title: `دفتر خطاهای Smart Tester · ${projectId}`, entries: Object.freeze(entries.map(entry => Object.freeze({
+        ...entry,
+        diagnosis: entry.sourceReport?.diagnosis ?? null,
+        incident: entry.sourceReport?.incident ?? null,
+        remediationBrief: entry.sourceReport?.remediationBrief ?? null,
+        qualityOpportunities: entry.sourceReport?.qualityOpportunities ?? []
+      }))) });
     }
     return Object.freeze({ documentId, projectId, title: `دفتر خطاهای Smart Tester · ${projectId}`, entries: Object.freeze([]) });
   }
@@ -1171,6 +1937,12 @@ export function createHeroServer(options = {}) {
         }
         return;
       }
+      if (url.pathname === "/api/ai/project-scopes" && request.method === "POST") {
+        if (!["project-owner", "admin"].includes(principal.role)) {
+          throw new ProjectAccessError("ADMIN_REQUIRED", "تنظیم Scope پروژهٔ AI فقط برای Owner یا Admin مجاز است.", 403);
+        }
+        return;
+      }
       if ((url.pathname === "/api/ai/credentials" || /^\/api\/ai\/credentials\/[a-z][a-z0-9-]{2,63}\/(?:status|health)$/.test(url.pathname)) && ["GET", "POST"].includes(request.method)) {
         if (principal.role !== "project-owner") {
           throw new ProjectAccessError("OWNER_REQUIRED", "مدیریت کلیدهای AI فقط با دسترسی مالک مجاز است.", 403);
@@ -1185,7 +1957,10 @@ export function createHeroServer(options = {}) {
           throw new ProjectAccessError("OWNER_REQUIRED", "Smart Tester only runs for the Hero owner.", 403);
         }
         const projectId = url.searchParams.get("projectId");
-        if (projectId) projectAccessMiddleware.requireProject({ principal, projectId, action: "project.read" });
+        if (projectId) {
+          const action = url.pathname === "/api/smart-tester/errors/submit" && request.method === "POST" ? "project.write" : "project.read";
+          projectAccessMiddleware.requireProject({ principal, projectId, action });
+        }
         return;
       }
       // The Walk-Through advisor is read-only and transient.  It needs the
@@ -1195,6 +1970,30 @@ export function createHeroServer(options = {}) {
       if (url.pathname === "/api/walkthrough/advice" && request.method === "POST") {
         const projectId = url.searchParams.get("projectId");
         if (projectId) projectAccessMiddleware.requireProject({ principal, projectId, action: "project.read" });
+        return;
+      }
+      if ((url.pathname.startsWith("/api/form-suggestions") || url.pathname.startsWith("/api/advisor")) && ["GET", "POST"].includes(request.method)) {
+        if (!principal || !["human-identity", "admin"].includes(principal.source)) {
+          throw new HumanIdentityError("IDENTITY_AUTH_REQUIRED", "Human or admin authentication is required for form suggestions.", 401);
+        }
+        if (!["project-owner", "admin"].includes(principal.role)) {
+          throw new ProjectAccessError("ADMIN_REQUIRED", "Advisor فقط برای Owner یا Admin مجاز است.", 403);
+        }
+        const scopedProjectId = url.searchParams.get("projectId");
+        if (scopedProjectId) projectAccessMiddleware.requireProject({ principal, projectId: scopedProjectId, action: request.method === "GET" ? "project.read" : "project.write" });
+        return;
+      }
+      // Creation-time advice is strictly transient: it is available after the
+      // first five project answers, before a Project exists to scope. It may
+      // fill the remaining form fields but cannot dispatch a live provider,
+      // create a Project, or write an AI binding.
+      if (url.pathname.startsWith("/api/project-intake-advisor") && ["GET", "POST"].includes(request.method)) {
+        if (!principal || !["human-identity", "admin"].includes(principal.source)) {
+          throw new HumanIdentityError("IDENTITY_AUTH_REQUIRED", "Human or admin authentication is required for intake advice.", 401);
+        }
+        if (!["project-owner", "admin"].includes(principal.role)) {
+          throw new ProjectAccessError("ADMIN_REQUIRED", "Advisor فقط برای Owner یا Admin مجاز است.", 403);
+        }
         return;
       }
       if (url.pathname === "/api/projects" && request.method === "POST") {
@@ -1209,6 +2008,14 @@ export function createHeroServer(options = {}) {
       const projectMatch = url.pathname.match(/^\/api\/projects\/([A-Za-z][A-Za-z0-9._:-]{2,127})(?:\/|$)/);
       const projectId = projectMatch?.[1] ?? url.searchParams.get("projectId");
       if (!projectId) throw new ProjectAccessError("PROJECT_SCOPE_REQUIRED", "A projectId is required for human-identity API access.", 403);
+      // Older control-plane routes also serve established projects that
+      // predate Project Workspace.  Reject only a known purged scope here:
+      // treating every legacy project as absent would turn valid owner and
+      // human-session routes into 404s.  A tombstoned project still behaves
+      // as absent and cannot be recreated through a stale URL.
+      if (projectMatch && projectWorkspace.isPurgedProject?.(projectId)) {
+        throw new ProjectWorkspaceError("PROJECT_NOT_FOUND", "Project was not found.", 404);
+      }
       const action = request.method === "GET" ? "project.read" : "project.write";
       projectAccessMiddleware.requireProject({ principal, projectId, action });
       return;
@@ -1401,7 +2208,8 @@ export function createHeroServer(options = {}) {
         if (surface === "portfolio") {
           const destinationCandidate = url.searchParams.get("next") ?? url.searchParams.get("open");
           const destination = ["command", "studio", "workspace", "control", "walkthrough"].includes(destinationCandidate) ? destinationCandidate : null;
-          return html(response, getPortfolioHtml({ portfolio: portfolioSnapshot(principal), destination, selectionRequired: url.searchParams.get("select") === "project" || Boolean(destination) }));
+          const view = url.searchParams.get("view") === "archived" ? "archived" : "active";
+          return html(response, getPortfolioHtml({ portfolio: portfolioSnapshot(principal, { view }), destination, selectionRequired: url.searchParams.get("select") === "project" || Boolean(destination), archiveView: view === "archived" }));
         }
         if (surface === "command") {
           return html(response, getProjectControlRoomHtml({
@@ -1433,7 +2241,7 @@ export function createHeroServer(options = {}) {
           if (principal.role !== "project-owner") throw new ProjectAccessError("OWNER_REQUIRED", "The global AI catalog is available only to the Owner.", 403);
           return json(response, 200, { service: HERO_SERVICE, backoffice: backofficeSnapshot() }, { maxBytes: backofficeResponseLimitBytes });
         }
-        if (surface === "portfolio") return json(response, 200, { service: HERO_SERVICE, portfolio: portfolioSnapshot(principal) }, { maxBytes: backofficeResponseLimitBytes });
+        if (surface === "portfolio") return json(response, 200, { service: HERO_SERVICE, portfolio: portfolioSnapshot(principal, { view: url.searchParams.get("view") === "archived" ? "archived" : "active" }) }, { maxBytes: backofficeResponseLimitBytes });
         if (!["command", "studio", "workspace", "control", "walkthrough"].includes(surface)) return plain(response, 404, "Hero browser portal data surface not found.");
         requirePortalProjectScope(principal, projectId);
         if (surface === "studio") return json(response, 200, productStudioSnapshot({ projectId }), { maxBytes: backofficeResponseLimitBytes });
@@ -1567,7 +2375,8 @@ export function createHeroServer(options = {}) {
         }
         const destinationCandidate = url.searchParams.get("next") ?? url.searchParams.get("open");
         const destination = ["command", "studio", "workspace", "control", "walkthrough"].includes(destinationCandidate) ? destinationCandidate : null;
-        return html(response, getPortfolioHtml({ portfolio: portfolioSnapshot(), destination, selectionRequired: url.searchParams.get("select") === "project" || Boolean(destination) }));
+        const view = url.searchParams.get("view") === "archived" ? "archived" : "active";
+        return html(response, getPortfolioHtml({ portfolio: portfolioSnapshot(null, { view }), destination, selectionRequired: url.searchParams.get("select") === "project" || Boolean(destination), archiveView: view === "archived" }));
       }
 
       if (request.method === "GET" && url.pathname === "/portfolio-data") {
@@ -1577,7 +2386,7 @@ export function createHeroServer(options = {}) {
           await recordReadAccess("/backoffice-data", "accepted", { kind: backofficeAuth ? "backoffice-basic-auth" : "project-owner", id: backofficeAuth ? "backoffice-user" : "development-local" });
           return json(response, 200, { service: HERO_SERVICE, controlRoom: projectControlSnapshot(projectId) }, { maxBytes: backofficeResponseLimitBytes });
         }
-        return json(response, 200, { service: HERO_SERVICE, portfolio: portfolioSnapshot() }, { maxBytes: backofficeResponseLimitBytes });
+        return json(response, 200, { service: HERO_SERVICE, portfolio: portfolioSnapshot(null, { view: url.searchParams.get("view") === "archived" ? "archived" : "active" }) }, { maxBytes: backofficeResponseLimitBytes });
       }
 
       const authenticatedOwner = url.pathname.startsWith("/api/") && !PUBLIC_IDENTITY_PATHS.has(url.pathname) && !PUBLIC_UI_ASSET_PATHS.has(url.pathname)
@@ -1695,7 +2504,10 @@ export function createHeroServer(options = {}) {
         const providerId = typeof input.providerId === "string" ? input.providerId.trim() : "";
         if (!AI_CREDENTIAL_PROVIDERS.includes(providerId)) throw new HeroSecretStoreError("SECRET_PROVIDER_INVALID", "این Provider برای ثبت Secret پشتیبانی نمی‌شود.", 400);
         const result = secretStore.set({ providerId, secretId: "default", value: input.value });
-        await persistIdentityAudit({ userId: authenticatedOwner.subject, eventType: "ai.credential-stored", data: { providerId, credentialRef: result.credentialRef, environment: result.environment, version: result.version, state: result.state } });
+        // Audit metadata must prove the operation without retaining a secret
+        // reference.  The identity audit store deliberately rejects any
+        // credential/secret-shaped field name, including credentialRef.
+        await persistIdentityAudit({ userId: authenticatedOwner.subject, eventType: "ai.credential-stored", data: { providerId, environment: result.environment, version: result.version, state: result.state } });
         return json(response, 201, { service: HERO_SERVICE, credential: Object.freeze({ ...result, secretValueExposed: false }) });
       }
 
@@ -1712,13 +2524,191 @@ export function createHeroServer(options = {}) {
         if (!adapter?.validateConnection) throw new HeroSecretStoreError("PROVIDER_ADAPTER_NOT_CONFIGURED", "Provider adapter is not enabled in this runtime.", 503);
         try {
           const checked = await adapter.validateConnection({ credentialRef });
-          await persistIdentityAudit({ userId: authenticatedOwner.subject, eventType: "ai.credential-health-checked", data: { providerId, credentialRef, status: "healthy", mode: checked.mode } });
+          await persistIdentityAudit({ userId: authenticatedOwner.subject, eventType: "ai.credential-health-checked", data: { providerId, status: "healthy", mode: checked.mode } });
           return json(response, 200, { service: HERO_SERVICE, credential: Object.freeze({ credentialRef, providerId, environment: "test", configured: true, state: "healthy", mode: checked.mode, secretValueExposed: false }) });
         } catch (error) {
           const status = secretStore.status({ credentialRef });
-          await persistIdentityAudit({ userId: authenticatedOwner.subject, eventType: "ai.credential-health-checked", outcome: "rejected", data: { providerId, credentialRef, status: status.configured ? "blocked" : "not-configured", code: error?.code ?? "CREDENTIAL_HEALTH_FAILED" } });
+          await persistIdentityAudit({ userId: authenticatedOwner.subject, eventType: "ai.credential-health-checked", outcome: "rejected", data: { providerId, status: status.configured ? "blocked" : "not-configured", code: error?.code ?? "CREDENTIAL_HEALTH_FAILED" } });
           return json(response, 503, { service: HERO_SERVICE, credential: Object.freeze({ ...status, state: status.configured ? "blocked" : "not-configured", code: error?.code ?? "CREDENTIAL_HEALTH_FAILED", secretValueExposed: false }) });
         }
+      }
+
+      if (request.method === "GET" && ["/api/form-suggestions/options", "/api/advisor/options"].includes(url.pathname)) {
+        const queryProjectId = url.searchParams.get("projectId");
+        if (queryProjectId !== null && !/^[a-z][a-z0-9-]{2,62}$/.test(queryProjectId)) {
+          throw new FormSuggestionsError("FORM_SUGGESTION_PROJECT_INVALID", "شناسهٔ پروژه برای پیشنهاد فرم معتبر نیست.", 400);
+        }
+        const advisorOptions = formSuggestionOptions(queryProjectId);
+        return json(response, 200, { service: HERO_SERVICE, advisor: advisorOptions, formSuggestions: advisorOptions });
+      }
+
+      if (request.method === "GET" && url.pathname === "/api/project-intake-advisor/options") {
+        const advisorOptions = formSuggestionOptions(null);
+        return json(response, 200, {
+          service: HERO_SERVICE,
+          advisor: Object.freeze({
+            ...advisorOptions,
+            defaultAdvisorId: "local",
+            preCreationLiveEligible: false,
+            note: "پیش از ثبت پروژه، Advisor محلی پیشنهادهای قابل بازبینی می‌سازد. Provider زنده و هزینه‌دار تا پس از ثبت پروژه و گیت‌های جداگانه فعال نمی‌شود."
+          })
+        });
+      }
+
+      if (request.method === "POST" && ["/api/project-intake-advisor", "/api/project-intake-advisor/refine"].includes(url.pathname)) {
+        if (!authenticatedOwner || !["human-identity", "admin"].includes(authenticatedOwner.source)) {
+          throw new HumanIdentityError("IDENTITY_AUTH_REQUIRED", "برای پیشنهاد مرحلهٔ ایجاد پروژه ورود انسانی یا نشست Admin لازم است.", 401);
+        }
+        const input = await readJson(request, 16 * 1024);
+        const selectedAdvisor = input.selectedAdvisor === undefined || input.selectedAdvisor === null || input.selectedAdvisor === "" ? "local" : input.selectedAdvisor;
+        if (selectedAdvisor !== "local") {
+          throw new ProjectIntakeAdvisorError("PROJECT_INTAKE_ADVISOR_LIVE_DEFERRED", "Provider زنده پیش از ثبت پروژه فعال نمی‌شود؛ ابتدا پیشنهاد محلی را بازبینی و پروژه را ثبت کنید.", 403);
+        }
+        const advisor = createProjectIntakeAdvisor({
+          actor: authenticatedOwner,
+          firstFive: input.firstFive,
+          ...(url.pathname.endsWith("/refine") ? { feedback: input.feedback } : {})
+        });
+        return json(response, 200, { service: HERO_SERVICE, advisor });
+      }
+
+      if (request.method === "POST" && ["/api/form-suggestions", "/api/advisor"].includes(url.pathname)) {
+        if (!authenticatedOwner || !["human-identity", "admin"].includes(authenticatedOwner.source)) {
+          throw new HumanIdentityError("IDENTITY_AUTH_REQUIRED", "برای پیشنهاد فرم ورود انسانی یا نشست Admin لازم است.", 401);
+        }
+        const input = await readJson(request, 16 * 1024);
+        const queryProjectId = url.searchParams.get("projectId");
+        if (input.projectId !== undefined && (input.projectId ?? null) !== (queryProjectId ?? null)) {
+          throw new FormSuggestionsError("FORM_SUGGESTION_SCOPE_MISMATCH", "Scope پروژهٔ پیشنهاد فرم معتبر نیست.", 400);
+        }
+        const projectId = queryProjectId || null;
+        const options = formSuggestionOptions(projectId);
+        const selectedAdvisor = input.selectedAdvisor === undefined || input.selectedAdvisor === null || input.selectedAdvisor === "" ? "local" : input.selectedAdvisor;
+        if (selectedAdvisor !== "local" && !options.profiles.some(profile => profile.profileId === selectedAdvisor && profile.selectable === true && profile.dispatchReady === true)) {
+          throw new FormSuggestionsError("FORM_SUGGESTION_ADVISOR_UNAVAILABLE", "AI انتخاب‌شده در فهرست سراسری موجود است، اما مجوز صریح سرویس سراسری Test یا Health اتصال هنوز برای اجرای زنده آماده نیست.", 403);
+        }
+        let authoritativeGoal = input.softwareGoal;
+        if (projectId) authoritativeGoal = projectOverview(projectId).intake?.goal || authoritativeGoal;
+        const formRequest = prepareFormSuggestionRequest({
+          actor: authenticatedOwner,
+          projectId,
+          formId: input.formId,
+          formTitle: input.formTitle,
+          softwareGoal: authoritativeGoal,
+          boxDescription: input.boxDescription,
+          fields: input.fields,
+          assets: input.assets,
+          selectedAdvisor
+        });
+        if (selectedAdvisor === "local") {
+          const formSuggestions = createFormSuggestions({ ...formRequest, actor: authenticatedOwner, selectedAdvisor: "local" });
+          return json(response, 200, { service: HERO_SERVICE, advisor: formSuggestions, formSuggestions });
+        }
+        const selectedProfile = options.profiles.find(profile => profile.profileId === selectedAdvisor);
+        const documentProposalEligible = formRequest.formId === "upload-form";
+        const live = await invokeSelectedLiveAdvisor({
+          purpose: "form-suggestions",
+          projectId,
+          selectedProfile,
+          question: `ابتدا کاربرد واقعی همین باکس را از عنوان، توضیح زمینه، فیلدها و ورودی‌های سند/تصویر تحلیل کن. سپس در boxPurpose یک شرح فارسی روشن و مفصل بنویس و دقیقاً سه پیشنهاد قابل بازبینی تولید کن. برای هر گزینه، مقدارها باید از نظر سطح جزئیات یا رویکرد واقعاً متفاوت باشند، نه سه بازنویسی از یک متن. decisionSupport را با assumptions، risks، tests و improvements کوتاه و عملی تکمیل کن. اگر assets وجود دارد، برای هر مورد فقط یک assetProposal امن شامل name، title، filename، brief، altText و acceptanceCriteria بده؛ فایل باینری، URL یا ادعای بارگذاری تولید نکن. فقط JSON معتبر با schema form-suggestions-v1 برگردان؛ برای هر پیشنهاد دقیقاً یک entry برای هر field و فقط مقدارهای مجاز همان field بده.${documentProposalEligible ? " چون این فرم ورودی اختیاری متن پروژه است، اگر یک پیش‌نویس کوتاه واقعاً مفید است، یک documentProposal قابل‌خواندن هم برگردان؛ پیش‌نویس را هرگز ثبت‌شده یا بارگذاری‌شده معرفی نکن." : ""}`,
+          context: { pathname: "/form-suggestions", featureKey: "form.suggestions", formSuggestion: { ...formRequest, requestedSuggestionCount: FORM_SUGGESTION_INITIAL_SUGGESTIONS, documentProposalEligible } },
+          localResponse: `Generate ${FORM_PROVIDER_SUGGESTIONS_SCHEMA} with boxPurpose, materially distinct suggestions, decisionSupport, and optional review-only assetProposals${documentProposalEligible ? ", and an optional review-only documentProposal" : ""}; no prose outside JSON, secrets, paths, tools, binary data, or executable actions.`
+        });
+        let providerOutput;
+        try {
+          providerOutput = JSON.parse(live.response);
+        } catch {
+          throw new FormSuggestionsError("FORM_SUGGESTION_PROVIDER_OUTPUT_INVALID", "Provider پاسخ JSON معتبر برای پیشنهاد فرم برنگرداند.", 502);
+        }
+        const formSuggestions = createProviderFormSuggestions({ ...formRequest, actor: authenticatedOwner, selectedAdvisor, providerOutput, requestedSuggestionCount: FORM_SUGGESTION_INITIAL_SUGGESTIONS });
+        return json(response, 200, {
+          service: HERO_SERVICE,
+          advisor: formSuggestions,
+          formSuggestions,
+          providerInvocation: Object.freeze({ invocationId: live.invocationId, providerInvoked: true, costUnits: live.costUnits, status: "completed" }),
+          evidence: live.evidence
+        });
+      }
+
+      if (request.method === "POST" && ["/api/form-suggestions/refine", "/api/advisor/refine"].includes(url.pathname)) {
+        if (!authenticatedOwner || !["human-identity", "admin"].includes(authenticatedOwner.source)) {
+          throw new HumanIdentityError("IDENTITY_AUTH_REQUIRED", "برای اصلاح تعاملی پیشنهاد فرم ورود انسانی یا نشست Admin لازم است.", 401);
+        }
+        const input = await readJson(request, 24 * 1024);
+        const queryProjectId = url.searchParams.get("projectId");
+        if (input.projectId !== undefined && (input.projectId ?? null) !== (queryProjectId ?? null)) {
+          throw new FormSuggestionsError("FORM_SUGGESTION_SCOPE_MISMATCH", "Scope پروژهٔ اصلاح پیشنهاد فرم معتبر نیست.", 400);
+        }
+        const projectId = queryProjectId || null;
+        const options = formSuggestionOptions(projectId);
+        const selectedAdvisor = input.selectedAdvisor;
+        if (!options.profiles.some(profile => profile.profileId === selectedAdvisor && profile.selectable === true && profile.dispatchReady === true)) {
+          throw new FormSuggestionsError("FORM_SUGGESTION_ADVISOR_UNAVAILABLE", "AI انتخاب‌شده در فهرست سراسری موجود است، اما مجوز صریح سرویس سراسری Test یا Health اتصال هنوز برای اجرای زنده آماده نیست.", 403);
+        }
+        let authoritativeGoal = input.softwareGoal;
+        if (projectId) authoritativeGoal = projectOverview(projectId).intake?.goal || authoritativeGoal;
+        const refinement = prepareFormSuggestionRefinement({
+          actor: authenticatedOwner,
+          projectId,
+          formId: input.formId,
+          formTitle: input.formTitle,
+          softwareGoal: authoritativeGoal,
+          boxDescription: input.boxDescription,
+          fields: input.fields,
+          assets: input.assets,
+          selectedAdvisor,
+          feedback: input.feedback,
+          iteration: input.iteration
+        });
+        const selectedProfile = options.profiles.find(profile => profile.profileId === selectedAdvisor);
+        const formRequest = prepareFormSuggestionRequest({
+          actor: authenticatedOwner,
+          projectId,
+          formId: refinement.formId,
+          formTitle: refinement.formTitle,
+          softwareGoal: refinement.softwareGoal,
+          boxDescription: refinement.boxDescription,
+          fields: refinement.fields,
+          assets: refinement.assets,
+          selectedAdvisor
+        });
+        const documentProposalEligible = formRequest.formId === "upload-form";
+        const fieldDirectiveInstruction = refinement.fieldDirectives.length > 0
+          ? `دستورهای صریح و field-aware که باید دقیقاً رعایت شوند: ${refinement.fieldDirectives.map(directive => `فیلد شمارهٔ ${directive.fieldPosition} با نام «${directive.fieldName}» و برچسب «${directive.fieldLabel}» باید ${directive.mode === "compact" ? "یک توضیح کوتاه و روشن، حداکثر ۲۲۰ نویسه" : "توضیحی مفصل، دست‌کم ۲۲۰ نویسه و شامل جزئیات مرتبط با همان فیلد"} داشته باشد`).join("؛ ")}. این دستورها فقط برای همان فیلدها هستند؛ مقدار یا ساختار فیلدهای دیگر را بی‌دلیل تغییر نده و در feedbackResponse نام همین فیلدها و تغییر اعمال‌شده را روشن بگو.`
+          : "اگر بازخورد به یک فیلد اشاره کرده است، نام، برچسب و نوع همان فیلد را از فهرست فرم تشخیص بده و تغییر را فقط روی همان فیلد اعمال کن.";
+        const live = await invokeSelectedLiveAdvisor({
+          purpose: "form-suggestions",
+          projectId,
+          selectedProfile,
+          question: `ادمین پس از دیدن پیشنهادهای قبلی این بازخورد را داده است: «${refinement.feedback}». بازخورد را فقط برای بهترکردن پیشنهادهای همین باکس اعمال کن. ${fieldDirectiveInstruction} ابتدا کاربرد واقعی باکس را دوباره بررسی کن و سپس در boxPurpose شرح فارسی روشن و مفصل، feedbackResponse در ۱ تا ۳ جملهٔ کوتاه دربارهٔ تفسیر بازخورد و تغییر ایجادشده، decisionSupport بازنگری‌شده، و دقیقاً یک پیشنهاد جدید و قابل انتخاب برگردان. اگر بازخورد به سند یا تصویر مربوط است، assetProposals را نیز متناسب بازنگری کن. مقدارهای پیشنهاد تازه باید به‌طور محسوس بر اساس بازخورد تغییر کرده باشند؛ از پاسخ قالبی یا تکرار متن عمومی استفاده نکن. فقط JSON معتبر با schema form-suggestions-v1 برگردان؛ برای همان پیشنهاد دقیقاً یک entry برای هر field و فقط مقدارهای مجاز همان field بده.${documentProposalEligible ? " اگر پیش‌نویس سند اختیاری مفید است، documentProposal تازه را هم بازنگری کن؛ هرگز آن را ذخیره‌شده یا بارگذاری‌شده معرفی نکن." : ""}`,
+          // Feedback remains transient in the request, not in the structured
+          // form context or the redacted event evidence.
+          context: { pathname: "/form-suggestions", featureKey: "form.suggestions.refine", formSuggestion: { ...formRequest, requestedSuggestionCount: 1, refinement: true, documentProposalEligible } },
+          localResponse: `Generate ${FORM_PROVIDER_SUGGESTIONS_SCHEMA} with boxPurpose, feedbackResponse and one feedback-driven revised suggestion${documentProposalEligible ? ", plus an optional review-only revised documentProposal" : ""}; no prose outside JSON, secrets, paths, tools, or executable actions.`
+        });
+        let providerOutput;
+        try {
+          providerOutput = JSON.parse(live.response);
+        } catch {
+          throw new FormSuggestionsError("FORM_SUGGESTION_PROVIDER_OUTPUT_INVALID", "Provider پاسخ JSON معتبر برای اصلاح پیشنهاد فرم برنگرداند.", 502);
+        }
+        // `feedback` and its field-aware derivative are only used here to
+        // keep a safe deterministic fallback responsive if a structurally
+        // incomplete Provider reply omits a value or ignores an explicit
+        // concise/detailed field request. They are not added to the structured
+        // Provider context, event, audit record or returned as standalone data.
+        const suggestions = createProviderFormSuggestions({ ...formRequest, actor: authenticatedOwner, selectedAdvisor, providerOutput, requestedSuggestionCount: 1, suggestionOffset: FORM_SUGGESTION_INITIAL_SUGGESTIONS + refinement.iteration - 1, feedback: refinement.feedback, feedbackDirectives: refinement.fieldDirectives });
+        const formSuggestions = Object.freeze({
+          ...suggestions,
+          refinement: Object.freeze({ iteration: refinement.iteration, feedbackAcknowledged: true })
+        });
+        return json(response, 200, {
+          service: HERO_SERVICE,
+          advisor: formSuggestions,
+          formSuggestions,
+          providerInvocation: Object.freeze({ invocationId: live.invocationId, providerInvoked: true, costUnits: live.costUnits, status: "completed" }),
+          evidence: live.evidence
+        });
       }
 
       if (request.method === "POST" && url.pathname === "/api/walkthrough/advice") {
@@ -1737,23 +2727,56 @@ export function createHeroServer(options = {}) {
           }
           const options = queryProjectId ? walkthroughAdvisorOptions(queryProjectId) : null;
           const selectedProfile = profileId ? options?.profiles.find(profile => profile.profileId === profileId) : null;
-          if (profileId && (!selectedProfile || selectedProfile.selectable !== true)) {
-            throw new ProjectWorkspaceError("WALKTHROUGH_ADVISOR_PROFILE_UNAVAILABLE", "The selected Walk-Through advisor profile is not available for this project.", 400);
+          if (profileId && (!selectedProfile || selectedProfile.selectable !== true || selectedProfile.dispatchReady !== true)) {
+            throw new ProjectWorkspaceError("WALKTHROUGH_ADVISOR_PROFILE_UNAVAILABLE", "AI انتخاب‌شده سراسری است، اما مجوز صریح سرویس سراسری Test یا Health اتصال برای اجرای زندهٔ Walk-Through آماده نیست.", 400);
           }
           const advisor = createProjectWalkthroughAdvisory({
             stepId: input.stepId,
             projectId: queryProjectId,
             question: input.question
           });
-          // Do not persist the question or response: this helper is local,
-          // deterministic guidance and is deliberately not a conversation
-          // record, AI provider invocation, or spend event.
+          const progress = createProjectWalkthroughProgress({
+            authenticated: true,
+            projectId: queryProjectId,
+            // A Project Grant can exist before the Workspace read model is
+            // populated. Guidance must remain available in that transitional
+            // state and simply report the setup steps as incomplete.
+            overview: queryProjectId ? (() => {
+              try { return projectOverview(queryProjectId); } catch { return null; }
+            })() : null
+          });
+          const live = selectedProfile
+            ? await invokeSelectedLiveAdvisor({
+              purpose: "walkthrough-guide",
+              projectId: queryProjectId,
+              selectedProfile,
+              question: input.question,
+              context: {
+                stepId: input.stepId,
+                progress: progress.summary,
+                step: progress.steps.find(item => item.stepId === input.stepId) ?? null
+              },
+              localResponse: advisor.response
+            })
+            : null;
+          // Questions and answers are not stored in the Walk-Through record.
+          // The AI orchestration ledger retains only redacted invocation and
+          // usage metadata when a separately authorized live profile is used.
           return json(response, 200, {
             service: HERO_SERVICE,
             advisor: Object.freeze({
               ...advisor,
+              progress,
+              ...(live ? {
+                mode: "live-project-advisor",
+                providerInvoked: true,
+                response: live.response,
+                result: live.result,
+                evidence: live.evidence,
+                invocation: Object.freeze({ invocationId: live.invocationId, costUnits: live.costUnits, status: live.evidence.status, latencyMs: live.evidence.latencyMs, usage: live.evidence.usage })
+              } : {}),
               selectedAdvisor: selectedProfile
-                ? Object.freeze({ kind: "profile", profileId: selectedProfile.profileId, providerId: selectedProfile.providerId, modelId: selectedProfile.modelId, profileVersion: selectedProfile.profileVersion, dispatch: selectedProfile.selectable ? "selection-recorded-awaiting-separate-external-authorization" : "not-ready" })
+                ? Object.freeze({ kind: "profile", profileId: selectedProfile.profileId, providerId: selectedProfile.providerId, modelId: selectedProfile.modelId, profileVersion: selectedProfile.profileVersion, dispatch: live ? "live-response" : "local-response" })
                 : Object.freeze({ kind: "local", dispatch: "local-response" })
             })
           });
@@ -1833,13 +2856,19 @@ export function createHeroServer(options = {}) {
             if (input.advisorProfileId !== undefined && input.advisorProfileId !== null && input.advisorProfileId !== "" && input.advisorProfileId !== "local") {
               const options = smartTesterAdvisorOptions(contextualSmartTesterContext.projectId);
               const profile = options.profiles.find(item => item.profileId === input.advisorProfileId);
-              if (!profile || profile.selectable !== true) throw new ProjectWorkspaceError("SMART_TESTER_ADVISOR_UNAVAILABLE", "AI انتخاب‌شده برای این پروژه آماده نیست.", 400);
+              if (!profile || profile.selectable !== true || profile.dispatchReady !== true) throw new ProjectWorkspaceError("SMART_TESTER_ADVISOR_UNAVAILABLE", "AI انتخاب‌شده سراسری است، اما مجوز صریح سرویس سراسری Test یا Health اتصال برای اجرای زندهٔ Smart Tester آماده نیست.", 400);
               selectedAdvisor = profile;
             }
             const advisor = createSmartTesterAdvisory({ context: contextualSmartTesterContext, question: input.question, report, selectedAdvisor, actionFailure: input.actionFailure });
-            // Questions and answers are intentionally not persisted. The only
-            // retained item is the bounded, redacted test report above.
-            return json(response, 200, { service: HERO_SERVICE, smartTester: Object.freeze({ advisor }) });
+            const live = selectedAdvisor && contextualSmartTesterContext.projectId
+              ? await invokeSelectedLiveAdvisor({ purpose: "smart-tester", projectId: contextualSmartTesterContext.projectId, selectedProfile: selectedAdvisor, question: input.question, context: contextualSmartTesterContext, localResponse: advisor.response })
+              : null;
+            // Questions and answers are not persisted; a live invocation keeps
+            // only redacted metadata and metered usage in the AI ledger.
+            const renderedAdvisor = live
+              ? Object.freeze({ ...advisor, mode: "live-contextual-development-assistant", providerInvoked: true, response: live.response, result: live.result, evidence: live.evidence, invocation: Object.freeze({ invocationId: live.invocationId, costUnits: live.costUnits, status: live.evidence.status, latencyMs: live.evidence.latencyMs, usage: live.evidence.usage }), selectedAdvisor: Object.freeze({ ...advisor.selectedAdvisor, providerInvoked: true }) })
+              : advisor;
+            return json(response, 200, { service: HERO_SERVICE, smartTester: Object.freeze({ advisor: renderedAdvisor }) });
           } catch (error) {
             if (error instanceof RangeError || error instanceof TypeError) {
               throw new ProjectWorkspaceError("SMART_TESTER_ADVICE_INVALID", "Smart Tester advice request is invalid.", 400);
@@ -1902,7 +2931,7 @@ export function createHeroServer(options = {}) {
       }
 
       if (request.method === "GET" && url.pathname === "/api/portfolio") {
-        return json(response, 200, { service: HERO_SERVICE, portfolio: portfolioSnapshot(authenticatedOwner) });
+        return json(response, 200, { service: HERO_SERVICE, portfolio: portfolioSnapshot(authenticatedOwner, { view: url.searchParams.get("view") === "archived" ? "archived" : "active" }) });
       }
 
       if (request.method === "GET" && url.pathname === "/api/portfolio/search") {
@@ -1911,18 +2940,16 @@ export function createHeroServer(options = {}) {
 
       if (request.method === "POST" && url.pathname === "/api/projects") {
         const input = await readJson(request);
-        const created = projectWorkspace.createProject({ actor: authenticatedOwner, projectId: input.projectId, name: input.name, description: input.description, intake: input.intake });
-        await persistWorkspaceProject(created.project, "Project created");
-        await persistWorkspaceProposal(created.foundationProposal);
-        return json(response, 201, { service: HERO_SERVICE, ...created });
+        const created = projectWorkspace.createProject({ actor: authenticatedOwner, projectId: input.projectId, name: input.name, description: input.description, intake: input.intake, idempotencyKey: input.idempotencyKey ?? request.headers["idempotency-key"] ?? undefined });
+        await persistWorkspaceProjectAndProposal(created.project, created.foundationProposal, "Project created");
+        return json(response, created.replayed ? 200 : 201, { service: HERO_SERVICE, ...created });
       }
 
       if (request.method === "POST" && url.pathname === "/api/project-clones") {
         if (authenticatedOwner?.role !== "project-owner") throw new ProjectWorkspaceError("OWNER_REQUIRED", "Only the owner may clone a project template.", 403);
         const input = await readJson(request);
         const cloned = projectWorkspace.cloneFromTemplate({ actor: authenticatedOwner, sourceProjectId: input.sourceProjectId, projectId: input.projectId, name: input.name, description: input.description });
-        await persistWorkspaceProject(cloned.project, `Cloned from ${input.sourceProjectId}`);
-        await persistWorkspaceProposal(cloned.foundationProposal);
+        await persistWorkspaceProjectAndProposal(cloned.project, cloned.foundationProposal, `Cloned from ${input.sourceProjectId}`);
         return json(response, 201, { service: HERO_SERVICE, ...cloned });
       }
 
@@ -1934,12 +2961,41 @@ export function createHeroServer(options = {}) {
         return json(response, 200, { service: HERO_SERVICE, project });
       }
 
+      const projectRestoreMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/restore$/);
+      if (projectRestoreMatch && request.method === "POST") {
+        const input = await readJson(request);
+        const project = projectWorkspace.restoreProject({ actor: authenticatedOwner, projectId: projectRestoreMatch[1], expectedVersion: input.expectedVersion });
+        await persistWorkspaceProject(project, "Project restored");
+        return json(response, 200, { service: HERO_SERVICE, project });
+      }
+
+      const projectPurgeMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})$/);
+      if (projectPurgeMatch && request.method === "DELETE") {
+        const input = await readJson(request);
+        const prepared = projectWorkspace.preparePurge({ actor: authenticatedOwner, projectId: projectPurgeMatch[1], expectedVersion: input.expectedVersion, confirmationProjectId: input.confirmationProjectId, reason: input.reason });
+        // Persist the minimal tombstone before removing any private bytes. If a
+        // later cleanup fails, the project still cannot be revived on restart.
+        await persistWorkspacePurge(prepared);
+        let purge;
+        try {
+          purge = projectWorkspace.purgeProject({ actor: authenticatedOwner, projectId: projectPurgeMatch[1], expectedVersion: input.expectedVersion, confirmationProjectId: input.confirmationProjectId, reason: input.reason });
+        } catch (error) {
+          projectWorkspace.hydratePurgeTombstone?.({ projectId: prepared.projectId });
+          projectSettings.purgeProject?.({ projectId: prepared.projectId });
+          throw error;
+        }
+        projectSettings.purgeProject?.({ projectId: purge.projectId });
+        const revokedGrants = projectAccessRegistry?.revokeProjectGrants?.({ actor: authenticatedOwner, projectId: purge.projectId }) ?? [];
+        for (const grant of revokedGrants) {
+          if (postgresRuntime?.projectIdentity?.appendGrant) await postgresRuntime.projectIdentity.appendGrant({ projectId: grant.projectId, userId: grant.userId, role: grant.role, status: "revoked", grantedBy: authenticatedOwner.subject });
+          await persistIdentityAudit({ userId: grant.userId, eventType: "identity.project-grant-revoked", data: { projectId: grant.projectId, revokedBy: authenticatedOwner.subject, reason: "project-purged" } });
+        }
+        return json(response, 200, { service: HERO_SERVICE, purge, revokedGrantCount: revokedGrants.length });
+      }
+
       const projectDeletionMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/deletion-request$/);
       if (projectDeletionMatch && request.method === "POST") {
-        const input = await readJson(request);
-        const deletionRequest = projectWorkspace.requestDeletion({ actor: authenticatedOwner, projectId: projectDeletionMatch[1], expectedVersion: input.expectedVersion, reason: input.reason });
-        await persistWorkspaceProject(projectWorkspace.getProject(projectDeletionMatch[1]), input.reason);
-        return json(response, 202, { service: HERO_SERVICE, deletionRequest });
+        throw new ProjectWorkspaceError("PROJECT_PURGE_CONFIRMATION_REQUIRED", "Use DELETE /api/projects/:projectId after archiving and confirming the exact project identifier.", 400);
       }
 
       const projectReturnToDraftMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/return-to-draft$/);
@@ -1985,6 +3041,26 @@ export function createHeroServer(options = {}) {
         return json(response, 200, { service: HERO_SERVICE, input }, { maxBytes: 4 * 1024 * 1024 });
       }
 
+      const projectInputDownloadMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/inputs\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/download$/);
+      if (projectInputDownloadMatch && request.method === "GET") {
+        const input = projectWorkspace.downloadInput({ actor: authenticatedOwner, projectId: projectInputDownloadMatch[1], uploadId: projectInputDownloadMatch[2] });
+        // Downloads are always attachments. Never trust an uploaded MIME type
+        // for browser rendering, and keep the private response out of caches.
+        const filename = typeof input.filename === "string" && input.filename.trim() ? input.filename.trim() : "project-input";
+        const encodedFilename = encodeURIComponent(filename).replaceAll("'", "%27").replaceAll("(", "%28").replaceAll(")", "%29").replaceAll("*", "%2A");
+        response.writeHead(200, {
+          "content-type": "application/octet-stream",
+          "content-length": input.bytes.length,
+          "content-disposition": `attachment; filename="project-input"; filename*=UTF-8''${encodedFilename}`,
+          "cache-control": "no-store",
+          "x-robots-tag": PRIVATE_ROBOTS_POLICY,
+          "x-content-type-options": "nosniff",
+          "referrer-policy": "no-referrer"
+        });
+        response.end(input.bytes);
+        return;
+      }
+
       const projectFoundationMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/foundation$/);
       if (projectFoundationMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, proposal: projectWorkspace.foundationProposal({ projectId: projectFoundationMatch[1] }) });
       const projectFoundationReviseMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/foundation\/revise$/);
@@ -1997,7 +3073,7 @@ export function createHeroServer(options = {}) {
       const projectFoundationApproveMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/foundation\/approve$/);
       if (projectFoundationApproveMatch && request.method === "POST") {
         const input = await readJson(request);
-        const proposal = projectWorkspace.approveFoundation({ actor: authenticatedOwner, projectId: projectFoundationApproveMatch[1], proposalId: input.proposalId, expectedVersion: input.expectedVersion });
+        const proposal = projectWorkspace.approveFoundation({ actor: authenticatedOwner, projectId: projectFoundationApproveMatch[1], proposalId: input.proposalId, expectedVersion: input.expectedVersion, riskApproval: input.riskApproval === true });
         await persistWorkspaceProposal(proposal);
         await persistWorkspaceProject(projectWorkspace.getProject(projectFoundationApproveMatch[1]), "Foundation approved");
         await persistWorkspaceSettings(projectFoundationApproveMatch[1]);
@@ -2133,7 +3209,7 @@ export function createHeroServer(options = {}) {
 
       const projectInfrastructureMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/infrastructure$/);
       if (projectInfrastructureMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, infrastructure: infrastructureControl.view({ actor: authenticatedOwner, projectId: projectInfrastructureMatch[1] }) });
-      if (projectInfrastructureMatch && request.method === "POST") { const input = await readJson(request); const projectId = projectInfrastructureMatch[1]; const actions = { "register-repository": () => infrastructureControl.registerRepository({ actor: authenticatedOwner, projectId, ...input }), "onboard-server": () => infrastructureControl.onboardServer({ actor: authenticatedOwner, projectId, ...input }), "connectivity-plan": () => infrastructureControl.connectivityPlan({ actor: authenticatedOwner, projectId, ...input }), "create-enrollment": () => infrastructureControl.createEnrollment({ actor: authenticatedOwner, projectId, ...input }), "rotate-node": () => infrastructureControl.rotateNodeIdentity({ actor: authenticatedOwner, projectId, ...input }), "revoke-node": () => infrastructureControl.revokeNode({ actor: authenticatedOwner, projectId, ...input }), "set-state": () => infrastructureControl.setState({ actor: authenticatedOwner, projectId, ...input }), "reconcile": () => infrastructureControl.reconcile({ actor: authenticatedOwner, projectId, ...input }), "register-secret-metadata": () => infrastructureControl.registerSecret({ actor: authenticatedOwner, projectId, ...input }), "request-secret-reveal": () => infrastructureControl.requestReveal({ actor: authenticatedOwner, projectId, ...input }), "set-egress-policy": () => infrastructureControl.setEgressPolicy({ actor: authenticatedOwner, projectId, ...input }) }; if (!actions[input.action]) throw new InfrastructureError("INFRASTRUCTURE_ACTION_INVALID", "Infrastructure action is invalid.", 400); return json(response, 201, { service: HERO_SERVICE, result: actions[input.action]() }); }
+      if (projectInfrastructureMatch && request.method === "POST") { const input = await readJson(request); const projectId = projectInfrastructureMatch[1]; const actions = { "register-repository": () => infrastructureControl.registerRepository({ actor: authenticatedOwner, projectId, ...input }), "onboard-server": () => infrastructureControl.onboardServer({ actor: authenticatedOwner, projectId, ...input }), "select-target": () => infrastructureControl.selectTarget({ actor: authenticatedOwner, projectId, ...input }), "connectivity-plan": () => infrastructureControl.connectivityPlan({ actor: authenticatedOwner, projectId, ...input }), "create-enrollment": () => infrastructureControl.createEnrollment({ actor: authenticatedOwner, projectId, ...input }), "rotate-node": () => infrastructureControl.rotateNodeIdentity({ actor: authenticatedOwner, projectId, ...input }), "revoke-node": () => infrastructureControl.revokeNode({ actor: authenticatedOwner, projectId, ...input }), "set-state": () => infrastructureControl.setState({ actor: authenticatedOwner, projectId, ...input }), "reconcile": () => infrastructureControl.reconcile({ actor: authenticatedOwner, projectId, ...input }), "register-secret-metadata": () => infrastructureControl.registerSecret({ actor: authenticatedOwner, projectId, ...input }), "request-secret-reveal": () => infrastructureControl.requestReveal({ actor: authenticatedOwner, projectId, ...input }), "set-egress-policy": () => infrastructureControl.setEgressPolicy({ actor: authenticatedOwner, projectId, ...input }) }; if (!actions[input.action]) throw new InfrastructureError("INFRASTRUCTURE_ACTION_INVALID", "Infrastructure action is invalid.", 400); return json(response, 201, { service: HERO_SERVICE, result: actions[input.action]() }); }
 
       const projectDeliveryMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/delivery$/);
       if (projectDeliveryMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, delivery: deliveryControl.view({ actor: authenticatedOwner, projectId: projectDeliveryMatch[1] }) });
@@ -2197,7 +3273,7 @@ export function createHeroServer(options = {}) {
       }
 
       if (request.method === "GET" && url.pathname === "/api/product-development/contract") {
-        return json(response, 200, { service: HERO_SERVICE, productDevelopmentContract: getProductDevelopmentContractSummary() });
+        return json(response, 200, { service: HERO_SERVICE, productDevelopmentContract: getProductDevelopmentContractSummary(), productFactoryContract: getProductFactoryContractSummary() });
       }
 
       if (request.method === "GET" && url.pathname === "/api/product-development/catalog") {
@@ -2262,6 +3338,49 @@ export function createHeroServer(options = {}) {
         return json(response, 200, { service: HERO_SERVICE, skills: dashboard.skillSnapshot() });
       }
 
+      if (request.method === "POST" && url.pathname === "/api/ai/assignment-proposals") {
+        const input = await readJson(request);
+        const scopedProjectId = url.searchParams.get("projectId");
+        if (input.projectId !== undefined && input.projectId !== scopedProjectId) {
+          throw new DashboardCommandError("AI_ASSIGNMENT_PROJECT_SCOPE_MISMATCH", "محدودهٔ پروژه در درخواست یکسان نیست.", 400);
+        }
+        const projectId = scopedProjectId ?? input.projectId;
+        if (typeof projectId !== "string" || !/^[A-Za-z][A-Za-z0-9._:-]{2,127}$/.test(projectId)) {
+          throw new DashboardCommandError("PROJECT_SCOPE_REQUIRED", "پروژهٔ معتبر برای پیشنهاد تخصیص لازم است.", 400);
+        }
+        const proposal = assignmentProposalSnapshot(projectId, input.advisorProfileId ?? null);
+        return json(response, 200, { service: HERO_SERVICE, proposal }, { maxBytes: backofficeResponseLimitBytes });
+      }
+
+      const assignmentProposalApplyMatch = url.pathname.match(/^\/api\/ai\/assignment-proposals\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/apply$/);
+      const assignmentProposalReviewMatch = url.pathname.match(/^\/api\/ai\/assignment-proposals\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/review$/);
+      if (request.method === "POST" && assignmentProposalReviewMatch) {
+        const input = await readJson(request);
+        const scopedProjectId = url.searchParams.get("projectId");
+        if (input.projectId !== undefined && input.projectId !== scopedProjectId) {
+          throw new DashboardCommandError("AI_ASSIGNMENT_PROJECT_SCOPE_MISMATCH", "محدودهٔ پروژه در درخواست یکسان نیست.", 400);
+        }
+        const projectId = scopedProjectId ?? input.projectId;
+        if (typeof projectId !== "string" || !/^[A-Za-z][A-Za-z0-9._:-]{2,127}$/.test(projectId)) {
+          throw new DashboardCommandError("PROJECT_SCOPE_REQUIRED", "پروژهٔ معتبر برای بازبینی لازم است.", 400);
+        }
+        const result = await reviewAssignmentProposal({ proposalId: assignmentProposalReviewMatch[1], projectId });
+        return json(response, 200, { service: HERO_SERVICE, result }, { maxBytes: backofficeResponseLimitBytes });
+      }
+      if (request.method === "POST" && assignmentProposalApplyMatch) {
+        const input = await readJson(request);
+        const scopedProjectId = url.searchParams.get("projectId");
+        if (input.projectId !== undefined && input.projectId !== scopedProjectId) {
+          throw new DashboardCommandError("AI_ASSIGNMENT_PROJECT_SCOPE_MISMATCH", "محدودهٔ پروژه در درخواست یکسان نیست.", 400);
+        }
+        const projectId = scopedProjectId ?? input.projectId;
+        if (typeof projectId !== "string" || !/^[A-Za-z][A-Za-z0-9._:-]{2,127}$/.test(projectId)) {
+          throw new DashboardCommandError("PROJECT_SCOPE_REQUIRED", "پروژهٔ معتبر برای ثبت تخصیص لازم است.", 400);
+        }
+        const result = await applyAssignmentProposal({ proposalId: assignmentProposalApplyMatch[1], projectId, actor: authenticatedOwner.actor });
+        return json(response, 200, { service: HERO_SERVICE, result }, { maxBytes: backofficeResponseLimitBytes });
+      }
+
       if (request.method === "GET" && url.pathname === "/api/ai/organization-advisor") {
         return json(response, 200, { service: HERO_SERVICE, advisor: dashboard.organizationAdvisorSnapshot() });
       }
@@ -2291,6 +3410,7 @@ export function createHeroServer(options = {}) {
         "/api/ai/models": ["registerAiModel", 201, "ai.model-register"],
         "/api/ai/profiles": ["registerAiProfile", 201, "ai.profile-register"],
         "/api/ai/bindings": ["bindAiRole", 201, "ai.binding-create"],
+        "/api/ai/project-scopes": ["configureAiProjectScope", 201, "ai.project-scope-configure"],
         "/api/ai/skills": ["registerAiSkill", 201, "ai.skill-register"],
         "/api/ai/skill-bindings": ["bindAiSkill", 201, "ai.skill-binding-create"],
         "/api/ai/role-policies": ["setAiRolePolicy", 201, "ai.role-policy-update"],
@@ -2633,7 +3753,9 @@ export function createHeroServer(options = {}) {
         releaseVersion,
         sourceCommit,
         imageDigest,
-        serviceVersion: HERO_VERSION
+        serviceVersion: HERO_VERSION,
+        smartTesterRepositoryContext: `read-only/${HERO_REPOSITORY_READ_CONTEXT_VERSION}`,
+        walkthroughGuideRepositoryContext: `read-only/${HERO_REPOSITORY_READ_CONTEXT_VERSION}`
       });
     }
 
@@ -2686,7 +3808,8 @@ export function createHeroServer(options = {}) {
     if (request.method === "GET" && url.pathname === "/runner-contract") {
       return json(response, 200, {
         service: HERO_SERVICE,
-        runnerContract: getRunnerContractSummary()
+        runnerContract: getRunnerContractSummary(),
+        productRunnerContract: getProductRunnerContractSummary()
       });
     }
 
@@ -2804,7 +3927,7 @@ export function createHeroServer(options = {}) {
       if (error instanceof OwnerAuthError && rejectedReadResource) {
         await recordReadAccess(rejectedReadResource, "rejected");
       }
-      const known = error instanceof DashboardCommandError || error instanceof ProductDevelopmentError || error instanceof ProjectAccessError || error instanceof ProjectWorkspaceError || error instanceof ProjectSettingsError || error instanceof CollaborationError || error instanceof CommandCenterError || error instanceof SystemCatalogError || error instanceof PerformanceError || error instanceof NotificationError || error instanceof InfrastructureError || error instanceof DeliveryError || error instanceof HardeningError || error instanceof FinalReadinessError || error instanceof BackofficeCompletionError || error instanceof HeroSecretStoreError;
+      const known = error instanceof DashboardCommandError || error instanceof ProductDevelopmentError || error instanceof ProjectAccessError || error instanceof ProjectWorkspaceError || error instanceof ProjectSettingsError || error instanceof CollaborationError || error instanceof CommandCenterError || error instanceof SystemCatalogError || error instanceof PerformanceError || error instanceof NotificationError || error instanceof InfrastructureError || error instanceof DeliveryError || error instanceof HardeningError || error instanceof FinalReadinessError || error instanceof BackofficeCompletionError || error instanceof HeroSecretStoreError || error instanceof AiOrchestrationError || error instanceof FormSuggestionsError || error instanceof ProjectIntakeAdvisorError;
       const auth = error instanceof OwnerAuthError || error instanceof HumanIdentityError;
       const statusCode = auth ? error.statusCode : known ? (error.statusCode ?? error.status ?? 409) : 500;
       if (statusCode >= 500) console.error(JSON.stringify({ level: "error", event: "hero.request-failed", method: request.method, path: url.pathname, status: statusCode, code: auth || known ? error.code : "INTERNAL_ERROR" }));
@@ -2847,31 +3970,43 @@ export function createHeroServer(options = {}) {
       }
       if (postgresRuntime?.projectWorkspace) {
         const workspaceStore = postgresRuntime.projectWorkspace;
+        const purgedProjectIds = new Set();
+        if (workspaceStore.listProjectPurgeTombstones && projectWorkspace.hydratePurgeTombstone) {
+          for (const tombstone of await workspaceStore.listProjectPurgeTombstones()) {
+            projectWorkspace.hydratePurgeTombstone({ projectId: tombstone.projectId });
+            purgedProjectIds.add(tombstone.projectId);
+          }
+        }
         if (workspaceStore.listSettings && projectSettings.hydrateRecord) {
           for (const setting of await workspaceStore.listSettings()) {
+            if (purgedProjectIds.has(setting.projectId)) continue;
             projectSettings.hydrateRecord({ ...setting, actorId: setting.actor });
             persistedWorkspaceRecords.add(workspaceRecordKey("setting", setting));
           }
         }
         if (workspaceStore.listProjects && projectWorkspace.hydrateProject) {
           for (const project of await workspaceStore.listProjects()) {
+            if (purgedProjectIds.has(project.projectId)) continue;
             projectWorkspace.hydrateProject({ project });
             persistedWorkspaceRecords.add(workspaceRecordKey("project", project));
           }
         }
         if (workspaceStore.listInputs && projectWorkspace.hydrateInput) {
           for (const input of await workspaceStore.listInputs()) {
+            if (purgedProjectIds.has(input.projectId)) continue;
             try { projectWorkspace.hydrateInput({ input }); persistedWorkspaceRecords.add(workspaceRecordKey("input", input)); } catch { /* a corrupt input row must not expose bytes or stop unrelated startup */ }
           }
         }
         if (workspaceStore.listFoundationProposals && projectWorkspace.hydrateFoundation) {
           for (const proposal of await workspaceStore.listFoundationProposals()) {
+            if (purgedProjectIds.has(proposal.projectId)) continue;
             projectWorkspace.hydrateFoundation({ proposal });
             persistedWorkspaceRecords.add(workspaceRecordKey("proposal", proposal));
           }
         }
         if (workspaceStore.listImportPlans && projectWorkspace.hydrateImport) {
           for (const plan of await workspaceStore.listImportPlans()) {
+            if (purgedProjectIds.has(plan.projectId)) continue;
             projectWorkspace.hydrateImport({ plan });
             persistedWorkspaceRecords.add(workspaceRecordKey("import", plan));
           }

@@ -33,6 +33,7 @@ function normalizeProject(project) {
   const row = {
     projectId,
     name: projectNameOf(project),
+    version: Number.isInteger(project.version) ? project.version : null,
     status: project.status ?? "unknown",
     lifecycle: project.lifecycle ?? "active",
     health: project.health ?? "unknown",

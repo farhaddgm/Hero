@@ -1,0 +1,549 @@
+export const FORM_SUGGESTIONS_VERSION = "1.1.0";
+export const FORM_PROVIDER_SUGGESTIONS_SCHEMA = "form-suggestions-v1";
+export const FORM_SUGGESTION_MAX_FIELDS = 32;
+// A session starts with three alternatives. Each live refinement contributes
+// exactly one more, so the owner can compare up to ten reviewable choices
+// without asking the Provider for an unnecessarily large response.
+export const FORM_SUGGESTION_INITIAL_SUGGESTIONS = 3;
+export const FORM_SUGGESTION_MAX_SUGGESTIONS = 10;
+export const FORM_SUGGESTION_MAX_PROVIDER_SUGGESTIONS = FORM_SUGGESTION_INITIAL_SUGGESTIONS;
+export const FORM_SUGGESTION_MAX_REFINEMENTS = FORM_SUGGESTION_MAX_SUGGESTIONS - FORM_SUGGESTION_INITIAL_SUGGESTIONS;
+// A document draft is advisory browser-session data. It may only be offered
+// for the optional project-input form and is deliberately much smaller than
+// the private upload quota; an Owner still reviews and submits it separately.
+export const FORM_SUGGESTION_MAX_DOCUMENT_DRAFT_CHARACTERS = 6_000;
+
+const IDENTIFIER = /^[A-Za-z][A-Za-z0-9._:-]{0,127}$/;
+const SENSITIVE_FIELD = /(?:password|passwd|secret|credential|token|api[._-]?key|private[._-]?key|mfa|otp|رمز|کلید\s*api)/iu;
+const SENSITIVE_VALUE = /(?:\bsk-[A-Za-z0-9_-]{12,}\b|\bBearer\s+[A-Za-z0-9._-]{12,}\b|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----)/u;
+const SENSITIVE_ASSIGNMENT = /(?:password|passwd|secret|credential|token|api(?:[._-]|\s)?key|mfa|رمز|کلید\s*api)\s*[:=]\s*\S+/iu;
+const HOST_PATH = /(?:^|[\s"'(])(?:[A-Za-z]:[\\/]|\/(?:home|Users|mnt|opt)\/)/u;
+const FREE_TEXT_FIELD_TYPES = new Set(["text", "search", "email", "url", "textarea"]);
+const FEEDBACK_COMPACT_MAX_CHARACTERS = 220;
+const FEEDBACK_DETAILED_MIN_CHARACTERS = 220;
+const FIELD_POSITION = new Map([
+  ["اول", 1], ["یکم", 1], ["یک", 1], ["1", 1], ["۱", 1],
+  ["دوم", 2], ["دو", 2], ["2", 2], ["۲", 2],
+  ["سوم", 3], ["سه", 3], ["3", 3], ["۳", 3],
+  ["چهارم", 4], ["چهار", 4], ["4", 4], ["۴", 4],
+  ["پنجم", 5], ["پنج", 5], ["5", 5], ["۵", 5],
+  ["ششم", 6], ["شش", 6], ["6", 6], ["۶", 6],
+  ["هفتم", 7], ["هفت", 7], ["7", 7], ["۷", 7],
+  ["هشتم", 8], ["هشت", 8], ["8", 8], ["۸", 8],
+  ["نهم", 9], ["نه", 9], ["9", 9], ["۹", 9],
+  ["دهم", 10], ["ده", 10], ["10", 10], ["۱۰", 10]
+]);
+const FIELD_REFERENCE = /(?:فیلد|field)\s*(اول|یکم|یک|1|۱|دوم|دو|2|۲|سوم|سه|3|۳|چهارم|چهار|4|۴|پنجم|پنج|5|۵|ششم|شش|6|۶|هفتم|هفت|7|۷|هشتم|هشت|8|۸|نهم|نه|9|۹|دهم|ده|10|۱۰)/giu;
+const COMPACT_FEEDBACK = /(?:کم(?:تر)?|کوتاه(?:تر)?|مختصر(?:تر)?|خلاصه(?:تر)?|brief(?:er)?|short(?:er)?)/iu;
+const DETAILED_FEEDBACK = /(?:زیاد(?:تر)?|بیشتر|طولانی(?:تر)?|مفصل(?:تر)?|جزئیات\s*(?:بیشتر|اضافه)|شرح\s*(?:بیشتر|اضافه)|detail(?:ed)?|longer|expand|elaborate)/iu;
+
+export class FormSuggestionsError extends Error {
+  constructor(code, message, statusCode = 400) {
+    super(message);
+    this.name = "FormSuggestionsError";
+    this.code = code;
+    this.statusCode = statusCode;
+  }
+}
+
+function copy(value) {
+  return Object.freeze(structuredClone(value));
+}
+
+function text(label, value, { minimum = 0, maximum = 700 } = {}) {
+  if (value === undefined || value === null) return "";
+  if (typeof value !== "string" || value.length > maximum) throw new FormSuggestionsError("FORM_SUGGESTION_TEXT_INVALID", `${label} is invalid.`);
+  const normalized = value.replace(/\s+/gu, " ").trim();
+  if (normalized.length < minimum || SENSITIVE_VALUE.test(normalized) || SENSITIVE_ASSIGNMENT.test(normalized) || HOST_PATH.test(normalized)) {
+    throw new FormSuggestionsError("FORM_SUGGESTION_SENSITIVE_INPUT", `${label} is empty, too short or contains sensitive data.`);
+  }
+  return normalized;
+}
+
+function documentText(value) {
+  if (typeof value !== "string" || value.length > FORM_SUGGESTION_MAX_DOCUMENT_DRAFT_CHARACTERS) throw new FormSuggestionsError("FORM_SUGGESTION_TEXT_INVALID", "provider document content is invalid.");
+  // Keep paragraph boundaries for the preview and the eventual text upload,
+  // while still normalizing accidental blank-line runs.
+  const normalized = value.replace(/\r\n?/gu, "\n").replace(/[ \t]+\n/gu, "\n").replace(/\n{3,}/gu, "\n\n").trim();
+  if (normalized.length < 40 || SENSITIVE_VALUE.test(normalized) || SENSITIVE_ASSIGNMENT.test(normalized) || HOST_PATH.test(normalized)) {
+    throw new FormSuggestionsError("FORM_SUGGESTION_SENSITIVE_INPUT", "provider document content contains unsafe data.");
+  }
+  return normalized;
+}
+
+function actorKind(actor) {
+  return actor?.actor?.kind ?? actor?.kind ?? (actor?.role === "admin" ? "admin" : actor?.role === "project-owner" ? "project-owner" : null);
+}
+
+function assertActor(actor) {
+  if (!["project-owner", "admin"].includes(actorKind(actor))) {
+    throw new FormSuggestionsError("FORM_SUGGESTION_ADMIN_REQUIRED", "Form suggestions require a project owner or admin session.", 403);
+  }
+}
+
+function safeFieldName(field, index) {
+  const name = text(`field ${index + 1} name`, field?.name ?? field?.id, { minimum: 1, maximum: 128 });
+  if (!IDENTIFIER.test(name) || SENSITIVE_FIELD.test(name)) {
+    throw new FormSuggestionsError("FORM_SUGGESTION_FIELD_REJECTED", "Sensitive or invalid form fields cannot receive AI suggestions.", 400);
+  }
+  return name;
+}
+
+function normalizeOptions(options, index) {
+  if (!Array.isArray(options)) return [];
+  return options.slice(0, 20).map((option, optionIndex) => {
+    const value = text(`field ${index + 1} option ${optionIndex + 1}`, option?.value, { minimum: 0, maximum: 160 });
+    const label = text(`field ${index + 1} option ${optionIndex + 1} label`, option?.label ?? value, { minimum: 0, maximum: 180 });
+    if (SENSITIVE_FIELD.test(value) || SENSITIVE_VALUE.test(value)) throw new FormSuggestionsError("FORM_SUGGESTION_OPTION_REJECTED", "Sensitive form options cannot receive AI suggestions.", 400);
+    return Object.freeze({ value, label: label || value });
+  }).filter(option => option.value !== "");
+}
+
+function normalizeFields(fields) {
+  if (!Array.isArray(fields) || fields.length > FORM_SUGGESTION_MAX_FIELDS) {
+    throw new FormSuggestionsError("FORM_SUGGESTION_FIELDS_INVALID", `At most ${FORM_SUGGESTION_MAX_FIELDS} safe form fields are allowed.`);
+  }
+  return fields.map((field, index) => {
+    const name = safeFieldName(field, index);
+    const type = ["text", "search", "email", "url", "number", "date", "textarea", "select", "checkbox", "radio"].includes(field?.type) ? field.type : "text";
+    if (["password", "file", "hidden"].includes(type) || SENSITIVE_FIELD.test(`${name} ${field?.label ?? ""}`)) {
+      throw new FormSuggestionsError("FORM_SUGGESTION_FIELD_REJECTED", "Password, file, credential and secret fields are not eligible for suggestions.", 400);
+    }
+    const label = text(`field ${index + 1} label`, field?.label ?? name, { minimum: 1, maximum: 220 });
+    const value = text(`field ${index + 1} option value`, field?.value, { maximum: 160 });
+    return Object.freeze({ name, type, label, value, options: normalizeOptions(field?.options, index), required: field?.required === true });
+  });
+}
+
+function normalizeAssets(assets) {
+  if (assets === undefined || assets === null) return [];
+  if (!Array.isArray(assets) || assets.length > 8) throw new FormSuggestionsError("FORM_SUGGESTION_ASSETS_INVALID", "Advisor asset inputs are invalid.", 400);
+  return assets.map((asset, index) => {
+    const name = safeFieldName(asset, index);
+    const label = text(`asset ${index + 1} label`, asset?.label ?? name, { minimum: 1, maximum: 220 });
+    const accept = text(`asset ${index + 1} accept`, asset?.accept ?? "", { maximum: 220 });
+    const kind = asset?.kind === "image" || /image\//iu.test(accept) ? "image" : "document";
+    return Object.freeze({ name, label, kind, accept, required: asset?.required === true });
+  });
+}
+
+function fieldKey(field) {
+  return `${field.name} ${field.label}`.toLocaleLowerCase();
+}
+
+function chooseOption(field, variant) {
+  if (!field.options.length) return null;
+  return field.options[Math.min(variant, field.options.length - 1)];
+}
+
+function has(field, pattern) {
+  return pattern.test(fieldKey(field));
+}
+
+function fieldDirectiveMode(fragment) {
+  const compact = COMPACT_FEEDBACK.test(fragment);
+  const detailed = DETAILED_FEEDBACK.test(fragment);
+  // Ambiguous instructions are left to the Provider's full transient prompt;
+  // deterministic enforcement is only safe when the requested change is clear.
+  if (compact === detailed) return null;
+  return compact ? "compact" : "detailed";
+}
+
+function feedbackFieldDirectives(fields, feedback) {
+  const mentions = [...feedback.matchAll(FIELD_REFERENCE)];
+  const directives = new Map();
+  for (let mentionIndex = 0; mentionIndex < mentions.length; mentionIndex += 1) {
+    const mention = mentions[mentionIndex];
+    const position = FIELD_POSITION.get(mention[1].toLocaleLowerCase());
+    const field = Number.isInteger(position) ? fields[position - 1] : null;
+    if (!field || !FREE_TEXT_FIELD_TYPES.has(field.type)) continue;
+    const nextIndex = mentions[mentionIndex + 1]?.index ?? feedback.length;
+    const mode = fieldDirectiveMode(feedback.slice(mention.index, nextIndex));
+    if (!mode) continue;
+    directives.set(field.name, Object.freeze({
+      fieldName: field.name,
+      fieldLabel: field.label,
+      fieldPosition: position,
+      mode
+    }));
+  }
+  return [...directives.values()].sort((left, right) => left.fieldPosition - right.fieldPosition);
+}
+
+function normalizedFeedbackDirectives(fields, directives) {
+  if (!Array.isArray(directives)) return [];
+  const normalized = new Map();
+  for (const directive of directives) {
+    const field = fields.find(item => item.name === directive?.fieldName);
+    if (!field || !FREE_TEXT_FIELD_TYPES.has(field.type) || !["compact", "detailed"].includes(directive?.mode)) continue;
+    normalized.set(field.name, Object.freeze({
+      fieldName: field.name,
+      fieldLabel: field.label,
+      fieldPosition: fields.indexOf(field) + 1,
+      mode: directive.mode
+    }));
+  }
+  return [...normalized.values()].sort((left, right) => left.fieldPosition - right.fieldPosition);
+}
+
+function fallbackValueForDirective(field, { softwareGoal, boxDescription }, directive) {
+  if (!directive || !FREE_TEXT_FIELD_TYPES.has(field.type)) return null;
+  if (directive.mode === "compact") return `شرح کوتاه و روشن برای «${field.label}».`;
+  return `شرح تفصیلی برای «${field.label}»: ${boxDescription}. این مقدار پیشنهادی، ارتباط آن با هدف «${softwareGoal}» را روشن می‌کند، معیار بازبینی ادمین و محدودیت‌های مهم را مشخص می‌سازد و به‌تنهایی هیچ ثبت، اجرا یا انتشار خودکاری انجام نمی‌دهد.`;
+}
+
+function suggestedValue(field, variant, { softwareGoal, formTitle, boxDescription, feedbackPresent = false, feedbackDirectives = [] }) {
+  const option = chooseOption(field, variant);
+  if (option) return option.value;
+  const directiveValue = fallbackValueForDirective(field, { softwareGoal, boxDescription }, feedbackDirectives.find(item => item.fieldName === field.name));
+  if (directiveValue) return directiveValue;
+  const key = fieldKey(field);
+  if (has(field, /goal|objective|هدف|مقصود/u)) return variant === 0 ? softwareGoal : variant === 1 ? `تکمیل هدف «${softwareGoal}» با مسیر قابل بررسی و انتقال‌پذیر.` : `ساخت راه‌حل امن و قابل آزمون برای «${softwareGoal}» با تأیید ادمین.`;
+  if (has(field, /user|audience|کاربر|مخاطب/u)) return variant === 0 ? "کاربران هدفی که در شرح پروژه مشخص شده‌اند" : variant === 1 ? "کاربران داخلی و ادمین‌های پروژه" : "کاربران هدف، ادمین و تیم پشتیبان";
+  if (has(field, /name|title|نام|عنوان/u)) return `${formTitle} · پیشنهاد ${variant + 1}`;
+  if (has(field, /description|summary|شرح|توضیح|brief/u)) return `${boxDescription}. هدف پروژه: ${softwareGoal}.`;
+  if (has(field, /constraint|محدود|مرز|قید/u)) return variant === 0 ? "فقط محیط Test، بدون Secret و بدون هزینهٔ خارجی" : variant === 1 ? "محیط Test ایزوله، بررسی ادمین و امکان Rollback" : "Test ایزوله، بدون دسترسی ناخواسته، با Artifact قابل انتقال";
+  if (has(field, /output|deliverable|خروجی|تحویل/u)) return variant === 0 ? "کد، تست و گزارش سلامت" : variant === 1 ? "Artifact immutable، تست و گزارش قابل بررسی" : "Artifact قابل انتقال، تست، گزارش و راهنمای اجرا";
+  if (has(field, /reason|دلیل/u)) {
+    const focus = [
+      "بخش دقیقِ نیازمند بازنگری و اثر آن بر تصمیم ادمین را روشن کنید",
+      "معیار پذیرش، تغییر مورد انتظار و محدودیت‌های بازنگری را مشخص کنید",
+      "شرح کاملِ مسئله، نتیجهٔ مورد انتظار و مواردی که نباید تغییر کنند را ثبت کنید"
+    ][variant % 3];
+    const feedbackClause = feedbackPresent ? " بازخورد ادمین برای همین نوبت در ساخت این گزینه اعمال شده است." : "";
+    return `${focus}.${feedbackClause} این متن فقط برای بررسی و ثبت تصمیم است و اجرای خودکار آغاز نمی‌کند.`;
+  }
+  if (has(field, /impact|اثر/u)) return "بدون اجرای خودکار؛ فقط پس از بررسی و ثبت ادمین";
+  if (has(field, /path|مسیر/u)) return variant === 0 ? "project/settings/approved" : variant === 1 ? "project/runtime/test" : "project/delivery/portable";
+  if (has(field, /url|link|نشانی|آدرس/u)) return `https://example.invalid/hero-reference-${variant + 1}`;
+  if (has(field, /file|filename|نام فایل/u)) return variant === 0 ? "project-brief.txt" : variant === 1 ? "project-plan.md" : "project-evidence.json";
+  if (has(field, /content|محتوا|متن/u)) return `شرح اولیهٔ ${formTitle}: ${softwareGoal}. این متن پیشنهادی است و باید پیش از ثبت بازبینی شود.`;
+  if (has(field, /value|مقدار/u)) return variant === 0 ? "در انتظار بررسی ادمین" : variant === 1 ? "مقدار Test تأییدشده" : "مقدار نسخه‌دار قابل بازگشت";
+  if (field.type === "number") return String(variant + 1);
+  return variant === 0 ? `پیشنهاد اولیه برای «${formTitle}»` : variant === 1 ? `نسخهٔ استاندارد برای «${formTitle}»` : `نسخهٔ کامل و قابل بررسی برای «${formTitle}»`;
+}
+
+function suggestionEntries(fields, variant, context) {
+  const selectedRadioByName = new Map();
+  return fields.map(field => {
+    if (field.type === "checkbox") return { name: field.name, type: field.type, value: field.value || "on", checked: variant === 2 };
+    if (field.type === "radio") {
+      const selected = !selectedRadioByName.has(field.name) && (variant === 0 || field.value === String(variant + 1));
+      if (selected) selectedRadioByName.set(field.name, true);
+      return { name: field.name, type: field.type, value: field.value || "on", checked: selected };
+    }
+    const value = suggestedValue(field, variant, context);
+    return { name: field.name, type: field.type, value: value.slice(0, 700), checked: false };
+  });
+}
+
+function normalizeFormInput({ actor, projectId = null, formId, formTitle, softwareGoal, boxDescription, fields, assets = [], selectedAdvisor = "local" } = {}) {
+  assertActor(actor);
+  if (projectId !== null && (!IDENTIFIER.test(projectId) || projectId.length > 63)) throw new FormSuggestionsError("FORM_SUGGESTION_PROJECT_INVALID", "Project scope is invalid.", 400);
+  const safeFormId = text("formId", formId, { minimum: 1, maximum: 128 });
+  if (!IDENTIFIER.test(safeFormId)) throw new FormSuggestionsError("FORM_SUGGESTION_FORM_INVALID", "Form identifier is invalid.", 400);
+  const safeTitle = text("formTitle", formTitle, { minimum: 1, maximum: 220 });
+  const safeGoal = text("softwareGoal", softwareGoal || "هدف نرم‌افزار هنوز در پروژه ثبت نشده است", { minimum: 1, maximum: 700 });
+  const safeDescription = text("boxDescription", boxDescription || safeTitle, { minimum: 1, maximum: 700 });
+  const safeFields = normalizeFields(fields);
+  const safeAssets = normalizeAssets(assets);
+  if (safeFields.length === 0 && safeAssets.length === 0) throw new FormSuggestionsError("FORM_SUGGESTION_FIELDS_INVALID", "At least one safe form field or review-only asset input is required.");
+  return Object.freeze({ projectId, formId: safeFormId, formTitle: safeTitle, softwareGoal: safeGoal, boxDescription: safeDescription, fields: safeFields, assets: safeAssets, selectedAdvisor });
+}
+
+export function prepareFormSuggestionRequest(input = {}) {
+  const normalized = normalizeFormInput(input);
+  if (normalized.selectedAdvisor !== "local" && (typeof normalized.selectedAdvisor !== "string" || !IDENTIFIER.test(normalized.selectedAdvisor))) {
+    throw new FormSuggestionsError("FORM_SUGGESTION_ADVISOR_INVALID", "Advisor profile is invalid.", 400);
+  }
+  return copy({
+    projectId: normalized.projectId,
+    formId: normalized.formId,
+    formTitle: normalized.formTitle,
+    softwareGoal: normalized.softwareGoal,
+    boxDescription: normalized.boxDescription,
+    // Existing values are intentionally omitted from the Provider context.
+    fields: normalized.fields.map(field => ({ name: field.name, type: field.type, label: field.label, options: field.options, required: field.required })),
+    assets: normalized.assets
+  });
+}
+
+export function prepareFormSuggestionRefinement(input = {}) {
+  const request = prepareFormSuggestionRequest(input);
+  const selectedAdvisor = input.selectedAdvisor;
+  if (typeof selectedAdvisor !== "string" || selectedAdvisor === "local" || !IDENTIFIER.test(selectedAdvisor)) {
+    throw new FormSuggestionsError("FORM_SUGGESTION_REFINEMENT_ADVISOR_INVALID", "A live Provider profile is required to refine form suggestions.", 400);
+  }
+  let feedback;
+  try {
+    feedback = text("form suggestion feedback", input.feedback, { minimum: 3, maximum: 1_000 });
+  } catch {
+    throw new FormSuggestionsError("FORM_SUGGESTION_REFINEMENT_FEEDBACK_INVALID", "Feedback must be a short, safe description of the requested improvement.", 400);
+  }
+  const iteration = Number(input.iteration);
+  if (!Number.isInteger(iteration) || iteration < 1 || iteration > FORM_SUGGESTION_MAX_REFINEMENTS) {
+    throw new FormSuggestionsError("FORM_SUGGESTION_REFINEMENT_LIMIT", `Only ${FORM_SUGGESTION_MAX_REFINEMENTS} refinement rounds are allowed per form session.`, 400);
+  }
+  // Explicit ordinal instructions such as «فیلد اول را کوتاه‌تر کن و فیلد
+  // دوم را مفصل‌تر کن» are distilled into a tiny non-sensitive contract.
+  // The raw feedback itself stays only in the one live Provider request.
+  const fieldDirectives = feedbackFieldDirectives(request.fields, feedback);
+  return copy({ ...request, selectedAdvisor, feedback, iteration, fieldDirectives });
+}
+
+function providerEntry(field, candidate, index, directive = null) {
+  // The browser's form owns the type. Providers commonly omit it or call a
+  // textarea a text field; neither case makes an otherwise safe value unsafe.
+  // The value is still validated against the authoritative field/options and
+  // the returned entry always uses the form's actual type.
+  if (!candidate || candidate.name !== field.name || typeof candidate.value !== "string") {
+    throw new FormSuggestionsError("FORM_SUGGESTION_PROVIDER_OUTPUT_INVALID", `Provider suggestion ${index + 1} does not match the form fields.`, 502);
+  }
+  const value = text(`provider entry ${index + 1} value`, candidate.value, { maximum: 700 });
+  if (directive?.mode === "compact" && FREE_TEXT_FIELD_TYPES.has(field.type) && value.length > FEEDBACK_COMPACT_MAX_CHARACTERS) {
+    throw new FormSuggestionsError("FORM_SUGGESTION_PROVIDER_FEEDBACK_MISMATCH", `Provider suggestion ${index + 1} did not make the requested field concise.`, 502);
+  }
+  if (directive?.mode === "detailed" && FREE_TEXT_FIELD_TYPES.has(field.type) && value.length < FEEDBACK_DETAILED_MIN_CHARACTERS) {
+    throw new FormSuggestionsError("FORM_SUGGESTION_PROVIDER_FEEDBACK_MISMATCH", `Provider suggestion ${index + 1} did not make the requested field detailed.`, 502);
+  }
+  if (["select", "radio"].includes(field.type) && field.options.length > 0 && !field.options.some(option => option.value === value)) {
+    throw new FormSuggestionsError("FORM_SUGGESTION_PROVIDER_OPTION_INVALID", `Provider suggestion ${index + 1} selected an option that is not in the form.`, 502);
+  }
+  if (!["checkbox", "radio"].includes(field.type) && candidate.checked !== undefined && typeof candidate.checked !== "boolean") {
+    throw new FormSuggestionsError("FORM_SUGGESTION_PROVIDER_OUTPUT_INVALID", `Provider suggestion ${index + 1} has an invalid checked value.`, 502);
+  }
+  return { name: field.name, type: field.type, value, checked: candidate.checked === true };
+}
+
+function providerEntries(fields, suggestion, suggestionIndex, context) {
+  const byName = new Map();
+  const duplicateNames = new Set();
+  const rawEntries = Array.isArray(suggestion?.entries) ? suggestion.entries : [];
+  for (const candidate of rawEntries) {
+    const field = fields.find(item => item.name === candidate?.name);
+    // A Provider may mistakenly include a submit action or another UI-only
+    // control. It cannot be applied because it is not a form field, so omit it.
+    if (!field) continue;
+    if (byName.has(field.name)) duplicateNames.add(field.name);
+    byName.set(field.name, candidate);
+  }
+  const fallbackEntries = suggestionEntries(fields, suggestionIndex, context);
+  let fallbackFieldCount = 0;
+  return Object.freeze({
+    entries: fields.map((field, fieldIndex) => {
+      const fallback = () => { fallbackFieldCount += 1; return fallbackEntries[fieldIndex]; };
+      if (!byName.has(field.name) || duplicateNames.has(field.name)) return fallback();
+      try {
+        return providerEntry(field, byName.get(field.name), fieldIndex, context.feedbackDirectives.find(item => item.fieldName === field.name));
+      } catch (error) {
+        // The form's own name/type/options remain authoritative. A malformed
+        // Provider field is discarded rather than applied or shown as an error.
+        if (error instanceof FormSuggestionsError) return fallback();
+        throw error;
+      }
+    }),
+    fallbackFieldCount
+  });
+}
+
+function feedbackDirectiveSummary(directives) {
+  if (directives.length === 0) return "بازخورد شما برای بازنویسی همین پیشنهاد در نظر گرفته شد";
+  const details = directives.map(directive => `«${directive.fieldLabel}» ${directive.mode === "compact" ? "کوتاه‌تر" : "مفصل‌تر"}`).join(" و ");
+  return `درخواست شما به این صورت تفسیر شد: ${details}`;
+}
+
+function providerFeedbackResponse(providerOutput, safeFeedback, directives) {
+  if (!safeFeedback) return null;
+  try {
+    return text("provider feedback response", providerOutput?.feedbackResponse, { minimum: 12, maximum: 700 });
+  } catch {
+    // Availability of a normal, safe suggestion must not depend on an
+    // optional conversational explanation. This fallback is transient too;
+    // it is never added to an event, audit entry or project history.
+    return `${feedbackDirectiveSummary(directives)}؛ فقط مقدارهای مجاز همین فرم تغییر کرده‌اند و ثبت نهایی همچنان با شماست.`;
+  }
+}
+
+function providerDocumentProposal(providerOutput, normalized) {
+  // A generated document is useful only for the explicit optional project
+  // input. Do not turn arbitrary forms into a write path or infer a file from
+  // ordinary suggestions.
+  if (normalized.formId !== "upload-form" || !normalized.fields.some(field => field.name === "filename") || !normalized.fields.some(field => field.name === "content")) return null;
+  const proposal = providerOutput?.documentProposal;
+  if (!proposal || typeof proposal !== "object" || Array.isArray(proposal)) return null;
+  try {
+    const title = text("provider document title", proposal.title, { minimum: 3, maximum: 220 });
+    const filename = text("provider document filename", proposal.filename, { minimum: 5, maximum: 240 });
+    // Only a portable text draft can be moved into the existing private text
+    // input form. Paths, binary-looking filenames and surprising extensions
+    // cannot be proposed or applied.
+    if (!/^[\p{L}\p{N}][\p{L}\p{N} ._-]{0,235}\.(?:txt|md)$/u.test(filename)) throw new Error("invalid filename");
+    const content = documentText(proposal.content);
+    const rationale = text("provider document rationale", proposal.rationale, { minimum: 3, maximum: 500 });
+    return copy({ title, filename, content, rationale, mimeType: "text/plain" });
+  } catch {
+    // documentProposal is optional. A malformed one is omitted rather than
+    // blocking the rest of a safe form suggestion session.
+    return null;
+  }
+}
+
+function safeList(label, values, fallback) {
+  if (!Array.isArray(values)) return Object.freeze(fallback);
+  const result = [];
+  for (const value of values.slice(0, 5)) {
+    try { result.push(text(label, value, { minimum: 3, maximum: 360 })); } catch { /* omit malformed optional analysis */ }
+  }
+  return Object.freeze(result.length ? result : fallback);
+}
+
+function advisorDecisionSupport(providerOutput, normalized) {
+  const input = providerOutput?.decisionSupport ?? {};
+  return copy({
+    assumptions: safeList("advisor assumption", input.assumptions, ["مقادیر پیشنهادی فقط با اطلاعات امن و قابل مشاهدهٔ همین فرم ساخته شده‌اند."]),
+    risks: safeList("advisor risk", input.risks, ["پیشنهاد ممکن است همهٔ محدودیت‌های کسب‌وکار را پوشش ندهد و باید پیش از ثبت بازبینی شود."]),
+    tests: safeList("advisor test", input.tests, [`پس از اعمال پیشنهاد، اعتبارسنجی و نتیجهٔ ثبت «${normalized.formTitle}» را بررسی کنید.`]),
+    improvements: safeList("advisor improvement", input.improvements, ["اگر اطلاعات زمینه‌ای کافی نیست، ابتدا Scope و معیار پذیرش را روشن‌تر کنید."]),
+    decisionBoundary: "Advisor تصمیم یا ثبت نهایی را انجام نمی‌دهد؛ ادمین یک گزینه را بازبینی و جداگانه ثبت می‌کند."
+  });
+}
+
+function providerAssetProposals(providerOutput, normalized) {
+  if (!normalized.assets.length || !Array.isArray(providerOutput?.assetProposals)) return Object.freeze([]);
+  const byName = new Map(providerOutput.assetProposals.map(proposal => [proposal?.name, proposal]));
+  return Object.freeze(normalized.assets.flatMap(asset => {
+    const proposal = byName.get(asset.name);
+    if (!proposal || typeof proposal !== "object") return [];
+    try {
+      const title = text("asset proposal title", proposal.title, { minimum: 3, maximum: 220 });
+      const brief = text("asset proposal brief", proposal.brief, { minimum: 20, maximum: 700 });
+      const filename = text("asset proposal filename", proposal.filename, { minimum: 5, maximum: 240 });
+      const extension = asset.kind === "image" ? /\.(?:png|jpe?g|webp|svg)$/iu : /\.(?:txt|md|pdf|docx)$/iu;
+      if (!/^[\p{L}\p{N}][\p{L}\p{N} ._-]{0,235}\.[A-Za-z0-9]{2,5}$/u.test(filename) || !extension.test(filename)) return [];
+      const altText = asset.kind === "image" ? text("asset proposal alt text", proposal.altText, { minimum: 3, maximum: 360 }) : "";
+      return [copy({ name: asset.name, label: asset.label, kind: asset.kind, title, filename, brief, altText, acceptanceCriteria: safeList("asset acceptance criterion", proposal.acceptanceCriteria, ["محتوا با هدف همین باکس منطبق و فاقد دادهٔ حساس باشد."]), applyMode: "review-only-no-binary-upload" })];
+    } catch { return []; }
+  }));
+}
+
+export function createProviderFormSuggestions({ actor, projectId = null, formId, formTitle, softwareGoal, boxDescription, fields, assets = [], selectedAdvisor, providerOutput, requestedSuggestionCount = undefined, suggestionOffset = 0, feedback = undefined, feedbackDirectives = undefined } = {}) {
+  const normalized = normalizeFormInput({ actor, projectId, formId, formTitle, softwareGoal, boxDescription, fields, assets, selectedAdvisor });
+  if (normalized.selectedAdvisor === "local") throw new FormSuggestionsError("FORM_SUGGESTION_ADVISOR_INVALID", "A live Provider profile is required for Provider suggestions.", 400);
+  if (!providerOutput || providerOutput.schema !== FORM_PROVIDER_SUGGESTIONS_SCHEMA || !Array.isArray(providerOutput.suggestions) || providerOutput.suggestions.length < 1 || providerOutput.suggestions.length > FORM_SUGGESTION_MAX_PROVIDER_SUGGESTIONS) {
+    throw new FormSuggestionsError("FORM_SUGGESTION_PROVIDER_OUTPUT_INVALID", "Provider did not return the required form-suggestions schema.", 502);
+  }
+  const requestedCount = requestedSuggestionCount === undefined ? providerOutput.suggestions.length : Number(requestedSuggestionCount);
+  const offset = Number(suggestionOffset);
+  if (!Number.isInteger(requestedCount) || requestedCount < 1 || requestedCount > FORM_SUGGESTION_MAX_PROVIDER_SUGGESTIONS || !Number.isInteger(offset) || offset < 0 || offset + requestedCount > FORM_SUGGESTION_MAX_SUGGESTIONS) {
+    throw new FormSuggestionsError("FORM_SUGGESTION_COUNT_INVALID", "Requested suggestion count is outside the safe form session limit.", 400);
+  }
+  let safeFeedback = "";
+  if (feedback !== undefined && feedback !== null) {
+    try {
+      safeFeedback = text("form suggestion feedback", feedback, { minimum: 3, maximum: 1_000 });
+    } catch {
+      throw new FormSuggestionsError("FORM_SUGGESTION_REFINEMENT_FEEDBACK_INVALID", "Feedback must be a short, safe description of the requested improvement.", 400);
+    }
+  }
+  let boxPurpose;
+  try {
+    if (typeof providerOutput.boxPurpose !== "string") throw new Error("missing box purpose");
+    boxPurpose = text("provider box purpose", providerOutput.boxPurpose, { minimum: 80, maximum: 700 });
+  } catch {
+    throw new FormSuggestionsError("FORM_SUGGESTION_PROVIDER_OUTPUT_INVALID", "Provider did not return a clear, detailed purpose for this form.", 502);
+  }
+  const suggestionContext = {
+    softwareGoal: normalized.softwareGoal,
+    formTitle: normalized.formTitle,
+    boxDescription: normalized.boxDescription,
+    feedbackPresent: safeFeedback !== "",
+    feedbackDirectives: normalizedFeedbackDirectives(normalized.fields, feedbackDirectives)
+  };
+  const suggestions = Array.from({ length: requestedCount }, (_, suggestionIndex) => {
+    const suggestion = providerOutput.suggestions[suggestionIndex];
+    const absoluteSuggestionIndex = offset + suggestionIndex;
+    // A live response can be structurally valid but return fewer alternatives
+    // than requested. Complete only the missing alternatives with the same
+    // bounded, form-owned safe values; never ask the UI to invent or apply a
+    // Provider value that was not validated.
+    if (!suggestion) {
+      return copy({
+        suggestionId: `provider-form-suggestion-${absoluteSuggestionIndex + 1}`,
+        title: `پیشنهاد ${absoluteSuggestionIndex + 1} · تکمیلی و قابل بررسی`,
+        source: "hero-safe-completion",
+        rationale: "برای کامل‌شدن گزینه‌های قابل مقایسه، با مقدارهای کم‌ریسک فرم آماده شد.",
+        entries: suggestionEntries(normalized.fields, absoluteSuggestionIndex, suggestionContext),
+        fieldCount: normalized.fields.length,
+        fallbackFieldCount: normalized.fields.length,
+        fallbackSuggestion: true
+      });
+    }
+    const title = text(`provider suggestion ${suggestionIndex + 1} title`, suggestion?.title, { minimum: 1, maximum: 220 });
+    const rationale = text(`provider suggestion ${suggestionIndex + 1} rationale`, suggestion?.rationale, { minimum: 1, maximum: 500 });
+    const completed = providerEntries(normalized.fields, suggestion, absoluteSuggestionIndex, suggestionContext);
+    return copy({
+      suggestionId: `provider-form-suggestion-${absoluteSuggestionIndex + 1}`,
+      title,
+      source: "provider",
+      rationale,
+      entries: completed.entries,
+      fieldCount: normalized.fields.length,
+      fallbackFieldCount: completed.fallbackFieldCount
+    });
+  });
+  const feedbackResponse = providerFeedbackResponse(providerOutput, safeFeedback, suggestionContext.feedbackDirectives);
+  const documentProposal = providerDocumentProposal(providerOutput, normalized);
+  const assetProposals = providerAssetProposals(providerOutput, normalized);
+  return copy({
+    version: FORM_SUGGESTIONS_VERSION,
+    providerSchema: FORM_PROVIDER_SUGGESTIONS_SCHEMA,
+    projectId: normalized.projectId,
+    formId: normalized.formId,
+    selectedAdvisor: normalized.selectedAdvisor,
+    providerInvoked: true,
+    externalSpend: "accounted",
+    boxPurpose,
+    suggestions,
+    decisionSupport: advisorDecisionSupport(providerOutput, normalized),
+    assetProposals,
+    ...(feedbackResponse ? { feedbackResponse } : {}),
+    ...(documentProposal ? { documentProposal } : {})
+  });
+}
+
+export function createFormSuggestions({ actor, projectId = null, formId, formTitle, softwareGoal, boxDescription, fields, assets = [], selectedAdvisor = "local" } = {}) {
+  const normalized = normalizeFormInput({ actor, projectId, formId, formTitle, softwareGoal, boxDescription, fields, assets, selectedAdvisor });
+  const { projectId: safeProjectId, formId: safeFormId, formTitle: safeTitle, softwareGoal: safeGoal, boxDescription: safeDescription, fields: safeFields } = normalized;
+  if (selectedAdvisor !== "local") throw new FormSuggestionsError("FORM_SUGGESTION_ADVISOR_UNAVAILABLE", "فقط راهنمای محلی Hero برای این قابلیت مجاز است؛ Provider زنده نیازمند مجوز مستقل همین قابلیت است.", 403);
+  const variants = ["محافظه‌کارانه", "استاندارد", "کامل و قابل انتقال"];
+  const suggestions = variants.map((variant, index) => copy({
+    suggestionId: `local-form-suggestion-${index + 1}`,
+    title: `پیشنهاد ${index + 1} · ${variant}`,
+    source: "hero-local",
+    rationale: index === 0 ? "کمترین تغییر و کمترین ریسک برای شروع." : index === 1 ? "تعادل بین کامل‌بودن و سادگی بررسی." : "پیشنهاد کامل‌تر با توجه به انتقال‌پذیری و Evidence.",
+    entries: suggestionEntries(safeFields, index, { softwareGoal: safeGoal, formTitle: safeTitle, boxDescription: safeDescription }),
+    fieldCount: safeFields.length
+  }));
+  return copy({
+    version: FORM_SUGGESTIONS_VERSION,
+    projectId,
+    formId: safeFormId,
+    selectedAdvisor: "local",
+    providerInvoked: false,
+    externalSpend: "none",
+    boxPurpose: safeDescription,
+    suggestions,
+    decisionSupport: advisorDecisionSupport(null, normalized),
+    assetProposals: normalized.assets.map(asset => copy({
+      name: asset.name,
+      label: asset.label,
+      kind: asset.kind,
+      title: `راهنمای آماده‌سازی ${asset.kind === "image" ? "تصویر" : "سند"} برای «${asset.label}»`,
+      filename: asset.kind === "image" ? `${asset.name}.png` : `${asset.name}.md`,
+      brief: `${safeDescription} محتوای پیشنهادی باید مستقیماً به هدف «${safeGoal}» کمک کند، فاقد دادهٔ حساس باشد و پیش از انتخاب فایل توسط ادمین بازبینی شود.`,
+      altText: asset.kind === "image" ? `تصویر پیشنهادی مرتبط با ${asset.label}` : "",
+      acceptanceCriteria: Object.freeze(["ارتباط روشن با هدف باکس", "فاقد دادهٔ حساس", "قابل فهم و بازبینی توسط ادمین"]),
+      applyMode: "review-only-no-binary-upload"
+    }))
+  });
+}

@@ -11,6 +11,13 @@ import { createHumanIdentity, createTotpCode } from "../packages/domain/src/huma
 import { createOwnerAuth } from "../packages/domain/src/owner-auth.mjs";
 import { createProjectAccessRegistry } from "../packages/domain/src/project-access.mjs";
 
+test("Control Plane refuses a non-Test embedded Secret Store before provider setup", () => {
+  assert.throws(
+    () => createHeroServer({ secretStore: { enabled: true, environment: "production" } }),
+    error => error.code === "SECRET_STORE_ENVIRONMENT_UNSUPPORTED"
+  );
+});
+
 test("AI Connections registers and safely tests a Cursor credential boundary without a network dispatch", async t => {
   const ownerAuth = createOwnerAuth({ secret: "ai-connections-owner-secret-1234567890" });
   const token = ownerAuth.issueSession({ subject: "hero-owner", sessionId: "ai-connections-session", expiresAt: 2_000_000_000 });
@@ -69,7 +76,26 @@ test("AI Connections lets only the Human Identity Owner store an encrypted Test 
   });
   const secretRoot = fs.mkdtempSync(path.join(os.tmpdir(), "hero-ai-credential-api-"));
   const secretStore = createHeroSecretStore({ root: secretRoot, masterKey: crypto.randomBytes(32), now });
-  const app = createHeroServer({ host: "127.0.0.1", port: 0, now, projectAccessRegistry: access, humanIdentity: identity, secretStore, enableRealProviders: true });
+  const audits = [];
+  const app = createHeroServer({
+    host: "127.0.0.1",
+    port: 0,
+    now,
+    projectAccessRegistry: access,
+    humanIdentity: identity,
+    secretStore,
+    enableRealProviders: true,
+    postgresRuntime: {
+      async ping() { return { status: "ok" }; },
+      projectIdentity: {
+        async recordAudit(audit) {
+          const auditData = JSON.stringify(audit.data);
+          assert.doesNotMatch(auditData, /(?:api[_-]?key|access[_-]?token|refresh[_-]?token|secret|password|credential|authorization)/i);
+          audits.push(audit);
+        }
+      }
+    }
+  });
   const address = await app.start();
   t.after(async () => { await app.stop(); fs.rmSync(secretRoot, { recursive: true, force: true }); });
   const base = `http://127.0.0.1:${address.port}`;
@@ -98,6 +124,8 @@ test("AI Connections lets only the Human Identity Owner store an encrypted Test 
   const healthPayload = await health.json();
   assert.equal(health.status, 200, JSON.stringify(healthPayload));
   assert.equal(healthPayload.credential.state, "healthy");
+  assert.deepEqual(audits.filter(audit => audit.eventType === "ai.credential-stored").at(-1)?.data, { providerId: "openai", environment: "test", version: 1, state: "configured" });
+  assert.deepEqual(audits.filter(audit => audit.eventType === "ai.credential-health-checked").at(-1)?.data, { providerId: "openai", status: "healthy", mode: "configured-no-network-health-check" });
   const events = await fetch(`${base}/api/ai/events?after=0`, { headers: { cookie } });
   assert.doesNotMatch(JSON.stringify(await events.json()), new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "u"));
 });

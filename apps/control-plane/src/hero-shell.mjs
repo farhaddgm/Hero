@@ -23,6 +23,13 @@ export const HERO_FEATURE_HELP = Object.freeze({
   "portfolio.latestOutput": "جدیدترین Artifact یا خروجی قابل تحویل ثبت‌شده برای پروژه، بدون نمایش Secret یا محتوای خصوصی.",
   "portfolio.nextRoadmap": "نزدیک‌ترین گام‌های Roadmap که وضعیت حرکت پروژه را توضیح می‌دهند.",
   "portfolio.createProject": "فقط Owner می‌تواند Project جدید و Foundation اولیهٔ آن را ایجاد کند؛ Admin و Viewer این اختیار را ندارند.",
+  "portfolio.intakeAdvisor": "پس از تکمیل پنج پاسخ نخست، Advisor فقط پیشنهادهای قابل بازبینی برای بقیهٔ فرم می‌سازد. اعمال پیشنهاد، ثبت پروژه یا اجرای هیچ عملی نیست.",
+  "portfolio.riskInternetFacing": "اگر وب‌سایت یا سرویس قرار است از اینترنت یا توسط عموم قابل دسترس باشد «بله» را بزنید. اگر هنوز تصمیم نگرفته‌اید «نمی‌دانم» را نگه دارید.",
+  "portfolio.riskPersonalData": "اگر نام، ایمیل، پیام تماس یا هر دادهٔ مربوط به یک شخص جمع یا نگهداری می‌شود «بله» را بزنید. فرم تماسِ هنوز تعیین‌نشده معمولاً «نمی‌دانم» است.",
+  "portfolio.riskRegulatedData": "اگر حوزه یا داده تابع مقررات ویژه است، مانند سلامت، مالی یا دادهٔ کودکان، «بله» را بزنید. مطمئن نبودن را «نمی‌دانم» ثبت کنید.",
+  "portfolio.riskSecuritySensitive": "اگر محصول با امنیت، زیرساخت، کنترل دسترسی یا دارایی حساس سروکار دارد «بله» را بزنید؛ صرفِ داشتن CMS به‌تنهایی چنین معنایی ندارد.",
+  "portfolio.riskExternalIntegrations": "اگر محصول به سرویس بیرونی مثل ایمیل، پرداخت، تحلیل یا شبکهٔ اجتماعی وصل می‌شود «بله» را بزنید. اتصال احتمالیِ هنوز انتخاب‌نشده «نمی‌دانم» است.",
+  "portfolio.riskPrivilegedAccess": "اگر اجرا به دسترسی مدیر سرور، کلیدهای سطح‌بالا، Docker socket یا اختیار مشابه نیاز دارد «بله» را بزنید. این مورد پیش از اجرا باید جداگانه تأیید شود.",
   "command.adminAccess": "نشست انسانی با cookie امن و HttpOnly در مرورگر نگهداری می‌شود؛ مقدار آن برای JavaScript قابل خواندن نیست و عملیات همچنان با نقش و مجوز پروژه کنترل می‌شود.",
   "command.statusOverview": "نمای فشردهٔ شاخص‌های سازمان، AI، درخواست‌ها و وضعیت کنترل‌ها؛ این شاخص‌ها به‌تنهایی مجوز اجرا نیستند.",
   "command.currentGates": "گیت‌ها مشخص می‌کنند کدام مرحله آماده، نیازمند تصمیم یا مسدود است و اقدام بعدی چیست.",
@@ -127,7 +134,6 @@ export const HERO_FEATURE_HELP = Object.freeze({
   "studio.operationalControls": "پیوند به Collaboration، Command، Catalog، Health، Inbox، Infrastructure و Delivery همان پروژه.",
   "studio.versionedEndpoints": "Endpointهای نسخه‌دار Workspace و Operations که درخواست‌های همین Project را بدون تغییر Scope هدایت می‌کنند.",
   "workspace.projectContext": "Project و نشست انسانی فعلی که تمام خواندن‌ها و تغییرات Workspace به آن محدود می‌شوند.",
-  "workspace.intake": "ویرایش نسخه‌دار هدف، کاربران و شیوهٔ تأیید پروژه.",
   "workspace.foundationProposal": "تأیید یا بازگرداندن Foundation پیشنهادی پیش از شروع Flow پروژه.",
   "workspace.projectInputs": "ثبت ورودی خصوصی پس از کنترل ایمنی؛ فهرست فقط metadata و نتیجهٔ scan/parse را نشان می‌دهد.",
   "workspace.recall": "فراخوانی، آخرین دادهٔ ثبت‌شده در همین Scope پروژه را فقط به فرم بازمی‌گرداند؛ تا زمانی که دکمهٔ ثبت را نزنید هیچ نسخهٔ جدیدی ساخته نمی‌شود. متن خصوصی فقط با کلیک صریح Owner یا Admin، کنترل مجوز و تطبیق checksum بازخوانی می‌شود.",
@@ -231,6 +237,14 @@ export function getHeroShellStyles() {
       --hero-warning-soft: #fff4d8;
       --hero-danger: #b4234d;
       --hero-danger-soft: #fff0f3;
+      --hero-space-1: 4px;
+      --hero-space-2: 8px;
+      --hero-space-3: 12px;
+      --hero-space-4: 16px;
+      --hero-space-5: 24px;
+      --hero-control-height: 38px;
+      --hero-control-radius: 10px;
+      --hero-surface-radius: 14px;
       --hero-shadow-sm: 0 1px 2px rgba(20, 29, 48, .04), 0 5px 16px rgba(20, 29, 48, .04);
       --hero-shadow-lg: 0 24px 70px rgba(16, 24, 40, .18);
     }
@@ -312,12 +326,97 @@ export function getHeroShellStyles() {
     .hero-command-copy small { color: var(--hero-muted); font-size: 10px; }
     .hero-command-group { padding: 8px 10px 2px; color: var(--hero-muted); font-size: 9px; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
     .hero-command-empty { padding: 28px; color: var(--hero-muted); text-align: center; font-size: 12px; }
+    /* Shared Back Office rhythm.  This is intentionally a light consistency
+       layer: individual surfaces keep their own layouts and specialist panels
+       (Advisor, Walk-Through and Smart Tester) retain their compact controls. */
+    .hero-page-header, .page-head, .top, .topbar { gap: var(--hero-space-4); }
+    .hero-page-header :is(h1, h2), .page-head :is(h1, h2), .top :is(h1, h2), .topbar :is(h1, h2), .section-head :is(h2, h3), .panel-head :is(h2, h3), .head :is(h2, h3) { font-weight: 850; letter-spacing: -.01em; }
+    .hero-page-header :is(.lead, .subtitle, .muted, .helper-copy), .page-head :is(.lead, .subtitle, .muted, .helper-copy), .top :is(.lead, .subtitle, .muted, .helper-copy), .topbar :is(.lead, .subtitle, .muted, .helper-copy) { max-width: 72ch; }
+    .hero-page-actions, .page-actions, .top-actions, .actions, .panel-head-actions, .dialog-actions, .form-toolbar, .setting-actions { align-items: center; gap: var(--hero-space-2); }
+    .form, .create-form, .target-form, .form-grid { gap: var(--hero-space-3); }
+    .form label, .create-form label, .target-form label, .form-grid label { gap: var(--hero-space-1); font-weight: 750; }
+    .form :is(input, select, textarea), .create-form :is(input, select, textarea), .target-form :is(input, select, textarea), .form-grid :is(input, select, textarea) { min-height: var(--hero-control-height); border-radius: var(--hero-control-radius); }
+    .form textarea, .create-form textarea, .target-form textarea, .form-grid textarea { min-height: 92px; }
+    .form :is(button, .button), .create-form :is(button, .button), .target-form :is(button, .button), .dialog-actions :is(button, .button), .hero-page-actions :is(button, .button), .page-actions :is(button, .button) { min-height: var(--hero-control-height); border-radius: var(--hero-control-radius); font-weight: 800; }
+    .panel, .section, .content-panel, .hero, .project-card, .card, .context { border-radius: var(--hero-surface-radius); }
+    .helper-copy[data-hero-info-moved="true"] { display: none !important; }
     [data-hero-info-key], .hero-feature-name { position: relative; }
-    .hero-feature-with-info { display: inline-flex !important; align-items: center; gap: .38rem; max-width: 100%; }
+    .hero-feature-with-info { display: inline-flex !important; align-items: center; gap: .38rem; max-width: 100%; min-width: 0; }
+    .form-label-with-info { display: inline-flex; align-items: center; align-self: start; gap: .38rem; min-height: 1.75rem; min-width: 0; }
+    .form label > .hero-feature-with-info { align-self: start; width: fit-content; }
     .hero-info-trigger { display: inline-grid; place-items: center; width: 1.75rem; height: 1.75rem; min-width: 1.75rem; padding: 0; border: 1px solid var(--hero-line-strong); border-radius: 999px; background: var(--hero-surface); color: var(--hero-muted); box-shadow: none; cursor: help; font: 850 .72rem/1 Vazirmatn, sans-serif; text-transform: lowercase; vertical-align: middle; }
     .hero-info-trigger:hover, .hero-info-trigger:focus-visible, .hero-info-trigger[aria-expanded="true"] { border-color: var(--hero-brand); outline: 0; background: var(--hero-brand-soft); color: var(--hero-brand); box-shadow: 0 0 0 3px color-mix(in srgb, var(--hero-brand) 16%, transparent); }
-    .hero-feature-tooltip { position: fixed; z-index: 12000; width: min(330px, calc(100vw - 24px)); padding: 11px 13px; border: 1px solid var(--hero-line-strong); border-radius: 12px; background: var(--hero-surface-raised); color: var(--hero-ink); box-shadow: var(--hero-shadow-lg); font: 650 .82rem/1.8 Vazirmatn, sans-serif; text-align: start; direction: rtl; pointer-events: none; opacity: 0; transform: translateY(4px); transition: opacity .12s ease, transform .12s ease; }
+    .hero-feature-tooltip { position: fixed; z-index: 12000; width: min(330px, calc(100vw - 24px)); padding: 11px 13px; border: 1px solid var(--hero-line-strong); border-radius: 12px; background: var(--hero-surface-raised); color: var(--hero-ink); box-shadow: var(--hero-shadow-lg); font: 650 .82rem/1.8 Vazirmatn, sans-serif; text-align: start; direction: rtl; white-space: pre-line; pointer-events: none; opacity: 0; transform: translateY(4px); transition: opacity .12s ease, transform .12s ease; }
     .hero-feature-tooltip[data-open="true"] { opacity: 1; transform: translateY(0); }
+    .hero-advisable-form { position: relative; }
+    .hero-form-suggestion-trigger { position: absolute; z-index: 5; top: 8px; inset-inline-end: 8px; display: grid; place-items: center; width: 24px; height: 24px; min-width: 24px; min-height: 24px; margin: 0; padding: 0; border: 1px solid color-mix(in srgb, var(--hero-brand) 42%, var(--hero-line)); border-radius: 999px; background: var(--hero-brand-soft); color: var(--hero-brand); cursor: pointer; font: 800 .78rem/1 Vazirmatn, sans-serif; }
+    .hero-form-suggestion-trigger:hover, .hero-form-suggestion-trigger:focus-visible { border-color: var(--hero-brand); outline: 0; background: var(--hero-brand); color: #fff; box-shadow: 0 0 0 3px color-mix(in srgb, var(--hero-brand) 16%, transparent); }
+    .hero-form-suggestion-dialog { width: min(820px, calc(100% - 28px)); height: min(840px, calc(100vh - 34px)); max-height: min(840px, calc(100vh - 34px)); box-sizing: border-box; padding: 0; overflow: hidden; border: 1px solid var(--hero-line); border-radius: 17px; background: var(--hero-surface-raised); color: var(--hero-ink); box-shadow: var(--hero-shadow-lg); direction: rtl; }
+    .hero-form-suggestion-dialog::backdrop { background: rgba(8, 15, 30, .56); backdrop-filter: blur(3px); }
+    .hero-form-suggestion-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 15px 17px; border-bottom: 1px solid var(--hero-line); }
+    .hero-form-suggestion-head h2 { margin: 0; color: var(--hero-brand); font-size: .95rem; line-height: 1.6; }
+    .hero-form-suggestion-head p { margin: 3px 0 0; color: var(--hero-muted); font-size: .69rem; line-height: 1.7; }
+    .hero-form-suggestion-close { width: 30px; height: 30px; padding: 0; border: 1px solid var(--hero-line-strong); border-radius: 8px; background: var(--hero-surface); color: var(--hero-muted); cursor: pointer; font: 900 1rem/1 system-ui, sans-serif; }
+    .hero-form-suggestion-close:hover, .hero-form-suggestion-close:focus-visible { border-color: var(--hero-brand); outline: 0; color: var(--hero-brand); }
+    /* The dialog can contain request controls, results, decision support,
+       an optional document and the transient feedback chat.  A four-row grid
+       used to place the last two items into implicit rows outside its fixed
+       height, which could hide the chat input.  Keep one deliberate scroll
+       region instead, so every part remains reachable at every viewport. */
+    .hero-form-suggestion-body { display: flex; flex-direction: column; gap: 10px; min-width: 0; min-height: 0; height: calc(100% - 78px); padding: 14px 17px 17px; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+    .hero-form-suggestion-body > * { flex: 0 0 auto; min-width: 0; max-width: 100%; }
+    .hero-form-suggestion-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+    .hero-form-suggestion-fields label { display: grid; gap: 4px; min-width: 0; color: var(--hero-muted); font-size: .68rem; font-weight: 800; }
+    .hero-form-suggestion-fields label.full { grid-column: 1 / -1; }
+    .hero-form-suggestion-fields select, .hero-form-suggestion-fields textarea { width: 100%; min-width: 0; box-sizing: border-box; padding: 7px 9px; border: 1px solid var(--hero-line-strong); border-radius: 8px; background: var(--hero-surface); color: var(--hero-ink); font: 700 .72rem/1.7 Vazirmatn, sans-serif; }
+    .hero-form-suggestion-fields textarea { min-height: 48px; resize: vertical; }
+    .hero-form-suggestion-fields textarea[data-hero-form-purpose-output] { min-height: 92px; line-height: 1.9; }
+    .hero-form-suggestion-fields textarea[readonly] { color: var(--hero-muted); }
+    .hero-form-suggestion-request { display: grid; gap: 10px; }
+    .hero-form-suggestion-actions { display: flex; align-items: center; justify-content: flex-start; gap: 8px; flex-wrap: wrap; }
+    .hero-form-suggestion-actions button, .hero-form-suggestion-card button { min-height: 33px; padding: 7px 11px; border: 1px solid var(--hero-line-strong); border-radius: 8px; background: var(--hero-surface); color: var(--hero-brand); cursor: pointer; font: 800 .72rem/1.3 Vazirmatn, sans-serif; }
+    .hero-form-suggestion-actions button[type="submit"], .hero-form-suggestion-card button { border-color: var(--hero-brand); background: var(--hero-brand); color: #fff; }
+    .hero-form-suggestion-actions button:hover, .hero-form-suggestion-actions button:focus-visible, .hero-form-suggestion-card button:hover, .hero-form-suggestion-card button:focus-visible { outline: 0; box-shadow: 0 0 0 3px color-mix(in srgb, var(--hero-brand) 16%, transparent); }
+    .hero-form-suggestion-actions button[disabled], .hero-form-suggestion-card button[disabled] { opacity: .55; cursor: wait; }
+    .hero-form-suggestion-status { min-height: 1.2em; margin: 0; color: var(--hero-muted); font-size: .69rem; line-height: 1.7; }
+    .hero-form-suggestion-status[data-state="error"] { color: var(--hero-danger); }
+    .hero-form-suggestion-results { display: grid; align-content: start; gap: 9px; min-height: 0; max-height: min(42vh, 390px); overflow: auto; padding: 1px 4px 2px 2px; overscroll-behavior: contain; scrollbar-gutter: stable; }
+    .hero-form-suggestion-results:empty { display: none; }
+    .hero-form-suggestion-card { display: grid; gap: 7px; min-width: 0; padding: 10px; border: 1px solid var(--hero-line); border-radius: 11px; background: var(--hero-surface); font-size: .68rem; }
+    .hero-form-suggestion-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 9px; }
+    .hero-form-suggestion-card-head strong { color: var(--hero-ink); font-size: .71rem; }
+    .hero-form-suggestion-card-head small { color: var(--hero-muted); font-size: .61rem; line-height: 1.65; overflow-wrap: anywhere; }
+    .hero-form-suggestion-card button { flex: 0 0 auto; }
+    .hero-form-suggestion-card-fields { display: grid; gap: 6px; max-height: 220px; overflow: auto; padding: 1px; }
+    .hero-form-suggestion-card-field { display: grid; grid-template-columns: minmax(100px, .35fr) minmax(0, 1fr); align-items: center; gap: 7px; min-width: 0; }
+    .hero-form-suggestion-card-field > span { color: var(--hero-muted); font-size: .65rem; font-weight: 800; overflow-wrap: anywhere; }
+    .hero-form-suggestion-card-field input, .hero-form-suggestion-card-field textarea { width: 100%; min-width: 0; box-sizing: border-box; padding: 5px 7px; border: 1px solid var(--hero-line); border-radius: 7px; background: var(--hero-canvas); color: var(--hero-ink); font: 650 .66rem/1.6 Vazirmatn, sans-serif; }
+    .hero-form-suggestion-card-field textarea { min-height: 38px; resize: vertical; }
+    .hero-form-suggestion-card-field input[type="checkbox"], .hero-form-suggestion-card-field input[type="radio"] { width: 16px; min-width: 16px; justify-self: start; }
+    .hero-form-suggestion-document { display: grid; gap: 8px; padding: 11px; border: 1px solid color-mix(in srgb, var(--hero-brand) 34%, var(--hero-line)); border-radius: 11px; background: color-mix(in srgb, var(--hero-brand-soft) 22%, var(--hero-surface)); }
+    .hero-form-suggestion-document[hidden] { display: none; }
+    .hero-form-suggestion-document header { display: flex; align-items: flex-start; justify-content: space-between; gap: 9px; }
+    .hero-form-suggestion-document header > div { display: grid; gap: 2px; min-width: 0; }
+    .hero-form-suggestion-document strong { color: var(--hero-ink); font-size: .76rem; }
+    .hero-form-suggestion-document small { color: var(--hero-muted); font-size: .64rem; line-height: 1.65; }
+    .hero-form-suggestion-document header button { flex: 0 0 auto; min-height: 33px; padding: 7px 11px; border: 1px solid var(--hero-brand); border-radius: 8px; background: var(--hero-brand); color: #fff; cursor: pointer; font: 800 .72rem/1.3 Vazirmatn, sans-serif; }
+    .hero-form-suggestion-document header button:hover, .hero-form-suggestion-document header button:focus-visible { outline: 0; box-shadow: 0 0 0 3px color-mix(in srgb, var(--hero-brand) 16%, transparent); }
+    .hero-form-suggestion-document-name { margin: 0; color: var(--hero-muted); direction: ltr; text-align: right; font: 700 .65rem/1.5 ui-monospace, monospace; overflow-wrap: anywhere; }
+    .hero-form-suggestion-document textarea { width: 100%; min-height: 150px; max-height: 300px; box-sizing: border-box; padding: 8px; border: 1px solid var(--hero-line); border-radius: 8px; resize: vertical; background: var(--hero-canvas); color: var(--hero-ink); font: 650 .68rem/1.8 Vazirmatn, sans-serif; white-space: pre-wrap; }
+    .hero-form-suggestion-feedback { display: grid; gap: 8px; min-width: 0; padding: 10px; border: 1px solid color-mix(in srgb, var(--hero-brand) 34%, var(--hero-line)); border-radius: 11px; background: color-mix(in srgb, var(--hero-brand-soft) 34%, var(--hero-surface)); }
+    .hero-form-suggestion-feedback[hidden] { display: none; }
+    .hero-form-suggestion-feedback-head { display: grid; gap: 2px; }
+    .hero-form-suggestion-feedback-head strong { color: var(--hero-brand); font-size: .74rem; }
+    .hero-form-suggestion-feedback-head small { color: var(--hero-muted); font-size: .64rem; line-height: 1.7; }
+    .hero-form-suggestion-conversation { display: grid; align-content: start; gap: 6px; max-height: 118px; overflow: auto; padding: 1px 2px; overscroll-behavior: contain; }
+    .hero-form-suggestion-message { padding: 7px 9px; border: 1px solid var(--hero-line); border-radius: 8px; background: var(--hero-surface); color: var(--hero-ink); font-size: .66rem; line-height: 1.75; overflow-wrap: anywhere; }
+    .hero-form-suggestion-message b { display: block; margin-bottom: 2px; color: var(--hero-brand); font-size: .62rem; }
+    .hero-form-suggestion-message[data-speaker="user"] { border-inline-start: 3px solid var(--hero-brand); background: color-mix(in srgb, var(--hero-brand-soft) 42%, var(--hero-surface)); }
+    .hero-form-suggestion-feedback-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; min-width: 0; align-items: end; }
+    .hero-form-suggestion-feedback-form textarea { width: 100%; min-width: 0; min-height: 58px; max-height: 104px; box-sizing: border-box; padding: 8px; border: 1px solid var(--hero-line-strong); border-radius: 8px; resize: vertical; background: var(--hero-surface); color: var(--hero-ink); font: 700 .66rem/1.7 Vazirmatn, sans-serif; overflow-wrap: anywhere; }
+    .hero-form-suggestion-feedback-form button { min-height: 36px; max-width: 100%; padding: 7px 11px; border: 1px solid var(--hero-brand); border-radius: 8px; background: var(--hero-brand); color: #fff; cursor: pointer; font: 800 .66rem/1.3 Vazirmatn, sans-serif; white-space: normal; }
+    .hero-form-suggestion-feedback-form button[disabled], .hero-form-suggestion-feedback-form textarea[disabled] { opacity: .55; cursor: not-allowed; }
+    @media (max-width: 600px) { .hero-form-suggestion-dialog { width: calc(100% - 20px); height: calc(100vh - 20px); max-height: calc(100vh - 20px); } .hero-form-suggestion-body { height: calc(100% - 74px); padding: 12px; } .hero-form-suggestion-fields { grid-template-columns: 1fr; } .hero-form-suggestion-fields label.full { grid-column: auto; } .hero-form-suggestion-card-head, .hero-form-suggestion-card-field, .hero-form-suggestion-document header { grid-template-columns: 1fr; display: grid; } .hero-form-suggestion-card button, .hero-form-suggestion-document header button { width: 100%; } .hero-form-suggestion-feedback-form { grid-template-columns: 1fr; } .hero-form-suggestion-feedback-form button { width: 100%; } }
     .hero-smart-testable { position: relative; }
     .hero-smart-tester-trigger { position: absolute; z-index: 5; top: 8px; inset-inline-end: 8px; display: grid; place-items: center; width: 24px; height: 24px; min-width: 24px; padding: 0; border: 1px solid color-mix(in srgb, var(--hero-brand) 42%, var(--hero-line)); border-radius: 999px; background: var(--hero-surface-raised); color: var(--hero-brand); box-shadow: 0 4px 10px rgba(29,36,79,.14); cursor: pointer; font: 900 .86rem/1 system-ui, sans-serif; direction: ltr; }
     .hero-smart-tester-trigger:hover, .hero-smart-tester-trigger:focus-visible { border-color: var(--hero-brand); outline: 0; background: var(--hero-brand); color: #fff; box-shadow: 0 0 0 3px color-mix(in srgb, var(--hero-brand) 18%, transparent); }
@@ -325,13 +424,13 @@ export function getHeroShellStyles() {
     .hero-smart-tester-panel[data-hero-smart-tester-side="left"] { right: auto; left: 12px; }.hero-smart-tester-panel[data-hero-smart-tester-side="right"] { right: 12px; left: auto; }
     .hero-smart-tester-head, .hero-smart-tester-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }.hero-smart-tester-head { display: grid; gap: 3px; justify-content: stretch; }.hero-smart-tester-head h2 { min-width: 0; margin: 0; color: var(--hero-brand); font-size: .9rem; line-height: 1.55; overflow-wrap: anywhere; }.hero-smart-tester-head p { width: 100%; min-width: 0; margin: 0; color: var(--hero-muted); font-size: .7rem; line-height: 1.75; overflow-wrap: anywhere; }.hero-smart-tester-status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; clip-path: inset(50%); }
     .hero-smart-tester-panel button { min-height: 32px; padding: 6px 9px; border: 1px solid var(--hero-line-strong); border-radius: 8px; background: var(--hero-surface); color: var(--hero-brand); cursor: pointer; font: 800 .72rem/1.2 Vazirmatn, sans-serif; }.hero-smart-tester-panel button:hover, .hero-smart-tester-panel button:focus-visible { border-color: var(--hero-brand); outline: 0; background: var(--hero-brand-soft); }.hero-smart-tester-panel button[disabled] { opacity: .52; cursor: wait; }
-    .hero-smart-tester-scroll { display: grid; align-content: start; gap: 8px; min-width: 0; min-height: 0; overflow: auto; padding: 1px 2px; overscroll-behavior: contain; scrollbar-gutter: stable; }.hero-smart-tester-message, .hero-smart-tester-report { min-width: 0; max-width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid var(--hero-line); border-radius: 10px; background: var(--hero-surface); font-size: .74rem; line-height: 1.82; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }.hero-smart-tester-message span, .hero-smart-tester-report span { display: block; min-width: 0; max-width: 100%; overflow-wrap: anywhere; word-break: break-word; }.hero-smart-tester-message[data-speaker="user"] { border-inline-start: 3px solid var(--hero-brand); background: color-mix(in srgb, var(--hero-brand-soft) 42%, var(--hero-surface)); }.hero-smart-tester-message[data-speaker="assistant"] { background: color-mix(in srgb, var(--hero-success-soft) 31%, var(--hero-surface)); }.hero-smart-tester-message b, .hero-smart-tester-report b { display: block; min-width: 0; margin-bottom: 4px; color: var(--hero-brand); font-size: .67rem; overflow-wrap: anywhere; }.hero-smart-tester-report[data-state="attention"] { border-color: color-mix(in srgb, var(--hero-warning) 45%, var(--hero-line)); }.hero-smart-tester-report[data-state="not-run"] { border-style: dashed; color: var(--hero-muted); }
+    .hero-smart-tester-scroll { display: grid; align-content: start; gap: 8px; min-width: 0; min-height: 0; overflow: auto; padding: 1px 2px; overscroll-behavior: contain; scrollbar-gutter: stable; }.hero-smart-tester-message, .hero-smart-tester-report { min-width: 0; max-width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid var(--hero-line); border-radius: 10px; background: var(--hero-surface); font-size: .74rem; line-height: 1.82; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }.hero-smart-tester-message span, .hero-smart-tester-report span { display: block; min-width: 0; max-width: 100%; overflow-wrap: anywhere; word-break: break-word; }.hero-smart-tester-message[data-speaker="user"] { border-inline-start: 3px solid var(--hero-brand); background: color-mix(in srgb, var(--hero-brand-soft) 42%, var(--hero-surface)); }.hero-smart-tester-message[data-speaker="assistant"] { background: color-mix(in srgb, var(--hero-success-soft) 31%, var(--hero-surface)); }.hero-smart-tester-message[data-speaker="assistant"][data-state="error"] { border-color: color-mix(in srgb, var(--hero-danger) 48%, var(--hero-line)); background: color-mix(in srgb, var(--hero-danger-soft) 24%, var(--hero-surface)); }.hero-smart-tester-message b, .hero-smart-tester-report b { display: block; min-width: 0; margin-bottom: 4px; color: var(--hero-brand); font-size: .67rem; overflow-wrap: anywhere; }.hero-smart-tester-report[data-state="attention"] { border-color: color-mix(in srgb, var(--hero-warning) 45%, var(--hero-line)); }.hero-smart-tester-report[data-state="not-run"] { border-style: dashed; color: var(--hero-muted); }.hero-smart-tester-diagnosis { display: grid; gap: 9px; padding: 12px; border: 1px solid color-mix(in srgb, var(--hero-warning) 45%, var(--hero-line)); border-radius: 12px; background: color-mix(in srgb, var(--hero-warning) 9%, var(--hero-surface)); }.hero-smart-tester-diagnosis-head { display: grid; gap: 2px; }.hero-smart-tester-diagnosis-head h3 { margin: 0; color: var(--hero-ink); font: 900 .82rem/1.5 Vazirmatn, sans-serif; }.hero-smart-tester-diagnosis-head p { margin: 0; color: var(--hero-muted); font-size: .67rem; }.hero-smart-tester-diagnosis-grid { display: grid; gap: 7px; }.hero-smart-tester-diagnosis-item { padding: 9px 10px; border: 1px solid color-mix(in srgb, var(--hero-line) 84%, var(--hero-warning)); border-radius: 9px; background: var(--hero-surface); font-size: .68rem; line-height: 1.72; }.hero-smart-tester-diagnosis-item b { color: var(--hero-brand); font-size: .67rem; }.hero-smart-tester-diagnosis-item[data-kind="fix"] { border-inline-start: 3px solid var(--hero-success); }.hero-smart-tester-diagnosis-item[data-kind="verify"] { border-inline-start: 3px solid var(--hero-brand); }
     .hero-smart-tester-form { display: grid; min-width: 0; gap: 7px; }.hero-smart-tester-form textarea { width: 100%; min-height: 70px; max-height: 150px; box-sizing: border-box; padding: 8px; border: 1px solid var(--hero-line-strong); border-radius: 9px; background: var(--hero-surface); color: var(--hero-ink); font: 700 .75rem/1.7 Vazirmatn, sans-serif; resize: vertical; }.hero-smart-tester-selector { display: grid; min-width: 0; gap: 4px; color: var(--hero-muted); font-size: .68rem; font-weight: 800; }.hero-smart-tester-selector select { width: 100%; min-width: 0; min-height: 34px; box-sizing: border-box; padding: 6px 8px; border: 1px solid var(--hero-line-strong); border-radius: 8px; background: var(--hero-surface); color: var(--hero-ink); font: 700 .72rem/1.4 Vazirmatn, sans-serif; }.hero-smart-tester-actions button { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
-    .hero-action-feedback { position: fixed; z-index: 12030; right: 18px; bottom: 18px; left: auto; display: grid; gap: 9px; width: min(460px, calc(100vw - 36px)); max-height: min(46vh, 420px); box-sizing: border-box; padding: 15px; overflow: auto; border: 1px solid var(--hero-line-strong); border-radius: 15px; background: var(--hero-surface-raised); color: var(--hero-ink); box-shadow: var(--hero-shadow-lg); direction: rtl; contain: layout paint style; isolation: isolate; }
+    .hero-action-feedback { position: fixed; z-index: 12030; right: auto; bottom: 18px; left: 18px; display: grid; gap: 9px; width: min(460px, calc(100vw - 36px)); max-height: min(46vh, 420px); box-sizing: border-box; padding: 15px; overflow: auto; border: 1px solid var(--hero-line-strong); border-radius: 15px; background: var(--hero-surface-raised); color: var(--hero-ink); box-shadow: var(--hero-shadow-lg); direction: rtl; contain: layout paint style; isolation: isolate; }
     .hero-action-feedback[data-hero-action-feedback-side="left"] { right: auto; left: 18px; }.hero-action-feedback[data-hero-action-feedback-side="right"] { right: 18px; left: auto; }
-    .hero-action-feedback[data-state="success"] { border-color: color-mix(in srgb, var(--hero-success) 48%, var(--hero-line)); }.hero-action-feedback[data-state="error"] { border-color: color-mix(in srgb, var(--hero-danger) 55%, var(--hero-line)); }
+    .hero-action-feedback[data-state="success"] { width: min(380px, calc(100vw - 36px)); gap: 6px; padding: 12px 13px; overflow: visible; border-color: color-mix(in srgb, var(--hero-success) 48%, var(--hero-line)); }.hero-action-feedback[data-state="error"] { border-color: color-mix(in srgb, var(--hero-danger) 55%, var(--hero-line)); }
     .hero-action-feedback-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }.hero-action-feedback-head h2 { margin: 0; color: var(--hero-ink); font-size: .9rem; line-height: 1.5; }.hero-action-feedback[data-state="success"] .hero-action-feedback-head h2 { color: var(--hero-success); }.hero-action-feedback[data-state="error"] .hero-action-feedback-head h2 { color: var(--hero-danger); }
-    .hero-action-feedback-status { margin: 0; color: var(--hero-muted); font-size: .76rem; line-height: 1.85; overflow-wrap: anywhere; }.hero-action-feedback-meta { margin: 0; color: var(--hero-muted); font-size: .66rem; line-height: 1.7; }.hero-action-feedback-actions { display: flex; flex-wrap: wrap; gap: 7px; }.hero-action-feedback button { min-height: 33px; padding: 7px 10px; border: 1px solid var(--hero-line-strong); border-radius: 8px; background: var(--hero-surface); color: var(--hero-brand); cursor: pointer; font: 800 .72rem/1.2 Vazirmatn, sans-serif; }.hero-action-feedback button:hover, .hero-action-feedback button:focus-visible { border-color: var(--hero-brand); outline: 0; background: var(--hero-brand-soft); }.hero-action-feedback button[data-kind="close"] { color: var(--hero-muted); }.hero-action-feedback button[data-kind="smart"] { border-color: color-mix(in srgb, var(--hero-brand) 48%, var(--hero-line)); color: var(--hero-brand); }.hero-action-feedback button[data-kind="move"] { color: var(--hero-muted); }.hero-action-feedback button[data-kind="move"][aria-pressed="true"] { border-color: var(--hero-brand); background: var(--hero-brand-soft); color: var(--hero-brand); cursor: default; }
+    .hero-action-feedback-status { margin: 0; color: var(--hero-muted); font-size: .76rem; line-height: 1.85; overflow-wrap: anywhere; }.hero-action-feedback-meta { margin: 0; color: var(--hero-muted); font-size: .66rem; line-height: 1.7; }.hero-action-feedback[data-state="success"] .hero-action-feedback-meta { display: none; }.hero-action-feedback-actions { display: flex; flex-wrap: wrap; gap: 7px; }.hero-action-feedback[data-state="success"] .hero-action-feedback-actions { justify-content: flex-end; }.hero-action-feedback button { min-height: 33px; padding: 7px 10px; border: 1px solid var(--hero-line-strong); border-radius: 8px; background: var(--hero-surface); color: var(--hero-brand); cursor: pointer; font: 800 .72rem/1.2 Vazirmatn, sans-serif; }.hero-action-feedback button:hover, .hero-action-feedback button:focus-visible { border-color: var(--hero-brand); outline: 0; background: var(--hero-brand-soft); }.hero-action-feedback button[data-kind="close"] { color: var(--hero-muted); }.hero-action-feedback button[data-kind="smart"] { border-color: color-mix(in srgb, var(--hero-brand) 48%, var(--hero-line)); color: var(--hero-brand); }.hero-action-feedback button[data-kind="move"] { color: var(--hero-muted); }.hero-action-feedback button[data-kind="move"][aria-pressed="true"] { border-color: var(--hero-brand); background: var(--hero-brand-soft); color: var(--hero-brand); cursor: default; }
     .hero-walkthrough-coach, .hero-walkthrough-advisor { position: fixed; z-index: 11000; top: 92px; right: 12px; display: grid; gap: 9px; width: min(440px, calc(100vw - 24px)); max-height: calc(100vh - 104px); overflow: auto; box-sizing: border-box; margin: 0; padding: 14px 15px; border: 1px solid color-mix(in srgb, var(--hero-brand) 45%, var(--hero-line)); border-radius: 14px; background: var(--hero-surface-raised); color: var(--hero-ink); box-shadow: 0 18px 44px rgba(47,43,160,.22); direction: rtl; overscroll-behavior: contain; contain: layout paint style; isolation: isolate; }
     .hero-walkthrough-coach[data-hero-walkthrough-side="left"] { right: auto; left: 12px; }.hero-walkthrough-coach[data-hero-walkthrough-side="right"] { right: 12px; left: auto; }
     .hero-walkthrough-advisor { z-index: 11010; border-color: color-mix(in srgb, var(--hero-success) 42%, var(--hero-line)); }.hero-walkthrough-advisor[data-hero-walkthrough-side="left"] { right: auto; left: 12px; }.hero-walkthrough-advisor[data-hero-walkthrough-side="right"] { right: 12px; left: auto; }
@@ -350,7 +449,7 @@ export function getHeroShellStyles() {
     @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .001ms !important; animation-duration: .001ms !important; animation-iteration-count: 1 !important; } }
     .hero-side-nav ~ #hero-main { max-width: calc(100% - 296px); margin-inline-start: auto !important; margin-inline-end: 278px !important; }
     @media (max-width: 1160px) { .hero-app-actions { display: none; } .hero-side-nav { width: 222px; }.hero-side-nav ~ #hero-main { max-width: calc(100% - 268px); margin-inline-end: 254px !important; } }
-    @media (max-width: 760px) { .hero-appbar { position: static; } .hero-appbar-inner { width: min(100% - 20px, 740px); grid-template-columns: 1fr; gap: 7px; padding: 10px 0; } .hero-app-brand { justify-self: start; } .hero-side-nav { position: static; width: min(100% - 20px, 740px); max-height: 254px; margin: 10px auto 0; border-radius: 13px; } .hero-side-nav ~ #hero-main { max-width: none; margin-inline: auto !important; } .hero-global-nav a { min-height: 40px; } .hero-nav-copy small { display: none; } .hero-walkthrough-coach, .hero-walkthrough-advisor, .hero-smart-tester-panel, .hero-action-feedback { top: auto; right: 10px; bottom: 10px; left: 10px; width: auto; max-height: min(62vh, 540px); } .hero-walkthrough-coach[data-hero-walkthrough-side="left"], .hero-walkthrough-coach[data-hero-walkthrough-side="right"], .hero-walkthrough-advisor[data-hero-walkthrough-side="left"], .hero-walkthrough-advisor[data-hero-walkthrough-side="right"], .hero-smart-tester-panel[data-hero-smart-tester-side="left"], .hero-smart-tester-panel[data-hero-smart-tester-side="right"], .hero-action-feedback[data-hero-action-feedback-side="left"], .hero-action-feedback[data-hero-action-feedback-side="right"] { right: 10px; left: 10px; } .hero-walkthrough-launcher { top:auto; bottom:10px; } .hero-walkthrough-launcher[data-hero-walkthrough-side="left"] { left:10px; }.hero-walkthrough-launcher[data-hero-walkthrough-side="right"] { right:10px; } }
+    @media (max-width: 760px) { .hero-appbar { position: static; } .hero-appbar-inner { width: min(100% - 20px, 740px); grid-template-columns: 1fr; gap: 7px; padding: 10px 0; } .hero-app-brand { justify-self: start; } .hero-side-nav { position: static; width: min(100% - 20px, 740px); max-height: 254px; margin: 10px auto 0; border-radius: 13px; } .hero-side-nav ~ #hero-main { max-width: none; margin-inline: auto !important; } .hero-global-nav a { min-height: 40px; } .hero-nav-copy small { display: none; } .hero-walkthrough-coach, .hero-walkthrough-advisor, .hero-smart-tester-panel, .hero-action-feedback { top: auto; right: 10px; bottom: 10px; left: 10px; width: auto; max-height: min(62vh, 540px); } .hero-form-suggestion-dialog { width: calc(100% - 20px); max-height: calc(100vh - 20px); } .hero-walkthrough-coach[data-hero-walkthrough-side="left"], .hero-walkthrough-coach[data-hero-walkthrough-side="right"], .hero-walkthrough-advisor[data-hero-walkthrough-side="left"], .hero-walkthrough-advisor[data-hero-walkthrough-side="right"], .hero-smart-tester-panel[data-hero-smart-tester-side="left"], .hero-smart-tester-panel[data-hero-smart-tester-side="right"], .hero-action-feedback[data-hero-action-feedback-side="left"], .hero-action-feedback[data-hero-action-feedback-side="right"] { right: 10px; left: 10px; } .hero-walkthrough-launcher { top:auto; bottom:10px; } .hero-walkthrough-launcher[data-hero-walkthrough-side="left"] { left:10px; }.hero-walkthrough-launcher[data-hero-walkthrough-side="right"] { right:10px; } }
   `;
 }
 
@@ -393,6 +492,7 @@ export function getHeroGlobalNavigation({ active = "portfolio", projectId = null
           ${projectId ? `<a class="hero-project-context" href="${portalHref("portfolio", { select: "project" })}" title="تغییر پروژهٔ فعال"><em aria-hidden="true">◈</em><span><small>پروژهٔ فعال / Active project</small><b>${escapeHtml(projectId)}</b></span></a>` : ""}
           <span class="hero-environment" title="محیط خصوصی و محافظت‌شده">${escapeHtml(environment)}</span>
           <button class="hero-shell-button" type="button" data-hero-smart-tester-toggle aria-pressed="false" aria-label="روشن کردن اسمارت تستر"><span aria-hidden="true">✦</span><span>اسمارت تستر</span></button>
+          <button class="hero-shell-button" type="button" data-hero-form-suggestions-toggle aria-pressed="true" aria-label="خاموش کردن ادوایزر"><span aria-hidden="true">✎</span><span>ادوایزر</span></button>
           <button class="hero-shell-button" type="button" data-hero-theme-button aria-label="تغییر پوسته">${icon("theme")}<span>پوسته</span></button>
           <button class="hero-shell-button" type="button" data-hero-command-button aria-haspopup="dialog">${icon("search")}<span>جست‌وجو</span><kbd>⌘K</kbd></button>
         </div>
@@ -475,7 +575,11 @@ export function getHeroShellScript() {
     let pendingHeroAction = null;
     let pendingHeroActionTimer = null;
     let activeHeroActionFeedback = null;
-    const heroActionFeedbackSide = () => { try { const side = localStorage.getItem(heroActionFeedbackSideKey); return side === 'left' || side === 'right' ? side : 'right'; } catch { return 'right'; } };
+    let heroActionFeedbackDismissTimer = null;
+    // Form outcomes have one predictable home: a bottom-left toast.  Keep the
+    // historical side key only for backwards-compatible error-panel controls;
+    // normal notifications must not jump around between surfaces.
+    const heroActionFeedbackSide = () => 'left';
     const setHeroActionFeedbackSide = side => { try { localStorage.setItem(heroActionFeedbackSideKey, side); } catch { /* browser-local preference only */ } };
     const heroActionText = node => String(node?.getAttribute?.('aria-label') || node?.textContent || node?.labels?.[0]?.textContent || '').replace(/\\s+/g, ' ').trim().slice(0, 160);
     const heroActionButton = node => node?.closest?.('button,input[type="submit"],input[type="button"],input[type="checkbox"][data-hero-process-action],#autonomy') || null;
@@ -483,7 +587,7 @@ export function getHeroShellScript() {
     const heroActionIsProcess = node => {
       const button = heroActionButton(node);
       if (!button || !button.isConnected || button.closest(heroActionExcluded)) return false;
-      if (button.matches('[data-hero-info-trigger],[data-hero-smart-tester-trigger],[data-hero-theme-button],[data-hero-command-button],[data-hero-process-ignore]')) return false;
+      if (button.matches('[data-hero-info-trigger],[data-hero-smart-tester-trigger],[data-hero-form-suggestion-trigger],[data-hero-theme-button],[data-hero-command-button],[data-hero-process-ignore]')) return false;
       if (button.closest('nav')) return false;
       const label = heroActionText(button);
       if (!label || heroActionReadOnly.test(label)) return false;
@@ -508,6 +612,10 @@ export function getHeroShellScript() {
       const detail = String(candidate || fallback || '').replace(/((?:password|secret|credential|api[ _-]?key|token|mfa|رمز(?:\\s*عبور)?|کلید\\s*api)\\s*[:=]\\s*)[^\\s,;]+/gi, '$1[redacted]').replace(/\\s+/g, ' ').trim().slice(0, 700);
       return detail || (status ? 'پاسخ سرویس: ' + status : 'پاسخی از سرویس دریافت نشد.');
     };
+    const heroActionCode = body => {
+      const candidate = body?.code || body?.error?.code || body?.errorCode || '';
+      return typeof candidate === 'string' && /^[A-Z][A-Z0-9_:-]{2,119}$/.test(candidate) ? candidate : '';
+    };
     const normalizeHeroActionFeedback = value => {
       if (!value || typeof value !== 'object') return null;
       const label = String(value.label || 'اقدام فرایندی').replace(/\\s+/g, ' ').trim().slice(0, 160);
@@ -516,12 +624,20 @@ export function getHeroShellScript() {
       const path = typeof value.path === 'string' && /^\\/api\\/[A-Za-z0-9._/-]{1,180}$/.test(value.path) ? value.path : '/api/unknown';
       const status = Number.isInteger(value.status) && value.status >= 0 && value.status <= 599 ? value.status : 0;
       const featureKey = typeof value.featureKey === 'string' && /^[a-z][a-zA-Z0-9]*(?:\\.[a-z][a-zA-Z0-9]*)+$/.test(value.featureKey) ? value.featureKey : null;
-      return Object.freeze({ ok: value.ok === true, label, detail, method, path, status, featureKey });
+      const code = typeof value.code === 'string' && /^[A-Z][A-Z0-9_:-]{2,119}$/.test(value.code) ? value.code : '';
+      return Object.freeze({ ok: value.ok === true, label, detail, method, path, status, code, featureKey });
     };
     const readHeroActionFeedback = () => { try { return normalizeHeroActionFeedback(JSON.parse(sessionStorage.getItem(heroActionFeedbackKey) || 'null')); } catch { return null; } };
     const persistHeroActionFeedback = value => { try { sessionStorage.setItem(heroActionFeedbackKey, JSON.stringify(value)); } catch { /* browser-local persistence only */ } };
     const forgetHeroActionFeedback = () => { try { sessionStorage.removeItem(heroActionFeedbackKey); } catch { /* browser-local persistence only */ } };
+    const clearHeroActionFeedbackDismiss = () => {
+      if (heroActionFeedbackDismissTimer) {
+        clearTimeout(heroActionFeedbackDismissTimer);
+        heroActionFeedbackDismissTimer = null;
+      }
+    };
     const closeHeroActionFeedback = ({ restoreFocus = false, forget = true } = {}) => {
+      clearHeroActionFeedbackDismiss();
       const popup = activeHeroActionFeedback || document.querySelector('[data-hero-action-feedback]');
       if (!popup) { if (forget) forgetHeroActionFeedback(); return; }
       const trigger = popup._heroActionTrigger;
@@ -529,16 +645,23 @@ export function getHeroShellScript() {
       if (forget) forgetHeroActionFeedback();
       if (restoreFocus && trigger?.isConnected) trigger.focus({ preventScroll: true });
     };
-    const showHeroActionFeedback = ({ ok, label, status, detail, trigger = null, method, path, featureKey = null, restored = false }) => {
-      const record = normalizeHeroActionFeedback({ ok, label, status, detail, method, path, featureKey });
+    const scheduleHeroActionFeedbackDismiss = popup => {
+      clearHeroActionFeedbackDismiss();
+      if (!popup?.isConnected || popup.dataset.state !== 'success') return;
+      heroActionFeedbackDismissTimer = window.setTimeout(() => {
+        if (popup.isConnected) closeHeroActionFeedback();
+      }, 6_500);
+    };
+    const showHeroActionFeedback = ({ ok, label, status, detail, code = '', trigger = null, method, path, featureKey = null, restored = false }) => {
+      const record = normalizeHeroActionFeedback({ ok, label, status, detail, code, method, path, featureKey });
       if (!record) return;
       closeHeroActionFeedback({ forget: false });
       if (!restored) persistHeroActionFeedback(record);
       const popup = document.createElement('aside');
-      popup.className = 'hero-action-feedback'; popup.dataset.state = record.ok ? 'success' : 'error'; popup.dataset.heroActionFeedback = 'true'; popup.dataset.heroActionFeedbackSide = heroActionFeedbackSide(); popup.setAttribute('role', 'dialog'); popup.setAttribute('aria-modal', 'false'); popup.setAttribute('aria-live', 'assertive'); popup.setAttribute('tabindex', '-1'); popup._heroActionTrigger = trigger;
+      popup.className = 'hero-action-feedback'; popup.dataset.state = record.ok ? 'success' : 'error'; popup.dataset.heroActionFeedback = 'true'; popup.dataset.heroActionFeedbackSide = heroActionFeedbackSide(); popup.setAttribute('role', record.ok ? 'status' : 'dialog'); popup.setAttribute('aria-modal', 'false'); popup.setAttribute('aria-live', record.ok ? 'polite' : 'assertive'); popup.setAttribute('tabindex', '-1'); popup._heroActionTrigger = trigger;
       const head = document.createElement('header'); head.className = 'hero-action-feedback-head'; const title = document.createElement('h2'); title.textContent = record.ok ? 'عملیات با موفقیت انجام شد' : 'عملیات ناموفق بود'; head.append(title); popup.append(head);
       const statusNode = document.createElement('p'); statusNode.className = 'hero-action-feedback-status'; statusNode.textContent = record.detail || (record.ok ? 'تغییر موردنظر ثبت شد.' : 'سرویس نتوانست اقدام را تکمیل کند.'); popup.append(statusNode);
-      const meta = document.createElement('p'); meta.className = 'hero-action-feedback-meta'; meta.textContent = record.label + ' · ' + record.method + ' · HTTP ' + (record.status || '—') + ' · ' + record.path; popup.append(meta);
+      const meta = document.createElement('p'); meta.className = 'hero-action-feedback-meta'; meta.textContent = record.label + ' · ' + record.method + ' · HTTP ' + (record.status || '—') + (record.code ? ' · ' + record.code : '') + ' · ' + record.path; popup.append(meta);
       const actions = document.createElement('div'); actions.className = 'hero-action-feedback-actions';
       let side = popup.dataset.heroActionFeedbackSide;
       const moveLeft = document.createElement('button'); moveLeft.type = 'button'; moveLeft.dataset.kind = 'move'; moveLeft.textContent = 'انتقال به لبهٔ چپ'; moveLeft.setAttribute('aria-label', moveLeft.textContent);
@@ -547,18 +670,35 @@ export function getHeroShellScript() {
       moveLeft.addEventListener('click', () => applySide('left'));
       moveRight.addEventListener('click', () => applySide('right'));
       if (record.ok) {
-        const next = document.createElement('button'); next.type = 'button'; next.dataset.kind = 'continue'; next.textContent = 'ادامه'; next.addEventListener('click', () => closeHeroActionFeedback({ restoreFocus: true })); actions.append(moveLeft, moveRight, next);
+        const close = document.createElement('button'); close.type = 'button'; close.dataset.kind = 'close'; close.textContent = 'بستن'; close.addEventListener('click', () => closeHeroActionFeedback({ restoreFocus: true })); actions.append(close);
       } else {
         const smart = document.createElement('button'); smart.type = 'button'; smart.dataset.kind = 'smart'; smart.textContent = 'تحلیل با اسمارت تستر'; smart.addEventListener('click', () => {
           const open = window.heroSmartTester?.openForElement;
-          if (typeof open === 'function') open(trigger || document.body, { label: record.label, featureKey: record.featureKey || heroActionFeatureKey(trigger), actionFailure: { label: record.label, method: record.method, path: record.path, status: record.status, message: record.detail } });
+          if (typeof open === 'function') open(trigger || document.body, { label: record.label, featureKey: record.featureKey || heroActionFeatureKey(trigger), actionFailure: { label: record.label, method: record.method, path: record.path, status: record.status, code: record.code, message: record.detail } });
         });
         const close = document.createElement('button'); close.type = 'button'; close.dataset.kind = 'close'; close.textContent = 'بستن'; close.addEventListener('click', () => closeHeroActionFeedback({ restoreFocus: true })); actions.append(smart, close);
         actions.prepend(moveLeft, moveRight);
       }
-      popup.append(actions); document.body.append(popup); activeHeroActionFeedback = popup; applySide(side); if (!restored) popup.focus({ preventScroll: true });
+      popup.append(actions); document.body.append(popup); activeHeroActionFeedback = popup; applySide(side);
+      if (record.ok) {
+        popup.addEventListener('pointerenter', clearHeroActionFeedbackDismiss);
+        popup.addEventListener('pointerleave', () => scheduleHeroActionFeedbackDismiss(popup));
+        popup.addEventListener('focusin', clearHeroActionFeedbackDismiss);
+        popup.addEventListener('focusout', event => { if (!popup.contains(event.relatedTarget)) scheduleHeroActionFeedbackDismiss(popup); });
+        scheduleHeroActionFeedbackDismiss(popup);
+      } else if (!restored) popup.focus({ preventScroll: true });
     };
     const originalHeroFetch = window.fetch.bind(window);
+    const apiErrorMessage = (response, body, fallback) => {
+      if (typeof body?.message === 'string' && body.message.trim()) return body.message;
+      if (typeof body?.code === 'string' && body.code.trim()) return body.code;
+      const status = Number.isInteger(response?.status) ? response.status : 0;
+      // Do not render a proxy error body: it can be HTML, a login page or
+      // infrastructure detail.  The status is enough to distinguish a stale
+      // Human session (401/403) from an upstream failure (5xx), without
+      // exposing configuration or credentials.
+      return (fallback || 'پاسخ سرویس قابل‌خواندن نیست.') + ' (HTTP ' + (status || '—') + '). نشست انسانی و Proxy محیط Test را بررسی کنید.';
+    };
     window.fetch = async (input, init = {}) => {
       const method = String(init?.method || (typeof Request !== 'undefined' && input instanceof Request ? input.method : 'GET')).toUpperCase();
       let requestUrl = null;
@@ -571,7 +711,7 @@ export function getHeroShellScript() {
         const response = await originalHeroFetch(input, init);
         if (action) {
           let body = {}; try { body = await response.clone().json(); } catch { /* empty/stream response */ }
-          showHeroActionFeedback({ ok: response.ok, label: action.label, status: response.status, detail: heroActionDetail(body, response.status, response.ok ? action.label + ' ثبت شد.' : action.label + ' انجام نشد.'), trigger: action.trigger, method, path: requestUrl.pathname, featureKey: heroActionFeatureKey(action.trigger) });
+          showHeroActionFeedback({ ok: response.ok, label: action.label, status: response.status, detail: heroActionDetail(body, response.status, response.ok ? action.label + ' ثبت شد.' : action.label + ' انجام نشد.'), code: heroActionCode(body), trigger: action.trigger, method, path: requestUrl.pathname, featureKey: heroActionFeatureKey(action.trigger) });
         }
         return response;
       } catch (error) {
@@ -605,6 +745,17 @@ export function getHeroShellScript() {
       clone.querySelectorAll('.hero-info-trigger').forEach(item => item.remove());
       return clone.textContent.trim() || 'این قابلیت';
     };
+    const infoSupplement = node => {
+      const scope = node.closest?.('.panel-head, .panel-head-copy, .section-head, .head, .hero-page-header, .page-head, .top, .topbar, .dialog-head') || node.parentElement;
+      const copy = scope?.querySelector?.('.helper-copy');
+      const text = String(copy?.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 700);
+      if (!text) return '';
+      // The copy remains in the server-rendered page for no-JS browsing.  Once
+      // the matching i trigger is installed, it moves into that trigger so the
+      // visual hierarchy stays compact without dropping any explanation.
+      copy.dataset.heroInfoMoved = 'true';
+      return text;
+    };
     const installInfoTriggers = container => {
       const nodes = [];
       if (container?.nodeType === 1 && container.matches?.('[data-hero-info-key]')) nodes.push(container);
@@ -620,6 +771,8 @@ export function getHeroShellScript() {
         trigger.setAttribute('aria-label', 'توضیح دربارهٔ ' + infoLabel(node));
         trigger.setAttribute('aria-describedby', 'hero-feature-tooltip');
         trigger.setAttribute('aria-expanded', 'false');
+        const supplement = infoSupplement(node);
+        if (supplement) trigger.dataset.heroInfoSupplement = supplement;
         trigger.textContent = 'i';
         node.append(trigger);
       });
@@ -643,7 +796,8 @@ export function getHeroShellScript() {
       if (featureTooltip.parentElement !== tooltipHost(trigger)) tooltipHost(trigger).append(featureTooltip);
       if (activeInfoTrigger && activeInfoTrigger !== trigger) activeInfoTrigger.setAttribute('aria-expanded', 'false');
       activeInfoTrigger = trigger; trigger.setAttribute('aria-expanded', 'true');
-      featureTooltip.textContent = text; featureTooltip.hidden = false; featureTooltip.dataset.open = 'true';
+      const supplement = String(trigger.dataset.heroInfoSupplement || '').trim();
+      featureTooltip.textContent = supplement ? text + '\\n\\n' + supplement : text; featureTooltip.hidden = false; featureTooltip.dataset.open = 'true';
       placeInfoTooltip();
     };
     const hideInfoTooltip = () => {
@@ -740,13 +894,31 @@ export function getHeroShellScript() {
         const detail = document.createElement('span'); detail.textContent = check.detail || 'جزئیات گزارش نشد.'; row.append(rowTitle, detail); container.append(row);
       }
       for (const limit of Array.isArray(report?.limits) ? report.limits : []) { const row = document.createElement('article'); row.className = 'hero-smart-tester-report'; row.dataset.state = 'not-run'; const title = document.createElement('b'); title.textContent = 'مرز اجرا'; const detail = document.createElement('span'); detail.textContent = limit; row.append(title, detail); container.append(row); }
+      for (const opportunity of Array.isArray(report?.qualityOpportunities) ? report.qualityOpportunities : []) { const row = document.createElement('article'); row.className = 'hero-smart-tester-report'; row.dataset.state = 'not-run'; const title = document.createElement('b'); title.textContent = 'فرصت بهبود · ' + (opportunity.title || opportunity.type || 'کیفیت'); const detail = document.createElement('span'); detail.textContent = opportunity.recommendation || 'نیازمند بررسی تخصصی است.'; row.append(title, detail); container.append(row); }
     };
     const renderSmartTesterErrorReport = (container, report) => {
-      const summary = report?.summary || {}; const heading = document.createElement('article'); heading.className = 'hero-smart-tester-report'; heading.dataset.state = summary.findingCount ? 'attention' : 'passed';
-      const title = document.createElement('b'); title.textContent = 'گزارش خطایاب · ' + (summary.findingCount ? 'نیازمند رسیدگی' : 'خطای قطعی تأیید نشد');
-      const body = document.createElement('span'); body.textContent = (summary.findingCount ?? 0) + ' یافته · ' + (summary.notRun ?? 0) + ' بررسی اجرا نشده'; heading.append(title, body); container.append(heading);
-      for (const finding of Array.isArray(report?.findings) ? report.findings : []) { const row = document.createElement('article'); row.className = 'hero-smart-tester-report'; row.dataset.state = 'attention'; const rowTitle = document.createElement('b'); rowTitle.textContent = (finding.severity || 'medium') + ' · ' + (finding.area || 'بخش'); const detail = document.createElement('span'); detail.textContent = (finding.title || 'یافته') + ' — ' + (finding.evidence || '') + ' پیشنهاد: ' + (finding.recommendation || ''); row.append(rowTitle, detail); container.append(row); }
-      for (const step of Array.isArray(report?.reproductionSteps) ? report.reproductionSteps : []) { const row = document.createElement('article'); row.className = 'hero-smart-tester-report'; row.dataset.state = 'not-run'; const rowTitle = document.createElement('b'); rowTitle.textContent = 'گام بازتولید'; const detail = document.createElement('span'); detail.textContent = step; row.append(rowTitle, detail); container.append(row); }
+      const diagnosis = report?.diagnosis;
+      if (diagnosis && typeof diagnosis === 'object') {
+        const card = document.createElement('section'); card.className = 'hero-smart-tester-diagnosis';
+        const head = document.createElement('header'); head.className = 'hero-smart-tester-diagnosis-head'; const title = document.createElement('h3'); title.textContent = 'نتیجهٔ بررسی خطا'; const intro = document.createElement('p'); const failure = report?.actionFailure || {}; const fingerprint = report?.incident?.fingerprint; intro.textContent = (failure.code ? 'کد خطا: ' + failure.code + (failure.status ? ' · پاسخ سرویس: ' + failure.status : '') : 'این نتیجه بر پایهٔ پاسخ امن سرویس تهیه شده است.') + (fingerprint ? ' · شناسهٔ پیگیری: ' + fingerprint : ''); head.append(title, intro); card.append(head);
+        const grid = document.createElement('div'); grid.className = 'hero-smart-tester-diagnosis-grid';
+        const diagnosisRows = [
+          ['چه اتفاقی افتاد؟', diagnosis.problem, 'problem'],
+          ['چرا رخ داد؟', diagnosis.likelyRootCause, 'cause'],
+          ['چه‌کار کنم؟', diagnosis.proposedFix, 'fix'],
+          ['بعد از اصلاح', diagnosis.verification, 'verify']
+        ];
+        for (const [label, value, kind] of diagnosisRows) {
+          if (typeof value !== 'string' || !value) continue;
+          const row = document.createElement('article'); row.className = 'hero-smart-tester-diagnosis-item'; row.dataset.kind = kind; const rowTitle = document.createElement('b'); rowTitle.textContent = label; const detail = document.createElement('span'); detail.textContent = value; row.append(rowTitle, detail); grid.append(row);
+        }
+        const brief = report?.remediationBrief;
+        if (brief?.sourceFiles?.length) { const row = document.createElement('article'); row.className = 'hero-smart-tester-diagnosis-item'; row.dataset.kind = 'verify'; const rowTitle = document.createElement('b'); rowTitle.textContent = 'تحویل به تیم اصلاح'; const detail = document.createElement('span'); detail.textContent = 'فایل‌های محتمل: ' + brief.sourceFiles.join('، ') + ' · ' + brief.rollbackBoundary; row.append(rowTitle, detail); grid.append(row); }
+        card.append(grid); container.append(card);
+      } else {
+        const summary = report?.summary || {}; const heading = document.createElement('article'); heading.className = 'hero-smart-tester-report'; heading.dataset.state = summary.findingCount ? 'attention' : 'passed'; const title = document.createElement('b'); title.textContent = summary.findingCount ? 'یک مورد نیاز به بررسی دارد' : 'خطای قطعی پیدا نشد'; heading.append(title); container.append(heading);
+      }
+      for (const finding of (Array.isArray(report?.findings) ? report.findings : []).filter(item => item?.findingId !== 'smart-tester.action-failure')) { const row = document.createElement('article'); row.className = 'hero-smart-tester-report'; row.dataset.state = 'attention'; const rowTitle = document.createElement('b'); rowTitle.textContent = finding.title || 'مورد نیازمند بررسی'; const detail = document.createElement('span'); detail.textContent = (finding.evidence || '') + (finding.recommendation ? ' راه‌حل پیشنهادی: ' + finding.recommendation : ''); row.append(rowTitle, detail); container.append(row); }
     };
     const openSmartTester = async (trigger, overrides = {}) => {
       if (!smartTesterEnabled() || !trigger) return;
@@ -759,15 +931,19 @@ export function getHeroShellScript() {
       const form = document.createElement('form'); form.className = 'hero-smart-tester-form'; const question = document.createElement('textarea'); question.name = 'question'; question.maxLength = 1500; question.placeholder = 'دربارهٔ همین بخش سؤال کنید؛ Secret، رمز یا دادهٔ شخصی وارد نکنید.'; question.setAttribute('aria-label', 'پرسش برای اسمارت تستر'); const formActions = document.createElement('div'); formActions.className = 'hero-smart-tester-actions'; const ask = document.createElement('button'); ask.type = 'submit'; ask.textContent = 'ارسال پرسش'; formActions.append(ask); form.append(question, formActions);
       const actions = document.createElement('div'); actions.className = 'hero-smart-tester-actions'; const test = document.createElement('button'); test.type = 'button'; test.textContent = 'تست این بخش'; const diagnose = document.createElement('button'); diagnose.type = 'button'; diagnose.textContent = 'خطایاب'; const submitError = document.createElement('button'); submitError.type = 'button'; submitError.textContent = 'ثبت در دفتر خطا'; submitError.disabled = true; const move = document.createElement('button'); move.type = 'button'; const close = document.createElement('button'); close.type = 'button'; close.textContent = 'بستن'; actions.append(test, diagnose, submitError, move, close); panel.append(head, selectorWrap, scroll, form, actions); document.body.append(panel); activeSmartTesterPanel = panel;
       let reportId = null; let errorReportId = null; let context = null; let side = panel.dataset.heroSmartTesterSide; let chatInformed = false; const actionFailure = overrides.actionFailure && typeof overrides.actionFailure === 'object' ? overrides.actionFailure : null;
-      const appendMessage = (speaker, value) => { const item = document.createElement('article'); item.className = 'hero-smart-tester-message'; item.dataset.speaker = speaker; const speakerName = document.createElement('b'); speakerName.textContent = speaker === 'user' ? 'شما' : 'اسمارت تستر'; const text = document.createElement('span'); text.textContent = value; item.append(speakerName, text); scroll.append(item); scroll.scrollTop = scroll.scrollHeight; };
+      const advisorSelectionStorageKey = 'hero.advisor.selection.smart-tester.v1';
+      const restoreAdvisorSelection = () => { try { const saved = localStorage.getItem(advisorSelectionStorageKey); if (saved && Array.from(selector.options).some(option => option.value === saved && !option.disabled)) selector.value = saved; } catch { /* preference is optional */ } };
+      const saveAdvisorSelection = () => { try { localStorage.setItem(advisorSelectionStorageKey, selector.value); } catch { /* preference is optional */ } };
+      const appendMessage = (speaker, value, state = '') => { const item = document.createElement('article'); item.className = 'hero-smart-tester-message'; item.dataset.speaker = speaker; if (state) item.dataset.state = state; const speakerName = document.createElement('b'); speakerName.textContent = speaker === 'user' ? 'شما' : 'اسمارت تستر'; const text = document.createElement('span'); text.textContent = value; item.append(speakerName, text); scroll.append(item); scroll.scrollTop = scroll.scrollHeight; };
       const endpoint = path => { const url = new URL(path, location.origin); url.searchParams.set('surface', smartTesterSurface()); url.searchParams.set('featureKey', featureKey); url.searchParams.set('boxId', boxId); url.searchParams.set('boxTitle', label); url.searchParams.set('boxDescription', boxDescription); if (projectId) url.searchParams.set('projectId', projectId); return url.pathname + url.search; };
       const applySide = nextSide => { side = nextSide; panel.dataset.heroSmartTesterSide = side; setSmartTesterSide(side); move.textContent = side === 'right' ? 'انتقال به لبهٔ چپ' : 'انتقال به لبهٔ راست'; move.setAttribute('aria-label', move.textContent); };
-      const loadOptions = async () => { const response = await fetch(endpoint('/api/smart-tester/options'), { credentials: 'same-origin', cache: 'no-store' }); const body = await response.json().catch(() => ({})); if (!response.ok) throw new Error(body.message || body.code || 'فهرست AIهای Smart Tester دریافت نشد.'); const options = body.smartTester?.options || {}; for (const profile of Array.isArray(options.profiles) ? options.profiles : []) { const option = document.createElement('option'); option.value = profile.profileId; option.textContent = (profile.providerName || profile.providerId) + ' / ' + (profile.modelName || profile.modelId) + ' · v' + (profile.profileVersion || '?') + (profile.selectable ? '' : ' · آماده نیست'); option.disabled = profile.selectable !== true; selector.append(option); } if (!options.profiles?.length && options.models?.length) { for (const model of options.models) { const option = document.createElement('option'); option.value = 'unavailable:' + model.providerId + ':' + model.modelId; option.textContent = model.displayName + ' · Profile فعال ندارد'; option.disabled = true; selector.append(option); } } };
-      const loadContext = async () => { try { await Promise.all([loadOptions(), (async () => { const response = await fetch(endpoint('/api/smart-tester/context'), { credentials: 'same-origin', cache: 'no-store' }); const body = await response.json().catch(() => ({})); if (!response.ok) throw new Error(body.message || body.code || 'زمینهٔ اسمارت تستر در دسترس نیست.'); context = body.smartTester?.context || null; })()]); status.textContent = 'زمینهٔ امن همین باکس آماده است.'; if (actionFailure?.message) appendMessage('assistant', 'این گفت‌وگو به شکست «' + (actionFailure.label || label) + '» متصل است؛ برای گزارش دقیق، «خطایاب» را اجرا کنید.'); } catch (error) { status.dataset.state = 'error'; status.textContent = error.message || 'برای استفاده، ورود انسانی مالک را بررسی کنید.'; appendMessage('assistant', 'زمینهٔ این باکس دریافت نشد. نشست انسانی مالک و Scope پروژه را بررسی کنید.'); ask.disabled = true; test.disabled = true; diagnose.disabled = true; } };
-      const sendAdvice = async rawQuestion => { if (!context) return; ask.disabled = true; chatInformed = true; status.dataset.state = ''; status.textContent = 'در حال آماده‌سازی پاسخ زمینه‌مند…'; appendMessage('user', rawQuestion); try { const response = await fetch(endpoint('/api/smart-tester/advice'), { method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ surface: context.pathname, featureKey: context.featureKey, boxId: context.boxId, projectId: context.projectId, question: rawQuestion, reportId, advisorProfileId: selector.value === 'local' ? null : selector.value, actionFailure }) }); const body = await response.json().catch(() => ({})); if (!response.ok) throw new Error(body.message || body.code || 'پاسخ اسمارت تستر دریافت نشد.'); const advisor = body.smartTester?.advisor; appendMessage('assistant', advisor?.response || 'پاسخ قابل‌نمایش وجود ندارد.'); status.textContent = advisor?.selectedAdvisor?.kind === 'profile' ? 'پاسخ با Profile انتخابی تولید شد.' : (reportId ? 'پاسخ با آگاهی از آخرین گزارش تست ارائه شد.' : 'پاسخ زمینه‌مند آماده شد.'); } catch (error) { status.dataset.state = 'error'; status.textContent = error.message || 'پاسخ در دسترس نیست.'; appendMessage('assistant', 'پاسخ در این لحظه در دسترس نیست. نشست انسانی و Scope پروژه را بررسی کنید.'); } finally { ask.disabled = false; } };
+      const loadOptions = async () => { const response = await fetch(endpoint('/api/smart-tester/options'), { credentials: 'same-origin', cache: 'no-store' }); const body = await response.json().catch(() => null); if (!response.ok) throw new Error(apiErrorMessage(response, body, 'فهرست AIهای Smart Tester دریافت نشد')); const options = body?.smartTester?.options || {}; for (const profile of Array.isArray(options.profiles) ? options.profiles : []) { const option = document.createElement('option'); option.value = profile.profileId; option.textContent = (profile.providerName || profile.providerId) + ' / ' + (profile.modelName || profile.modelId) + ' · v' + (profile.profileVersion || '?') + (profile.selectable ? (profile.dispatchReady === false ? ' · مجوز سراسری Test آماده نیست' : '') : ' · آماده نیست'); option.title = profile.selectionNotice || ''; option.disabled = profile.selectable !== true; selector.append(option); } if (!options.profiles?.length && options.models?.length) { for (const model of options.models) { const option = document.createElement('option'); option.value = 'unavailable:' + model.providerId + ':' + model.modelId; option.textContent = (model.displayName || model.modelId) + ' · Profile فعال ندارد'; option.title = model.selectionNotice || 'Profile فعال و آماده‌ای برای این Model ثبت نشده است؛ از «پیشنهاد اتصال همهٔ نقش‌ها» استفاده کنید.'; option.disabled = true; selector.append(option); } } restoreAdvisorSelection(); };
+      selector.addEventListener('change', saveAdvisorSelection);
+      const loadContext = async () => { try { await Promise.all([loadOptions(), (async () => { const response = await fetch(endpoint('/api/smart-tester/context'), { credentials: 'same-origin', cache: 'no-store' }); const body = await response.json().catch(() => null); if (!response.ok) throw new Error(apiErrorMessage(response, body, 'زمینهٔ اسمارت تستر در دسترس نیست')); context = body?.smartTester?.context || null; })()]); status.textContent = 'زمینهٔ امن همین باکس آماده است.'; if (actionFailure?.message) appendMessage('assistant', 'این گفت‌وگو به شکست «' + (actionFailure.label || label) + '» متصل است؛ نتیجهٔ HTTP و کد امن خطا منتقل شده‌اند. برای گزارش دقیق، «خطایاب» را اجرا کنید.'); } catch (error) { status.dataset.state = 'error'; status.textContent = error.message || 'برای استفاده، ورود انسانی مالک را بررسی کنید.'; appendMessage('assistant', 'زمینهٔ این باکس دریافت نشد. نشست انسانی مالک و Scope پروژه را بررسی کنید.'); ask.disabled = true; test.disabled = true; diagnose.disabled = true; } };
+      const sendAdvice = async rawQuestion => { if (!context) return; ask.disabled = true; chatInformed = true; status.dataset.state = ''; status.textContent = 'در حال آماده‌سازی پاسخ زمینه‌مند…'; appendMessage('user', rawQuestion); try { const response = await fetch(endpoint('/api/smart-tester/advice'), { method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ surface: context.pathname, featureKey: context.featureKey, boxId: context.boxId, projectId: context.projectId, question: rawQuestion, reportId, advisorProfileId: selector.value === 'local' ? null : selector.value, actionFailure }) }); const body = await response.json().catch(() => null); if (!response.ok) throw new Error(apiErrorMessage(response, body, 'پاسخ اسمارت تستر دریافت نشد')); const advisor = body?.smartTester?.advisor; appendMessage('assistant', advisor?.response || 'پاسخ قابل‌نمایش وجود ندارد.'); status.textContent = advisor?.providerInvoked === true ? 'پاسخ زنده با Provider انتخابی تولید شد؛ مصرف حسابداری‌شده: ' + (advisor?.invocation?.costUnits ?? '—') + ' واحد.' : (advisor?.selectedAdvisor?.kind === 'profile' ? 'پاسخ محلی با Profile انتخابی آماده شد؛ فراخوانی خارجی انجام نشد.' : (reportId ? 'پاسخ با آگاهی از آخرین گزارش تست ارائه شد.' : 'پاسخ زمینه‌مند آماده شد.')); } catch (error) { const safeMessage = error.message || 'پاسخ در دسترس نیست.'; status.dataset.state = 'error'; status.textContent = safeMessage; appendMessage('assistant', 'مشاوره اجرا نشد: ' + safeMessage, 'error'); } finally { ask.disabled = false; } };
       form.addEventListener('submit', event => { event.preventDefault(); const value = question.value.trim(); if (!value) { question.focus(); status.dataset.state = 'error'; status.textContent = 'ابتدا پرسش خود را بنویسید.'; return; } question.value = ''; void sendAdvice(value); });
       test.addEventListener('click', async () => { if (!context) return; test.disabled = true; status.dataset.state = ''; status.textContent = 'در حال اجرای بررسی محدود UI، UX، backend و قرارداد کد…'; try { const response = await fetch(endpoint('/api/smart-tester/run'), { method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ surface: context.pathname, featureKey: context.featureKey, boxId: context.boxId, projectId: context.projectId }) }); const body = await response.json().catch(() => ({})); if (!response.ok) throw new Error(body.message || body.code || 'گزارش تست دریافت نشد.'); reportId = body.smartTester?.reportId || null; renderSmartTesterReport(scroll, body.smartTester?.report); status.textContent = 'گزارش قابل‌بحث آماده است.'; scroll.scrollTop = scroll.scrollHeight; } catch (error) { status.dataset.state = 'error'; status.textContent = error.message || 'اجرای تست ناموفق بود.'; } finally { test.disabled = false; } });
-      diagnose.addEventListener('click', async () => { if (!context) return; diagnose.disabled = true; status.dataset.state = ''; status.textContent = 'در حال تهیهٔ گزارش دقیق خطا از UI، UX، backend و قرارداد کد…'; try { const response = await fetch(endpoint('/api/smart-tester/diagnose'), { method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ surface: context.pathname, featureKey: context.featureKey, boxId: context.boxId, projectId: context.projectId, reportId, chatInformed, actionFailure }) }); const body = await response.json().catch(() => ({})); if (!response.ok) throw new Error(body.message || body.code || 'گزارش خطایاب دریافت نشد.'); errorReportId = body.smartTester?.errorReportId || null; renderSmartTesterErrorReport(scroll, body.smartTester?.errorReport); submitError.disabled = !errorReportId || !context.projectId; status.textContent = context.projectId ? 'گزارش خطایاب آماده است؛ برای ثبت در دفتر خطای پروژه، تأیید کنید.' : 'گزارش آماده است؛ برای ثبت آن ابتدا یک پروژه را انتخاب کنید.'; scroll.scrollTop = scroll.scrollHeight; } catch (error) { status.dataset.state = 'error'; status.textContent = error.message || 'خطایابی ناموفق بود.'; } finally { diagnose.disabled = false; } });
+      diagnose.addEventListener('click', async () => { if (!context) return; diagnose.disabled = true; status.dataset.state = ''; status.textContent = 'در حال بررسی خطای ثبت‌شده…'; try { const response = await fetch(endpoint('/api/smart-tester/diagnose'), { method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ surface: context.pathname, featureKey: context.featureKey, boxId: context.boxId, projectId: context.projectId, reportId, chatInformed, actionFailure }) }); const body = await response.json().catch(() => ({})); if (!response.ok) throw new Error(body.message || body.code || 'گزارش خطایاب دریافت نشد.'); errorReportId = body.smartTester?.errorReportId || null; renderSmartTesterErrorReport(scroll, body.smartTester?.errorReport); submitError.disabled = !errorReportId || !context.projectId; status.textContent = context.projectId ? 'گزارش آماده است؛ اگر می‌خواهید در دفتر خطا ثبت شود، «ثبت در دفتر خطا» را بزنید.' : 'گزارش آماده است؛ برای ثبت آن ابتدا یک پروژه را انتخاب کنید.'; scroll.scrollTop = scroll.scrollHeight; } catch (error) { status.dataset.state = 'error'; status.textContent = error.message || 'خطایابی ناموفق بود.'; } finally { diagnose.disabled = false; } });
       submitError.addEventListener('click', async () => { if (!context || !errorReportId || !context.projectId) return; if (!window.confirm('گزارش پاک‌سازی‌شده در دفتر خطاهای همین پروژه ثبت شود؟')) return; submitError.disabled = true; status.textContent = 'در حال ثبت گزارش در سند مرجع خطاهای پروژه…'; try { const response = await fetch(endpoint('/api/smart-tester/errors/submit'), { method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ surface: context.pathname, featureKey: context.featureKey, boxId: context.boxId, projectId: context.projectId, errorReportId }) }); const body = await response.json().catch(() => ({})); if (!response.ok) throw new Error(body.message || body.code || 'ثبت گزارش در دفتر خطا ناموفق بود.'); const document = body.smartTester?.document; status.textContent = 'گزارش در «' + (document?.title || 'دفتر خطای پروژه') + '» ثبت شد (' + (document?.entryCount ?? 0) + ' مورد).'; } catch (error) { status.dataset.state = 'error'; status.textContent = error.message || 'ثبت گزارش ناموفق بود.'; submitError.disabled = false; } });
       move.addEventListener('click', () => applySide(side === 'right' ? 'left' : 'right')); close.addEventListener('click', () => clearSmartTesterPanel({ restoreFocus: true })); applySide(side); panel.focus({ preventScroll: true }); await loadContext();
     };
@@ -790,6 +966,228 @@ export function getHeroShellScript() {
       }
     });
     syncSmartTesterToggle(); installSmartTesterTriggers(document);
+    // Form Suggestions is an advisory, browser-local assistant. It injects a
+    // trigger into safe content forms, never reads current values, and never
+    // stores prompts, suggestions or secrets. Sensitive/auth forms are kept
+    // outside this feature by both the browser and the server.
+    const formSuggestionEnabledKey = 'hero.form-suggestions.enabled.v1';
+    const formSuggestionInitialCount = 3;
+    const formSuggestionMaxCount = 10;
+    const formSuggestionExcludedSelector = '.hero-global-nav,.hero-command-dialog,.hero-smart-tester-panel,.hero-walkthrough-coach,.hero-walkthrough-advisor,.hero-form-suggestion-dialog,[data-hero-no-form-suggestion]';
+    const formSuggestionSensitive = /login|mfa|password|credential|secret|token|api.?key|grant|access|identity/i;
+    let activeFormSuggestionDialog = null;
+    const formSuggestionEnabled = () => { try { return localStorage.getItem(formSuggestionEnabledKey) !== 'false'; } catch { return true; } };
+    const formSuggestionPurposeCatalog = Object.freeze({
+      'request-form': 'این باکس برای تعریف روشن درخواست ساخت یا تغییر یک نرم‌افزار است. عنوان، توضیح و سناریوی آزمایشی باید نتیجهٔ مورد انتظار را به شکلی قابل برنامه‌ریزی مشخص کنند تا Hero بتواند بدون شروع اقدام خودکار، برنامهٔ اولیهٔ قابل بازبینی بسازد.',
+      'create-project-form': 'این باکس برای ایجاد Draft یک پروژه و ثبت ورودی‌های پایهٔ Foundation Proposal است. اطلاعات آن باید مسئله، کاربران، نوع محصول، سطح ریسک، شیوهٔ تأیید، محدودیت‌ها و خروجی‌های مورد انتظار را روشن کند؛ ثبت فرم به‌تنهایی هیچ کد، سرور یا انتشار عملیاتی ایجاد نمی‌کند.',
+      'intake-form': 'این باکس برای تکمیل Intake پروژه است؛ یعنی هدف اصلی، کاربران مورد استفاده و میزان خودکارسازی مجاز را به‌صورت نسخه‌دار مشخص می‌کند. این اطلاعات مبنای برنامه‌ریزی، کنترل Scope و پیشنهاد مراحل بعدی هستند و باید پیش از ثبت توسط ادمین بازبینی شوند.',
+      'foundation-form': 'این باکس برای بازبینی Foundation Proposal پروژه و ثبت تصمیم ادمین دربارهٔ تأیید یا درخواست بازنگری آن است. اگر Foundation به اصلاح نیاز دارد، دلیل دقیق تغییر در این فرم نوشته می‌شود تا نسخهٔ بعدی با سابقه‌ای روشن و قابل پیگیری ساخته شود؛ این تصمیم به‌تنهایی اجرای محصول یا انتشار آن را آغاز نمی‌کند.',
+      'upload-form': 'این باکس برای افزودن اختیاری نمونه، متن یا سند مرتبط با پروژه است تا تیم‌ها زمینه و نیازمندی‌ها را دقیق‌تر درک کنند. نداشتن چنین ورودی‌ای مانع ادامه نیست و محتوای ثبت‌شده باید پیش از استفاده بررسی و در Scope همان پروژه نگهداری شود.',
+      'link-form': 'این باکس برای ثبت اختیاری یک لینک عمومی HTTPS و عنوان قابل فهم آن است. لینک صرفاً به‌عنوان مرجع پروژه برای بررسی کنترل‌شده ثبت می‌شود و واردکردن آن به معنی اعتماد خودکار، اجرای محتوا یا انتشار نیست.',
+      'setting-form': 'این باکس برای ثبت یک تغییر نسخه‌دار در تنظیمات پروژه است. مسیر، لایه، مقدار JSON، دلیل و اثر تغییر باید دقیق باشند تا تغییر قابل بررسی، حسابرسی و در صورت نیاز قابل بازگشت باقی بماند.',
+      'policy-form': 'این باکس برای اعمال Policy Pack از پیش تأییدشده به پروژه است. هدف آن هم‌راستا کردن کنترل‌های پروژه با سیاست معتبر است و نباید برای ساخت سیاست جدید یا دورزدن گیت‌های تأیید استفاده شود.',
+      'rollback-form': 'این باکس برای بازگرداندن یک تنظیم پروژه به نسخهٔ قبلی مشخص است. مسیر تنظیم، نسخهٔ مقصد و دلیل Rollback باید روشن باشند تا عملیات قابل حسابرسی باشد و فقط همان تنظیم هدف تغییر کند.',
+      'target-selection-form': 'این باکس برای انتخاب نسخه‌دار سرور Test مقصدِ ساخت و اجرای محصول همین پروژه است. انتخاب Target فقط تخصیص را ثبت می‌کند و تا صدور مجوز جداگانه، build، start، deploy یا تغییری روی سرور اجرا نمی‌شود.',
+      'guide-settings-form': 'این باکس برای روشن یا خاموش کردن Walk-Through Guide در Scope همین پروژه است. تغییر این گزینه فقط وضعیت راهنما را ثبت می‌کند و داده‌ها، تاریخچه یا تنظیمات اصلی پروژه را حذف نمی‌کند.',
+      'principles-form': 'این باکس برای ثبت نسخهٔ جدید اصول کاری یک تیم است. هر اصل باید روشن، قابل ارزیابی و در یک خط نوشته شود؛ ذخیرهٔ نسخهٔ جدید تأیید قبلی را بازنشانی می‌کند تا مالک آن را جداگانه بررسی کند.',
+      'ai-config-form': 'این باکس برای ثبت تغییر نسخه‌دار در پیکربندی AI شامل Provider، Model، Profile، Binding، Skill یا Policy است. مقادیر باید با Scope پروژه و کنترل‌های امنیتی هماهنگ باشند؛ Secret واقعی در این فرم قرار نمی‌گیرد و ثبت نهایی فقط با نشست انسانی انجام می‌شود.'
+    });
+    const formSuggestionReadableText = node => {
+      if (!node) return '';
+      const copy = node.cloneNode(true);
+      copy.querySelectorAll?.('.hero-info-trigger,[data-hero-form-suggestion-trigger],[aria-hidden="true"]').forEach(item => item.remove());
+      return String(copy.textContent || '').replace(/\\s+/g, ' ').trim();
+    };
+    const formSuggestionFieldText = control => {
+      const label = control.labels?.[0]?.textContent || control.closest('label')?.textContent || control.name || control.id || 'فیلد';
+      return String(label).trim().slice(0, 180);
+    };
+    const formSuggestionEligible = form => {
+      if (!form || !form.isConnected || form.closest(formSuggestionExcludedSelector) || form.matches('[data-hero-no-form-suggestion]')) return false;
+      if (formSuggestionSensitive.test(String(form.id || '') + ' ' + String(form.getAttribute('name') || ''))) return false;
+      const controls = [...(form.elements || [])];
+      if (controls.some(control => String(control.type).toLowerCase() === 'password')) return false;
+      if (controls.some(control => formSuggestionSensitive.test(String(control.name || control.id || '') + ' ' + formSuggestionFieldText(control)))) return false;
+      return controls.some(control => !control.disabled && ['text', 'search', 'email', 'url', 'number', 'date', 'textarea', 'select-one', 'checkbox', 'radio', 'file'].includes(String(control.type || control.tagName).toLowerCase()) && (control.name || control.id));
+    };
+    const serializeFormSuggestionFields = form => [...(form.elements || [])].filter(control => {
+      const type = String(control.type || control.tagName || '').toLowerCase();
+      return !control.disabled && Boolean(control.name || control.id) && !['submit', 'button', 'reset', 'hidden', 'password', 'file'].includes(type);
+    }).map(control => {
+      const type = String(control.type || control.tagName || '').toLowerCase();
+      const normalizedType = type === 'select-one' || type === 'select-multiple' ? 'select' : type;
+      return {
+        name: control.name || control.id,
+        id: control.id || undefined,
+        type: normalizedType,
+        label: formSuggestionFieldText(control),
+        value: normalizedType === 'checkbox' || normalizedType === 'radio' ? (control.value || 'on') : undefined,
+        required: control.required === true,
+        options: normalizedType === 'select' ? [...control.options].map(option => ({ value: option.value, label: option.textContent.trim() })) : undefined
+      };
+    });
+    const serializeAdvisorAssets = form => [...(form.elements || [])].filter(control => !control.disabled && String(control.type || '').toLowerCase() === 'file' && Boolean(control.name || control.id)).map(control => ({ name: control.name || control.id, label: formSuggestionFieldText(control), accept: String(control.accept || '').slice(0, 220), kind: /image\//i.test(String(control.accept || '')) ? 'image' : 'document', required: control.required === true }));
+    const formSuggestionTitle = form => {
+      const scope = form.closest('section,dialog,fieldset,.panel,.card,.section,.hero') || form.parentElement;
+      const heading = scope?.querySelector('h1,h2,h3,h4,legend,[data-hero-info-key]');
+      return String(formSuggestionReadableText(heading) || form.getAttribute('aria-label') || 'تکمیل اطلاعات').trim().slice(0, 180) || 'تکمیل اطلاعات';
+    };
+    const formSuggestionDescription = form => {
+      const explicitPurpose = form.getAttribute('data-hero-form-purpose') || formSuggestionPurposeCatalog[form.id];
+      if (explicitPurpose) return String(explicitPurpose).replace(/\\s+/g, ' ').trim().slice(0, 700);
+      const scope = form.closest('section,dialog,fieldset,.panel,.card,.section,.hero') || form.parentElement;
+      const heading = scope?.querySelector('h1,h2,h3,h4,legend,[data-hero-info-key]');
+      const title = formSuggestionReadableText(heading) || 'این بخش';
+      const supporting = [...(scope?.querySelectorAll('p.helper-copy,p.meta,p.muted,p') || [])]
+        .filter(item => !item.closest(formSuggestionExcludedSelector) && !item.matches('[role="status"],.status,.notice,.dialog-notice'))
+        .map(formSuggestionReadableText).find(Boolean);
+      const labels = [...new Set([...form.elements].filter(control => !['submit', 'button', 'reset', 'hidden'].includes(String(control.type || '').toLowerCase())).map(formSuggestionFieldText).filter(Boolean))].slice(0, 6);
+      const base = supporting || ('این باکس برای ثبت و بازبینی اطلاعات مربوط به «' + title + '» استفاده می‌شود.');
+      const fieldSummary = labels.length ? ' اطلاعات اصلی این فرم شامل «' + labels.join('»، «') + '» است.' : '';
+      return (base + fieldSummary + ' پیشنهاد باید فقط به کاربرد همین باکس مربوط باشد، از شناسه‌ها و متن‌های فنی نامفهوم به‌عنوان هدف استفاده نکند و پیش از ثبت نهایی توسط ادمین قابل بازبینی باشد.').replace(/\\s+/g, ' ').trim().slice(0, 700);
+    };
+    const closeFormSuggestionDialog = restoreFocus => {
+      const dialog = activeFormSuggestionDialog || document.querySelector('[data-hero-form-suggestion-dialog]');
+      if (!dialog) return;
+      const trigger = dialog._heroFormSuggestionTrigger;
+      if (dialog.open) dialog.close();
+      dialog.remove();
+      if (activeFormSuggestionDialog === dialog) activeFormSuggestionDialog = null;
+      if (restoreFocus && trigger?.isConnected) trigger.focus({ preventScroll: true });
+    };
+    const applyFormSuggestion = (form, entries) => {
+      for (const entry of Array.isArray(entries) ? entries : []) {
+        const controls = [...(form.elements || [])].filter(control => (control.name || control.id) === entry.name);
+        if (!controls.length) continue;
+        const type = String(controls[0].type || '').toLowerCase();
+        if (type === 'checkbox' || type === 'radio') {
+          const matched = controls.filter(control => String(control.value || 'on') === String(entry.value || 'on'));
+          matched.forEach(control => { control.checked = entry.checked === true; control.dispatchEvent(new Event('input', { bubbles: true })); control.dispatchEvent(new Event('change', { bubbles: true })); });
+          continue;
+        }
+        const control = controls.find(item => !item.disabled) || controls[0];
+        control.value = String(entry.value ?? '');
+        control.dispatchEvent(new Event('input', { bubbles: true }));
+        control.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    };
+    const renderFormSuggestionEntry = (entry, label) => {
+      const row = document.createElement('div'); row.className = 'hero-form-suggestion-card-field';
+      const title = document.createElement('span'); title.textContent = label || entry.name; row.append(title);
+      const type = entry.type === 'checkbox' || entry.type === 'radio' ? entry.type : entry.type === 'select' ? 'select' : (String(entry.value || '').length > 120 ? 'textarea' : 'text');
+      const control = document.createElement(type === 'textarea' ? 'textarea' : type === 'select' ? 'select' : 'input');
+      control.disabled = true; control.value = String(entry.value ?? '');
+      if (type === 'select') { const option = document.createElement('option'); option.value = String(entry.value ?? ''); option.textContent = String(entry.value ?? ''); option.selected = true; control.append(option); }
+      if (type === 'checkbox' || type === 'radio') { control.type = type; control.checked = entry.checked === true; control.value = String(entry.value || 'on'); }
+      row.append(control); return row;
+    };
+    const renderFormSuggestionCard = (container, suggestion, fields, form) => {
+      const card = document.createElement('article'); card.className = 'hero-form-suggestion-card';
+      const head = document.createElement('header'); head.className = 'hero-form-suggestion-card-head';
+      const copy = document.createElement('div'); const title = document.createElement('strong'); title.textContent = suggestion.title || 'پیشنهاد'; const rationale = document.createElement('small'); const fallbackCount = Number(suggestion.fallbackFieldCount) || 0; rationale.textContent = (suggestion.rationale || '') + (fallbackCount ? ' · ' + fallbackCount + ' مقدارِ کم‌ریسک برای کامل‌شدن فرم افزوده شد.' : ''); copy.append(title, rationale);
+      const select = document.createElement('button'); select.type = 'button'; select.textContent = 'انتخاب این پیشنهاد'; select.addEventListener('click', () => { applyFormSuggestion(form, suggestion.entries); closeFormSuggestionDialog(true); }); head.append(copy, select); card.append(head);
+      const values = document.createElement('div'); values.className = 'hero-form-suggestion-card-fields';
+      const fieldLabels = new Map(fields.map(field => [field.name, field.label]));
+      for (const entry of Array.isArray(suggestion.entries) ? suggestion.entries : []) values.append(renderFormSuggestionEntry(entry, fieldLabels.get(entry.name)));
+      card.append(values); container.append(card);
+    };
+    const appendFormSuggestionConversation = (container, speaker, value) => {
+      const message = document.createElement('article'); message.className = 'hero-form-suggestion-message'; message.dataset.speaker = speaker;
+      const label = document.createElement('b'); label.textContent = speaker === 'user' ? 'شما' : 'AI';
+      const text = document.createElement('span'); text.textContent = value;
+      message.append(label, text); container.append(message); container.scrollTop = container.scrollHeight;
+    };
+    const openFormSuggestion = async (form, trigger) => {
+      if (!formSuggestionEnabled() || !formSuggestionEligible(form)) return;
+      closeFormSuggestionDialog(false);
+      const fields = serializeFormSuggestionFields(form);
+      const assets = serializeAdvisorAssets(form);
+      if (!fields.length && !assets.length) return;
+      const titleText = formSuggestionTitle(form); const description = formSuggestionDescription(form);
+      const dialog = document.createElement('dialog'); dialog.className = 'hero-form-suggestion-dialog'; dialog.dataset.heroFormSuggestionDialog = 'true'; dialog.setAttribute('aria-labelledby', 'hero-form-suggestion-title'); dialog._heroFormSuggestionTrigger = trigger;
+      const head = document.createElement('header'); head.className = 'hero-form-suggestion-head'; const headCopy = document.createElement('div'); const heading = document.createElement('h2'); heading.id = 'hero-form-suggestion-title'; heading.textContent = 'ادوایزر برای «' + titleText + '»'; const intro = document.createElement('p'); intro.textContent = 'پیشنهاد، ریسک و تست را بازبینی کنید؛ اعمال مقدار یا انتخاب فایل و ثبت نهایی فقط با شماست.'; headCopy.append(heading, intro); const close = document.createElement('button'); close.type = 'button'; close.className = 'hero-form-suggestion-close'; close.textContent = '×'; close.setAttribute('aria-label', 'بستن'); close.addEventListener('click', () => closeFormSuggestionDialog(true)); head.append(headCopy, close); dialog.append(head);
+      const body = document.createElement('div'); body.className = 'hero-form-suggestion-body'; const fieldGrid = document.createElement('div'); fieldGrid.className = 'hero-form-suggestion-fields';
+      const advisorLabel = document.createElement('label'); advisorLabel.className = 'full'; advisorLabel.textContent = 'AI و مدل پیشنهاددهنده'; const advisor = document.createElement('select'); advisor.name = 'advisor'; advisor.setAttribute('aria-label', 'انتخاب AI و مدل پیشنهاددهنده'); const local = document.createElement('option'); local.value = 'local'; local.textContent = 'راهنمای محلی Hero · بدون هزینه'; advisor.append(local); advisorLabel.append(advisor);
+      const boxLabel = document.createElement('label'); boxLabel.className = 'full'; boxLabel.textContent = 'شرح هدف این باکس'; const box = document.createElement('textarea'); box.readOnly = true; box.value = description; box.dataset.heroFormPurposeOutput = 'true'; box.setAttribute('aria-label', 'شرح هدف این باکس'); boxLabel.append(box); fieldGrid.append(advisorLabel, boxLabel);
+      const requestForm = document.createElement('form'); requestForm.className = 'hero-form-suggestion-request'; const actions = document.createElement('div'); actions.className = 'hero-form-suggestion-actions'; const announce = document.createElement('button'); announce.type = 'submit'; announce.textContent = 'اعلام پیشنهاد'; const cancel = document.createElement('button'); cancel.type = 'button'; cancel.textContent = 'انصراف'; cancel.addEventListener('click', () => closeFormSuggestionDialog(true)); actions.append(announce, cancel); requestForm.append(fieldGrid, actions);
+      const status = document.createElement('p'); status.className = 'hero-form-suggestion-status'; status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite'); status.textContent = 'در حال آماده‌سازی انتخاب AI…'; const results = document.createElement('section'); results.className = 'hero-form-suggestion-results'; results.setAttribute('aria-label', 'پیشنهادهای ادوایزر'); const advisorInsights = document.createElement('section'); advisorInsights.className = 'hero-form-suggestion-document'; advisorInsights.hidden = true; advisorInsights.setAttribute('aria-label', 'تحلیل تصمیم، تست‌ها و دارایی‌های پیشنهادی');
+      // Only the existing optional project-input form may receive a draft
+      // document. Choosing it copies text into that form; it never uploads or
+      // persists anything from this transient dialog.
+      const documentEligible = form.id === 'upload-form' && fields.some(field => field.name === 'filename') && fields.some(field => field.name === 'content');
+      const documentPanel = document.createElement('section'); documentPanel.className = 'hero-form-suggestion-document'; documentPanel.hidden = true; documentPanel.setAttribute('aria-label', 'پیش‌نویس سند اختیاری');
+      const documentHead = document.createElement('header'); const documentCopy = document.createElement('div'); const documentTitle = document.createElement('strong'); const documentRationale = document.createElement('small'); documentCopy.append(documentTitle, documentRationale); const useDocument = document.createElement('button'); useDocument.type = 'button'; useDocument.textContent = 'قرار دادن سند در فرم'; documentHead.append(documentCopy, useDocument); const documentName = document.createElement('p'); documentName.className = 'hero-form-suggestion-document-name'; const documentContent = document.createElement('textarea'); documentContent.readOnly = true; documentContent.setAttribute('aria-label', 'متن پیش‌نویس سند'); const documentNotice = document.createElement('small'); documentNotice.textContent = 'این پیش‌نویس هنوز ذخیره یا بارگذاری نشده است؛ پس از بازبینی، ثبت نهایی با دکمهٔ فرم اصلی انجام می‌شود.'; documentPanel.append(documentHead, documentName, documentContent, documentNotice);
+      const feedbackPanel = document.createElement('section'); feedbackPanel.className = 'hero-form-suggestion-feedback'; feedbackPanel.hidden = true; feedbackPanel.setAttribute('aria-label', 'گفت‌وگو برای بهبود پیشنهاد');
+      const feedbackHead = document.createElement('div'); feedbackHead.className = 'hero-form-suggestion-feedback-head'; const feedbackTitle = document.createElement('strong'); feedbackTitle.textContent = 'بهبود پیشنهاد با AI'; const feedbackHelp = document.createElement('small'); feedbackHead.append(feedbackTitle, feedbackHelp);
+      const conversation = document.createElement('div'); conversation.className = 'hero-form-suggestion-conversation'; conversation.setAttribute('aria-live', 'polite');
+      const feedbackForm = document.createElement('form'); feedbackForm.className = 'hero-form-suggestion-feedback-form'; const feedbackInput = document.createElement('textarea'); feedbackInput.maxLength = 1000; feedbackInput.placeholder = 'مثلاً: پیشنهادها کوتاه‌تر باشند و فقط روی تأیید Foundation تمرکز کنند.'; feedbackInput.setAttribute('aria-label', 'بازخورد برای بهبود پیشنهاد'); const refine = document.createElement('button'); refine.type = 'submit'; refine.textContent = 'ساخت پیشنهاد بهتر'; feedbackForm.append(feedbackInput, refine); feedbackPanel.append(feedbackHead, conversation, feedbackForm);
+      body.append(requestForm, status, results, advisorInsights, documentPanel, feedbackPanel); dialog.append(body); document.body.append(dialog); activeFormSuggestionDialog = dialog;
+      let refinementCount = 0; let suggestionCount = 0; let suggestionsReady = false;
+      // This is a UI preference for the Advisor service, not a project
+      // setting.  Its value contains only a public profile id and is shared
+      // by all project forms in this browser.
+      const advisorSelectionStorageKey = 'hero.advisor.selection.form-suggestions.v1';
+      const restoreAdvisorSelection = () => { try { const saved = localStorage.getItem(advisorSelectionStorageKey); if (saved && Array.from(advisor.options).some(option => option.value === saved && !option.disabled)) advisor.value = saved; } catch { /* preference is optional */ } };
+      const saveAdvisorSelection = () => { try { localStorage.setItem(advisorSelectionStorageKey, advisor.value); } catch { /* preference is optional */ } };
+      const isLiveAdvisor = () => Boolean(advisor.value && advisor.value !== 'local');
+      const resetSuggestionSession = () => { refinementCount = 0; suggestionCount = 0; suggestionsReady = false; results.replaceChildren(); advisorInsights.replaceChildren(); advisorInsights.hidden = true; conversation.replaceChildren(); feedbackInput.value = ''; feedbackPanel.hidden = true; documentPanel.hidden = true; documentTitle.textContent = ''; documentRationale.textContent = ''; documentName.textContent = ''; documentContent.value = ''; useDocument.onclick = null; box.value = description; };
+      const syncRefinement = () => {
+        const canRefine = suggestionsReady && isLiveAdvisor() && suggestionCount < formSuggestionMaxCount;
+        feedbackInput.disabled = !canRefine; refine.disabled = !canRefine; feedbackPanel.hidden = !suggestionsReady;
+        feedbackHelp.textContent = !suggestionsReady ? '' : !isLiveAdvisor() ? 'برای گفت‌وگوی تعاملی، یک AI و مدلِ آماده را انتخاب و دوباره پیشنهاد بگیرید.' : suggestionCount >= formSuggestionMaxCount ? '۱۰ پیشنهاد این پنجره آماده است؛ یکی را انتخاب کنید یا برای شروع یک مجموعهٔ تازه، دوباره «اعلام پیشنهاد» را بزنید.' : 'اکنون ' + suggestionCount + ' از ۱۰ پیشنهاد آماده است؛ هر بازخورد فقط یک گزینهٔ تازه می‌سازد. اطلاعات حساس وارد نکنید.';
+      };
+      const renderDocumentProposal = proposal => {
+        if (!documentEligible || !proposal || typeof proposal !== 'object' || typeof proposal.filename !== 'string' || typeof proposal.content !== 'string') { documentPanel.hidden = true; return; }
+        documentTitle.textContent = proposal.title || 'پیش‌نویس سند اختیاری'; documentRationale.textContent = proposal.rationale || ''; documentName.textContent = proposal.filename; documentContent.value = proposal.content;
+        useDocument.onclick = () => { applyFormSuggestion(form, [{ name: 'filename', type: 'text', value: proposal.filename }, { name: 'content', type: 'textarea', value: proposal.content }]); closeFormSuggestionDialog(true); };
+        documentPanel.hidden = false;
+      };
+      const renderAdvisorInsights = suggestionData => {
+        advisorInsights.replaceChildren();
+        const support = suggestionData?.decisionSupport || {}; const groups = [['فرض‌های مهم', support.assumptions], ['ریسک‌ها', support.risks], ['تست‌های پیشنهادی', support.tests], ['فرصت‌های بهبود', support.improvements]];
+        for (const [label, values] of groups) { if (!Array.isArray(values) || !values.length) continue; const block = document.createElement('article'); const title = document.createElement('strong'); title.textContent = label; const list = document.createElement('ul'); for (const value of values) { const item = document.createElement('li'); item.textContent = value; list.append(item); } block.append(title, list); advisorInsights.append(block); }
+        for (const proposal of Array.isArray(suggestionData?.assetProposals) ? suggestionData.assetProposals : []) { const block = document.createElement('article'); const title = document.createElement('strong'); title.textContent = (proposal.kind === 'image' ? 'پیشنهاد تصویر' : 'پیشنهاد سند') + ' · ' + (proposal.title || proposal.label || 'دارایی'); const detail = document.createElement('p'); detail.textContent = (proposal.filename ? proposal.filename + ' · ' : '') + (proposal.brief || '') + (proposal.altText ? ' · متن جایگزین: ' + proposal.altText : ''); const note = document.createElement('small'); note.textContent = 'این فقط طرح پیشنهادی است؛ مرورگر فایل را خودکار انتخاب یا بارگذاری نمی‌کند.'; block.append(title, detail, note); advisorInsights.append(block); }
+        advisorInsights.hidden = advisorInsights.children.length === 0;
+      };
+      const renderSuggestionSet = (suggestionData, { refined = false } = {}) => {
+        if (!refined) { results.replaceChildren(); suggestionCount = 0; }
+        box.value = typeof suggestionData?.boxPurpose === 'string' && suggestionData.boxPurpose.trim() ? suggestionData.boxPurpose.trim() : description;
+        const available = Math.max(0, formSuggestionMaxCount - suggestionCount);
+        for (const suggestion of Array.isArray(suggestionData?.suggestions) ? suggestionData.suggestions.slice(0, available) : []) renderFormSuggestionCard(results, suggestion, fields, form);
+        suggestionCount = results.children.length;
+        suggestionsReady = results.children.length > 0;
+        renderDocumentProposal(suggestionData?.documentProposal);
+        renderAdvisorInsights(suggestionData);
+        if (suggestionsReady) {
+          const purpose = typeof suggestionData?.boxPurpose === 'string' ? suggestionData.boxPurpose.trim() : '';
+          const providerFeedbackResponse = typeof suggestionData?.feedbackResponse === 'string' ? suggestionData.feedbackResponse.trim() : '';
+          const responseText = refined ? (providerFeedbackResponse || 'بازخورد شما اعمال شد و یک پیشنهاد تازه برای همین فرم آماده است.') : suggestionData?.providerInvoked === true ? formSuggestionInitialCount + ' پیشنهاد آغازین آماده‌اند. اگر چیزی باید تغییر کند، بازخوردتان را بنویسید تا هر بار یک گزینهٔ تازه بسازم.' + (purpose ? ' ' + purpose : '') : 'پیشنهاد محلی آماده است. برای گفت‌وگوی تعاملی و اصلاح بر پایهٔ بازخورد، یک AI و مدلِ آماده انتخاب کنید.';
+          appendFormSuggestionConversation(conversation, 'assistant', responseText);
+        }
+        syncRefinement();
+      };
+      const loadOptions = async () => { try { const url = new URL('/api/advisor/options', location.origin); if (projectId) url.searchParams.set('projectId', projectId); const response = await fetch(url.pathname + url.search, { credentials: 'same-origin', cache: 'no-store' }); const payload = await response.json().catch(() => null); if (!response.ok) throw new Error(apiErrorMessage(response, payload, 'فهرست AIهای ادوایزر دریافت نشد')); const options = payload?.advisor || payload?.formSuggestions || {}; for (const profile of Array.isArray(options.profiles) ? options.profiles : []) { const option = document.createElement('option'); option.value = profile.profileId; option.textContent = (profile.providerName || profile.providerId) + ' / ' + (profile.modelName || profile.modelId) + ' · v' + (profile.profileVersion || '?') + (profile.selectable ? (profile.dispatchReady === false ? ' · مجوز سراسری Test آماده نیست' : '') : ' · فعلاً غیرفعال'); option.title = profile.selectionNotice || ''; option.disabled = profile.selectable !== true; advisor.append(option); } restoreAdvisorSelection(); status.textContent = isLiveAdvisor() ? 'AI سراسری انتخاب شد؛ برای ساخت پیشنهاد اولیه «اعلام پیشنهاد» را بزنید.' : 'AI و مدل را انتخاب کنید و سپس «اعلام پیشنهاد» را بزنید.'; } catch (error) { status.dataset.state = 'error'; status.textContent = error.message || 'راهنمای محلی همچنان قابل استفاده است.'; } };
+      advisor.addEventListener('change', () => { saveAdvisorSelection(); resetSuggestionSession(); status.dataset.state = ''; const selected = advisor.options[advisor.selectedIndex]; status.textContent = isLiveAdvisor() ? (selected?.title || 'AI سراسری انتخاب شد؛ برای ساخت پیشنهاد اولیه «اعلام پیشنهاد» را بزنید.') : 'راهنمای محلی انتخاب شد؛ برای پیشنهاد تعاملی یک AI و مدلِ آماده انتخاب کنید.'; });
+      requestForm.addEventListener('submit', async event => { event.preventDefault(); announce.disabled = true; cancel.disabled = true; status.dataset.state = ''; status.textContent = 'در حال تحلیل هدف باکس و ساخت ' + formSuggestionInitialCount + ' پیشنهاد قابل بررسی…'; resetSuggestionSession(); try { const response = await fetch('/api/advisor' + (projectId ? '?projectId=' + encodeURIComponent(projectId) : ''), { method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ projectId: projectId || null, formId: form.id || 'form-content', formTitle: titleText, boxDescription: description, selectedAdvisor: advisor.value, fields, assets }) }); const payload = await response.json().catch(() => null); if (!response.ok) throw new Error(apiErrorMessage(response, payload, 'پیشنهاد ادوایزر دریافت نشد')); renderSuggestionSet(payload?.advisor || payload?.formSuggestions); status.textContent = suggestionsReady ? 'هدف باکس تحلیل شد و ' + formSuggestionInitialCount + ' پیشنهاد آغازین آماده‌اند؛ یکی را انتخاب یا با AI دربارهٔ آن‌ها گفت‌وگو کنید.' : 'پیشنهادی برای این فرم ساخته نشد.'; } catch (error) { status.dataset.state = 'error'; status.textContent = error.message || 'ساخت پیشنهاد ناموفق بود.'; } finally { announce.disabled = false; cancel.disabled = false; syncRefinement(); } });
+      feedbackForm.addEventListener('submit', async event => { event.preventDefault(); const feedback = feedbackInput.value.trim(); if (!isLiveAdvisor()) { status.dataset.state = 'error'; status.textContent = 'برای بهبود تعاملی، یک AI و مدلِ آماده انتخاب کنید.'; return; } if (feedback.length < 3) { feedbackInput.focus(); status.dataset.state = 'error'; status.textContent = 'لطفاً کوتاه توضیح دهید چه چیزی باید بهتر شود.'; return; } if (suggestionCount >= formSuggestionMaxCount) return; const nextIteration = refinementCount + 1; refine.disabled = true; feedbackInput.disabled = true; announce.disabled = true; status.dataset.state = ''; status.textContent = 'در حال اعمال بازخورد و ساخت یک پیشنهاد تازه…'; appendFormSuggestionConversation(conversation, 'user', feedback); try { const response = await fetch('/api/advisor/refine' + (projectId ? '?projectId=' + encodeURIComponent(projectId) : ''), { method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ projectId: projectId || null, formId: form.id || 'form-content', formTitle: titleText, boxDescription: description, selectedAdvisor: advisor.value, fields, assets, feedback, iteration: nextIteration }) }); const payload = await response.json().catch(() => null); if (!response.ok) throw new Error(apiErrorMessage(response, payload, 'اصلاح پیشنهاد دریافت نشد')); const advisorResult = payload?.advisor || payload?.formSuggestions; refinementCount = Number(advisorResult?.refinement?.iteration) || nextIteration; feedbackInput.value = ''; renderSuggestionSet(advisorResult, { refined: true }); status.textContent = 'پیشنهاد ' + suggestionCount + ' از ۱۰ آماده است؛ آن را انتخاب کنید یا بازخورد دیگری بدهید.'; } catch (error) { status.dataset.state = 'error'; status.textContent = error.message || 'ساخت پیشنهاد بهتر ناموفق بود.'; } finally { announce.disabled = false; syncRefinement(); } });
+      dialog.addEventListener('cancel', event => { event.preventDefault(); closeFormSuggestionDialog(true); }); dialog.addEventListener('click', event => { if (event.target === dialog) closeFormSuggestionDialog(true); }); dialog.showModal(); void loadOptions();
+    };
+    const uninstallFormSuggestionTriggers = () => { closeFormSuggestionDialog(false); document.querySelectorAll('[data-hero-form-suggestion-trigger]').forEach(trigger => trigger.remove()); document.querySelectorAll('.hero-advisable-form').forEach(form => form.classList.remove('hero-advisable-form')); };
+    const installFormSuggestionTriggers = container => {
+      if (!formSuggestionEnabled()) return;
+      const forms = []; if (container?.nodeType === 1 && container.matches?.('form')) forms.push(container); container?.querySelectorAll?.('form').forEach(form => forms.push(form));
+      for (const form of forms) { if (!formSuggestionEligible(form) || form.querySelector(':scope > [data-hero-form-suggestion-trigger]')) continue; const trigger = document.createElement('button'); trigger.type = 'button'; trigger.className = 'hero-form-suggestion-trigger'; trigger.dataset.heroFormSuggestionTrigger = 'true'; trigger.textContent = '💡'; trigger.title = 'باز کردن ادوایزر این فرم'; trigger.setAttribute('aria-label', 'باز کردن ادوایزر این فرم'); trigger.setAttribute('aria-hidden', 'false'); trigger.addEventListener('click', event => { event.preventDefault(); event.stopPropagation(); void openFormSuggestion(form, trigger); }); form.classList.add('hero-advisable-form'); form.prepend(trigger); }
+    };
+    const formSuggestionToggle = document.querySelector('[data-hero-form-suggestions-toggle]');
+    const syncFormSuggestionToggle = () => { const enabled = formSuggestionEnabled(); formSuggestionToggle?.setAttribute('aria-pressed', String(enabled)); if (formSuggestionToggle) { formSuggestionToggle.title = enabled ? 'خاموش کردن ادوایزر' : 'روشن کردن ادوایزر'; formSuggestionToggle.setAttribute('aria-label', formSuggestionToggle.title); } };
+    const setFormSuggestionEnabled = enabled => { try { localStorage.setItem(formSuggestionEnabledKey, String(enabled === true)); } catch { /* current page still updates */ } if (enabled) installFormSuggestionTriggers(document); else uninstallFormSuggestionTriggers(); syncFormSuggestionToggle(); };
+    formSuggestionToggle?.addEventListener('click', () => setFormSuggestionEnabled(!formSuggestionEnabled()));
+    const formSuggestionObserver = new MutationObserver(records => { if (!formSuggestionEnabled()) return; for (const record of records) for (const node of record.addedNodes) installFormSuggestionTriggers(node); });
+    formSuggestionObserver.observe(document.body, { childList: true, subtree: true });
+    document.addEventListener('keydown', event => { if (event.key === 'Escape' && activeFormSuggestionDialog?.open) closeFormSuggestionDialog(true); });
+    window.heroFormSuggestions = Object.freeze({ enable: () => setFormSuggestionEnabled(true), disable: () => setFormSuggestionEnabled(false), isEnabled: formSuggestionEnabled, openForForm: form => { if (form?.matches?.('form')) void openFormSuggestion(form, form.querySelector('[data-hero-form-suggestion-trigger]')); } });
+    window.heroAdvisor = window.heroFormSuggestions;
+    syncFormSuggestionToggle(); installFormSuggestionTriggers(document);
     const walkthroughStateKey = 'hero.project-walkthrough.state.v1';
     const walkthroughServicePrefix = 'hero.project-walkthrough.enabled.';
     const walkthroughCoachSideKey = 'hero.project-walkthrough.coach-side.v1';
@@ -974,7 +1372,7 @@ export function getHeroShellScript() {
     // a target that cannot exist on the current page.
     const walkthroughStepForSurface = surface => ({
       portfolio: 'project-selection',
-      workspace: 'intake',
+      workspace: 'foundation',
       studio: 'studio-review',
       command: 'command-center',
       control: 'operations-review'
@@ -998,7 +1396,7 @@ export function getHeroShellScript() {
       const projectId = stateProjectId(active);
       const routeSteps = {
         portfolio: new Set(['project-selection', 'create-project']),
-        workspace: new Set(['intake', 'inputs', 'foundation', 'settings']),
+        workspace: new Set(['inputs', 'foundation', 'settings']),
         studio: new Set(['studio-review']),
         command: new Set(['command-center']),
         control: new Set(['operations-review', 'team-research', 'live-execution', 'test-delivery', 'production'])
@@ -1136,7 +1534,7 @@ export function getHeroShellScript() {
         if (placementFrame !== null) return;
         placementFrame = requestAnimationFrame(() => { placementFrame = null; placeCoach(); });
       };
-      const requiresRecordedCompletion = new Set(['identity', 'project-selection', 'intake', 'inputs', 'foundation', 'settings']);
+      const requiresRecordedCompletion = new Set(['identity', 'project-selection', 'foundation', 'settings']);
       // These are genuine product-delivery gates, not presentation steps. The
       // guide must remain honest and cannot mark them complete before the
       // corresponding execution/evidence capability exists.
@@ -1170,13 +1568,11 @@ export function getHeroShellScript() {
           const response = await fetch('/api/projects/' + encodeURIComponent(scopedProjectId) + '/workspace-overview', { credentials: 'same-origin', cache: 'no-store' });
           const body = await response.json().catch(() => ({}));
           if (!response.ok) throw new Error(body.message || body.code || 'دادهٔ پروژه خوانده نشد.');
-          const overview = body.overview || {}; const intake = overview.intake || {}; const foundation = overview.foundationProposal || {};
-          const complete = currentStep.id === 'intake' ? Boolean(intake.goal && intake.users && intake.autonomy)
-            : currentStep.id === 'inputs' ? Array.isArray(overview.inputs) && overview.inputs.length > 0
-              : currentStep.id === 'foundation' ? foundation.state === 'approved'
-                : currentStep.id === 'settings' ? Array.isArray(overview.settings) && overview.settings.some(item => item.path !== 'backoffice.walkthrough.enabled')
-                  : true;
-          if (!complete) { const labels = { intake: 'هدف، کاربران و سطح خودکارسازی را ثبت کنید.', inputs: 'حداقل یک ورودی متن یا لینک عمومی ثبت کنید.', foundation: 'Foundation را تأیید یا بازنگری کنید تا وضعیت واقعی آن به‌روز شود.', settings: 'حداقل یک تنظیم نسخه‌دار پروژه ثبت کنید.' }; completion.textContent = labels[currentStep.id] || 'این گام هنوز کامل نشده است.'; return false; }
+          const overview = body.overview || {}; const foundation = overview.foundationProposal || {};
+          const complete = currentStep.id === 'foundation' ? foundation.state === 'approved'
+            : currentStep.id === 'settings' ? Array.isArray(overview.settings) && overview.settings.some(item => item.path !== 'backoffice.walkthrough.enabled')
+              : true;
+          if (!complete) { const labels = { foundation: 'Foundation را تأیید یا بازنگری کنید تا وضعیت واقعی آن به‌روز شود.', settings: 'حداقل یک تنظیم نسخه‌دار پروژه ثبت کنید.' }; completion.textContent = labels[currentStep.id] || 'این گام هنوز کامل نشده است.'; return false; }
           completion.textContent = 'معیار تکمیل از دادهٔ واقعی این پروژه تأیید شد.'; next.disabled = false; return true;
         } catch (error) { completion.textContent = error.message || 'بازخوانی معیار تکمیل ناموفق بود.'; return false; }
         finally { schedulePlacement(); }
@@ -1222,18 +1618,22 @@ export function getHeroShellScript() {
         let advisorPlacementFrame = null;
         const scheduleAdvisorPlacement = () => { if (advisorPlacementFrame !== null) return; advisorPlacementFrame = requestAnimationFrame(() => { advisorPlacementFrame = null; placeAdvisor(); }); };
         const applyAdvisorSide = side => { advisorSide = side; advisor.dataset.heroWalkthroughSide = side; setPreferredSide(walkthroughAdvisorSideKey, side); scheduleAdvisorPlacement(); };
-        const advisorSelectionStorageKey = projectIdForGuide ? 'hero.project-walkthrough.advisor.' + projectIdForGuide + '.v1' : null;
-        const restoreAdvisorSelection = () => { if (!advisorSelectionStorageKey) return; try { const saved = localStorage.getItem(advisorSelectionStorageKey); if (saved && Array.from(selector.options).some(option => option.value === saved && !option.disabled)) selector.value = saved; } catch { /* default local advisor remains available */ } };
-        const saveAdvisorSelection = () => { if (!advisorSelectionStorageKey) return; try { localStorage.setItem(advisorSelectionStorageKey, selector.value); } catch { /* preference is optional */ } };
+        // A Walk-Through advisor is a Back Office service preference, rather
+        // than a property of the currently open project.  Project-level
+        // binding/scope/cost gates are still verified separately at dispatch.
+        const advisorSelectionStorageKey = 'hero.advisor.selection.walkthrough-guide.v1';
+        const restoreAdvisorSelection = () => { try { const saved = localStorage.getItem(advisorSelectionStorageKey); if (saved && Array.from(selector.options).some(option => option.value === saved && !option.disabled)) selector.value = saved; } catch { /* default local advisor remains available */ } };
+        const saveAdvisorSelection = () => { try { localStorage.setItem(advisorSelectionStorageKey, selector.value); } catch { /* preference is optional */ } };
         const loadAdvisorOptions = async () => {
           if (!projectIdForGuide) return;
           const response = await fetch('/api/projects/' + encodeURIComponent(projectIdForGuide) + '/walkthrough-advisor/options', { credentials: 'same-origin', cache: 'no-store' });
-          const body = await response.json().catch(() => ({}));
-          if (!response.ok) throw new Error(body.message || body.code || 'فهرست AIهای قابل‌استفاده دریافت نشد.');
-          const options = body.advisorOptions || {};
+          const body = await response.json().catch(() => null);
+          if (!response.ok) throw new Error(apiErrorMessage(response, body, 'فهرست AIهای قابل‌استفاده دریافت نشد'));
+          const options = body?.advisorOptions || {};
           for (const profile of Array.isArray(options.profiles) ? options.profiles : []) {
             const option = document.createElement('option'); option.value = profile.profileId;
-            option.textContent = (profile.providerName || profile.providerId) + ' / ' + (profile.modelName || profile.modelId) + ' · v' + (profile.profileVersion || '?') + (profile.selectable ? '' : ' · آماده نیست');
+            option.textContent = (profile.providerName || profile.providerId) + ' / ' + (profile.modelName || profile.modelId) + ' · v' + (profile.profileVersion || '?') + (profile.selectable ? (profile.dispatchReady === false ? ' · مجوز سراسری Test آماده نیست' : '') : ' · آماده نیست');
+            option.title = profile.selectionNotice || '';
             option.disabled = profile.selectable !== true;
             selector.append(option);
           }
@@ -1247,13 +1647,13 @@ export function getHeroShellScript() {
             const endpoint = new URL('/api/walkthrough/advice', location.origin);
             if (projectIdForGuide) endpoint.searchParams.set('projectId', projectIdForGuide);
             const response = await fetch(endpoint.pathname + endpoint.search, { method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ stepId: currentStep.id, projectId: projectIdForGuide, advisorProfileId: selector.value === 'local' ? null : selector.value, question: rawQuestion }) });
-            const body = await response.json().catch(() => ({}));
-            if (!response.ok) throw new Error(body.message || body.code || 'مشاوره در دسترس نیست.');
-            const advisorResponse = body.advisor || {};
+            const body = await response.json().catch(() => null);
+            if (!response.ok) throw new Error(apiErrorMessage(response, body, 'مشاوره در دسترس نیست'));
+            const advisorResponse = body?.advisor || {};
             renderAdvisorMessage(advisorResponse.response || 'برای این گام پاسخ قابل‌نمایش وجود ندارد.');
-            status.textContent = '';
+            status.textContent = advisorResponse.providerInvoked === true ? 'پاسخ زنده با Provider انتخابی تولید شد؛ مصرف حسابداری‌شده: ' + (advisorResponse?.invocation?.costUnits ?? '—') + ' واحد.' : '';
           } catch (error) {
-            renderAdvisorMessage('مشاوره در این لحظه در دسترس نیست. برای ادامه، ورود انسانی و Scope پروژه را بررسی کنید.'); status.dataset.state = 'error'; status.textContent = error.message;
+            renderAdvisorMessage('مشاوره اجرا نشد: ' + (error.message || 'پاسخ در دسترس نیست.')); status.dataset.state = 'error'; status.textContent = error.message || 'پاسخ در دسترس نیست.';
           } finally { submit.disabled = false; scheduleAdvisorPlacement(); }
         };
         form.addEventListener('submit', event => { event.preventDefault(); const text = question.value.trim(); if (!text) { question.focus(); status.dataset.state = 'error'; status.textContent = 'ابتدا پرسش خود را بنویسید.'; return; } question.value = ''; askAdvisor(text); });

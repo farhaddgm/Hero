@@ -56,6 +56,11 @@ test("PostgreSQL schema contract covers append-only audit and release boundaries
     "foundation_proposal_versions",
     "project_setting_versions",
     "project_import_plans",
+    "product_request_versions",
+    "product_runtime_reservations",
+    "product_runtime_capacity_snapshots",
+    "product_runtime_reconciliation_runs",
+    "project_purge_tombstones",
     "smart_tester_error_documents",
     "collaboration_records",
     "command_decision_records",
@@ -138,6 +143,21 @@ test("PostgreSQL schema contract covers append-only audit and release boundaries
   assert.match(aiCredentialAuditSql, /ai\.credential-stored/);
   assert.match(aiCredentialAuditSql, /ai\.credential-health-checked/);
   assert.match(smartTesterSql, /smart_tester_error_documents_append_only_guard/);
+  const productRuntimeReservationSql = readPostgresMigration("018");
+  assert.match(productRuntimeReservationSql, /CREATE TABLE IF NOT EXISTS product_runtime_reservations/);
+  assert.match(productRuntimeReservationSql, /plan_fingerprint text NOT NULL/);
+  assert.match(productRuntimeReservationSql, /UNIQUE \(project_id, run_id\)/);
+  const productRuntimeCapacitySql = readPostgresMigration("019");
+  assert.match(productRuntimeCapacitySql, /CREATE TABLE IF NOT EXISTS product_runtime_capacity_snapshots/);
+  assert.match(productRuntimeCapacitySql, /ALTER TABLE product_runtime_reservations/);
+  assert.match(productRuntimeCapacitySql, /max_concurrent_runs integer NOT NULL/);
+  const productRuntimeLeaseSql = readPostgresMigration("020");
+  assert.match(productRuntimeLeaseSql, /CREATE TABLE IF NOT EXISTS product_runtime_reconciliation_runs/);
+  assert.match(productRuntimeLeaseSql, /lease_ttl_seconds integer NOT NULL/);
+  assert.match(productRuntimeLeaseSql, /state IN \('active', 'released', 'expired'\)/);
+  const projectPurgeSql = readPostgresMigration("021");
+  assert.match(projectPurgeSql, /CREATE TABLE IF NOT EXISTS project_purge_tombstones/);
+  assert.match(projectPurgeSql, /deleted_object_count integer NOT NULL/);
 });
 
 test("PostgreSQL migration runner is transaction-bound and requires an injected client", async () => {

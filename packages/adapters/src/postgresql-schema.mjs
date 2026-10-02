@@ -61,6 +61,11 @@ const PROJECT_WORKSPACE_TABLES = Object.freeze([
   "project_setting_versions",
   "project_import_plans"
 ]);
+const PRODUCT_REQUEST_TABLES = Object.freeze(["product_request_versions"]);
+const PRODUCT_RUNTIME_RESERVATION_TABLES = Object.freeze(["product_runtime_reservations"]);
+const PRODUCT_RUNTIME_CAPACITY_TABLES = Object.freeze(["product_runtime_capacity_snapshots"]);
+const PRODUCT_RUNTIME_LEASE_TABLES = Object.freeze(["product_runtime_reconciliation_runs"]);
+const PROJECT_PURGE_TABLES = Object.freeze(["project_purge_tombstones"]);
 const SMART_TESTER_TABLES = Object.freeze(["smart_tester_error_documents"]);
 const COLLABORATION_COMMAND_CATALOG_TABLES = Object.freeze(["collaboration_records", "command_decision_records", "approval_records", "system_catalog_entities", "system_catalog_dependencies"]);
 const INTELLIGENCE_NOTIFICATION_TABLES = Object.freeze(["usage_events", "evaluation_records", "health_records", "notification_records", "observability_audit_records", "catalog_drift_proposals"]);
@@ -78,6 +83,11 @@ export const POSTGRES_TABLES = Object.freeze([
   ...BACKOFFICE_FOUNDATION_TABLES,
   ...PROJECT_IDENTITY_TABLES,
   ...PROJECT_WORKSPACE_TABLES,
+  ...PRODUCT_REQUEST_TABLES,
+  ...PRODUCT_RUNTIME_RESERVATION_TABLES,
+  ...PRODUCT_RUNTIME_CAPACITY_TABLES,
+  ...PRODUCT_RUNTIME_LEASE_TABLES,
+  ...PROJECT_PURGE_TABLES,
   ...SMART_TESTER_TABLES,
   ...COLLABORATION_COMMAND_CATALOG_TABLES,
   ...INTELLIGENCE_NOTIFICATION_TABLES,
@@ -180,6 +190,36 @@ export const POSTGRES_MIGRATIONS = Object.freeze([
     name: "ai-credential-audit-events",
     file: "016_ai_credential_audit_events.sql",
     tables: Object.freeze(["human_identity_audit"])
+  }),
+  Object.freeze({
+    id: "017",
+    name: "product-request-versions",
+    file: "017_product_request_versions.sql",
+    tables: PRODUCT_REQUEST_TABLES
+  }),
+  Object.freeze({
+    id: "018",
+    name: "product-runtime-reservations",
+    file: "018_product_runtime_reservations.sql",
+    tables: PRODUCT_RUNTIME_RESERVATION_TABLES
+  }),
+  Object.freeze({
+    id: "019",
+    name: "product-runtime-capacity",
+    file: "019_product_runtime_capacity.sql",
+    tables: PRODUCT_RUNTIME_CAPACITY_TABLES
+  }),
+  Object.freeze({
+    id: "020",
+    name: "product-runtime-leases",
+    file: "020_product_runtime_leases.sql",
+    tables: PRODUCT_RUNTIME_LEASE_TABLES
+  }),
+  Object.freeze({
+    id: "021",
+    name: "project-purge-tombstones",
+    file: "021_project_purge_tombstones.sql",
+    tables: PROJECT_PURGE_TABLES
   })
 ]);
 

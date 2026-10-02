@@ -1,7 +1,7 @@
 # مدل محیط و انتشار Hero و محصولات
 
 - Document ID: `HERO-ARCH-ENVIRONMENT-AND-PRODUCT-RELEASE-MODEL`
-- Version: `1.0.0`
+- Version: `1.1.0`
 - Status: `active`
 - Owner: `hero-architecture`
 - Scope: `cross-project`
@@ -37,6 +37,35 @@ Hero Test، Hero Production، Product Test و Product Production چهار bounda
 Hero Production محل نگهداری تعریف پروژه، گیت‌ها، تصمیم‌ها، Evidence و Audit است. این نقش «Control Plane» است. runtime محصول محل اجرای کد و دادهٔ همان محصول است.
 
 مدیریت Product Test از Hero Production مجاز است، اما به معنی اجرای Product Test داخل container، database، network، volume یا Secretهای Hero Production نیست. Hero فقط درخواست و Evidence را هماهنگ می‌کند و adapter اجرایی باید boundary محصول و محیط را حفظ کند.
+
+## اجرای Product Test روی host مشترک
+
+اشتراک یک سرور فیزیکی، اشتراک محیط یا مجوز دسترسی متقابل نیست. Product Test می‌تواند در آینده روی همان host Hero Test قرار گیرد، فقط اگر هر محصول و محیط resource namespace مستقل زیر را داشته باشد:
+
+```text
+hero-test-*                         → فقط Hero Test
+hero-product-<slug>-test-*          → فقط Product Test همان محصول
+hero-product-<slug>-production-*    → فقط Product Production همان محصول
+```
+
+برای هر Product Runtime، repository/worktree، Compose project، database، volume، network، port/domain، Secret reference، backup و rollback point باید یکتا و مختص همان `product_id + environment` باشند. Product Runtime نباید هیچ volume، network، database، session، secret یا port متعلق به Hero یا محصول دیگر را reuse کند.
+
+این کنترل‌ها پیش از هر start اجباری‌اند:
+
+- container با user غیرroot و اصل least privilege اجرا شود؛
+- privileged mode، `network_mode: host`، Docker socket، broad host mount، مسیر parent و `container_name` عمومی ممنوع باشند؛
+- در حد سازگاری محصول `read_only`، `no-new-privileges`، capability drop، CPU/RAM/PID/timeout، healthcheck و restart policy محدود فعال باشند؛
+- egress به allowlist محدود و logها redacted باشند؛
+- capacity و port collision پیش از dispatch بررسی و در ابهام fail-closed شوند؛
+- build/test workspace محصول از repository Hero جدا باشد و هیچ local-path dependency به Hero نداشته باشد.
+
+این بخش قرارداد معماری است. Hero اکنون قرارداد و adapter امن Product Runner را در source دارد، اما Control Plane executor را پیش‌فرض configure نمی‌کند و اجرای خودکار Compose محصول هنوز operational نیست؛ تا زمانی که runbook و Exit Gate مربوط evidence واقعی ندارند، هیچ container محصولی نباید از UI Hero ساخته یا start شود.
+
+## Target خارجی و انتقال‌پذیری محصول
+
+یک server جدید «محیط Hero» محسوب نمی‌شود، مگر Hero خودش آنجا جداگانه مستقر شده باشد. برای Product Target خارجی، inventory نسخه‌دار، مالک، محیط، resource policy، هویت Agent، heartbeat، revoke، کانال Secret مستقل، TLS/egress policy و command محدود لازم است. Agent باید به‌صورت outbound به Control Plane متصل شود؛ listener عمومی برای shell یا credential دائمی پذیرفته نیست.
+
+انتقال فقط با immutable artifact و contract صورت می‌گیرد: `commit + version + digest`، SBOM/attestation reference، schema/config version، migration plan، backup checksum و runbook restore. `.env`، Docker volume، network یا Secret از host مبدا کپی نمی‌شود. تمرین انتقال به مقصد Clean همراه با health/readiness، restore و rollback evidence، شرط portability است.
 
 ## تمامیت Artifact
 
@@ -104,4 +133,4 @@ Product فقط acceptance criteria، configuration غیرمحرمانه، Eviden
 
 ## مرز عملیاتی فعلی
 
-این سند قرارداد معماری است و هیچ deployment، DNS، TLS، Secret یا Production change اجرا نمی‌کند. وضعیت و Evidence واقعی هر محیط در اسناد operation/evidence مربوط ثبت می‌شود.
+این سند قرارداد معماری است و هیچ deployment، DNS، TLS، Secret یا Production change اجرا نمی‌کند. وضعیت و Evidence واقعی هر محیط در اسناد operation/evidence مربوط ثبت می‌شود. معیار پذیرش اجرای محصول و انتقال در `HERO-OPS-PRODUCT-RUNTIME-ISOLATION-AND-TRANSFER@1.0.0` و sequencing آن در `HERO-ROADMAP-CONTROLLED-PRODUCT-FACTORY-20260917@1.0.0` آمده است.

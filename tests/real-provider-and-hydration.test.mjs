@@ -37,6 +37,7 @@ function liveAuthorization() {
     projectId: "hero",
     stepId: "HERO-021",
     documentVersion: "v1.0",
+    capability: "smart-tester",
     globalStop: false,
     safeCheckpointRequired: false
   };
@@ -57,7 +58,7 @@ test("OpenAI Responses adapter uses runtime credentials, structured JSON and usa
         async json() {
           return {
             id: "resp_test_001",
-            output_text: JSON.stringify({ schema: "analysis-v1", summary: "safe" }),
+            output_text: JSON.stringify({ schema: "analysis-v1", summary: "safe runtime-secret-never-persisted" }),
             usage: { input_tokens: 10, output_tokens: 5, total_tokens: 15 }
           };
         }
@@ -76,15 +77,54 @@ test("OpenAI Responses adapter uses runtime credentials, structured JSON and usa
     context: { artifact: "hero://artifact/test" }
   });
   assert.equal(result.output.schema, "analysis-v1");
+  assert.equal(result.output.summary, "safe [redacted]");
   assert.equal(result.usage.totalTokens, 15);
   assert.equal(result.usage.costUnits, 1);
   assert.equal(requests.length, 1);
   assert.equal(requests[0].options.headers.authorization, "Bearer runtime-secret-never-persisted");
   const body = JSON.parse(requests[0].options.body);
   assert.equal(body.store, false);
-  assert.deepEqual(body.text.format, { type: "json_object" });
+  assert.deepEqual(body.text.format, {
+    type: "json_schema",
+    name: "hero_analysis-v1",
+    strict: true,
+    schema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["schema", "answer"],
+      properties: {
+        schema: { type: "string", const: "analysis-v1" },
+        answer: { type: "string" }
+      }
+    }
+  });
   assert.equal(body.max_output_tokens, 100);
+  assert.deepEqual(body.reasoning, { effort: "none" });
   assert.doesNotMatch(JSON.stringify(result), /runtime-secret/);
+});
+
+test("OpenAI adapter classifies provider HTTP failures without exposing the response body", async () => {
+  const cases = [
+    [400, "PROVIDER_REQUEST_REJECTED"],
+    [401, "PROVIDER_AUTHENTICATION_FAILED"],
+    [403, "PROVIDER_PERMISSION_DENIED"],
+    [404, "PROVIDER_MODEL_OR_ENDPOINT_NOT_FOUND"],
+    [429, "PROVIDER_RATE_LIMITED"],
+    [503, "PROVIDER_UPSTREAM_UNAVAILABLE"]
+  ];
+  for (const [status, code] of cases) {
+    const adapter = createOpenAiResponsesAdapter({
+      endpoint: "https://api.example.test/v1/responses",
+      credentialEnv: "TEST_OPENAI_KEY",
+      env: { TEST_OPENAI_KEY: "runtime-secret" },
+      pricingCatalog: testPricingCatalog(),
+      fetchImpl: async () => ({ ok: false, status, async json() { return { error: { message: "provider-internal-detail" } }; } })
+    });
+    await assert.rejects(
+      () => adapter.generate({ credentialRef: "env:TEST_OPENAI_KEY", modelId: "gpt-test", role: "analyst", outputSchema: "analysis-v1", maxOutputTokens: 100, maxCostUnits: 1_000, request: "تست", context: {} }),
+      error => error.code === code && !error.message.includes("provider-internal-detail")
+    );
+  }
 });
 
 test("a configured live provider still requires version-bound external-spend authorization", async () => {
@@ -97,7 +137,7 @@ test("a configured live provider still requires version-bound external-spend aut
     pricingCatalog: testPricingCatalog(),
     fetchImpl: async () => {
       calls += 1;
-      return { ok: true, status: 200, async json() { return { output_text: '{"schema":"analysis-v1"}', usage: { input_tokens: 10, output_tokens: 5, total_tokens: 15 } }; } };
+      return { ok: true, status: 200, async json() { return { output_text: '{"schema":"analysis-v1","answer":"token: hidden-value"}', usage: { input_tokens: 10, output_tokens: 5, total_tokens: 15 } }; } };
     }
   });
   orchestration.registerProvider({ providerId: "openai", mode: "live", displayName: "OpenAI live", adapter, actor: OWNER, idempotencyKey: "live-provider-001" });
@@ -112,6 +152,8 @@ test("a configured live provider still requires version-bound external-spend aut
   const authorized = await orchestration.invoke({ invocationId: "live-invocation-approved", projectId: "hero", taskId: "live-task", stepId: "HERO-021", documentVersion: "v1.0", role: "analyst", contextSnapshotId: "live-context-approved", request: "تحلیل کن.", context: { artifact: "hero://artifact/live" }, externalSpendAuthorization: liveAuthorization(), actor: AGENT, idempotencyKey: "live-invocation-approved-key" });
   assert.equal(authorized.invocation.status, "completed");
   assert.equal(calls, 1);
+  assert.equal(authorized.invocation.response.output.answer, "token: [redacted]");
+  assert.doesNotMatch(JSON.stringify(authorized.invocation), /hidden-value/);
   assert.doesNotMatch(JSON.stringify(orchestration.events()), /runtime-secret/);
 });
 
@@ -125,6 +167,7 @@ test("runtime external-spend authorization is exact, time-bound, cost-bound and 
     HERO_EXTERNAL_SPEND_PROVIDER_ID: "openai",
     HERO_EXTERNAL_SPEND_MODEL_IDS: "gpt-approved,codex-approved",
     HERO_EXTERNAL_SPEND_ROLE_IDS: "analyst,executor",
+    HERO_EXTERNAL_SPEND_CAPABILITIES: "smart-tester,walkthrough-guide,form-suggestions",
     HERO_EXTERNAL_SPEND_MAX_COST_UNITS: "50000",
     HERO_EXTERNAL_SPEND_EXPIRES_AT: "2026-09-11T00:00:00.000Z",
     HERO_EXTERNAL_SPEND_GLOBAL_STOP: "false"
@@ -133,12 +176,13 @@ test("runtime external-spend authorization is exact, time-bound, cost-bound and 
   assert.equal(policy.active, true);
   assert.equal(policy.maxCostUnits, 50_000);
   const authorizer = createRuntimeExternalSpendAuthorizer({ env, clock: () => Date.parse("2026-09-10T12:00:00.000Z") });
-  const approved = await authorizer({ authorizationId: "AUTH-PILOT-001", projectId: "hero", stepId: "HERO-021", documentVersion: "v1.0", operation: "external-spend", providerId: "openai", modelId: "gpt-approved", role: "analyst", maxCostUnits: 10_000 });
+  const approved = await authorizer({ authorizationId: "AUTH-PILOT-001", projectId: "hero", stepId: "HERO-021", documentVersion: "v1.0", operation: "external-spend", providerId: "openai", modelId: "gpt-approved", role: "analyst", capability: "form-suggestions", maxCostUnits: 10_000 });
   assert.equal(approved.authorized, true);
   assert.equal(approved.code, "AUTHORIZED");
-  const wrongModel = await authorizer({ authorizationId: "AUTH-PILOT-001", projectId: "hero", stepId: "HERO-021", documentVersion: "v1.0", operation: "external-spend", providerId: "openai", modelId: "not-approved", role: "analyst", maxCostUnits: 10_000 });
+  assert.equal(approved.capability, "form-suggestions");
+  const wrongModel = await authorizer({ authorizationId: "AUTH-PILOT-001", projectId: "hero", stepId: "HERO-021", documentVersion: "v1.0", operation: "external-spend", providerId: "openai", modelId: "not-approved", role: "analyst", capability: "form-suggestions", maxCostUnits: 10_000 });
   assert.equal(wrongModel.code, "EXTERNAL_SPEND_SCOPE_MISMATCH");
-  const overBudget = await authorizer({ authorizationId: "AUTH-PILOT-001", projectId: "hero", stepId: "HERO-021", documentVersion: "v1.0", operation: "external-spend", providerId: "openai", modelId: "gpt-approved", role: "analyst", maxCostUnits: 50_001 });
+  const overBudget = await authorizer({ authorizationId: "AUTH-PILOT-001", projectId: "hero", stepId: "HERO-021", documentVersion: "v1.0", operation: "external-spend", providerId: "openai", modelId: "gpt-approved", role: "analyst", capability: "form-suggestions", maxCostUnits: 50_001 });
   assert.equal(overBudget.code, "EXTERNAL_SPEND_SCOPE_MISMATCH");
   const expired = createRuntimeExternalSpendAuthorizer({ env, clock: () => Date.parse("2026-09-11T00:00:00.000Z") });
   assert.equal((await expired({})).code, "EXTERNAL_SPEND_AUTHORIZATION_EXPIRED");
@@ -146,6 +190,160 @@ test("runtime external-spend authorization is exact, time-bound, cost-bound and 
   assert.equal((await stopped({})).code, "GLOBAL_STOP_ACTIVE");
   const inactive = createRuntimeExternalSpendAuthorizer({ env: {} });
   assert.equal((await inactive({})).code, "EXTERNAL_SPEND_AUTHORIZATION_INACTIVE");
+});
+
+test("runtime authorization exposes one immutable snapshot for selection and dispatch", async () => {
+  const env = {
+    HERO_EXTERNAL_SPEND_AUTHORIZATION_ACTIVE: "true",
+    HERO_EXTERNAL_SPEND_AUTHORIZATION_ID: "AUTH-SNAPSHOT-001",
+    HERO_EXTERNAL_SPEND_PROJECT_ID: "hero",
+    HERO_EXTERNAL_SPEND_STEP_ID: "HERO-AI-TEST-001",
+    HERO_EXTERNAL_SPEND_DOCUMENT_VERSION: "v1.1",
+    HERO_EXTERNAL_SPEND_PROVIDER_ID: "openai",
+    HERO_EXTERNAL_SPEND_MODEL_IDS: "gpt-5.6-luna",
+    HERO_EXTERNAL_SPEND_ROLE_IDS: "analyst",
+    HERO_EXTERNAL_SPEND_CAPABILITIES: "smart-tester,walkthrough-guide,form-suggestions",
+    HERO_EXTERNAL_SPEND_MAX_COST_UNITS: "50000",
+    HERO_EXTERNAL_SPEND_EXPIRES_AT: "2027-02-23T23:59:59.000Z",
+    HERO_EXTERNAL_SPEND_GLOBAL_STOP: "false"
+  };
+  const policy = readRuntimeExternalSpendPolicy({ env });
+  const authorizer = createRuntimeExternalSpendAuthorizer({ env, clock: () => Date.parse("2026-09-19T00:00:00.000Z") });
+  assert.deepEqual(authorizer.policySnapshot(), policy);
+  const approved = await authorizer({
+    authorizationId: policy.authorizationId,
+    projectId: policy.projectId,
+    stepId: policy.stepId,
+    documentVersion: policy.documentVersion,
+    operation: "external-spend",
+    providerId: policy.providerId,
+    modelId: policy.modelIds[0],
+    role: policy.roleIds[0],
+    capability: "smart-tester",
+    maxCostUnits: 10_000
+  });
+  assert.equal(approved.authorized, true);
+  assert.equal(approved.documentVersion, authorizer.policySnapshot().documentVersion);
+  assert.equal(approved.stepId, authorizer.policySnapshot().stepId);
+  assert.equal(approved.capability, "smart-tester");
+  assert.equal(approved.maxCostUnits, policy.maxCostUnits);
+});
+
+test("a Test-wide Back Office advisor authorization is explicit and audits the actual project", async () => {
+  const env = {
+    HERO_EXTERNAL_SPEND_AUTHORIZATION_ACTIVE: "true",
+    HERO_EXTERNAL_SPEND_AUTHORIZATION_ID: "AUTH-AI-TEST-002",
+    HERO_EXTERNAL_SPEND_PROJECT_ID: "all-test-projects",
+    HERO_EXTERNAL_SPEND_PROJECT_SCOPE: "all-test-projects",
+    HERO_EXTERNAL_SPEND_ENVIRONMENT: "test",
+    HERO_EXTERNAL_SPEND_STEP_ID: "HERO-AI-TEST-001",
+    HERO_EXTERNAL_SPEND_DOCUMENT_VERSION: "v1.2",
+    HERO_EXTERNAL_SPEND_PROVIDER_ID: "openai",
+    HERO_EXTERNAL_SPEND_MODEL_IDS: "gpt-5.6-luna",
+    HERO_EXTERNAL_SPEND_ROLE_IDS: "analyst",
+    HERO_EXTERNAL_SPEND_CAPABILITIES: "smart-tester,walkthrough-guide,form-suggestions",
+    HERO_EXTERNAL_SPEND_MAX_COST_UNITS: "200000",
+    HERO_EXTERNAL_SPEND_EXPIRES_AT: "2027-02-23T23:59:59.000Z",
+    HERO_EXTERNAL_SPEND_GLOBAL_STOP: "false"
+  };
+  const authorizer = createRuntimeExternalSpendAuthorizer({ env, clock: () => Date.parse("2026-09-21T12:00:00.000Z") });
+  const policy = authorizer.policySnapshot();
+  assert.equal(policy.projectScope, "all-test-projects");
+  assert.equal(policy.maxCostUnits, 200_000);
+  const approved = await authorizer({
+    authorizationId: policy.authorizationId,
+    projectId: "project-new",
+    stepId: policy.stepId,
+    documentVersion: policy.documentVersion,
+    operation: "external-spend",
+    providerId: policy.providerId,
+    modelId: policy.modelIds[0],
+    role: policy.roleIds[0],
+    capability: "walkthrough-guide",
+    maxCostUnits: 10_000
+  });
+  assert.equal(approved.authorized, true);
+  assert.equal(approved.projectId, "project-new", "the actual Project must remain the auditable authorization subject");
+  assert.equal(approved.projectScope, "all-test-projects");
+  const reservedProject = await authorizer({ ...approved, projectId: "all-test-projects" });
+  assert.equal(reservedProject.code, "EXTERNAL_SPEND_SCOPE_MISMATCH");
+  assert.throws(
+    () => readRuntimeExternalSpendPolicy({ env: { ...env, HERO_EXTERNAL_SPEND_ENVIRONMENT: "production" } }),
+    error => error.code === "EXTERNAL_SPEND_CONFIGURATION_INVALID"
+  );
+  assert.throws(
+    () => readRuntimeExternalSpendPolicy({ env: { ...env, HERO_EXTERNAL_SPEND_PROJECT_SCOPE: "single-project", HERO_EXTERNAL_SPEND_PROJECT_ID: "hero", HERO_EXTERNAL_SPEND_ENVIRONMENT: "" } }),
+    error => error.code === "EXTERNAL_SPEND_CONFIGURATION_INVALID"
+  );
+});
+
+test("hydration backfills the live profile cost ceiling for legacy Profiles", async () => {
+  const orchestration = createAiOrchestration({ now });
+  orchestration.registerProvider({ providerId: "openai", mode: "live", displayName: "OpenAI Test", adapter: { providerId: "openai", mode: "live", async generate() { return null; } }, actor: OWNER, idempotencyKey: "legacy-profile-provider" });
+  orchestration.registerModel({ providerId: "openai", modelId: "gpt-legacy", actor: OWNER, idempotencyKey: "legacy-profile-model" });
+  orchestration.registerProfile({ profileId: "legacy-profile", role: "analyst", providerId: "openai", modelId: "gpt-legacy", credentialRef: "vault:hero/test/openai/default", promptVersion: "legacy-v1", contextPolicy: "approved", toolPolicy: "read-only", outputSchema: "analysis-v1", status: "active", maxCostUnits: 10_000, actor: OWNER, idempotencyKey: "legacy-profile-register" });
+  const state = orchestration.persistenceSnapshot();
+  const legacyProfile = { ...state.profiles[0] };
+  delete legacyProfile.maxCostUnits;
+  delete legacyProfile.costLatencyPriority;
+  const hydrated = createAiOrchestration({ now });
+  hydrated.hydrate({ ...state, profiles: [legacyProfile] });
+  assert.equal(hydrated.snapshot().profiles[0].maxCostUnits, 100_000);
+  assert.equal(hydrated.snapshot().profiles[0].costLatencyPriority, "balanced");
+});
+
+test("live dispatch safely defaults an invalid legacy ceiling before applying authorization", async () => {
+  const calls = [];
+  const adapter = {
+    providerId: "openai",
+    mode: "live",
+    async assertDispatchReady() { return { status: "ok", pricing: { catalogVersion: "test", currency: "USD" } }; },
+    async generate() { calls.push(true); return { output: { schema: "analysis-v1", answer: "ok" }, usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2, costUnits: 1 } }; }
+  };
+  const authorizer = async input => ({
+    authorized: true,
+    code: "AUTHORIZED",
+    action: "external-spend",
+    authorizationId: input.authorizationId,
+    projectId: input.projectId,
+    stepId: input.stepId,
+    documentVersion: input.documentVersion,
+    providerId: input.providerId,
+    modelId: input.modelId,
+    role: input.role,
+    capability: input.capability,
+    maxCostUnits: 50_000,
+    globalStop: false,
+    safeCheckpointRequired: false
+  });
+  const orchestration = createAiOrchestration({
+    now,
+    providerAdapters: { openai: adapter },
+    externalSpendAuthorizer: authorizer
+  });
+  orchestration.registerProvider({ providerId: "openai", mode: "live", displayName: "OpenAI Test", adapter, actor: OWNER, idempotencyKey: "invalid-ceiling-provider" });
+  orchestration.registerModel({ providerId: "openai", modelId: "gpt-legacy", actor: OWNER, idempotencyKey: "invalid-ceiling-model" });
+  orchestration.registerProfile({ profileId: "invalid-ceiling-profile", role: "analyst", providerId: "openai", modelId: "gpt-legacy", credentialRef: "vault:hero/test/openai/default", promptVersion: "legacy-v1", contextPolicy: "approved", toolPolicy: "read-only", outputSchema: "analysis-v1", status: "active", maxCostUnits: 10_000, actor: OWNER, idempotencyKey: "invalid-ceiling-profile-register" });
+  orchestration.bindRole({ bindingId: "invalid-ceiling-binding", projectId: "hero", role: "analyst", profileId: "invalid-ceiling-profile", actor: OWNER, idempotencyKey: "invalid-ceiling-binding-register" });
+  const state = orchestration.persistenceSnapshot();
+  const legacyProfile = { ...state.profiles[0], maxCostUnits: null };
+  const hydrated = createAiOrchestration({
+    now,
+    providerAdapters: { openai: adapter },
+    externalSpendAuthorizer: authorizer
+  });
+  hydrated.hydrate({ ...state, profiles: [legacyProfile] });
+  const result = await hydrated.invoke({
+    invocationId: "invalid-ceiling-invocation",
+    projectId: "hero",
+    role: "analyst",
+    contextSnapshotId: "invalid-ceiling-context",
+    idempotencyKey: "invalid-ceiling-invocation-key",
+    request: "test",
+    externalSpendAuthorization: { authorized: true, code: "AUTHORIZED", action: "external-spend", authorizationId: "AUTH-AI-TEST-001", projectId: "hero", stepId: "HERO-AI-TEST-001", documentVersion: "v1.1", capability: "smart-tester", maxCostUnits: 10_000, globalStop: false, safeCheckpointRequired: false }
+  });
+  assert.equal(result.invocation.status, "completed");
+  assert.equal(calls.length, 1);
 });
 
 test("provider cost accounting supports separate input and output rates", async () => {
@@ -222,7 +420,16 @@ test("domain registry snapshots are append-only, secret-safe and hydrate all con
     }
   };
   const store = createPostgresDomainRegistrySnapshotStore({ client, now });
-  const safe = { schemaVersion: "1.0", registryId: "ai-orchestration", providers: [], profiles: [{ credentialRef: "runtime:provider-key" }], authorizationCreated: false };
+  const safe = {
+    schemaVersion: "1.0",
+    registryId: "ai-orchestration",
+    providers: [],
+    profiles: [
+      { credentialRef: "runtime:provider-key" },
+      { credentialRef: "vault:hero/test/openai/default" }
+    ],
+    authorizationCreated: false
+  };
   const saved = await store.save({ registryId: "ai-orchestration", sourceSequence: 12, data: safe, snapshotId: "snapshot-ai-001" });
   assert.equal(saved.revision, 1);
   const hydrated = await store.hydrate({ registryIds: ["ai-orchestration", "team-registry"] });

@@ -14,17 +14,37 @@ HERO_OPENAI_API_KEY=<secret>
 HERO_EXTERNAL_SPEND_AUTHORIZATION_ACTIVE=true
 HERO_EXTERNAL_SPEND_AUTHORIZATION_ID=AUTH-PILOT-001
 HERO_EXTERNAL_SPEND_PROJECT_ID=hero
+HERO_EXTERNAL_SPEND_PROJECT_SCOPE=single-project
+HERO_EXTERNAL_SPEND_ENVIRONMENT=test
 HERO_EXTERNAL_SPEND_STEP_ID=HERO-021
 HERO_EXTERNAL_SPEND_DOCUMENT_VERSION=v1.0
 HERO_EXTERNAL_SPEND_PROVIDER_ID=openai
 HERO_EXTERNAL_SPEND_MODEL_IDS=<comma-separated-exact-model-ids>
 HERO_EXTERNAL_SPEND_ROLE_IDS=analyst,evaluator,decision-maker,planner,researcher,executor,verifier,code-reviewer
+HERO_EXTERNAL_SPEND_CAPABILITIES=smart-tester,walkthrough-guide,form-suggestions
 HERO_EXTERNAL_SPEND_MAX_COST_UNITS=50000
 HERO_EXTERNAL_SPEND_EXPIRES_AT=<short-lived-UTC-timestamp>
 HERO_EXTERNAL_SPEND_GLOBAL_STOP=false
 ```
 
 API key فقط در Secret Store قرار می‌گیرد و نباید در Git، Sheet، ticket، log یا چت فرستاده شود. متغیرهای قدیمی نرخ هزینه نباید تنظیم شوند؛ Catalog معتبر باید پیش از فعال‌سازی Provider در runtime بارگذاری شده باشد.
+
+### سرویس سراسری Back Office در Test
+
+برای اینکه Advisor، Walk-Through Guide و Smart Tester بدون Binding یا Scope دستی در هر Project تازه در دسترس باشند، مالک می‌تواند **فقط در Test** یک مجوز صریح سراسری صادر کند. این یک مجوز هزینهٔ جدید است، نه تنظیم پیش‌فرض پنهان:
+
+```text
+HERO_EXTERNAL_SPEND_PROJECT_ID=all-test-projects
+HERO_EXTERNAL_SPEND_PROJECT_SCOPE=all-test-projects
+HERO_EXTERNAL_SPEND_ENVIRONMENT=test
+HERO_EXTERNAL_SPEND_AUTHORIZATION_ID=AUTH-AI-TEST-002
+HERO_EXTERNAL_SPEND_DOCUMENT_VERSION=v1.2
+HERO_EXTERNAL_SPEND_MAX_COST_UNITS=200000
+```
+
+در این حالت، Provider همچنان برای هر درخواست، `projectId` واقعی همان Project را در authorization، حسابداری و audit ثبت می‌کند؛ فقط همان سه capability مجاز و سقف/انقضای واحد اعمال می‌شود. `all-test-projects` بیرون از Test fail-closed است و هیچ‌گاه Production یا Pilot را پوشش نمی‌دهد.
+
+سقف `200000` فقط سقف تجمعی authorization است. سقف هر فراخوانی همچنان از Profile read-only و policy هر درخواست محدود می‌شود. برای جلوگیری از آمیختن حسابداری قدیمی با دامنهٔ جدید، این scope از authorization جدید `AUTH-AI-TEST-002` با نسخهٔ `v1.2` استفاده می‌کند؛ record قبلی `AUTH-AI-TEST-001` تغییر نمی‌کند.
 
 ## کار مالک
 

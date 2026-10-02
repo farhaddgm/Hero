@@ -1,0 +1,11 @@
+{
+  "schema": "hero.release-manifest/v1",
+  "contractVersion": "1.0",
+  "environment": "test",
+  "releaseVersion": "1.1.5-rc.13",
+  "commitSha": "e1dffdad9615572347bc5cbc227eb132f11bf1f8",
+  "artifact": "ghcr.io/farhaddgm/hero@sha256:554b9dda91b2eb1ad89b65d58bfafb99fba7f10feedf194fca4f30f14f5aca16",
+  "releaseUrl": null,
+  "workflowRunId": "35454302803",
+  "createdAt": "2026-09-19T16:15:35.803Z"
+}

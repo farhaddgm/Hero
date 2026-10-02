@@ -5,6 +5,8 @@ import {
   AI_EVALUATION_VERDICTS,
   AI_CONTEXT_RECIPIENT_ROLES,
   AI_OUTPUT_SCHEMAS,
+  AI_PROJECT_SCOPE_CAPABILITIES,
+  AI_PROJECT_SCOPE_MODES,
   AI_PROFILE_STATUSES,
   AI_PROVIDER_IDS,
   AI_PROVIDER_MODES,
@@ -19,8 +21,20 @@ const SYSTEM = Object.freeze({ kind: "system", id: "hero-ai-orchestration" });
 const ACTOR_KINDS = new Set(["project-owner", "admin", "orchestrator", "agent", "system"]);
 const SENSITIVE_FIELD = /(?:api[_-]?key|access[_-]?token|refresh[_-]?token|secret|password|private[_-]?key)/i;
 const SENSITIVE_VALUE = /(?:\bsk-[A-Za-z0-9_-]{12,}\b|\bBearer\s+[A-Za-z0-9._-]{12,}\b|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----)/i;
+const SENSITIVE_ASSIGNMENT = /((?:\b(?:password|secret|credential|api[ _-]?key|token|mfa|رمز(?:\s*عبور)?|کلید\s*api)\b\s*[:=]\s*))[^\s,;]+/giu;
 const HOST_PATH = /(?:^|[\s"'(])(?:[A-Za-z]:[\\/]|\/(?:home|Users|mnt|opt)\/)/;
-const CREDENTIAL_REFERENCE = /^(?:runtime|vault|env):[A-Za-z0-9._:-]{3,120}$/;
+const SIMPLE_CREDENTIAL_REFERENCE = /^(?:runtime|env):[A-Za-z0-9._:-]{3,120}$/;
+
+function isSafeCredentialReference(value) {
+  if (typeof value !== "string") return false;
+  if (SIMPLE_CREDENTIAL_REFERENCE.test(value)) return true;
+  if (!value.startsWith("vault:")) return false;
+  const segments = value.slice("vault:".length).split("/");
+  return segments.length >= 2
+    && segments.length <= 5
+    && value.length <= 160
+    && segments.every(segment => /^[A-Za-z0-9._:-]{1,80}$/.test(segment) && segment !== "." && segment !== "..");
+}
 
 function immutableCopy(value) {
   return Object.freeze(structuredClone(value));
@@ -62,6 +76,27 @@ function safeErrorMessage(error, fallback = "Provider execution failed.") {
   return message;
 }
 
+function sanitizeProviderOutput(value, path = "output", depth = 0) {
+  if (depth > 8) throw new AiOrchestrationError("OUTPUT_SCHEMA_INVALID", "Provider output nesting is too deep.");
+  if (typeof value === "string") {
+    return value
+      .replace(SENSITIVE_ASSIGNMENT, "$1[redacted]")
+      .replace(SENSITIVE_VALUE, "[redacted]")
+      .replace(HOST_PATH, "[redacted]")
+      .slice(0, 8_000);
+  }
+  if (Array.isArray(value)) return value.map((item, index) => sanitizeProviderOutput(item, `${path}[${index}]`, depth + 1));
+  if (value && typeof value === "object") {
+    const result = {};
+    for (const [key, child] of Object.entries(value)) {
+      if (SENSITIVE_FIELD.test(key)) throw new AiOrchestrationError("OUTPUT_SENSITIVE_REJECTED", `${path}.${key} is not allowed in provider output.`);
+      result[key] = sanitizeProviderOutput(child, `${path}.${key}`, depth + 1);
+    }
+    return result;
+  }
+  return value;
+}
+
 function assertSafePayload(value, path = "input") {
   if (Array.isArray(value)) {
     value.forEach((item, index) => assertSafePayload(item, `${path}[${index}]`));
@@ -69,7 +104,7 @@ function assertSafePayload(value, path = "input") {
   }
   if (value && typeof value === "object") {
     for (const [key, child] of Object.entries(value)) {
-      const safeCredentialReference = key === "credentialRef" && typeof child === "string" && CREDENTIAL_REFERENCE.test(child);
+      const safeCredentialReference = key === "credentialRef" && isSafeCredentialReference(child);
       const safeAuthorizationBoundary = key === "authorizationCreated" && typeof child === "boolean";
       if (SENSITIVE_FIELD.test(key) && !safeCredentialReference && !safeAuthorizationBoundary) {
         throw new AiOrchestrationError("SENSITIVE_INPUT_REJECTED", `${path}.${key} is not allowed.`);
@@ -107,7 +142,7 @@ function assertEnum(label, value, values) {
 }
 
 function assertCredentialReference(value) {
-  if (typeof value !== "string" || !CREDENTIAL_REFERENCE.test(value)) {
+  if (!isSafeCredentialReference(value)) {
     throw new AiOrchestrationError("INVALID_CREDENTIAL_REFERENCE", "credentialRef must be a runtime reference, never a secret value.");
   }
   return value;
@@ -130,7 +165,11 @@ function assertNonNegativeInteger(label, value, maximum = Number.MAX_SAFE_INTEGE
 function withTimeout(promise, timeoutMs) {
   let timer;
   const timeout = new Promise((_, reject) => {
-    timer = setTimeout(() => reject(new AiOrchestrationError("PROVIDER_TIMEOUT", `Provider did not respond within ${timeoutMs}ms.`)), timeoutMs);
+    timer = setTimeout(() => {
+      const error = new AiOrchestrationError("PROVIDER_TIMEOUT", `Provider did not respond within ${timeoutMs}ms.`);
+      error.retryable = true;
+      reject(error);
+    }, timeoutMs);
   });
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
@@ -162,8 +201,25 @@ function hasSeparateExternalSpendAuthorization(input, projectId) {
   if (typeof authorization.authorizationId !== "string" || !/^[A-Za-z][A-Za-z0-9._:-]{2,127}$/.test(authorization.authorizationId)) return false;
   if (typeof authorization.stepId !== "string" || !/^[A-Za-z][A-Za-z0-9._:-]{2,127}$/.test(authorization.stepId)) return false;
   if (typeof authorization.documentVersion !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._:-]{1,47}$/.test(authorization.documentVersion)) return false;
+  if (!AI_PROJECT_SCOPE_CAPABILITIES.includes(authorization.capability)) return false;
   if (authorization.projectId !== undefined && authorization.projectId !== projectId) return false;
   return true;
+}
+
+function authorizationMismatchFields({ input, authorization, projectId, providerId, modelId, role, requestedMaxCostUnits }) {
+  const expected = input?.externalSpendAuthorization ?? {};
+  const mismatches = [];
+  if (authorization?.authorizationId !== expected.authorizationId) mismatches.push("authorizationId");
+  if (authorization?.projectId !== projectId) mismatches.push("projectId");
+  if (authorization?.stepId !== expected.stepId) mismatches.push("stepId");
+  if (authorization?.documentVersion !== expected.documentVersion) mismatches.push("documentVersion");
+  if (authorization?.providerId !== providerId) mismatches.push("providerId");
+  if (authorization?.modelId !== modelId) mismatches.push("modelId");
+  if (authorization?.role !== role) mismatches.push("role");
+  if (authorization?.capability !== expected.capability) mismatches.push("capability");
+  if (authorization?.globalStop === true || authorization?.safeCheckpointRequired === true) mismatches.push("stop-control");
+  if (!Number.isInteger(authorization?.maxCostUnits) || authorization.maxCostUnits < requestedMaxCostUnits) mismatches.push("maxCostUnits");
+  return mismatches;
 }
 
 function normalizeUsage(usage) {
@@ -192,14 +248,22 @@ function assertObject(label, value) {
 }
 
 function assertStructuredResponse(profile, response) {
-  assertObject("provider response", response);
-  if (!response.output || typeof response.output !== "object" || Array.isArray(response.output)) {
+  if (!response || typeof response !== "object" || Array.isArray(response)) {
+    throw new AiOrchestrationError("OUTPUT_SCHEMA_INVALID", "Provider response must be a structured object.");
+  }
+  // Usage and adapter metadata are checked as a whole, while provider output
+  // is sanitized independently so a model cannot echo a credential or host
+  // path into the persisted invocation/evidence projection.
+  const { output, ...metadata } = response;
+  assertObject("provider response", metadata);
+  if (!output || typeof output !== "object" || Array.isArray(output)) {
     throw new AiOrchestrationError("OUTPUT_SCHEMA_INVALID", "Provider response must contain a structured output object.");
   }
-  if (response.output.schema !== profile.outputSchema) {
+  const safeOutput = sanitizeProviderOutput(output);
+  if (safeOutput.schema !== profile.outputSchema) {
     throw new AiOrchestrationError("OUTPUT_SCHEMA_INVALID", `Provider output schema must be ${profile.outputSchema}.`);
   }
-  return response;
+  return { ...metadata, output: safeOutput };
 }
 
 function eventIdFactory() {
@@ -213,6 +277,12 @@ function commandScope(kind, id, idempotencyKey) {
 
 function roleBindingKey({ projectId, teamId = null, skillId = null, role }) {
   return [projectId, teamId ?? "*", skillId ?? "*", role].join("\u0000");
+}
+
+function projectScopeAllows(scope, capability) {
+  if (!scope) return true;
+  if (scope.mode === "disabled") return false;
+  return scope.capabilities.includes(capability);
 }
 
 export class AiOrchestrationError extends Error {
@@ -277,6 +347,7 @@ export function createAiOrchestration(options = {}) {
   const invocations = new Map();
   const evaluations = new Map();
   const decisions = new Map();
+  const projectScopes = new Map();
   const circuitStates = new Map();
   const externalSpendBudgets = new Map();
   const rolePolicies = new Map(Object.entries(options.defaultRolePolicies ?? AI_DEFAULT_ROLE_POLICIES).map(([role, policy]) => [role, { ...policy, role, policyVersion: policy.policyVersion ?? 1 }]));
@@ -658,6 +729,57 @@ export function createAiOrchestration(options = {}) {
     return remember(scope, value, { binding, idempotent: false });
   }
 
+  function configureProjectScope(input = {}) {
+    const actor = assertActor(input.actor);
+    if (!["project-owner", "admin"].includes(actor.kind)) {
+      throw new AiOrchestrationError("ADMIN_APPROVAL_REQUIRED", "AI project scope changes require the project owner or an admin.");
+    }
+    const projectId = assertIdentifier("projectId", input.projectId);
+    const mode = assertEnum("mode", input.mode ?? "enabled", AI_PROJECT_SCOPE_MODES);
+    const capabilities = input.capabilities === undefined
+      ? [...AI_PROJECT_SCOPE_CAPABILITIES]
+      : input.capabilities;
+    if (!Array.isArray(capabilities) || capabilities.length < 1 || capabilities.length > AI_PROJECT_SCOPE_CAPABILITIES.length) {
+      throw new AiOrchestrationError("INVALID_PROJECT_SCOPE_CAPABILITIES", "capabilities must contain at least one approved AI capability.");
+    }
+    const uniqueCapabilities = [...new Set(capabilities)];
+    uniqueCapabilities.forEach((capability, index) => assertEnum(`capabilities[${index}]`, capability, AI_PROJECT_SCOPE_CAPABILITIES));
+    const expectedVersion = input.expectedVersion === undefined || input.expectedVersion === null ? null : input.expectedVersion;
+    if (expectedVersion !== null && (!Number.isInteger(expectedVersion) || expectedVersion < 0)) {
+      throw new AiOrchestrationError("INVALID_VERSION", "expectedVersion must be a non-negative integer.");
+    }
+    const current = projectScopes.get(projectId) ?? null;
+    if (expectedVersion !== null && expectedVersion !== (current?.version ?? 0)) {
+      throw new AiOrchestrationError("VERSION_CONFLICT", "AI project scope is stale; reload it before saving.");
+    }
+    const idempotencyKey = assertIdentifier("idempotencyKey", input.idempotencyKey);
+    const value = { projectId, mode, capabilities: uniqueCapabilities };
+    const scope = commandScope("project-scope", projectId, idempotencyKey);
+    const replay = replayOrThrow(scope, value);
+    if (replay) return replay;
+    const version = (current?.version ?? 0) + 1;
+    const event = appendEvent({
+      aggregateType: "ai-project-scope",
+      aggregateId: projectId,
+      type: "ai.project-scope-configured",
+      actor,
+      data: { projectId, mode, capabilities: uniqueCapabilities, version }
+    });
+    const projectScope = immutableCopy({
+      scopeId: `ai-scope-${projectId}`,
+      projectId,
+      mode,
+      capabilities: uniqueCapabilities,
+      version,
+      configuredAt: event.occurredAt,
+      configuredBy: actor,
+      eventId: event.eventId,
+      externalSpendBoundary: "separate-authorization-required"
+    });
+    projectScopes.set(projectId, projectScope);
+    return remember(scope, value, { projectScope, idempotent: false });
+  }
+
   function assembleContext(input = {}) {
     const role = assertEnum("role", input.role, AI_ROLES);
     const contextId = assertIdentifier("contextId", input.contextId);
@@ -736,7 +858,10 @@ export function createAiOrchestration(options = {}) {
   }
 
   function blockedInvocation({ input, actor, profile, provider, code, reason, idempotencyKey, value }) {
-    const safeReason = safeErrorMessage({ message: reason }, "Invocation blocked by an AI governance boundary.");
+    // `reason` is already a bounded, domain-generated string. Passing it as
+    // an arbitrary object would make safeErrorMessage discard it and hide the
+    // exact redacted mismatch fields needed for diagnosis.
+    const safeReason = safeErrorMessage(reason, "Invocation blocked by an AI governance boundary.");
     const event = appendEvent({
       aggregateType: "ai-invocation",
       aggregateId: input.invocationId,
@@ -784,6 +909,11 @@ export function createAiOrchestration(options = {}) {
 
   async function invoke(input = {}) {
     const actor = assertActor(input.actor ?? SYSTEM);
+    // Some owner-facing advisory interactions (for example, form-suggestion
+    // feedback) explicitly promise that their prompt and response do not
+    // become project history. Keep their output only long enough to return it
+    // to the current HTTP request; metadata and cost evidence remain durable.
+    const transientResponse = input.transientResponse === true;
     const invocationId = assertIdentifier("invocationId", input.invocationId);
     const projectId = assertIdentifier("projectId", input.projectId);
     const role = assertEnum("role", input.role, AI_ROLES);
@@ -831,6 +961,7 @@ export function createAiOrchestration(options = {}) {
       context,
       skillVersion: skill?.version ?? null,
       toolAction: input.toolAction ?? null,
+      transientResponse,
       spendApprovalId: input.externalSpendAuthorization?.authorizationId ?? null
     };
     const scope = commandScope("invocation", invocationId, idempotencyKey);
@@ -850,11 +981,26 @@ export function createAiOrchestration(options = {}) {
     }
     let verifiedExternalAuthorization = null;
     let dispatchReadiness = null;
+    // A legacy snapshot may contain a missing, null or malformed ceiling.
+    // Keep the profile usable after hydration, while the live authorization
+    // remains the final narrower ceiling and can never be widened here.
+    const profileMaxCostUnits = Number.isSafeInteger(profile.maxCostUnits) && profile.maxCostUnits >= 0
+      ? profile.maxCostUnits
+      : 100_000;
+    let effectiveMaxCostUnits = profileMaxCostUnits;
     if (provider.mode === "live") {
       if (typeof externalSpendAuthorizer !== "function") {
         return blockedInvocation({ input, actor, profile, provider, code: "ACTIVE_AUTHORIZATION_SNAPSHOT_REQUIRED", reason: "The active authorization snapshot verifier is not configured.", idempotencyKey, value });
       }
       let authorization;
+      // A runtime authorization may narrow a Profile's declared ceiling, but
+      // can never widen it.  This avoids a stale higher Profile limit blocking
+      // an otherwise valid, lower Test authorization while retaining the
+      // authorization as the final source of truth for external spend.
+      const authorizedCeiling = input.externalSpendAuthorization?.maxCostUnits;
+      const requestedMaxCostUnits = Number.isSafeInteger(authorizedCeiling) && authorizedCeiling >= 0
+        ? Math.min(profileMaxCostUnits, authorizedCeiling)
+        : profileMaxCostUnits;
       try {
         authorization = await externalSpendAuthorizer({
           authorizationId: input.externalSpendAuthorization.authorizationId,
@@ -867,12 +1013,25 @@ export function createAiOrchestration(options = {}) {
           providerId: provider.providerId,
           modelId: profile.modelId,
           role,
-          maxCostUnits: profile.maxCostUnits,
+          capability: input.externalSpendAuthorization.capability,
+          maxCostUnits: requestedMaxCostUnits,
           globalStop: input.externalSpendAuthorization.globalStop
         });
       } catch (error) {
         return blockedInvocation({ input, actor, profile, provider, code: "ACTIVE_AUTHORIZATION_SNAPSHOT_REJECTED", reason: safeErrorMessage(error, "The active authorization snapshot could not be verified."), idempotencyKey, value });
       }
+      const authorizationRejection = authorization?.authorized === false && typeof authorization.code === "string"
+        ? authorization.code
+        : null;
+      const mismatchFields = authorizationMismatchFields({
+        input,
+        authorization,
+        projectId,
+        providerId: provider.providerId,
+        modelId: profile.modelId,
+        role,
+        requestedMaxCostUnits
+      });
       if (
         authorization?.authorized !== true
         || authorization?.code !== "AUTHORIZED"
@@ -886,12 +1045,25 @@ export function createAiOrchestration(options = {}) {
         || authorization?.providerId !== provider.providerId
         || authorization?.modelId !== profile.modelId
         || authorization?.role !== role
+        || authorization?.capability !== input.externalSpendAuthorization.capability
         || !Number.isInteger(authorization?.maxCostUnits)
-        || authorization.maxCostUnits < profile.maxCostUnits
+        || mismatchFields.length > 0
       ) {
-        return blockedInvocation({ input, actor, profile, provider, code: "ACTIVE_AUTHORIZATION_SNAPSHOT_REJECTED", reason: "The active authorization snapshot does not exactly match the live invocation.", idempotencyKey, value });
+        return blockedInvocation({
+          input,
+          actor,
+          profile,
+          provider,
+          code: "ACTIVE_AUTHORIZATION_SNAPSHOT_REJECTED",
+          reason: authorizationRejection
+            ? `The active authorization snapshot was rejected: ${authorizationRejection}${mismatchFields.length > 0 ? ` (${mismatchFields.join(", ")}).` : "."}`
+            : `The active authorization snapshot does not exactly match the live invocation${mismatchFields.length > 0 ? ` (${mismatchFields.join(", ")})` : ""}.`,
+          idempotencyKey,
+          value
+        });
       }
       verifiedExternalAuthorization = authorization;
+      effectiveMaxCostUnits = requestedMaxCostUnits;
     }
     if (profile.toolPolicy === "read-only" && input.toolAction) {
       return blockedInvocation({ input, actor, profile, provider, code: "READ_ONLY_TOOL_POLICY", reason: "Read-only profiles cannot request a tool action.", idempotencyKey, value });
@@ -932,7 +1104,7 @@ export function createAiOrchestration(options = {}) {
       timeoutMs: profile.timeoutMs,
       maxRetries: profile.maxRetries,
       maxOutputTokens: profile.maxOutputTokens,
-      maxCostUnits: profile.maxCostUnits
+      maxCostUnits: effectiveMaxCostUnits
     };
     if (provider.mode === "live") {
       if (typeof provider.adapter?.assertDispatchReady !== "function") {
@@ -949,7 +1121,8 @@ export function createAiOrchestration(options = {}) {
       if (health.status !== "healthy") return blockedInvocation({ input, actor, profile, provider, code: "PROVIDER_UNHEALTHY", reason: health.reason ?? "Provider health check failed.", idempotencyKey, value });
     }
 
-    const spendReservation = verifiedExternalAuthorization ? reserveExternalSpend(verifiedExternalAuthorization, profile) : null;
+    const effectiveProfile = effectiveMaxCostUnits === profile.maxCostUnits ? profile : { ...profile, maxCostUnits: effectiveMaxCostUnits };
+    const spendReservation = verifiedExternalAuthorization ? reserveExternalSpend(verifiedExternalAuthorization, effectiveProfile) : null;
     if (spendReservation && spendReservation.accepted !== true) {
       return blockedInvocation({ input, actor, profile, provider, code: spendReservation.code, reason: spendReservation.reason, idempotencyKey, value });
     }
@@ -971,7 +1144,7 @@ export function createAiOrchestration(options = {}) {
         profileVersion: profile.profileVersion,
         spendApprovalId: verifiedExternalAuthorization?.authorizationId ?? null,
         externalSpendMaximumCostUnits: verifiedExternalAuthorization?.maxCostUnits ?? null,
-        maxCostUnits: profile.maxCostUnits,
+        maxCostUnits: effectiveMaxCostUnits,
         catalogVersion: dispatchReadiness?.pricing?.catalogVersion ?? null,
         pricingCurrency: dispatchReadiness?.pricing?.currency ?? null,
         inputPricePer1mTokens: dispatchReadiness?.pricing?.inputPricePer1mTokens ?? null,
@@ -993,9 +1166,9 @@ export function createAiOrchestration(options = {}) {
       attempts += 1;
       try {
         response = await withTimeout(provider.adapter.generate(adapterInput), profile.timeoutMs);
-        assertStructuredResponse(profile, response);
+        response = assertStructuredResponse(profile, response);
         const usage = normalizeUsage(response.usage);
-        if (usage.costUnits > profile.maxCostUnits) throw new AiOrchestrationError("COST_LIMIT_REACHED", "Provider usage exceeded the profile cost limit.");
+        if (usage.costUnits > effectiveMaxCostUnits) throw new AiOrchestrationError("COST_LIMIT_REACHED", "Provider usage exceeded the effective cost limit.");
         response = immutableCopy({ ...response, usage });
       } catch (error) {
         response = null;
@@ -1017,14 +1190,14 @@ export function createAiOrchestration(options = {}) {
       const error = failure;
       const reason = safeErrorMessage(error);
       const code = error instanceof AiOrchestrationError ? error.code : "PROVIDER_EXECUTION_FAILED";
-      const budget = settleExternalSpend(spendReservation?.accepted === true ? spendReservation : null, profile.maxCostUnits * attempts);
+      const budget = settleExternalSpend(spendReservation?.accepted === true ? spendReservation : null, effectiveMaxCostUnits * attempts);
       if (circuitFailure(error)) recordCircuitFailure(provider.providerId, actor, { probe: circuitProbe, code });
       const failedEvent = appendEvent({
         aggregateType: "ai-invocation",
         aggregateId: invocationId,
         type: "ai.invocation-failed",
         actor,
-        data: { invocationId, projectId, teamId, skillId, role, providerId: provider.providerId, modelId: profile.modelId, profileId: profile.profileId, spendApprovalId: budget?.approvalId ?? null, accountedCostUnits: budget?.accountedCostUnits ?? 0, remainingSpendCostUnits: budget?.remainingCostUnits ?? null, maxCostUnits: profile.maxCostUnits, catalogVersion: dispatchReadiness?.pricing?.catalogVersion ?? null, pricingCurrency: dispatchReadiness?.pricing?.currency ?? null, code, reason, attempts },
+        data: { invocationId, projectId, teamId, skillId, role, providerId: provider.providerId, modelId: profile.modelId, profileId: profile.profileId, spendApprovalId: budget?.approvalId ?? null, accountedCostUnits: budget?.accountedCostUnits ?? 0, remainingSpendCostUnits: budget?.remainingCostUnits ?? null, maxCostUnits: effectiveMaxCostUnits, catalogVersion: dispatchReadiness?.pricing?.catalogVersion ?? null, pricingCurrency: dispatchReadiness?.pricing?.currency ?? null, code, reason, attempts },
         correlationId: input.runId ?? projectId,
         causationId: started.eventId
       });
@@ -1034,7 +1207,7 @@ export function createAiOrchestration(options = {}) {
     }
 
     recordCircuitSuccess(provider.providerId, actor, { probe: circuitProbe });
-    const budget = settleExternalSpend(spendReservation?.accepted === true ? spendReservation : null, profile.maxCostUnits * Math.max(0, attempts - 1) + response.usage.costUnits);
+    const budget = settleExternalSpend(spendReservation?.accepted === true ? spendReservation : null, effectiveMaxCostUnits * Math.max(0, attempts - 1) + response.usage.costUnits);
     const completed = appendEvent({
       aggregateType: "ai-invocation",
       aggregateId: invocationId,
@@ -1052,7 +1225,7 @@ export function createAiOrchestration(options = {}) {
         spendApprovalId: budget?.approvalId ?? null,
         accountedCostUnits: budget?.accountedCostUnits ?? response.usage.costUnits,
         remainingSpendCostUnits: budget?.remainingCostUnits ?? null,
-        maxCostUnits: profile.maxCostUnits,
+        maxCostUnits: effectiveMaxCostUnits,
         catalogVersion: response.usage.pricing?.catalogVersion ?? dispatchReadiness?.pricing?.catalogVersion ?? null,
         pricingCurrency: response.usage.pricing?.currency ?? dispatchReadiness?.pricing?.currency ?? null,
         inputPricePer1mTokens: response.usage.pricing?.inputPricePer1mTokens ?? null,
@@ -1067,9 +1240,15 @@ export function createAiOrchestration(options = {}) {
       correlationId: input.runId ?? projectId,
       causationId: started.eventId
     });
-    const invocation = immutableCopy({ invocationId, projectId, taskId: input.taskId ?? null, runId: input.runId ?? null, teamId, skillId, role, providerId: provider.providerId, modelId: profile.modelId, profileId: profile.profileId, profileVersion: profile.profileVersion, spendApprovalId: budget?.approvalId ?? null, accountedCostUnits: budget?.accountedCostUnits ?? response.usage.costUnits, remainingSpendCostUnits: budget?.remainingCostUnits ?? null, contextSnapshotId, status: "completed", code: "AI_INVOCATION_COMPLETED", response, attempts, latencyMs: Math.max(0, Date.now() - startedAtMs), requestedAt: started.occurredAt, completedAt: completed.occurredAt, eventId: completed.eventId, credentialRef: profile.credentialRef });
+    const invocation = immutableCopy({ invocationId, projectId, taskId: input.taskId ?? null, runId: input.runId ?? null, teamId, skillId, role, providerId: provider.providerId, modelId: profile.modelId, profileId: profile.profileId, profileVersion: profile.profileVersion, spendApprovalId: budget?.approvalId ?? null, accountedCostUnits: budget?.accountedCostUnits ?? response.usage.costUnits, remainingSpendCostUnits: budget?.remainingCostUnits ?? null, contextSnapshotId, status: "completed", code: "AI_INVOCATION_COMPLETED", response: transientResponse ? null : response, responseRetention: transientResponse ? "transient" : "retained", attempts, latencyMs: Math.max(0, Date.now() - startedAtMs), requestedAt: started.occurredAt, completedAt: completed.occurredAt, eventId: completed.eventId, credentialRef: profile.credentialRef });
     invocations.set(invocationId, invocation);
-    return remember(scope, value, { invocation, idempotent: false });
+    const persistedResult = remember(scope, value, { invocation, idempotent: false });
+    // Do not put `response` in either the invocation map or the idempotency
+    // cache for a transient request. The caller receives it once, while a
+    // replay safely exposes only the retained metadata.
+    return transientResponse
+      ? { invocation: immutableCopy({ ...invocation, response }), idempotent: false }
+      : persistedResult;
   }
 
   function recordEvaluation(input = {}) {
@@ -1237,11 +1416,12 @@ export function createAiOrchestration(options = {}) {
       models: [...models.values()],
       profiles: [...profiles.values()],
       bindings: [...currentBindings.values()],
+      projectScopes: [...projectScopes.values()],
       defaultRolePolicies: [...rolePolicies.values()],
       circuitBreaker: circuitBreaker ? { ...circuitBreaker, states: [...circuitStates.entries()].map(([providerId, state]) => ({ providerId, ...circuitSnapshot(providerId) })) } : { enabled: false, states: [] },
       externalSpendBudgets: [...externalSpendBudgets.values()].map(budget => ({ ...budget })),
       usageByProvider: usageByProvider(),
-      counts: { providers: providers.size, models: models.size, profiles: profiles.size, bindings: currentBindings.size, rolePolicies: rolePolicies.size, invocations: invocations.size, evaluations: evaluations.size, decisions: decisions.size },
+      counts: { providers: providers.size, models: models.size, profiles: profiles.size, bindings: currentBindings.size, projectScopes: projectScopes.size, rolePolicies: rolePolicies.size, invocations: invocations.size, evaluations: evaluations.size, decisions: decisions.size },
       activity: activitySnapshot()
     });
   }
@@ -1300,6 +1480,7 @@ export function createAiOrchestration(options = {}) {
       profiles: [...profiles.values()],
       bindings: [...bindings.values()],
       currentBindings: [...currentBindings.values()],
+      projectScopes: [...projectScopes.values()],
       rolePolicies: [...rolePolicies.values()],
       circuitBreaker: circuitBreaker ? { ...circuitBreaker, states: [...circuitStates.entries()].map(([providerId, state]) => ({ providerId, ...circuitSnapshot(providerId) })) } : { enabled: false, states: [] },
       externalSpendBudgets: [...externalSpendBudgets.values()].map(budget => ({ ...budget })),
@@ -1314,7 +1495,7 @@ export function createAiOrchestration(options = {}) {
     if (!state || typeof state !== "object" || Array.isArray(state)) throw new AiOrchestrationError("HYDRATION_INVALID", "AI orchestration hydration requires an object.");
     assertSafePayload(state, "hydratedState");
     if (Array.isArray(input.events)) eventLog.load(input.events.filter(event => event.aggregateType.startsWith("ai-")));
-    for (const map of [providers, models, profiles, bindings, currentBindings, rolePolicies, invocations, evaluations, decisions]) map.clear();
+    for (const map of [providers, models, profiles, bindings, currentBindings, projectScopes, rolePolicies, invocations, evaluations, decisions]) map.clear();
     circuitStates.clear();
     externalSpendBudgets.clear();
     for (const provider of state.providers ?? []) {
@@ -1322,13 +1503,31 @@ export function createAiOrchestration(options = {}) {
       providers.set(stored.providerId, { ...stored, adapter: providerAdapters[stored.providerId] ?? null });
     }
     for (const model of state.models ?? []) models.set(`${model.providerId}\u0000${model.modelId}`, immutableCopy(model));
-    for (const profile of state.profiles ?? []) profiles.set(profile.profileId, immutableCopy({ maxOutputTokens: 4_096, ...profile }));
+    for (const profile of state.profiles ?? []) {
+      // Profiles created before the cost-bound fields were persisted must keep
+      // working after hydration. These defaults are only profile ceilings;
+      // live execution still narrows them through the external-spend snapshot.
+      profiles.set(profile.profileId, immutableCopy({
+        timeoutMs: 120_000,
+        maxRetries: 0,
+        maxOutputTokens: 4_096,
+        maxCostUnits: 100_000,
+        costLatencyPriority: "balanced",
+        ...profile
+      }));
+    }
     for (const binding of state.bindings ?? []) bindings.set(binding.bindingId, immutableCopy(binding));
     for (const [role, policy] of Object.entries(AI_DEFAULT_ROLE_POLICIES)) rolePolicies.set(role, { ...policy, role, policyVersion: 1 });
     for (const policy of state.rolePolicies ?? []) {
       if (typeof policy?.role === "string") rolePolicies.set(policy.role, immutableCopy(policy));
     }
     for (const binding of state.currentBindings ?? state.bindings ?? []) currentBindings.set(roleBindingKey(binding), immutableCopy(binding));
+    for (const projectScope of state.projectScopes ?? []) {
+      if (projectScope?.projectId && AI_PROJECT_SCOPE_MODES.includes(projectScope.mode) && Array.isArray(projectScope.capabilities)) {
+        const capabilities = [...new Set(projectScope.capabilities)].filter(capability => AI_PROJECT_SCOPE_CAPABILITIES.includes(capability));
+        if (capabilities.length > 0) projectScopes.set(projectScope.projectId, immutableCopy({ ...projectScope, capabilities }));
+      }
+    }
     for (const invocation of state.invocations ?? []) invocations.set(invocation.invocationId, immutableCopy(invocation));
     for (const evaluation of state.evaluations ?? []) evaluations.set(evaluation.evaluationId, immutableCopy(evaluation));
     for (const decision of state.decisions ?? []) decisions.set(decision.decisionId, immutableCopy(decision));
@@ -1337,7 +1536,10 @@ export function createAiOrchestration(options = {}) {
         typeof budget?.approvalId === "string"
         && Number.isInteger(budget.maxCostUnits)
         && budget.maxCostUnits > 0
-        && budget.maxCostUnits <= 100_000
+        // Profile and per-invocation limits remain independently bounded at
+        // 100k. The persisted authorization ledger may hold the explicitly
+        // approved Test-wide cumulative ceiling of 200k.
+        && budget.maxCostUnits <= 200_000
         && Number.isInteger(budget.spentCostUnits)
         && budget.spentCostUnits >= 0
         && Number.isInteger(budget.reservedCostUnits ?? 0)
@@ -1364,7 +1566,7 @@ export function createAiOrchestration(options = {}) {
         }
       }
     }
-    return immutableCopy({ registryId: "ai-orchestration", hydrated: true, providers: providers.size, models: models.size, profiles: profiles.size, bindings: currentBindings.size, rolePolicies: rolePolicies.size, invocations: invocations.size, evaluations: evaluations.size, decisions: decisions.size });
+    return immutableCopy({ registryId: "ai-orchestration", hydrated: true, providers: providers.size, models: models.size, profiles: profiles.size, bindings: currentBindings.size, projectScopes: projectScopes.size, rolePolicies: rolePolicies.size, invocations: invocations.size, evaluations: evaluations.size, decisions: decisions.size });
   }
 
   return Object.freeze({
@@ -1375,6 +1577,7 @@ export function createAiOrchestration(options = {}) {
     rolePolicyHistory,
     rollbackRolePolicy,
     bindRole,
+    configureProjectScope,
     invoke,
     recordEvaluation,
     evaluateInvocation,
@@ -1401,6 +1604,9 @@ export function createAiOrchestration(options = {}) {
     readInvocation: invocationId => invocations.has(invocationId) ? immutableCopy(invocations.get(invocationId)) : null,
     readEvaluation: evaluationId => evaluations.has(evaluationId) ? immutableCopy(evaluations.get(evaluationId)) : null,
     readDecision: decisionId => decisions.has(decisionId) ? immutableCopy(decisions.get(decisionId)) : null,
+    readProjectScope: projectId => projectScopes.has(projectId) ? immutableCopy(projectScopes.get(projectId)) : null,
+    listProjectScopes: () => Object.freeze([...projectScopes.values()].map(immutableCopy)),
+    projectScopeAllows: (projectId, capability) => projectScopeAllows(projectScopes.get(projectId) ?? null, capability),
     snapshot,
     activitySnapshot,
     usageByProvider,

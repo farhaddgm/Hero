@@ -1,7 +1,7 @@
 # پایایی انتشار Hero در محیط Test
 
 - Document ID: `HERO-OPS-HERO-TEST-RELEASE-RELIABILITY`
-- Version: `1.0.0`
+- Version: `1.5.1`
 - Status: `active`
 - Owner: `hero-operations`
 - Scope: `hero`
@@ -10,6 +10,28 @@
 ## هدف
 
 این runbook مسیر انتشار را از یک «فرمان دستی با چند مقدار مبهم» به یک زنجیرهٔ قابل‌ردیابی تبدیل می‌کند: نسخه و commit از ابتدا مشخص‌اند، image فقط با digest غیرقابل‌تغییر جابه‌جا می‌شود، manifest مرجع واحد است، backup هیچ Secretی ندارد و در شکست پس از تغییر، rollback خودکار انجام می‌شود.
+
+## Snapshot جاری source و Test — ۲۰۲۶-۰۹-۱۹
+
+- source مرجع branch `codex/test-release-reliability-20260916`، commit `e52e437ddc33395afbf177b345c6e9e3d2cc6654` است.
+- Runtime Test طبق آخرین promotion ثبت‌شده روی `v1.1.5-rc.10` و artifact immutable `ghcr.io/farhaddgm/hero@sha256:e808aedc95075a3af4270aaaf971281de14a5a05c40570511ecd3948c6efb225` اجرا می‌شود؛ `/health`، `/ready` و smoke موفق‌اند.
+- GitHub Actions run `35287418094` موفق بود؛ promotion مالک، rollback point metadata-only، `/health` و `/ready` هر دو ۲۰۰ و persistence PostgreSQL تأیید شدند.
+- rc.6 رخداد crash-loop ناشی از hydration داشت؛ rc.8 با read model اصلاح‌شده و persistence atomic جایگزین و smoke شد.
+- Candidate `v1.1.5-rc.10` در CI برابر ۴۷۴ pass، ۰ fail و ۰ skipped بود؛ build برابر ۲۹۸ module و ۵۰ JSON و Documentation check برابر ۱۴۸ سند، ۲ محصول و ۰ خطا بود. این runbook دربارهٔ انتشار Hero است؛ scenario زندهٔ Provider evidence جداگانه می‌خواهد.
+
+## رخداد و اصلاح ۲۰۲۶-۰۹-۱۸
+
+- علت crash-loop: `listProjects()` فیلد `productRequest.projectId` را در read model برنمی‌گرداند و hydration fail-closed با `Product request metadata is invalid` متوقف می‌شد.
+- اصلاح‌های هم‌زمان: read model اکنون scope درخواست را کامل برمی‌گرداند؛ ثبت اولیهٔ Product Request، Project و Foundation در یک تراکنش انجام می‌شود؛ replay رکورد قدیمی نیمه‌ثبت‌شده Foundation گمشده را بدون درج دوباره repair می‌کند.
+- candidate `v1.1.5-rc.10` همهٔ checkهای منبع، build و workflow انتشار را گذرانده و روی Test promote و verify شده است. این candidate علاوه بر اصلاح Advisor، promotion را در برابر duplicate keyهای فایل env نیز fail-closed می‌کند. این runbook دربارهٔ انتشار Hero است؛ سناریوی زندهٔ Provider evidence جداگانه می‌خواهد.
+
+## اجرای پیشین — ۲۰۲۶-۰۹-۱۷
+
+- Release Candidate `1.1.3-rc.1` برای commit `07c0ca591973a9b679a51c379e9d9cc259f10163` با workflow run `35208122251` موفق شد. `pnpm check` در GitHub گذشت، tag و Test prerelease ساخته شد و artifact immutable زیر ایجاد شد: `ghcr.io/farhaddgm/hero@sha256:f97ad06b60cac7717fcea8513b9bc05b9b5265a1fba58d800129cc3f6901249d`.
+- نخستین Test verification یک ایراد syntax fail-closed در regex workflow را آشکار کرد. اصلاح workflow در commit `7be8f0139b18560fcc2c7a85b0ae3bf9106d2615` با `389 pass / 0 fail` تأیید و push شد؛ سپس workflow Test run `35208713807` همان artifact و commit را pull و labelهای version/revision را با موفقیت تطبیق داد.
+- محیط Test هنوز عمداً روی release قبلی `1.1.2`، commit `0caa40b49b74aad13e2a0c78545f6c0eb28262ea` و digest `ghcr.io/farhaddgm/hero@sha256:641e6c75b5f871e87053cf2d959fe250a20067b8ecc7fe0571e15345f31c0d10` باقی مانده است؛ `/health`، `/ready` و `/build-info` سالم‌اند. promotion به فایل runtime خارج از repository نیاز دارد و تا زمان تکمیل تنظیمات، انجام نشده است.
+- در runtime Test فقط `HERO_ENABLE_REAL_PROVIDERS=true`، authorization active، شناسهٔ `AUTH-AI-TEST-001` و Global Stop خاموش قابل مشاهده بود؛ فیلدهای scope اجباریِ Project/Step/Version/Provider/Model/Role/cap/expiry غایب‌اند. بنابراین runtime policy قابل‌خواندن نیست و dispatch به‌درستی fail-closed می‌ماند.
+- شمارش PostgreSQL Test برای `projects`، `ai_providers`، `ai_models`، `ai_credentials` و `ai_invocations` همگی صفر بود. Secret Store و مقدار API key نه خوانده، نه چاپ و نه تغییر داده شد. تا ایجاد Project/Profile/Binding توسط Human Owner، هر دو سناریوی زنده قبل از dispatch متوقف می‌شوند و هیچ هزینه‌ای رخ نمی‌دهد.
 
 ## علت‌های رخداد قبلی و کنترل دائمی
 
@@ -82,7 +104,7 @@ sudo bash tools/promote-test-immutable.sh \
 sudo bash tools/verify-test-release.sh --manifest /opt/hero/hero-release-manifest.json
 ```
 
-`/health` و `/ready` باید ۲۰۰ باشند، image container باید همان digest باشد، `/build-info` باید digest یکسان گزارش کند و routeهای Back Office بدون Basic Auth باید ۴۰۱ بمانند.
+`/health` و `/ready` باید ۲۰۰ باشند، image container باید همان digest باشد، `/build-info` باید digest یکسان و قابلیت‌های `smartTesterRepositoryContext=read-only/1.0.0` و `walkthroughGuideRepositoryContext=read-only/1.0.0` را گزارش کند و routeهای Back Office بدون Basic Auth باید ۴۰۱ بمانند. این دو marker تضمین می‌کنند candidate منتشرشده شامل اتصال read-only هر دو مشاور است، نه فقط source workspace.
 
 ## بازیابی ساده
 
@@ -106,7 +128,9 @@ Rollback فقط وقتی انجام می‌شود که state وضعیت `promote
   "releaseVersion": "1.2.3",
   "sourceCommit": "0123456",
   "imageDigest": "ghcr.io/farhaddgm/hero@sha256:…",
-  "serviceVersion": "0.1.0"
+  "serviceVersion": "0.1.0",
+  "smartTesterRepositoryContext": "read-only/1.0.0",
+  "walkthroughGuideRepositoryContext": "read-only/1.0.0"
 }
 ```
 

@@ -1,17 +1,25 @@
 # اسمارت تستر Back Office Hero
 
 - Document ID: `HERO-OPS-SMART-TESTER`
-- Version: `1.2.0`
+- Version: `1.6.0`
 - Status: `active`
 - Owner: `hero-quality`
 - Scope: `hero`
 - Review cadence: `per-change`
 - UI: دکمهٔ «اسمارت تستر» در نوار بالای Back Office
-- Date: `2026-09-14`
+- Date: `2026-09-20`
 
 ## هدف
 
 اسمارت تستر یک ابزار توسعه و بازبینی برای **خود Hero** است. این ابزار با نقش سازمانی `Tester` که روی محصولِ ساخته‌شده با Hero کار می‌کند متفاوت است: هدف آن کمک به Owner برای پرسش دربارهٔ یک بخش از Back Office و اجرای یک بررسی محدود، امن و قابل‌توضیح از همان بخش است.
+
+### مبنای طراحی و Benchmark
+
+- قرارداد semantic convention در OpenTelemetry مبنای جداسازی رویداد، شدت، Evidence و metadata ساختاریافته است؛ پیام خام یا دادهٔ حساس نباید شناسهٔ incident یا grouping را بسازد.
+- Issue Formهای GitHub مبنای گزارش فیلدبندی‌شده و قابل‌اقدام هستند؛ Hero نیز «مشاهده‌شده، انتظار، اثر، پیشنهاد اصلاح و تأیید پس از رفع» را جدا نگه می‌دارد.
+- فرهنگ postmortem در Google SRE مبنای تمرکز بر اثر، علت محتمل، بازیابی، اقدام اصلاحی و پیگیری بدون سرزنش است؛ Smart Tester قطعیت بیش از Evidence ادعا نمی‌کند.
+
+منابع مرجع: `https://opentelemetry.io/docs/specs/semconv/exceptions/exceptions-logs/`، `https://opentelemetry.io/docs/specs/semconv/general/events/`، `https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-request-templates/about-issue-and-pull-request-templates` و `https://sre.google/workbook/postmortem-culture/`.
 
 ## روشن و خاموش کردن
 
@@ -31,9 +39,12 @@
 
 ## مشاورهٔ زمینه‌مند و انتخاب AI
 
-پنل، route، Project ID انتخاب‌شده، کلید قابلیت، metadata امن پروژه (lifecycle، کامل‌بودن Intake، وضعیت Foundation، شمار ورودی/حافظه و مسیرهای تنظیم) و نقشهٔ source fileهای همان surface را به endpoint داخلی محدود می‌فرستد. متن حافظه، ورودی خصوصی، مقدار تنظیم و فایل کد خام به پنل یا گزارش منتقل نمی‌شود. مسیر فقط این contextهای allowlist را می‌پذیرد؛ URL یا فایل دلخواه از مرورگر پذیرفته نمی‌شود.
+پنل، route، Project ID انتخاب‌شده، کلید قابلیت، metadata امن پروژه (lifecycle، کامل‌بودن Intake، وضعیت Foundation، شمار ورودی/حافظه و مسیرهای تنظیم) و نقشهٔ source fileهای همان surface را به endpoint داخلی محدود می‌فرستد. متن حافظه، ورودی خصوصی و مقدار تنظیم به پنل یا گزارش منتقل نمی‌شود. مسیر فقط این contextهای allowlist را می‌پذیرد؛ URL یا فایل دلخواه از مرورگر پذیرفته نمی‌شود.
 
-- پاسخ‌گو در نسخهٔ `1.2.0`، تحلیلگر محلی و deterministic Hero است (`local-contextual-development-assistant`). فهرست امن Provider، Model و Profileهای فعال در پنجره نمایش داده می‌شود و Owner می‌تواند AI و نسخهٔ Profile را انتخاب کند. این انتخاب در پاسخ ثبت می‌شود، اما Provider خارجی، Token، هزینه یا فراخوانی Model زنده در این ابزار انجام نمی‌شود و به مجوز مستقل نیاز دارد.
+در فراخوانی زندهٔ مجاز Smart Tester، Control Plane علاوه بر این metadata یک `repositoryContext` خواندنی به Provider می‌دهد: فهرست فایل‌های متنیِ مجاز در ریشهٔ پروژه و محتوای محدود و مرتبطِ فایل‌های کد/سند. انتخاب با source map همان سطح و سؤال انجام می‌شود و payload سقف نسخه‌دار دارد؛ بنابراین «دسترسی read» به معنی mount کردن دیسک یا دادن filesystem tool نیست. `.env`، Secret/Credential، `.git`، `node_modules`، دادهٔ runtime، symlink، مسیر میزبان و فایل باینری هرگز وارد Context نمی‌شوند. این بسته فقط برای تحلیل است و `shell`، tool action، mutation، deploy و fetch خارجی ندارد.
+
+- پاسخ‌گو در حالت پیش‌فرض تحلیلگر محلی و deterministic Hero است (`local-contextual-development-assistant`). فهرست امن Provider، Model و Profileهای فعال در پنجره نمایش داده می‌شود و Owner می‌تواند AI و نسخهٔ Profile را انتخاب کند. اگر Profile فعال، project-bound، سالم و مشمول authorization دقیقِ external-spend باشد، source فعلی می‌تواند پاسخ ساخت‌یافتهٔ زنده (`analysis-v1`) را از همان Provider بگیرد؛ در غیر این صورت بدون dispatch به پاسخ محلی برمی‌گردد و fail-closed می‌ماند.
+- انتخاب‌گر فقط Profile سازگار با نقش `analyst`، schema `analysis-v1` و policy ابزار `read-only` را نشان می‌دهد و Provider/Model تکراری را deduplicate می‌کند؛ Profile ناسازگار یا آماده‌نشده قابل انتخاب نیست. این رفتار از تکرار ظاهری جلوگیری می‌کند، اما گیت authorization/health/budget را دور نمی‌زند.
 - سطح صفحه از آدرس canonical `/api/portal?surface=...` به context داخلی allowlist نگاشت می‌شود؛ بنابراین Portfolio، Studio، Workspace، مرکز فرمان، Operations، اتصال‌های AI، Identity و Walk-Through زمینهٔ جدا و معتبر دارند.
 - تحلیلگر دربارهٔ مرز داده، قرارداد UI/Backend و source map همان بخش توضیح می‌دهد. متن سؤال یا پاسخ در پایگاه‌داده، Audit یا history ذخیره نمی‌شود.
 - Secret، رمز، API key، MFA، Token یا دادهٔ شخصی را در سؤال وارد نکنید. درخواست‌هایی که شکل صریح مقدار حساس دارند رد می‌شوند.
@@ -56,10 +67,11 @@
 ## خطایاب و دفتر خطا
 
 1. در همان پنجره «خطایاب» را بزنید. این کار مستقل از گفت‌وگو یک Probe تازه از UI، UX، Backend و قرارداد کد اجرا می‌کند.
-2. گزارش شامل نسخه، Scope، زمان، شدت، یافته‌های attention، شاهد، انتظار، پیشنهاد اصلاح، فایل‌های مسئول، گام‌های بازتولید و محدودیت‌های پوشش است. Secret، متن خام سؤال/پاسخ و source code خام هرگز وارد گزارش نمی‌شود.
+2. گزارش شامل نسخه، Scope، زمان، شدت، fingerprint پایدارِ پاک‌سازی‌شده، یافته‌های attention، نوع Evidence، confidence، مشاهده، انتظار، اثر، پیشنهاد اصلاح، فایل‌های مسئول، برنامهٔ تأیید و محدودیت‌های پوشش است. Secret، متن خام سؤال/پاسخ و source code خام هرگز وارد گزارش نمی‌شود.
 3. اگر پروژه انتخاب نشده باشد، گزارش فقط قابل مشاهده است و دکمهٔ ثبت غیرفعال می‌ماند. در پروژهٔ انتخاب‌شده، Owner پس از تأیید صریح «ثبت در دفتر خطا» را می‌زند.
 4. ثبت، یک مدخل append-only در سند project-scoped با شناسهٔ `smart-tester-errors:<projectId>` می‌سازد. در PostgreSQL جدول `smart_tester_error_documents` نگهداری می‌شود؛ در حالت بدون PostgreSQL، وضعیت تا زمان restart فقط runtime است.
-5. ثبت گزارش به معنی رفع یا پذیرش خطا نیست؛ این سند مرجع گفت‌وگوی بعدی و رسیدگی توسعه‌ای است.
+5. ثبت گزارش به معنی رفع یا پذیرش خطا نیست؛ این سند مرجع گفت‌وگوی بعدی و رسیدگی توسعه‌ای است. `remediationBrief` نسخه‌دار، خلاصهٔ امن لازم برای تحویل به عامل توسعه را با problem، suspectedCause، proposedFix، verificationPlan، rollbackBoundary و sourceFiles فراهم می‌کند.
+6. بخش «فرصت‌های کیفیت» تست تعامل مرورگر، دسترس‌پذیری و شکست/بازیابی را پیشنهاد می‌دهد و صریحاً `suggested-not-run` می‌ماند؛ پیشنهاد آزمون هرگز به‌دروغ نتیجهٔ اجراشده محسوب نمی‌شود.
 
 ## نتیجهٔ اقدام‌های فرایندی و اتصال به Smart Tester
 
@@ -68,13 +80,14 @@
 - پاسخ موفق با عنوان «عملیات با موفقیت انجام شد»، خلاصهٔ سرویس و دکمهٔ «ادامه» نمایش داده می‌شود؛ بستن/ادامه صفحه را جابه‌جا نمی‌کند و تمرکز را به کنترل اصلی برمی‌گرداند.
 - پاسخ ناموفق یا خطای شبکه با عنوان «عملیات ناموفق بود»، وضعیت HTTP و پیام پاک‌سازی‌شده نمایش داده می‌شود و دکمهٔ «بستن» در دسترس است.
 - در همان پنجرهٔ خطا، «تحلیل با اسمارت تستر» پنل Smart Tester را برای همان Box و Scope باز می‌کند. مسیر API، وضعیت، کد خطا و پیام محدود و redacted به advice و خطایاب منتقل می‌شود؛ مقدار Secret، Token یا پاسخ خام هرگز ارسال یا ذخیره نمی‌شود.
-- پس از اجرای «خطایاب»، یافتهٔ شکست اقدام در کنار Probe مستقل UI/UX/Backend/Code ثبت می‌شود و Owner می‌تواند آن را با تأیید صریح در دفتر خطای همان پروژه append کند.
+- پس از اجرای «خطایاب»، یافتهٔ شکست اقدام در کنار Probe مستقل UI/UX/Backend/Code ثبت می‌شود. برای خطای HTTP منتقل‌شده، پنجره فقط چهار پاسخ ساده نشان می‌دهد: «چه اتفاقی افتاد؟»، «چرا رخ داد؟»، «چه‌کار کنم؟» و «بعد از اصلاح». گام‌های بازتولید و شمارندهٔ بررسی‌های اجرا‌نشده در پنجرهٔ کاربر نمایش داده نمی‌شوند. علت و راه‌حل بر مبنای status/code پاک‌سازی‌شده‌اند و قطعیتِ بیش از evidence ادعا نمی‌کنند.
+- Owner می‌تواند همین گزارش پاک‌سازی‌شده را با تأیید صریح در دفتر خطای همان پروژه append کند. هر رکورد شامل Context و Scope، یافته‌ها، diagnosis، incident، remediation brief و فرصت‌های کیفیت است؛ پرسش گفت‌وگو، Secret، Token و پاسخ خام Provider در دفتر ذخیره نمی‌شوند.
 
 ## امنیت و دسترسی
 
 - تمام endpointهای `/api/smart-tester/*` به نشست انسانی معتبر نیاز دارند؛ Basic Auth شبکه به‌تنهایی کافی نیست.
 - فقط `project-owner` می‌تواند ابزار را باز کند یا گزارش اجرا کند. Viewer و Admin—even با Project Grant—دسترسی ندارند، چون ابزار به نقشهٔ کد Hero مربوط است.
-- برای context project-scoped، Project Grant `project.read` هم کنترل می‌شود و `projectId` در query و body باید دقیقاً یکسان باشد.
+- برای context project-scoped، Project Grant `project.read` هم کنترل می‌شود و `projectId` در query و body باید دقیقاً یکسان باشد. اجرای زنده علاوه بر آن به Profile/Binding فعال، Health، سقف هزینه، Step/Document version و Global Stop خاموش نیاز دارد.
 - mutationهای cookie-backed همچنان Origin same-origin را می‌خواهند.
 - گزارش با `reportId` تصادفی فقط برای همان Owner و همان context قابل‌خواندن است و حداکثر ۳۰ دقیقه در حافظهٔ Control Plane نگهداری می‌شود. Restart، logout یا پایان TTL آن را حذف می‌کند.
 
@@ -88,6 +101,6 @@
 
 گزارش به‌تنهایی Evidence انتشار، approval، acceptance یا Done نیست. برای رفع یک مشکل واقعی، Owner باید تغییر را از مسیر توسعه، review، test و گیت مستقل همان قابلیت انجام دهد.
 
-## مرز نسخهٔ ۱.۲.۰
+## مرز نسخهٔ ۱.۶.۰ / گزارش خطا ۱.۳.۰
 
-این نسخه علاوه بر پنل شناور، روشن/خاموش‌سازی، نشان در Boxها، گفت‌وگوی context-aware و گزارش محدود UI/UX/Backend/Code، انتخاب امن AI/نسخه، خطایاب مستقل و ثبت تأییدشدهٔ سند خطا را دارد. خطاهای اقدام‌های فرایندی نیز از پنجرهٔ نتیجه به Smart Tester منتقل می‌شوند تا در advice و گزارش خطا لحاظ شوند. اجرای جامع browser automation، تست بصری خودکار، اجرای تمام suiteها، lint خارجی یا اتصال به Provider/AI زنده عمداً درون این ابزار قرار نگرفته‌اند؛ افزودن هرکدام نیازمند طراحی pipeline، بودجه، isolation و مجوز جداگانه است.
+این نسخه علاوه بر پنل شناور، روشن/خاموش‌سازی، نشان در Boxها، گفت‌وگوی context-aware و گزارش محدود UI/UX/Backend/Code، انتخاب امن AI/نسخه، خطایاب مستقل، ثبت تأییدشدهٔ سند خطا و Context خواندنیِ محدود از کد و اسناد پروژه را دارد. گزارش خطای ۱.۳.۰ incident و remediation brief قابل‌تحویل، fingerprint پایدار، confidence/evidence type و فرصت‌های آزمون را نیز تولید می‌کند. مسیر live Provider در source پیاده‌سازی و با fake adapter آزموده شده، اما تا وقتی Test Profile/Binding و authorization runtime منطبق نداشته باشد اجرا نمی‌شود. اجرای جامع browser automation، تست بصری خودکار، اجرای تمام suiteها، lint خارجی، GitHub، Server یا عملیات Production درون این ابزار قرار نگرفته‌اند و گیت مستقل دارند.

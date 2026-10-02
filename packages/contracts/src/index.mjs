@@ -45,6 +45,16 @@ export {
 } from "./runner.mjs";
 
 export {
+  PRODUCT_RUNNER_ACTIONS,
+  PRODUCT_RUNNER_AUTH_OPERATIONS,
+  PRODUCT_RUNNER_CONTRACT_VERSION,
+  PRODUCT_RUNNER_DECISION_CODES,
+  PRODUCT_RUNNER_DEFAULTS,
+  getProductRunnerContractSummary,
+  validateProductRunnerContract
+} from "./product-runner.mjs";
+
+export {
   FAKE_AGENT_CONTRACT_VERSION,
   FAKE_AGENT_OUTCOMES,
   FAKE_AGENT_SCENARIOS,
@@ -459,12 +469,84 @@ export {
   validateProjectSettingsContract
 } from "./project-settings.mjs";
 
+export {
+  PRODUCT_AUTONOMY_MODES,
+  PRODUCT_EXECUTION_MODES,
+  PRODUCT_FACTORY_CONTRACT_VERSION,
+  PRODUCT_NETWORK_POLICIES,
+  PRODUCT_RISK_LEVELS,
+  PRODUCT_RUNTIME_DEFAULTS,
+  PRODUCT_RUNTIME_EFFECTS,
+  PRODUCT_RUNTIME_NETWORK_MODES,
+  PRODUCT_RUNTIME_STATES,
+  PRODUCT_TARGET_KINDS,
+  PRODUCT_TYPES,
+  getProductFactoryContractSummary,
+  validateProductFactoryContract,
+  validateProductRuntimePlan
+} from "./product-factory.mjs";
+
+export {
+  PRODUCT_RUNTIME_CAPACITY_CONTRACT_VERSION,
+  PRODUCT_RUNTIME_CAPACITY_TARGET,
+  normalizeProductRuntimeCapacitySnapshot,
+  evaluateProductRuntimeCapacity,
+  getProductRuntimeCapacitySummary,
+  validateProductRuntimeCapacityContract
+} from "./product-runtime-capacity.mjs";
+
+export {
+  PRODUCT_RUNTIME_LEASE_CONTRACT_VERSION,
+  PRODUCT_RUNTIME_LEASE_DEFAULT_TTL_SECONDS,
+  PRODUCT_RUNTIME_LEASE_MIN_TTL_SECONDS,
+  PRODUCT_RUNTIME_LEASE_MAX_TTL_SECONDS,
+  createProductRuntimeLease,
+  normalizeProductRuntimeLease,
+  evaluateProductRuntimeLease,
+  heartbeatProductRuntimeLease,
+  getProductRuntimeLeaseSummary,
+  validateProductRuntimeLeaseContract
+} from "./product-runtime-lease.mjs";
+
+export {
+  PRODUCT_ARTIFACT_SCHEMA,
+  PRODUCT_ARTIFACT_CONTRACT_VERSION,
+  PRODUCT_ARTIFACT_DIGEST_PATTERN,
+  PRODUCT_ARTIFACT_HASH_PATTERN,
+  createProductArtifactManifest,
+  getProductArtifactContractSummary,
+  validateProductArtifactManifest,
+  validateProductArtifactContract
+} from "./product-artifact.mjs";
+export {
+  PRODUCT_DELIVERY_BUNDLE_SCHEMA,
+  PRODUCT_DELIVERY_BUNDLE_CONTRACT_VERSION,
+  PRODUCT_DELIVERY_BUNDLE_ENVIRONMENTS,
+  PRODUCT_DELIVERY_BUNDLE_COMPATIBILITY_FIELDS,
+  createProductDeliveryBundle,
+  getProductDeliveryBundleContractSummary,
+  validateProductDeliveryBundle,
+  validateProductDeliveryBundleContract
+} from "./product-delivery-bundle.mjs";
+
 export { BACKOFFICE_COLLABORATION_CONTRACT_VERSION, CONVERSATION_CONTEXTS, MEMORY_LEVELS, MEMORY_SENSITIVITIES, getBackofficeCollaborationContractSummary, validateBackofficeCollaborationContract } from "./backoffice-collaboration.mjs";
 export { BACKOFFICE_COMMAND_CENTER_CONTRACT_VERSION, COMMAND_RISKS, COMMAND_STATES, getBackofficeCommandCenterContractSummary, validateBackofficeCommandCenterContract } from "./backoffice-command-center.mjs";
 export { SYSTEM_CATALOG_CONTRACT_VERSION, SYSTEM_ENTITY_TYPES, SYSTEM_ENTITY_LIFECYCLES, getSystemCatalogContractSummary, validateSystemCatalogContract } from "./system-catalog.mjs";
 export { PERFORMANCE_INTELLIGENCE_CONTRACT_VERSION, USAGE_EVENT_FIELDS, HEALTH_STATUSES, getPerformanceIntelligenceContractSummary, validatePerformanceIntelligenceContract } from "./performance-intelligence.mjs";
 export { NOTIFICATION_OBSERVABILITY_CONTRACT_VERSION, NOTIFICATION_SEVERITIES, NOTIFICATION_STATES, getNotificationObservabilityContractSummary, validateNotificationObservabilityContract } from "./notification-observability.mjs";
 export { INFRASTRUCTURE_CONTROL_CONTRACT_VERSION, HERO_ENVIRONMENTS, NODE_STATES, SECRET_STATES, getInfrastructureControlContractSummary, validateInfrastructureControlContract } from "./infrastructure-control.mjs";
+export {
+  REMOTE_AGENT_CONTRACT_VERSION,
+  REMOTE_TARGET_STATES,
+  REMOTE_AGENT_STATES,
+  REMOTE_AGENT_OPERATIONS,
+  REMOTE_AGENT_TRANSPORTS,
+  REMOTE_AGENT_CAPABILITIES,
+  REMOTE_AGENT_SIGNATURE_ALGORITHM,
+  REMOTE_ARTIFACT_DIGEST_PATTERN,
+  getRemoteAgentContractSummary,
+  validateRemoteAgentContract
+} from "./remote-agent.mjs";
 export { DELIVERY_CONTROL_CONTRACT_VERSION, DELIVERY_RELEASE_STATES, DELIVERY_TARGETS, getDeliveryControlContractSummary, validateDeliveryControlContract } from "./delivery-control.mjs";
 export { OPERATIONAL_HARDENING_CONTRACT_VERSION, SUPPORTED_LOCALES, RETENTION_MINIMUMS, getOperationalHardeningContractSummary, validateOperationalHardeningContract } from "./operational-hardening.mjs";
 export { FINAL_READINESS_CONTRACT_VERSION, READINESS_STATES, getFinalReadinessContractSummary, validateFinalReadinessContract } from "./final-readiness.mjs";
