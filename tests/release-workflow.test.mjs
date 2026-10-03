@@ -21,6 +21,8 @@ test("release candidate workflow is test-gated, version-bound and production-fre
   assert.match(source, /RepoDigests/);
   assert.match(source, /tools\/create-release-manifest\.mjs/);
   assert.match(source, /hero-release-manifest\.json/);
+  // A committed evidence manifest at the repository root must never block a new run.
+  assert.match(source, /--output dist\/release\/hero-release-manifest\.json/);
   assert.match(source, /--workflow-run-id "\$GITHUB_RUN_ID"/);
   assert.match(source, /actions\/github-script@v7/);
   assert.match(source, /prerelease: true/);
