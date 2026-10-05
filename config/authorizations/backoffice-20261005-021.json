@@ -1,0 +1,62 @@
+{
+  "schema": "hero.authorization-snapshot/v1",
+  "authorizationId": "BATCH-BACKOFFICE-20261005-021",
+  "status": "active",
+  "grantedBy": "project-owner",
+  "grantedAt": "2026-10-05",
+  "grantSource": "owner-chat-instruction-2026-10-05",
+  "ownerStatement": "مجوز می‌دهم گام‌های BO-043 تا BO-052 طبق HERO-ROADMAP-BACKOFFICE-COMMAND-CENTER-V1 نسخهٔ 1.2.0 و HERO-SPEC-022 نسخهٔ 1.0.0 طراحی، توسعه، مستندسازی، تست و بازبینی شوند. Production، Secret، هزینهٔ بیرونی، Provider زنده و نوشتن در Notion مجاز نیست.",
+  "validUntil": "owner-revocation",
+  "globalStop": false,
+  "operations": [
+    "design",
+    "develop",
+    "document",
+    "test",
+    "review"
+  ],
+  "excludedOperations": [
+    "production-deploy",
+    "secret-change",
+    "external-spend",
+    "provider-live-call",
+    "notion-write",
+    "destructive-data-operation",
+    "external-message",
+    "irreversible-operation",
+    "pilot-execution"
+  ],
+  "documents": [
+    {
+      "documentId": "HERO-SPEC-022",
+      "documentVersion": "1.0.0"
+    },
+    {
+      "documentId": "HERO-ROADMAP-BACKOFFICE-COMMAND-CENTER-V1",
+      "documentVersion": "1.2.0"
+    }
+  ],
+  "steps": [
+    { "stepId": "BO-043", "documentVersion": "1.2.0" },
+    { "stepId": "BO-044", "documentVersion": "1.2.0" },
+    { "stepId": "BO-045", "documentVersion": "1.2.0" },
+    { "stepId": "BO-046", "documentVersion": "1.2.0" },
+    { "stepId": "BO-047", "documentVersion": "1.2.0" },
+    { "stepId": "BO-048", "documentVersion": "1.2.0" },
+    { "stepId": "BO-049", "documentVersion": "1.2.0" },
+    { "stepId": "BO-050", "documentVersion": "1.2.0" },
+    { "stepId": "BO-051", "documentVersion": "1.2.0" },
+    { "stepId": "BO-052", "documentVersion": "1.2.0" }
+  ],
+  "scope": {
+    "environment": "development-and-test",
+    "service": "hero-control-plane",
+    "workPackage": "WP-04",
+    "action": "effective-settings-and-project-policy-pack-source-completion",
+    "production": false,
+    "secrets": false,
+    "providers": false,
+    "notionWrite": false
+  },
+  "note": "Renews WP-04 authority against roadmap 1.2.0 because BATCH-BACKOFFICE-20260910-005/006 pinned roadmap 1.0.0. Source work only; Test promotion, Production, Secret changes, external spend, live Provider calls and Notion writes remain excluded."
+}

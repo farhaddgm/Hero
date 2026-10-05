@@ -84,8 +84,8 @@
       "count": 10,
       "work_package": "WP-04",
       "status": "partial",
-      "evidence": ["packages/domain/src/project-settings.mjs", "tests/project-workspace-and-settings.test.mjs"],
-      "open_gate": "Complete editable Settings UI, provenance/diff/impact presentation, persisted rollback and property-level invariant tests."
+      "evidence": ["config/authorizations/backoffice-20261005-021.json", "packages/contracts/src/project-settings.mjs", "packages/domain/src/project-settings.mjs", "apps/control-plane/src/project-workspace-view.mjs", "tests/project-workspace-and-settings.test.mjs", "tests/project-settings-policy.test.mjs"],
+      "open_gate": "Source completed 2026-10-05 under BATCH-BACKOFFICE-20261005-021 (typed schema, floors, explain/changes/readiness APIs, editable provenance/diff UI, restart-safe removal, property tests). Remaining: Test-runtime evidence on a promoted candidate and wiring the project policy gate into Command Center dispatch (WP-07)."
     },
     {
       "from": "BO-053",

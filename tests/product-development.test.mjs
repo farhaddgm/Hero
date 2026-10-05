@@ -98,7 +98,9 @@ test("Product Studio requires a project selection and returns only the selected 
   const now = () => "2026-09-10T12:00:00.000Z";
   const workspace = createProjectWorkspace({ ownerUserId: "hero-owner", now });
   workspace.createProject({ actor: { subject: "hero-owner", role: "project-owner" }, projectId: "project-vpn", name: "VPN" });
-  const app = createHeroServer({ host: "127.0.0.1", port: 0, repositoryRoot: root, now, projectWorkspace: workspace });
+  // Pin the adapter so a host that has Notion variables set cannot flip the expected default.
+  const notionAdapter = createNotionApiAdapter({ enabled: false, token: "" });
+  const app = createHeroServer({ host: "127.0.0.1", port: 0, repositoryRoot: root, now, projectWorkspace: workspace, notionAdapter });
   const address = await app.start();
   t.after(() => app.stop());
   const base = `http://127.0.0.1:${address.port}`;

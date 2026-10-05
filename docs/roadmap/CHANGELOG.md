@@ -1,5 +1,13 @@
 # تغییرات رودمپ شرکت
 
+# ۲۰۲۶-۱۰-۰۵ — تکمیل source تنظیمات مؤثر و Policy Pack (BO-043..BO-052)
+
+- افزوده‌شده: schema تایپ‌دار فیلدهای تنظیمات، الگوهای قطعی Policy Pack برای هر نوع پروژه و سطح ریسک با کف‌های قفل، APIهای `settings/explain`، `settings/changes`، `settings/readiness` و `settings/remove-override`، و نمایش منشأ، زنجیره، کف، diff، عامل، دلیل و اثر در بخش Settings.
+- سخت‌سازی‌شده: کف Policy از contract خوانده می‌شود و نه از ردیف ذخیره‌شده؛ نوشتن مستقیم لایهٔ الگو، rollback به مقدار ضعیف‌تر و ردیف دستکاری‌شده fail-closed هستند؛ Policy ناقص یا متعارض با `POLICY_INCOMPLETE` جلوی dispatch را می‌گیرد.
+- اصلاح‌شده: override حذف‌شده دیگر پس از restart زنده نمی‌شود؛ تنظیمات متنی و آرایه‌ای اکنون درست در ستون `jsonb` PostgreSQL ذخیره می‌شوند.
+- اصلاح‌شده: تست Product Studio دیگر به متغیرهای Notion میزبان وابسته نیست.
+- شواهد: `pnpm check` کامل `505/505` PASS، property test با پنج بذر، mutation test و رفت‌وبرگشت واقعی PostgreSQL. وضعیت ممیزی همچنان `partial` تا شواهد Runtime Test؛ هیچ Production، Secret، Provider زنده، هزینه یا نوشتن Notion.
+
 # ۲۰۲۶-۰۹-۲۱ — سرویس سراسری Test برای Advisor، Walk-Through و Smart Tester
 
 - اصلاح‌شده: سه دستیار Back Office برای Project تازه دیگر به Binding تحلیل‌گر یا Scope دستیِ همان Project وابسته نیستند. Profile فعال و سالم در همهٔ Projectها انتخاب‌پذیر است و، پس از گذر از مجوز صریح Test-wide، نخستین درخواست فقط یک Binding داخلیِ append-only و project-scoped می‌سازد.

@@ -9,6 +9,10 @@ test("project workspace persistence accepts scoped, secret-free metadata only", 
   await store.recordInput({ inputId: "upload-123", projectId: "project-vpn", type: "text", objectKey: "hero/uploads/project-vpn/upload-123/abc", scanState: "clean", parseState: "parsed" });
   await store.appendSetting({ projectId: "project-vpn", path: "ai.defaultModel", layer: "project-override", version: 1, value: "sol", actorId: "hero-owner", reason: "fit", impact: "cost", source: "project-override" });
   assert.equal(queries.length, 3);
+  assert.equal(queries[2].values[5], JSON.stringify("sol"), "jsonb setting values are serialized, not sent as bare text");
+  await store.appendSetting({ projectId: "project-vpn", path: "delivery.windows", layer: "project-override", version: 2, value: ["sat", "sun"], actorId: "hero-owner", reason: "fit", impact: "cost", source: "project-override" });
+  assert.equal(queries[3].values[5], '["sat","sun"]', "arrays are JSON arrays, not PostgreSQL arrays");
+  queries.length = 3;
   await assert.rejects(() => store.recordInput({ inputId: "upload-456", projectId: "project-vpn", type: "text", objectKey: "other/uploads/project-vpn/x", scanState: "clean", parseState: "parsed" }), error => error instanceof ProjectWorkspaceStoreError && error.code === "OBJECT_SCOPE_INVALID");
   await assert.rejects(() => store.appendProject({ projectId: "project-vpn", version: 2, name: "VPN", lifecycle: "active", status: "active", intake: { apiKey: "no" }, actorId: "hero-owner" }), error => error.code === "SENSITIVE_PERSISTENCE_FORBIDDEN");
 });
