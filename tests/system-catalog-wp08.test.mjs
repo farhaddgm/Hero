@@ -31,7 +31,7 @@ function seeded() {
 test("BO-089 contract: lifecycle transitions, per-type rules and typed relations", () => {
   assert.deepEqual(validateSystemCatalogContract(), []);
   const summary = getSystemCatalogContractSummary();
-  assert.equal(summary.version, "1.1"); assert.deepEqual(summary.transitions.retired, []);
+  assert.equal(summary.version, "1.2"); assert.deepEqual(summary.transitions.retired, []);
   assert.match(summary.liveDiscovery, /separate authorization/);
   const { catalog, add } = seeded();
   assert.throws(() => add("bad-env", "environment", { tier: "prod-ish" }), code("ENTITY_METADATA_INVALID"));
