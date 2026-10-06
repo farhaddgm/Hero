@@ -13,16 +13,16 @@ test("delivery audit covers every BO-001..BO-170 step exactly once", () => {
   assert.equal(result.ok, true, JSON.stringify(result.errors));
   assert.equal(result.stepCount, 170);
   assert.deepEqual(result.counts, {
-    verified: 20,
-    partial: 122,
+    verified: 70,
+    partial: 72,
     gated: 26,
     owner_pending: 1,
     deferred: 1
   });
   assert.equal(result.requirementCount, 81);
   assert.deepEqual(result.requirementCounts, {
-    implemented: 5,
-    partial: 76,
+    implemented: 10,
+    partial: 71,
     missing: 0
   });
 });

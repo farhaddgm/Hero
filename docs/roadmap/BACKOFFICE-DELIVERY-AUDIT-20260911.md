@@ -6,7 +6,7 @@
 > Type: evidence
 > Scope: hero
 > Status: active
-> Version: 1.6.0
+> Version: 1.7.0
 > Owner: hero-architecture
 > Review cadence: per-change
 > Supersedes: none
@@ -20,14 +20,14 @@
 
 | وضعیت | تعداد | معنی |
 |---|---:|---|
-| `verified` | ۲۰ | خروجی و Exit Gate بسته دارای پیاده‌سازی، تست و Evidence قابل اتکا است |
-| `partial` | ۱۲۲ | بخشی ساخته شده، ولی حداقل یکی از Domain، persistence، API، authorization، audit، UI، integration test یا runtime evidence ناقص است |
+| `verified` | ۷۰ | خروجی و Exit Gate بسته دارای پیاده‌سازی، تست و Evidence قابل اتکا است |
+| `partial` | ۷۲ | بخشی ساخته شده، ولی حداقل یکی از Domain، persistence، API، authorization، audit، UI، integration test یا runtime evidence ناقص است |
 | `gated` | ۲۶ | قرارداد یا اجرای امن داخلی موجود است، اما آزمون عملیاتی به مجوز جداگانه نیاز دارد |
 | `owner_pending` | ۱ | پذیرش نهایی فقط باید توسط Owner ثبت شود |
 | `deferred` | ۱ | Proposal پایلوت تا پذیرش نهایی عمداً متوقف است |
 | **جمع** | **۱۷۰** | پوشش کامل شماره‌ها، نه تکمیل کامل محصول |
 
-بنابراین **۱۵۰ گام هنوز برای رسیدن به وضعیت verified باز هستند**. این عدد از رجیستری ماشینی [delivery-audit-v1.0.json](../../config/backoffice/delivery-audit-v1.0.json) محاسبه و با checker fail-closed کنترل می‌شود.
+بنابراین **۱۰۰ گام هنوز برای رسیدن به وضعیت verified باز هستند**. این عدد از رجیستری ماشینی [delivery-audit-v1.0.json](../../config/backoffice/delivery-audit-v1.0.json) محاسبه و با checker fail-closed کنترل می‌شود.
 
 ## ۲. روش ممیزی
 
@@ -41,6 +41,10 @@
 
 وجود فایل یا عبور یک unit test به‌تنهایی `verified` محسوب نشده است. قابلیت دارای UI در صورتی کامل است که UI به API واقعی وصل باشد، مجوز و scope را رعایت کند و در Test قابل استفاده باشد. قابلیت عملیاتی نیز بدون runtime evidence واقعی کامل محسوب نمی‌شود.
 
+### به‌روزرسانی ۲۰۲۶-۱۰-۰۶ — ۵۰ گام verified روی Runtime Test
+
+مالک `tools/run-test-acceptance.sh` را روی host Test اجرا کرد (run `20261006T193011Z-572054`): همان image immutable `ghcr.io/farhaddgm/hero@sha256:ab5ddffc…` (`v1.1.5-rc.37`) به‌صورت نمونهٔ یک‌بارمصرف با PostgreSQL موقت و شبکهٔ بدون اینترنت اجرا شد؛ مرحلهٔ seed با سه نقش `52/52`، و پس از کشتن نمونه با `SIGKILL` و راه‌اندازی دوباره، مرحلهٔ verify `15/15` چک درون‌دامنه را PASS کرد. بر این اساس `BO-043..BO-092` به `verified` رسید. همین اجرا یک یافتهٔ واقعی بیرون از دامنه گزارش کرد: کاربر MFA‌دار غیرمالک پس از restart نمی‌تواند وارد شود (WP-02، `BO-IAM-001`). پنج نیازمندی که تنها کمبودشان شواهد Runtime بود (`BO-PRJ-009`، `BO-MEM-001`، `BO-CMD-004`، `BO-CMD-005`، `BO-WF-005`) `implemented` شدند.
+
 ## ۳. وضعیت Work Packageها
 
 | Work Package | گام‌ها | وضعیت ممیزی | خروجی موجود | شرط بسته‌شدن |
@@ -49,11 +53,12 @@
 | WP-01 | BO-011..020 | verified | مرزها، contract، event envelope، read model و migration foundation | بسته است |
 | WP-02 | BO-021..030 | partial | Human Identity، Role، ProjectGrant، login/MFA/recovery API، persistence hydration و صفحهٔ `/identity` برای user/grant | enrollment/rotation واقعی MFA، recovery delivery، rate-limit runtime و ماتریس کامل Test |
 | WP-03 | BO-031..042 | partial | Project workspace، create/archive/clone/intake/foundation و storage metadata | object storage خصوصی، scan/parser sandbox، import واقعی و UI |
-| WP-04 | BO-043..052 | partial | source کامل ۲۰۲۶-۱۰-۰۵: schema تایپ‌دار، کف Policy، explain/changes/readiness، UI منشأ/diff، حذف پایدار پس از restart، property test | شواهد Runtime Test روی Candidate promote‌شده و اتصال گیت Policy به dispatch در WP-07 |
-| WP-05 | BO-053..062 | partial | source کامل ۲۰۲۶-۱۰-۰۶: IA نقش‌محور، Portfolio صفحه‌بندی‌شده با نقش/تصمیم، KPI تعریف‌شده با drill-down دقیق، breadcrumb، آزمون HTTP و مرورگر سه‌نقشی | شواهد Runtime Test و shell واحد برای همهٔ surfaceها |
-| WP-06 | BO-063..074 | partial | source کامل BO-063..074 در ۲۰۲۶-۱۰-۰۶: تیم/نقش/پروفایل نسخه‌دار، پنج context، memory پایدار با redaction نقش همان پروژه، Knowledge Proposal، آزمون‌های مهاجمانهٔ BO-073 (memory دستورمانند از Context کنار می‌رود) و صفحهٔ همکاری با citation | شواهد Runtime Test |
-| WP-07 | BO-075..088 | partial | source کامل ۲۰۲۶-۱۰-۰۶: taxonomy و کف ریسک، intent از گفتگو، کارت فرمان، تصمیم تغییرناپذیر وابسته به سیاست، بازبینی گیت‌ها هنگام dispatch، زمان‌بندی منصفانه، retry/timeout/جبران، replay پس از crash، پایداری PostgreSQL و تابلوی قابل اقدام با آزمون مرورگر | شواهد Runtime Test؛ adapter اجرای واقعی جداگانه gated |
-| WP-08 | BO-089..098 | partial | source BO-089..092 در ۲۰۲۶-۱۰-۰۶: چرخهٔ عمر و metadata لازم، رابطهٔ تایپ‌دار بدون چرخه، کشف آفلاین snapshot گیت‌هاب، Drift Proposal بدون overwrite، migration `022` | BO-093..098، acquisition زندهٔ مجاز، UI گراف و شواهد Runtime Test |
+| WP-04 | BO-043..052 | verified | verified در ۲۰۲۶-۱۰-۰۶ با آزمون پذیرش نقش‌محور روی Runtime Test (`v1.1.5-rc.37`): schema تایپ‌دار، کف Policy، explain/readiness، override پایدار پس از restart | پیگیری بیرون از این گام‌ها: پوشش همهٔ زیرسیستم‌ها و تأیید دوبارهٔ Policy Pack هنگام تغییر ریسک |
+| WP-05 | BO-053..062 | verified | verified در ۲۰۲۶-۱۰-۰۶ با آزمون پذیرش نقش‌محور روی Runtime Test (`v1.1.5-rc.37`): Portfolio نقش‌محور، KPI برابر drill-down، ایزولهٔ سه نقش، breadcrumb و جست‌وجو | پیگیری: shell واحد برای همهٔ surfaceها |
+| WP-06 | BO-063..074 | verified | verified در ۲۰۲۶-۱۰-۰۶ با آزمون پذیرش نقش‌محور روی Runtime Test (`v1.1.5-rc.37`): گفتگو و memory پایدار پس از SIGKILL، redaction، کنار گذاشتن memory دستورمانند، صفحهٔ همکاری با citation | پیگیری WP-02: ورود کاربر MFA‌دار پس از restart (BO-IAM-001) |
+| WP-07 | BO-075..088 | verified | verified در ۲۰۲۶-۱۰-۰۶ با آزمون پذیرش نقش‌محور روی Runtime Test (`v1.1.5-rc.37`): intent از گفتگو، تصمیم با snapshot سیاست، dispatch با گیت، Production مسدود، `interrupted` پس از crash، resume و پایان idempotent | adapter اجرای واقعی و Production جداگانه gated |
+| WP-08 | BO-089..092 | verified | verified در ۲۰۲۶-۱۰-۰۶ با آزمون پذیرش نقش‌محور روی Runtime Test (`v1.1.5-rc.37`): metadata لازم، رابطهٔ تایپ‌دار بدون چرخه، کشف آفلاین، Drift Proposal و تصمیم انسانی پس از restart | بسته است |
+| WP-08 | BO-093..098 | partial | ارجاع‌ها و جست‌وجوی پایه در Catalog | اتصال کامل به owner/team/document/run/artifact/health، گراف سند/تصمیم، UI جست‌وجو و گراف، Git canonical/Notion projection و آزمون BO-098 |
 | WP-09 | BO-099..110 | partial | usage، ledger، budget، evaluation و health domain | ingestion واقعی، UI و drill-down تا Run/Evidence |
 | WP-10 | BO-111..120 | partial | notification/audit/observability domain | Inbox قابل اقدام، trace سرتاسری و runtime storm/security evidence |
 | WP-11 | BO-121..134 | gated | metadata-only GitHub/Server/Node/Secret contracts | اتصال واقعی و آزمون امنیتی با credential و مجوز جدا |
@@ -96,8 +101,8 @@
 
 | وضعیت | تعداد | معنی |
 |---|---:|---|
-| `implemented` | ۵ | الزام پایه با شواهد کافی در سطح تعریف‌شده پیاده‌سازی شده است |
-| `partial` | ۷۶ | پیاده‌سازی داخلی یا شواهدی دارد، اما vertical slice کامل UI/persistence/runtime هنوز اثبات نشده است |
+| `implemented` | ۱۰ | الزام پایه با شواهد کافی در سطح تعریف‌شده پیاده‌سازی شده است |
+| `partial` | ۷۱ | پیاده‌سازی داخلی یا شواهدی دارد، اما vertical slice کامل UI/persistence/runtime هنوز اثبات نشده است |
 | `missing` | ۰ | هیچ الزام کاملاً بدون پیاده‌سازی باقی نمانده است |
 | **جمع** | **۸۱** | همهٔ نیازمندی‌ها دقیقاً یک بار ممیزی شده‌اند |
 

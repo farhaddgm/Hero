@@ -6,9 +6,9 @@
   "roadmap": "HERO-ROADMAP-BACKOFFICE-COMMAND-CENTER-V1@1.1.0",
   "source": {
     "branch": "codex/hero-001-project-charter",
-    "branch_head": "b23fbfe46f15e3ec0a630c5a4e6a54c1721d53a8",
-    "release_candidate": "v0.1.0-rc.21",
-    "test_deployment": "artifact_identity_not_reverified_in_this_audit",
+    "branch_head": "9db97df1405738db75d64e931d0582061fab1166",
+    "release_candidate": "v1.1.5-rc.37",
+    "test_deployment": "ghcr.io/farhaddgm/hero@sha256:ab5ddffc1412cca1e05efe10f0183bcaab22c90cb36f3a72fb294d84fc5ea346",
     "production_change": "none"
   },
   "status_definitions": {
@@ -20,18 +20,18 @@
   },
   "summary": {
     "total": 170,
-    "verified": 20,
-    "partial": 122,
+    "verified": 70,
+    "partial": 72,
     "gated": 26,
     "owner_pending": 1,
     "deferred": 1,
-    "remaining_to_verified": 150
+    "remaining_to_verified": 100
   },
   "requirement_current": {
     "registry": "config/backoffice/requirement-trace-v1.0.json",
-    "assessed_at": "2026-09-11",
-    "implemented": 5,
-    "partial": 76,
+    "assessed_at": "2026-10-06",
+    "implemented": 10,
+    "partial": 71,
     "missing": 0,
     "interpretation": "current_strict_requirement_audit; partial is not delivered or verified. BO-DAT-001 now has a Hero-owned private-volume adapter and automated persistence evidence, but remains partial until its operational scanner/parser gates are closed."
   },
@@ -83,45 +83,54 @@
       "to": "BO-052",
       "count": 10,
       "work_package": "WP-04",
-      "status": "partial",
-      "evidence": ["config/authorizations/backoffice-20261005-021.json", "packages/contracts/src/project-settings.mjs", "packages/domain/src/project-settings.mjs", "apps/control-plane/src/project-workspace-view.mjs", "tests/project-workspace-and-settings.test.mjs", "tests/project-settings-policy.test.mjs"],
-      "open_gate": "Source completed 2026-10-05 under BATCH-BACKOFFICE-20261005-021 (typed schema, floors, explain/changes/readiness APIs, editable provenance/diff UI, restart-safe removal, property tests). Remaining: Test-runtime evidence on a promoted candidate and wiring the project policy gate into Command Center dispatch (WP-07)."
+      "status": "verified",
+      "evidence": ["apps/control-plane/src/project-workspace-view.mjs", "config/authorizations/backoffice-20261005-021.json", "docs/roadmap/STATUS-20260917.md", "packages/contracts/src/project-settings.mjs", "packages/domain/src/project-settings.mjs", "tests/project-settings-policy.test.mjs", "tests/project-workspace-and-settings.test.mjs", "tests/test-acceptance-runner.test.mjs", "tools/acceptance/run-test-acceptance.mjs", "tools/run-test-acceptance.sh"],
+      "open_gate": "Verified 2026-10-06 on Test runtime: owner-run role-based acceptance (tools/run-test-acceptance.sh, run 20261006T193011Z-572054) on the exact candidate ghcr.io/farhaddgm/hero@sha256:ab5ddffc1412cca1e05efe10f0183bcaab22c90cb36f3a72fb294d84fc5ea346 (v1.1.5-rc.37) passed every in-scope check (52 seed + 15 after SIGKILL restart) with PostgreSQL persistence. Follow-ups outside these steps: universal coverage of every configurable subsystem and a Policy Pack re-approval flow on risk change."
     },
     {
       "from": "BO-053",
       "to": "BO-062",
       "count": 10,
       "work_package": "WP-05",
-      "status": "partial",
-      "evidence": ["apps/control-plane/src/portfolio-view.mjs", "apps/control-plane/src/product-studio-view.mjs", "apps/control-plane/src/server.mjs", "config/authorizations/backoffice-20261006-022.json", "packages/contracts/src/backoffice-portfolio.mjs", "tests/backoffice-portfolio-wp05.test.mjs", "tests/browser/portfolio-roles.browser.mjs", "tests/product-development.test.mjs"],
-      "open_gate": "Source completed 2026-10-06 under BATCH-BACKOFFICE-20261006-022: role-gated IA, paginated Grant-filtered Portfolio with role/decision cards, defined KPIs with exact drill-downs, breadcrumbs, search links, empty/error/stale states, HTTP and real-browser three-role tests (pnpm test:browser). Remaining: Test-runtime evidence on a promoted candidate and one unified shell across every surface."
+      "status": "verified",
+      "evidence": ["apps/control-plane/src/portfolio-view.mjs", "apps/control-plane/src/product-studio-view.mjs", "apps/control-plane/src/server.mjs", "config/authorizations/backoffice-20261006-022.json", "docs/roadmap/STATUS-20260917.md", "packages/contracts/src/backoffice-portfolio.mjs", "tests/backoffice-portfolio-wp05.test.mjs", "tests/browser/portfolio-roles.browser.mjs", "tests/product-development.test.mjs", "tests/test-acceptance-runner.test.mjs", "tools/acceptance/run-test-acceptance.mjs", "tools/run-test-acceptance.sh"],
+      "open_gate": "Verified 2026-10-06 on Test runtime: owner-run role-based acceptance (tools/run-test-acceptance.sh, run 20261006T193011Z-572054) on the exact candidate ghcr.io/farhaddgm/hero@sha256:ab5ddffc1412cca1e05efe10f0183bcaab22c90cb36f3a72fb294d84fc5ea346 (v1.1.5-rc.37) passed every in-scope check (52 seed + 15 after SIGKILL restart) with PostgreSQL persistence. Follow-ups outside these steps: one unified shell for every surface."
     },
     {
       "from": "BO-063",
       "to": "BO-074",
       "count": 12,
       "work_package": "WP-06",
-      "status": "partial",
-      "evidence": ["apps/control-plane/src/project-collaboration-view.mjs", "config/authorizations/backoffice-20261006-022.json", "config/authorizations/backoffice-20261006-023.json", "packages/adapters/src/postgresql-collaboration-store.mjs", "packages/domain/src/project-collaboration.mjs", "packages/domain/src/project-memory.mjs", "tests/backoffice-collaboration-command-catalog.test.mjs", "tests/collaboration-adversarial-bo073.test.mjs", "tests/project-collaboration-wp06.test.mjs"],
-      "open_gate": "BO-063..BO-074 source completed 2026-10-06 (BATCH-BACKOFFICE-20261006-022 and -023): versioned team/role assignments and profiles, five bound contexts, retained threads, model precedence via settings, persisted scoped memory, per-project redaction, sanitized knowledge proposals; BO-073 adversarial suite (cross-project prompt, memory poisoning with instruction-like memory flagged out of AI context, stale memory, unauthorized context); BO-074 per-project Team/Role/Conversation/Memory page with internal citations. Remaining: Test-runtime evidence on a promoted candidate."
+      "status": "verified",
+      "evidence": ["apps/control-plane/src/project-collaboration-view.mjs", "config/authorizations/backoffice-20261006-022.json", "config/authorizations/backoffice-20261006-023.json", "docs/roadmap/STATUS-20260917.md", "packages/adapters/src/postgresql-collaboration-store.mjs", "packages/domain/src/project-collaboration.mjs", "packages/domain/src/project-memory.mjs", "tests/backoffice-collaboration-command-catalog.test.mjs", "tests/collaboration-adversarial-bo073.test.mjs", "tests/project-collaboration-wp06.test.mjs", "tests/test-acceptance-runner.test.mjs", "tools/acceptance/run-test-acceptance.mjs", "tools/run-test-acceptance.sh"],
+      "open_gate": "Verified 2026-10-06 on Test runtime: owner-run role-based acceptance (tools/run-test-acceptance.sh, run 20261006T193011Z-572054) on the exact candidate ghcr.io/farhaddgm/hero@sha256:ab5ddffc1412cca1e05efe10f0183bcaab22c90cb36f3a72fb294d84fc5ea346 (v1.1.5-rc.37) passed every in-scope check (52 seed + 15 after SIGKILL restart) with PostgreSQL persistence. Follow-up outside these steps: MFA users other than the owner cannot log in after a restart (WP-02, BO-IAM-001), reported by the same run as a finding."
     },
     {
       "from": "BO-075",
       "to": "BO-088",
       "count": 14,
       "work_package": "WP-07",
-      "status": "partial",
-      "evidence": ["apps/control-plane/src/project-control-room-view.mjs", "apps/control-plane/src/server.mjs", "config/authorizations/backoffice-20261006-023.json", "packages/adapters/src/postgresql-command-center-store.mjs", "packages/contracts/src/backoffice-command-center.mjs", "packages/domain/src/command-center.mjs", "packages/domain/src/workflow-engine.mjs", "tests/backoffice-collaboration-command-catalog.test.mjs", "tests/backoffice-command-center-http.test.mjs", "tests/backoffice-command-center-wp07.test.mjs", "tests/browser/command-board.browser.mjs"],
-      "open_gate": "BO-075..BO-088 source completed 2026-10-06 under BATCH-BACKOFFICE-20261006-023: action taxonomy with risk floors, conversation-sourced intents citing the message, command cards, immutable decision versions bound to the project policy snapshot, approval expiry/revocation, every gate re-checked at dispatch (Global Stop, policy drift, readiness, Production separate gate), weighted fair scheduling with owner-only priority and heavy-run limit, bounded retry, timeout sweep, compensation, manual recovery, crash replay to interrupted, append-only PostgreSQL persistence and a browser-verified actionable command board. Remaining: Test-runtime evidence; a real execution adapter stays separately gated."
+      "status": "verified",
+      "evidence": ["apps/control-plane/src/project-control-room-view.mjs", "apps/control-plane/src/server.mjs", "config/authorizations/backoffice-20261006-023.json", "docs/roadmap/STATUS-20260917.md", "packages/adapters/src/postgresql-command-center-store.mjs", "packages/contracts/src/backoffice-command-center.mjs", "packages/domain/src/command-center.mjs", "packages/domain/src/workflow-engine.mjs", "tests/backoffice-collaboration-command-catalog.test.mjs", "tests/backoffice-command-center-http.test.mjs", "tests/backoffice-command-center-wp07.test.mjs", "tests/browser/command-board.browser.mjs", "tests/test-acceptance-runner.test.mjs", "tools/acceptance/run-test-acceptance.mjs", "tools/run-test-acceptance.sh"],
+      "open_gate": "Verified 2026-10-06 on Test runtime: owner-run role-based acceptance (tools/run-test-acceptance.sh, run 20261006T193011Z-572054) on the exact candidate ghcr.io/farhaddgm/hero@sha256:ab5ddffc1412cca1e05efe10f0183bcaab22c90cb36f3a72fb294d84fc5ea346 (v1.1.5-rc.37) passed every in-scope check (52 seed + 15 after SIGKILL restart) with PostgreSQL persistence. Follow-ups outside these steps: a real execution adapter and real Production dispatch stay separately gated."
     },
     {
       "from": "BO-089",
+      "to": "BO-092",
+      "count": 4,
+      "work_package": "WP-08",
+      "status": "verified",
+      "evidence": ["apps/control-plane/src/server.mjs", "config/authorizations/backoffice-20261006-023.json", "docs/roadmap/STATUS-20260917.md", "packages/adapters/migrations/022_system_catalog_records.sql", "packages/adapters/src/postgresql-system-catalog-store.mjs", "packages/contracts/src/system-catalog.mjs", "packages/domain/src/product-development.mjs", "packages/domain/src/system-catalog.mjs", "tests/backoffice-collaboration-command-catalog.test.mjs", "tests/system-catalog-wp08.test.mjs", "tests/test-acceptance-runner.test.mjs", "tools/acceptance/run-test-acceptance.mjs", "tools/run-test-acceptance.sh"],
+      "open_gate": "Verified 2026-10-06 on Test runtime: owner-run role-based acceptance (tools/run-test-acceptance.sh, run 20261006T193011Z-572054) on the exact candidate ghcr.io/farhaddgm/hero@sha256:ab5ddffc1412cca1e05efe10f0183bcaab22c90cb36f3a72fb294d84fc5ea346 (v1.1.5-rc.37) passed every in-scope check (52 seed + 15 after SIGKILL restart) with PostgreSQL persistence. BO-093..BO-098 are tracked in the next range."
+    },
+    {
+      "from": "BO-093",
       "to": "BO-098",
-      "count": 10,
+      "count": 6,
       "work_package": "WP-08",
       "status": "partial",
-      "evidence": ["apps/control-plane/src/server.mjs", "config/authorizations/backoffice-20261006-023.json", "packages/adapters/migrations/022_system_catalog_records.sql", "packages/adapters/src/postgresql-system-catalog-store.mjs", "packages/contracts/src/system-catalog.mjs", "packages/domain/src/product-development.mjs", "packages/domain/src/system-catalog.mjs", "tests/backoffice-collaboration-command-catalog.test.mjs", "tests/system-catalog-wp08.test.mjs"],
-      "open_gate": "BO-089..BO-092 source completed 2026-10-06 under BATCH-BACKOFFICE-20261006-023: lifecycle transitions with per-type required metadata, typed acyclic relations, retirement blocked by live dependents, append-only entity history, offline GitHub snapshot discovery (live call refused), field-level drift proposals with dedupe/supersede/stale and human resolution without automatic overwrite, persisted via migration 022. Remaining: BO-093..BO-098 (not in this authorization), authorized live metadata acquisition, catalog graph UI and Test-runtime evidence."
+      "evidence": ["packages/domain/src/system-catalog.mjs", "tests/backoffice-catalog-performance-notification.test.mjs", "tests/system-catalog-wp08.test.mjs"],
+      "open_gate": "Not yet in an authorization batch: catalog links to owner/team/document/run/artifact/health (partial references exist), document/decision/roadmap graph, permission-aware catalog search UI, dependency graph and blast-radius UI, Git-canonical/Notion-projection enforcement and the BO-098 rebuild/cycle/drift/conflict test suite."
     },
     {
       "from": "BO-099",
