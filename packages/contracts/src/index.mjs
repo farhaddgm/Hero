@@ -465,6 +465,13 @@ export {
   PROJECT_SETTINGS_CONTRACT_VERSION,
   SETTINGS_LAYERS,
   POLICY_RISK_LEVELS,
+  AUTOMATION_MODES,
+  SETTINGS_FIELD_SCHEMA,
+  REQUIRED_POLICY_PATHS,
+  settingsFieldFor,
+  validateSettingValue,
+  satisfiesFloor,
+  policyPackTemplate,
   getProjectSettingsContractSummary,
   validateProjectSettingsContract
 } from "./project-settings.mjs";

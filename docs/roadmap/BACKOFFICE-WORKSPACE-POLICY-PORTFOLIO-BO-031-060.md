@@ -6,7 +6,7 @@
 > Type: evidence
 > Scope: hero
 > Status: active
-> Version: 1.0.2
+> Version: 1.1.0
 > Owner: hero-architecture
 > Review cadence: none
 > Supersedes: none
@@ -53,3 +53,37 @@ image مرجع باینری `pnpm` ندارد؛ بنابراین همان زنج
 ## الحاق ۲۰۲۶-۰۹-۱۱ — بازگشت نسخه‌دار به Draft
 
 ایجاد Project اکنون با `lifecycle/status=draft` انجام می‌شود. Owner می‌تواند فقط یک Project `active`، `intake` یا `foundation-review` را با `expectedVersion` و دلیل ثبت‌شده به Draft برگرداند. این mutation overwrite نیست: نسخهٔ جدید Project و Foundation پیشنهادی جدید append می‌شوند و Foundation قبلی باقی می‌ماند. endpoint آن `/api/projects/:projectId/return-to-draft` است و به authorization پروژه و Owner-only domain check متکی است. آزمون HTTP و domain این مسیر را پوشش می‌دهد.
+
+## الحاق ۲۰۲۶-۱۰-۰۵ — تکمیل source بستهٔ WP-04 (BO-043..BO-052)
+
+مجوز: `BATCH-BACKOFFICE-20261005-021` با نقل مستقیم دستور مالک، برای `HERO-ROADMAP-BACKOFFICE-COMMAND-CENTER-V1@1.2.0` و `HERO-SPEC-022@1.0.0`. Snapshotهای `005/006` به نسخهٔ `1.0.0` رودمپ pin شده بودند و طبق قانون ۱۱ برای dispatch معتبر نبودند. Global Stop خاموش است. Production، Secret، هزینهٔ بیرونی، Provider زنده و نوشتن در Notion خارج Scope هستند.
+
+| گام | خروجی source |
+|---|---|
+| BO-043 | schema تایپ‌دار فیلدها در contract `1.1` (مدل، `ai.roleModels.<role>`، حالت خودکارسازی، سقف Token، نوع و ریسک پروژه)؛ مسیر آزاد همچنان JSON امن است |
+| BO-044 | resolver قطعی با `SETTING_SCHEMA_CONFLICT` و `POLICY_CONFLICT` به‌جای سرو کردن مقدار نامعتبر؛ hydration ردیف معیوب را crash نمی‌کند و فقط همان فیلد fail-closed می‌شود |
+| BO-045 | هر نسخه diff (`added/changed/removed/unchanged`)، `supersedesVersion`، عامل، دلیل، اثر و مرجع rollback دارد؛ diff پس از restart از تاریخچه بازسازی می‌شود |
+| BO-046 | query زنجیرهٔ منشأ هر فیلد (`winner/shadowed/removed/conflict/absent`) و API `GET .../settings/explain` و `GET .../settings/changes` |
+| BO-047 | API `POST .../settings/remove-override`؛ حذف فقط روی لایهٔ override؛ rollback به رکورد حذف رد می‌شود و همهٔ گیت‌های نوشتن را دوباره اجرا می‌کند |
+| BO-048 | الگوهای قطعی Policy Pack برای ۷ نوع × ۳ سطح ریسک با کف‌های قفل (`guardedPaths`)؛ تنظیم نوع پروژه هرگز مقدار سخت‌تر ریسک را شل نمی‌کند |
+| BO-049 | پیشنهاد Intake همان الگو را با `templateId` و کف‌ها می‌سازد و پیش از تأیید در نمای Workspace نمایش داده می‌شود |
+| BO-050 | کف الگو از contract خوانده می‌شود، نه از ردیف ذخیره‌شده؛ نوشتن مستقیم لایهٔ `policy-template` با `TEMPLATE_WRITE_FORBIDDEN` رد می‌شود؛ `readiness` و `assertDispatchable` نبود یا تعارض Policy را با `POLICY_INCOMPLETE` می‌بندند |
+| BO-051 | بخش Settings در Workspace: مقدار مؤثر، منشأ، زنجیره، کف، آمادگی Policy، Policy Pack پیشنهادی/اعمال‌شده، تاریخچهٔ diff و دکمهٔ حذف override با دلیل اجباری؛ همه از API واقعی |
+| BO-052 | `tests/project-settings-policy.test.mjs`: property test با PRNG بذرگذاری‌شده (۵ بذر × ۲۵۰ فرمان) برای precedence، inheritance، rollback، stale version، invariant bypass و برابری پس از restart؛ mutation test نشان داد حذف هر گیت دست‌کم دو تست را می‌شکند |
+
+### دو نقص واقعی که در این batch پیدا و اصلاح شد
+
+1. **احیای override حذف‌شده پس از restart:** store هنگام خواندن همهٔ ردیف‌ها را `active` برمی‌گرداند. اکنون وضعیت ردیف حذف از `source=override-removal` در domain مشتق می‌شود؛ بدون تغییر schema.
+2. **شکست ذخیرهٔ تنظیمات متنی در PostgreSQL:** ستون `setting_value` از نوع `jsonb` است و node-postgres رشته را به‌صورت متن خام و آرایه را به‌صورت آرایهٔ PostgreSQL می‌فرستاد؛ مثلاً `project.type="application"` با `invalid input syntax for type json` رد می‌شد. اکنون مقدار همیشه با `JSON.stringify` ذخیره می‌شود؛ دادهٔ عددی/بولی/شیء موجود تغییری نمی‌کند. این نقص فقط با آزمون رفت‌وبرگشت روی PostgreSQL واقعی دیده شد، چون client جعلیِ تست هر مقداری را می‌پذیرفت.
+
+### مرز باقی‌مانده
+
+- `dispatch-next` در Command Center صف را بدون توجه به Project مسیر برمی‌دارد؛ اتصال گیت Policy پروژه به آن تغییر WP-07 است و در این مجوز نیست. گیت در domain و API آماده است.
+- وضعیت ممیزی WP-04 همچنان `partial` است تا Candidate شامل این تغییر روی Runtime Test promote و با شواهد واقعی بررسی شود.
+
+### نتیجهٔ آزمون — ۲۰۲۶-۱۰-۰۵
+
+- `pnpm check` کامل: `505` تست PASS، `0` شکست، `0` skipped؛ Documentation `149` سند و `0` خطا؛ build `301` ماژول و `60` فایل JSON.
+- `pnpm check:postgres` روی PostgreSQL 16 محلی PASS؛ رفت‌وبرگشت واقعی ذخیره/بازخوانی تنظیمات پس از restart: override حذف‌شده زنده نشد و readiness درست بود.
+- تست `Product Studio requires a project selection` به متغیرهای Notion میزبان وابسته بود و در نشستی که این متغیرها را داشت می‌شکست؛ adapter غیرفعال صریحاً به آن تزریق شد تا مستقل از محیط باشد. هیچ تستی skip یا حذف نشد.
+- هیچ Test deploy، Production، Secret، Provider زنده، هزینهٔ بیرونی یا نوشتن در Notion انجام نشد.

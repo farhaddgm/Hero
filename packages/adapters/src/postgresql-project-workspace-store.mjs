@@ -106,15 +106,17 @@ export function createPostgresProjectWorkspaceStore({ client, pool } = {}) {
       const result = await target.query(`SELECT proposal_id, project_id, proposal_version, state, proposal, actor_id, recorded_at FROM foundation_proposal_versions ${projectId ? "WHERE project_id = $1" : ""} ORDER BY project_id, proposal_version ASC`, values);
       return Object.freeze((result.rows ?? []).map(row => copy({ ...(row.proposal ?? {}), proposalId: row.proposal_id, projectId: row.project_id, version: row.proposal_version, state: row.state, updatedAt: row.recorded_at, createdBy: row.actor_id })));
     },
+    // setting_value is jsonb: node-postgres sends a JS string as bare text and an array as a
+    // PostgreSQL array, both invalid JSON, so the value is always serialized explicitly.
     async appendSetting({ projectId, path, layer, runId = "", version, value, actorId, reason, impact, rollbackReference = null, source }) {
       assertId("projectId", projectId); assertId("actorId", actorId); safe(value); if (typeof path !== "string" || !path.includes(".")) throw new ProjectWorkspaceStoreError("INVALID_SETTING_PATH", "Setting path is invalid.");
-      await target.query(`INSERT INTO project_setting_versions (project_id, setting_path, settings_layer, run_id, setting_version, setting_value, actor_id, reason, impact, rollback_reference, source) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`, [projectId, path, layer, runId ?? "", version, value, actorId, reason, impact, rollbackReference, source]);
+      await target.query(`INSERT INTO project_setting_versions (project_id, setting_path, settings_layer, run_id, setting_version, setting_value, actor_id, reason, impact, rollback_reference, source) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`, [projectId, path, layer, runId ?? "", version, JSON.stringify(value), actorId, reason, impact, rollbackReference, source]);
       return copy({ projectId, path, layer, runId, version });
     },
     async listSettings({ projectId } = {}) {
       const values = projectId ? [projectId] : [];
       const result = await target.query(`SELECT project_id, setting_path, settings_layer, run_id, setting_version, setting_value, actor_id, reason, impact, rollback_reference, source, recorded_at FROM project_setting_versions ${projectId ? "WHERE project_id = $1" : ""} ORDER BY project_id, setting_path, setting_version ASC`, values);
-      return Object.freeze((result.rows ?? []).map(row => copy({ projectId: row.project_id, path: row.setting_path, layer: row.settings_layer, runId: row.run_id || null, version: row.setting_version, value: row.setting_value, actor: row.actor_id, reason: row.reason, impact: row.impact, rollbackReference: row.rollback_reference, source: row.source, recordedAt: row.recorded_at, state: "active" })));
+      return Object.freeze((result.rows ?? []).map(row => copy({ projectId: row.project_id, path: row.setting_path, layer: row.settings_layer, runId: row.run_id || null, version: row.setting_version, value: row.setting_value, actor: row.actor_id, reason: row.reason, impact: row.impact, rollbackReference: row.rollback_reference, source: row.source, recordedAt: row.recorded_at })));
     },
     async recordImportPlan({ importId, projectId, repositoryUrl, state, inventory, adoptionPlan, actorId }) {
       assertId("importId", importId); assertId("projectId", projectId); assertId("actorId", actorId); safe(inventory); safe(adoptionPlan);

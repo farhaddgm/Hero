@@ -141,6 +141,8 @@ export const HERO_FEATURE_HELP = Object.freeze({
   "workspace.settingPresets": "الگوهای متداول مسیر و مقدار اولیهٔ تنظیم را پر می‌کنند. برای تنظیم سفارشی، «مسیر دلخواه» را انتخاب و مسیر JSON-safe را وارد کنید. Run override علاوه بر مسیر و مقدار، شناسهٔ Run مشخص می‌خواهد.",
   "workspace.policyPack": "اعمال مجموعهٔ تنظیمات پیشنهادی و تأییدشده؛ قواعد امنیتی غیرقابل‌تضعیف باقی می‌مانند.",
   "workspace.rollback": "بازگشت با ساخت نسخهٔ جدید از مقدار قدیمی؛ تاریخچه حذف یا بازنویسی نمی‌شود.",
+  "workspace.effectiveSettings": "برای هر تنظیم، مقدار اعمال‌شده و لایهٔ منشأ آن نمایش داده می‌شود؛ زنجیرهٔ منشأ نشان می‌دهد کدام لایه برنده شد و کدام زیر لایهٔ بالاتر ماند. تعارض با کف Policy Pack یا نوع نادرست، اجرای Run را بسته نگه می‌دارد.",
+  "workspace.settingChanges": "هر تغییر یک نسخهٔ append-only با diff، عامل، دلیل، اثر و مرجع rollback است؛ حذف override هم به‌صورت نسخهٔ جدید ثبت می‌شود و پس از restart زنده نمی‌شود.",
   "control.activeTeams": "تعداد تیم‌های فعال و تخصیص‌یافته در Scope همین پروژه.",
   "control.projectOperations": "نمای project-scoped و redacted عملیات Hero است. فقط metadata و Evidence امن را نشان می‌دهد و به‌تنهایی Provider، Secret، Pilot یا Production را اجرا نمی‌کند.",
   "control.commands": "فرمان‌ها و عملیات ثبت‌شدهٔ پروژه، مستقل از اینکه هنوز منتظر Approval یا اجرا باشند.",

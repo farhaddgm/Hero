@@ -6,7 +6,7 @@
 > Type: evidence
 > Scope: hero
 > Status: active
-> Version: 1.3.0
+> Version: 1.4.0
 > Owner: hero-architecture
 > Review cadence: per-change
 > Supersedes: none
@@ -49,7 +49,7 @@
 | WP-01 | BO-011..020 | verified | مرزها، contract، event envelope، read model و migration foundation | بسته است |
 | WP-02 | BO-021..030 | partial | Human Identity، Role، ProjectGrant، login/MFA/recovery API، persistence hydration و صفحهٔ `/identity` برای user/grant | enrollment/rotation واقعی MFA، recovery delivery، rate-limit runtime و ماتریس کامل Test |
 | WP-03 | BO-031..042 | partial | Project workspace، create/archive/clone/intake/foundation و storage metadata | object storage خصوصی، scan/parser sandbox، import واقعی و UI |
-| WP-04 | BO-043..052 | partial | settings/policy resolver و rollback contract | Settings UI، provenance/diff/impact، persistence و property tests کامل |
+| WP-04 | BO-043..052 | partial | source کامل ۲۰۲۶-۱۰-۰۵: schema تایپ‌دار، کف Policy، explain/changes/readiness، UI منشأ/diff، حذف پایدار پس از restart، property test | شواهد Runtime Test روی Candidate promote‌شده و اتصال گیت Policy به dispatch در WP-07 |
 | WP-05 | BO-053..062 | partial | Portfolio، Product Studio project context و deep-link | shell کامل، Role filtering، pagination، breadcrumb و browser E2E |
 | WP-06 | BO-063..074 | partial | collaboration، conversation/memory/knowledge domain و API | UI کامل، persistence و isolation/redaction runtime |
 | WP-07 | BO-075..088 | partial | command intent، approval، workflow، scheduler و operations read model | Conversation-to-command، durable execution، Operations UI و crash evidence |

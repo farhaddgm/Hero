@@ -960,8 +960,15 @@ export function createHeroServer(options = {}) {
     const project = projectWorkspace.getProject(projectId);
     const inputs = projectWorkspace.listInputs({ projectId });
     const foundation = projectWorkspace.foundationProposal({ projectId });
-    const settings = projectSettings.effectiveProject({ projectId }).map(item => ({ path: item.path, value: item.value, source: item.provenance, layer: item.layer, version: item.version }));
+    // The overview stays readable when one field is in conflict: the conflict is
+    // shown on that field instead of hiding the screen where it would be fixed.
+    const settingExplanations = projectSettings.explainProject({ projectId });
+    const settings = settingExplanations.map(item => ({ path: item.path, status: item.status, value: item.effective?.value ?? null, source: item.effective?.provenance ?? null, layer: item.effective?.layer ?? null, version: item.effective?.version ?? null, conflict: item.conflict, floor: item.floor, label: item.field?.labelFa ?? null, chain: item.chain.map(link => ({ layer: link.layer, status: link.status, value: link.value ?? null, version: link.version ?? null, source: link.source ?? null, actor: link.actor ?? null })) }));
     const settingHistory = projectSettings.listRecords({ projectId }).map(item => ({ path: item.path, value: item.value, layer: item.layer, runId: item.runId ?? null, version: item.version, reason: item.reason, impact: item.impact, recordedAt: item.recordedAt }));
+    const settingChanges = settingExplanations.flatMap(item => projectSettings.changeLog({ projectId, path: item.path })).sort((left, right) => String(right.recordedAt).localeCompare(String(left.recordedAt)) || right.version - left.version).slice(0, 50);
+    const pack = projectSettings.policyPack(projectId);
+    const policyPack = pack ? { policyPackId: pack.policyPackId, templateId: pack.templateId ?? null, state: pack.state, projectType: pack.projectType, riskLevel: pack.riskLevel, guardedPaths: pack.guardedPaths ?? [], values: pack.values } : null;
+    const policyReadiness = projectSettings.readiness({ projectId });
     const model = rebuildProjectReadModel({ project: {
       ...project,
       health: "unknown",
@@ -971,7 +978,7 @@ export function createHeroServer(options = {}) {
       latestOutput: null
     } });
     const safeInputs = inputs.map(input => ({ uploadId: input.uploadId, type: input.type, filename: input.filename ?? input.label ?? null, label: input.type === "link" ? input.label ?? null : null, url: input.type === "link" ? input.url : null, fetchState: input.fetchState ?? null, byteLength: input.byteLength ?? null, checksum: input.checksum ?? null, scan: input.scan?.state ?? null, parse: input.parse?.state ?? null, reviewRequired: input.parse?.reviewRequired === true, createdAt: input.createdAt ?? null }));
-    return Object.freeze({ ...model, intake: project.intake, foundationProposal: foundation, inputCount: inputs.length, inputs: safeInputs, imports: projectWorkspace.listImportPlans({ projectId }), settings, settingHistory });
+    return Object.freeze({ ...model, intake: project.intake, foundationProposal: foundation, inputCount: inputs.length, inputs: safeInputs, imports: projectWorkspace.listImportPlans({ projectId }), settings, settingHistory, settingChanges, policyPack, policyReadiness });
   }
 
   function smartTesterProjectSummary(context) {
@@ -3108,6 +3115,26 @@ export function createHeroServer(options = {}) {
         const settings = projectSettings.applyPolicyPack({ actor: authenticatedOwner, projectId: projectPolicyApplyMatch[1], reason: input.reason });
         await persistWorkspaceSettings(projectPolicyApplyMatch[1]);
         return json(response, 200, { service: HERO_SERVICE, settings });
+      }
+      const projectSettingExplainMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/settings\/explain$/);
+      if (projectSettingExplainMatch && request.method === "GET") {
+        const projectId = projectSettingExplainMatch[1]; const path = url.searchParams.get("path"); const runId = url.searchParams.get("runId");
+        return json(response, 200, { service: HERO_SERVICE, projectId, ...(path ? { explanation: projectSettings.explain({ projectId, path, runId }) } : { explanations: projectSettings.explainProject({ projectId, runId }) }) });
+      }
+      const projectSettingChangesMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/settings\/changes$/);
+      if (projectSettingChangesMatch && request.method === "GET") {
+        return json(response, 200, { service: HERO_SERVICE, projectId: projectSettingChangesMatch[1], changes: projectSettings.changeLog({ projectId: projectSettingChangesMatch[1], path: url.searchParams.get("path") }) });
+      }
+      const projectSettingReadinessMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/settings\/readiness$/);
+      if (projectSettingReadinessMatch && request.method === "GET") {
+        return json(response, 200, { service: HERO_SERVICE, readiness: projectSettings.readiness({ projectId: projectSettingReadinessMatch[1], runId: url.searchParams.get("runId") }) });
+      }
+      const projectSettingRemoveMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/settings\/remove-override$/);
+      if (projectSettingRemoveMatch && request.method === "POST") {
+        const input = await readJson(request);
+        const setting = projectSettings.removeOverride({ actor: authenticatedOwner, projectId: projectSettingRemoveMatch[1], path: input.path, layer: input.layer, runId: input.runId ?? null, expectedVersion: input.expectedVersion, reason: input.reason });
+        await persistWorkspaceSettings(projectSettingRemoveMatch[1]);
+        return json(response, 200, { service: HERO_SERVICE, setting });
       }
       const projectSettingRollbackMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/settings\/rollback$/);
       if (projectSettingRollbackMatch && request.method === "POST") {
