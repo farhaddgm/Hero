@@ -6,7 +6,7 @@
 > Type: evidence
 > Scope: hero
 > Status: active
-> Version: 1.0.1
+> Version: 1.1.0
 > Owner: hero-architecture
 > Review cadence: none
 > Supersedes: none
@@ -43,3 +43,34 @@ Command dispatch هیچ side effect یا Provider call انجام نمی‌ده�
 - هیچ Test deploy، Pilot، Production، Provider call، dispatch بیرونی، Secret reveal/change، external spend/message یا Notion write انجام نشد.
 
 image مرجع باینری `pnpm` ندارد؛ بنابراین همان زنجیرهٔ `package.json` با `npm run check` اجرا شده است. این Evidence مجوز هیچ عملیات خارجی یا محیطی نیست.
+
+## الحاق ۲۰۲۶-۱۰-۰۶ — تکمیل source گام‌های BO-061..BO-072
+
+مجوز: `BATCH-BACKOFFICE-20261006-022` برای `HERO-ROADMAP-BACKOFFICE-COMMAND-CENTER-V1@1.2.0` و `HERO-SPEC-022@1.0.0`. گام‌های `BO-073` (آزمون‌های خصمانه) و `BO-074` (صفحه‌های Team/Role/Conversation/Memory) در این مجوز نیستند و انجام نشده‌اند.
+
+| گام | خروجی source |
+|---|---|
+| BO-061 | جست‌وجوی سراسری/پروژه‌ای فقط در Grant، حداکثر ۵۰ نتیجه، پیوند صفحهٔ انسانی برای هر نتیجه |
+| BO-062 | `tests/backoffice-portfolio-wp05.test.mjs` (نقش، صفحه‌بندی، برابری KPI و drill-down، empty/error/stale، ایزولهٔ ناوبری) و `tests/browser/portfolio-roles.browser.mjs` با Chromium واقعی (`pnpm test:browser`) |
+| BO-063 | تخصیص نسخه‌دار تیم به پروژه با نقش‌های Hero (`AI_ROLES`)، `expectedVersion`، لغو تخصیص با دلیل |
+| BO-064 | اصول، KPI و policy هر تخصیص و memory با `scopeId` تیم/نقش/specialist، همه project-scoped |
+| BO-065 | Role Profile و Specialist Profile نسخه‌دار با تاریخچهٔ کامل |
+| BO-066 | پنج context با ContextBinding؛ entity فقط از catalog همان پروژه |
+| BO-067 | thread قابل ادامه، فهرست گفتگوها، retention زمانی، بستن گفتگو |
+| BO-068 | مدل گفتگو: conversation › `ai.roleModels.<role>` › `ai.teamModels.<team>` › `ai.defaultModel` از لایه‌های WP-04 با منشأ |
+| BO-069 | memory چهارسطحی با provenance/confidence/sensitivity/expiry و پایداری append-only |
+| BO-070 | correction، supersede و disable با تاریخچهٔ کامل و بدون حذف |
+| BO-071 | منبع و citation فقط سراسری یا همان پروژه (`CROSS_PROJECT_SOURCE_REJECTED`)؛ redaction بر اساس نقش **در همان پروژه** |
+| BO-072 | Knowledge Proposal با حذف شناسه و پیوند پروژهٔ مبدأ، نمایش بدون منبع به مقصد، و ساخت memory مقصد فقط پس از پذیرش |
+
+### نقص‌های واقعی که پیدا و اصلاح شد
+
+1. **عدم پایداری:** گفتگو، memory و تخصیص‌ها فقط در حافظه بودند و با هر restart از بین می‌رفتند. اکنون در `collaboration_records` (append-only) ذخیره و با replay مستقل از ترتیب بازسازی می‌شوند.
+2. **نشت محتوای محرمانه میان پروژه‌ها:** redaction از نقش سراسری کاربر استفاده می‌کرد؛ کاربری که در پروژهٔ A ادمین و در B مشاهده‌گر بود، memory محرمانهٔ B را می‌دید. اکنون نقش Grant همان پروژه به domain داده می‌شود؛ mutation test نشان داد آزمون این نشت را می‌گیرد.
+
+### نتیجهٔ آزمون — ۲۰۲۶-۱۰-۰۶
+
+- `pnpm check` کامل: `516` تست PASS، `0` شکست؛ Documentation `149` سند و `0` خطا؛ build `306` ماژول و `62` فایل JSON.
+- `pnpm test:browser`: Owner، Admin و Viewer در Chromium واقعی فقط پروژه‌ها، KPIها و کنترل‌های مجاز خود را دیدند؛ آزمون پیش از اصلاح CSS شکست خورد و پس از آن PASS شد.
+- PostgreSQL 16 واقعی: ۷ رکورد همکاری ذخیره و بازخوانی شد، متن فارسی سالم ماند، memory محرمانه برای Viewer پنهان بود و `UPDATE` روی جدول با خطای append-only رد شد.
+- هیچ Production، Secret، Provider زنده، هزینهٔ بیرونی یا نوشتن در Notion انجام نشد.

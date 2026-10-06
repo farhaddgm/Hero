@@ -93,8 +93,8 @@
       "count": 10,
       "work_package": "WP-05",
       "status": "partial",
-      "evidence": ["apps/control-plane/src/portfolio-view.mjs", "apps/control-plane/src/product-studio-view.mjs", "apps/control-plane/src/server.mjs", "tests/product-development.test.mjs"],
-      "open_gate": "Complete role-aware Portfolio and Project shell, stable breadcrumbs, pagination, KPI drill-down and browser-level three-role isolation tests."
+      "evidence": ["apps/control-plane/src/portfolio-view.mjs", "apps/control-plane/src/product-studio-view.mjs", "apps/control-plane/src/server.mjs", "config/authorizations/backoffice-20261006-022.json", "packages/contracts/src/backoffice-portfolio.mjs", "tests/backoffice-portfolio-wp05.test.mjs", "tests/browser/portfolio-roles.browser.mjs", "tests/product-development.test.mjs"],
+      "open_gate": "Source completed 2026-10-06 under BATCH-BACKOFFICE-20261006-022: role-gated IA, paginated Grant-filtered Portfolio with role/decision cards, defined KPIs with exact drill-downs, breadcrumbs, search links, empty/error/stale states, HTTP and real-browser three-role tests (pnpm test:browser). Remaining: Test-runtime evidence on a promoted candidate and one unified shell across every surface."
     },
     {
       "from": "BO-063",
@@ -102,8 +102,8 @@
       "count": 12,
       "work_package": "WP-06",
       "status": "partial",
-      "evidence": ["packages/domain/src/project-collaboration.mjs", "packages/domain/src/project-memory.mjs", "tests/backoffice-collaboration-command-catalog.test.mjs"],
-      "open_gate": "Complete persistent conversation UI, specialist/assignment management UI, citation UX and runtime cross-project retrieval/redaction evidence."
+      "evidence": ["config/authorizations/backoffice-20261006-022.json", "packages/adapters/src/postgresql-collaboration-store.mjs", "packages/domain/src/project-collaboration.mjs", "packages/domain/src/project-memory.mjs", "tests/backoffice-collaboration-command-catalog.test.mjs", "tests/project-collaboration-wp06.test.mjs"],
+      "open_gate": "BO-063..BO-072 source completed 2026-10-06 under BATCH-BACKOFFICE-20261006-022: versioned team/role assignments and profiles, five bound contexts, continuable retained threads, model precedence via settings, scoped persisted memory with corrections, same-project citations, per-project redaction and sanitized knowledge proposals. Remaining: BO-073 adversarial tests and BO-074 pages (not authorized), plus Test-runtime evidence."
     },
     {
       "from": "BO-075",

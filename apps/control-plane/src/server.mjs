@@ -85,6 +85,7 @@ import { createProjectAccessRegistry, ProjectAccessError } from "../../../packag
 import { createProjectSettingsRegistry, ProjectSettingsError } from "../../../packages/domain/src/project-settings.mjs";
 import { createProjectWorkspace, ProjectWorkspaceError } from "../../../packages/domain/src/project-workspace.mjs";
 import { createProjectCollaboration, CollaborationError } from "../../../packages/domain/src/project-collaboration.mjs";
+import { PORTFOLIO_KPIS, breadcrumbsFor, getBackofficePortfolioContractSummary, parsePagination, sectionsFor } from "../../../packages/contracts/src/backoffice-portfolio.mjs";
 import { createCommandCenter, CommandCenterError } from "../../../packages/domain/src/command-center.mjs";
 import { createSystemCatalog, SystemCatalogError } from "../../../packages/domain/src/system-catalog.mjs";
 import { createPerformanceIntelligence, PerformanceError } from "../../../packages/domain/src/performance-intelligence.mjs";
@@ -540,7 +541,9 @@ export function createHeroServer(options = {}) {
     parser: options.projectInputParser,
     objectStoreAdapter: privateObjectStore
   });
-  const projectCollaboration = options.projectCollaboration ?? createProjectCollaboration({ now: options.now });
+  // Collaboration resolves conversation models through the WP-04 settings layers and
+  // checks entity contexts against the project catalog (resolved lazily at request time).
+  const projectCollaboration = options.projectCollaboration ?? createProjectCollaboration({ now: options.now, settings: projectSettings, entityExists: (projectId, entityId) => systemCatalog.list({ projectId }).some(entity => entity.entityId === entityId) });
   const commandCenter = options.commandCenter ?? createCommandCenter({ now: options.now });
   const systemCatalog = options.systemCatalog ?? createSystemCatalog({ now: options.now });
   const performanceIntelligence = options.performanceIntelligence ?? createPerformanceIntelligence({ now: options.now });
@@ -638,6 +641,20 @@ export function createHeroServer(options = {}) {
     }
     await persistWorkspaceProject(project, reason);
     await persistWorkspaceProposal(proposal);
+  }
+
+  /** A human user's role differs per project (admin in A, viewer in B). Domain
+   * redaction and editor checks must see the role granted in *this* project. */
+  function projectActorFor(principal, projectId) {
+    if (!principal || principal.source !== "human-identity") return principal;
+    const role = projectAccessRegistry?.principalRole?.(principal, projectId);
+    return role ? Object.freeze({ ...principal, role }) : principal;
+  }
+
+  async function persistCollaboration() {
+    const records = projectCollaboration.drainRecords?.() ?? [];
+    if (!postgresRuntime?.collaboration) return;
+    for (const record of records) await postgresRuntime.collaboration.appendRecord({ recordId: record.recordId, projectId: record.projectId, recordType: record.recordType, recordVersion: record.recordVersion, metadata: record.metadata, actorId: record.actorId });
   }
 
   async function persistWorkspaceSettings(projectId) {
@@ -956,7 +973,7 @@ export function createHeroServer(options = {}) {
     });
   }
 
-  function projectOverview(projectId) {
+  function projectOverview(projectId, principal = null) {
     const project = projectWorkspace.getProject(projectId);
     const inputs = projectWorkspace.listInputs({ projectId });
     const foundation = projectWorkspace.foundationProposal({ projectId });
@@ -978,7 +995,7 @@ export function createHeroServer(options = {}) {
       latestOutput: null
     } });
     const safeInputs = inputs.map(input => ({ uploadId: input.uploadId, type: input.type, filename: input.filename ?? input.label ?? null, label: input.type === "link" ? input.label ?? null : null, url: input.type === "link" ? input.url : null, fetchState: input.fetchState ?? null, byteLength: input.byteLength ?? null, checksum: input.checksum ?? null, scan: input.scan?.state ?? null, parse: input.parse?.state ?? null, reviewRequired: input.parse?.reviewRequired === true, createdAt: input.createdAt ?? null }));
-    return Object.freeze({ ...model, intake: project.intake, foundationProposal: foundation, inputCount: inputs.length, inputs: safeInputs, imports: projectWorkspace.listImportPlans({ projectId }), settings, settingHistory, settingChanges, policyPack, policyReadiness });
+    return Object.freeze({ ...model, intake: project.intake, foundationProposal: foundation, inputCount: inputs.length, inputs: safeInputs, imports: projectWorkspace.listImportPlans({ projectId }), settings, settingHistory, settingChanges, policyPack, policyReadiness, breadcrumbs: breadcrumbsFor({ projectId, projectName: project.name, sectionId: "settings" }), sections: sectionsFor(portfolioRole(principal, projectId) ?? "viewer", "project").map(section => ({ id: section.id, labelFa: section.labelFa, surface: section.surface, anchor: section.anchor })), viewerRole: portfolioRole(principal, projectId) });
   }
 
   function smartTesterProjectSummary(context) {
@@ -1610,25 +1627,77 @@ export function createHeroServer(options = {}) {
     });
   }
 
-  function portfolioSnapshot(principal = null, { view = "active" } = {}) {
+  function portfolioRole(principal, projectId) {
+    if (!principal) return "project-owner";
+    if (principal.source === "human-identity") return projectAccessRegistry?.principalRole?.(principal, projectId) ?? null;
+    return principal.role ?? "project-owner";
+  }
+
+  /** Visible projects for the principal and view, unpaginated (KPIs count all of them). */
+  function visibleProjectsFor(principal, view) {
     const accessible = principal?.source === "human-identity" ? projectAccessRegistry.listAccessibleProjectIds({ principal }) : null;
+    const visible = projectWorkspace.listProjects().filter(project => accessible === null || accessible.includes(project.projectId));
     const archiveView = view === "archived";
-    const visibleProjects = projectWorkspace.listProjects().filter(project => accessible === null || accessible.includes(project.projectId));
-    const projects = visibleProjects.filter(project => archiveView ? project.lifecycle === "archived" : project.lifecycle !== "archived");
+    return { visible, projects: visible.filter(project => archiveView ? project.lifecycle === "archived" : project.lifecycle !== "archived") };
+  }
+
+  /** BO-060: each KPI is a predicate over listable projects, never an opaque aggregate. */
+  const PORTFOLIO_KPI_PREDICATES = Object.freeze({
+    "visible-projects": () => true,
+    "active-projects": project => project.lifecycle === "active",
+    "foundation-pending": project => ["proposed", "revision-requested"].includes(projectWorkspace.foundationProposal({ projectId: project.projectId })?.state),
+    "health-unknown": project => project.health === undefined || project.health === null || project.health === "unknown"
+  });
+
+  function portfolioKpi(principal, kpiId, { view = "active" } = {}) {
+    const definition = PORTFOLIO_KPIS.find(kpi => kpi.kpiId === kpiId);
+    if (!definition) throw new ProjectWorkspaceError("KPI_NOT_FOUND", "KPI is not defined in the portfolio contract.", 404);
+    const items = visibleProjectsFor(principal, view).projects.filter(PORTFOLIO_KPI_PREDICATES[kpiId]).map(project => ({ projectId: project.projectId, name: project.name, lifecycle: project.lifecycle, href: `/api/portal?surface=studio&projectId=${encodeURIComponent(project.projectId)}` }));
+    return Object.freeze({ ...definition, view, value: items.length, items });
+  }
+
+  function portfolioSnapshot(principal = null, { view = "active", page = 1, pageSize = 12 } = {}) {
+    const archiveView = view === "archived";
+    const { visible: visibleProjects, projects } = visibleProjectsFor(principal, view);
     const model = rebuildPortfolioReadModel({ projects });
-    const cards = model.projects.map(project => ({
-      projectId: project.projectId,
-      name: project.name,
-      version: project.version,
-      lifecycle: project.lifecycle,
-      health: project.health,
-      roadmap: project.nextTasks,
-      tokenUsage: project.tokenUsage,
-      latestCompletedTask: project.latestCompletedTask,
-      latestOutput: project.latestOutput,
-      drillDown: { href: `/product-studio?projectId=${encodeURIComponent(project.projectId)}`, projectId: project.projectId }
-    }));
-    return Object.freeze({ ...model, cards, archiveCount: visibleProjects.filter(project => project.lifecycle === "archived").length, view: archiveView ? "archived" : "active", informationArchitecture: ["Portfolio", "Project Studio", "Overview", "Roadmap", "Inputs", "Settings", "Outputs"] });
+    const total = model.projects.length;
+    const pageCount = Math.max(1, Math.ceil(total / pageSize));
+    const currentPage = Math.min(Math.max(1, page), pageCount);
+    const pageRows = model.projects.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+    const cards = pageRows.map(project => {
+      const role = portfolioRole(principal, project.projectId);
+      const foundation = projectWorkspace.foundationProposal({ projectId: project.projectId });
+      return {
+        projectId: project.projectId,
+        name: project.name,
+        version: project.version,
+        lifecycle: project.lifecycle,
+        health: project.health,
+        roadmap: project.nextTasks,
+        tokenUsage: project.tokenUsage,
+        latestCompletedTask: project.latestCompletedTask,
+        latestOutput: project.latestOutput,
+        latestDecision: foundation ? { kind: "foundation", state: foundation.state, version: foundation.version, decidedAt: foundation.approvedAt ?? foundation.createdAt ?? null } : null,
+        role,
+        capabilities: { canEdit: ["project-owner", "admin"].includes(role), canManageLifecycle: role === "project-owner" },
+        drillDown: { href: `/product-studio?projectId=${encodeURIComponent(project.projectId)}`, projectId: project.projectId }
+      };
+    });
+    const kpis = PORTFOLIO_KPIS.map(kpi => { const result = portfolioKpi(principal, kpi.kpiId, { view }); return { kpiId: kpi.kpiId, labelFa: kpi.labelFa, definition: kpi.definition, value: result.value, drillDown: `/api/portfolio/kpis/${kpi.kpiId}?view=${archiveView ? "archived" : "active"}` }; });
+    const globalRole = principal?.source === "human-identity" ? (principal.role === "project-owner" ? "project-owner" : principal.role) : "project-owner";
+    return Object.freeze({
+      ...model,
+      projects: pageRows,
+      cards,
+      kpis,
+      pagination: { page: currentPage, pageSize, total, pageCount, hasPrevious: currentPage > 1, hasNext: currentPage < pageCount, requestedPage: page },
+      archiveCount: visibleProjects.filter(project => project.lifecycle === "archived").length,
+      view: archiveView ? "archived" : "active",
+      generatedAt: options.now ? options.now() : new Date().toISOString(),
+      breadcrumbs: breadcrumbsFor(),
+      sections: sectionsFor(globalRole, "portfolio"),
+      informationArchitecture: ["Portfolio", "Project Studio", "Overview", "Roadmap", "Inputs", "Settings", "Outputs"]
+    });
   }
 
   function pruneSmartTesterReports() {
@@ -1836,7 +1905,8 @@ export function createHeroServer(options = {}) {
         if (`${entity.entityId} ${entity.name} ${entity.type}`.toLowerCase().includes(needle)) results.push({ kind: "system-entity", projectId: project.projectId, entityId: entity.entityId, label: entity.name, href: `/api/projects/${encodeURIComponent(project.projectId)}/catalog` });
       }
     }
-    return Object.freeze(results.slice(0, 100));
+    // BO-061: results are already grant-filtered; each carries a human page link.
+    return Object.freeze(results.slice(0, 50).map(item => Object.freeze({ ...item, portalHref: `/api/portal?surface=${item.kind === "project" ? "studio" : "control"}&projectId=${encodeURIComponent(item.projectId)}` })));
   }
 
   function authenticateApiPrincipal(authorizationHeader, cookieHeader) {
@@ -2011,7 +2081,7 @@ export function createHeroServer(options = {}) {
         projectAccessRegistry.authorize({ principal, projectId: "hero", action: "project.create" });
         return;
       }
-      if (["/api/portfolio", "/api/portfolio/search"].includes(url.pathname) && request.method === "GET") return;
+      if ((["/api/portfolio", "/api/portfolio/search"].includes(url.pathname) || url.pathname.startsWith("/api/portfolio/kpis/")) && request.method === "GET") return;
       const projectMatch = url.pathname.match(/^\/api\/projects\/([A-Za-z][A-Za-z0-9._:-]{2,127})(?:\/|$)/);
       const projectId = projectMatch?.[1] ?? url.searchParams.get("projectId");
       if (!projectId) throw new ProjectAccessError("PROJECT_SCOPE_REQUIRED", "A projectId is required for human-identity API access.", 403);
@@ -2216,7 +2286,7 @@ export function createHeroServer(options = {}) {
           const destinationCandidate = url.searchParams.get("next") ?? url.searchParams.get("open");
           const destination = ["command", "studio", "workspace", "control", "walkthrough"].includes(destinationCandidate) ? destinationCandidate : null;
           const view = url.searchParams.get("view") === "archived" ? "archived" : "active";
-          return html(response, getPortfolioHtml({ portfolio: portfolioSnapshot(principal, { view }), destination, selectionRequired: url.searchParams.get("select") === "project" || Boolean(destination), archiveView: view === "archived" }));
+          return html(response, getPortfolioHtml({ portfolio: portfolioSnapshot(principal, { view, ...(parsePagination({ page: url.searchParams.get("page"), pageSize: url.searchParams.get("pageSize") }) ?? {}) }), destination, selectionRequired: url.searchParams.get("select") === "project" || Boolean(destination), archiveView: view === "archived" }));
         }
         if (surface === "command") {
           return html(response, getProjectControlRoomHtml({
@@ -2253,7 +2323,7 @@ export function createHeroServer(options = {}) {
         requirePortalProjectScope(principal, projectId);
         if (surface === "studio") return json(response, 200, productStudioSnapshot({ projectId }), { maxBytes: backofficeResponseLimitBytes });
         if (surface === "command" || surface === "control") return json(response, 200, { service: HERO_SERVICE, controlRoom: projectControlSnapshot(projectId) }, { maxBytes: backofficeResponseLimitBytes });
-        if (surface === "workspace") return json(response, 200, { service: HERO_SERVICE, overview: projectOverview(projectId) }, { maxBytes: backofficeResponseLimitBytes });
+        if (surface === "workspace") return json(response, 200, { service: HERO_SERVICE, overview: projectOverview(projectId, principal) }, { maxBytes: backofficeResponseLimitBytes });
         return json(response, 200, { service: HERO_SERVICE, projectId, status: "browser-guide-data-not-required" });
       }
 
@@ -2383,7 +2453,7 @@ export function createHeroServer(options = {}) {
         const destinationCandidate = url.searchParams.get("next") ?? url.searchParams.get("open");
         const destination = ["command", "studio", "workspace", "control", "walkthrough"].includes(destinationCandidate) ? destinationCandidate : null;
         const view = url.searchParams.get("view") === "archived" ? "archived" : "active";
-        return html(response, getPortfolioHtml({ portfolio: portfolioSnapshot(null, { view }), destination, selectionRequired: url.searchParams.get("select") === "project" || Boolean(destination), archiveView: view === "archived" }));
+        return html(response, getPortfolioHtml({ portfolio: portfolioSnapshot(null, { view, ...(parsePagination({ page: url.searchParams.get("page"), pageSize: url.searchParams.get("pageSize") }) ?? {}) }), destination, selectionRequired: url.searchParams.get("select") === "project" || Boolean(destination), archiveView: view === "archived" }));
       }
 
       if (request.method === "GET" && url.pathname === "/portfolio-data") {
@@ -2399,6 +2469,7 @@ export function createHeroServer(options = {}) {
       const authenticatedOwner = url.pathname.startsWith("/api/") && !PUBLIC_IDENTITY_PATHS.has(url.pathname) && !PUBLIC_UI_ASSET_PATHS.has(url.pathname)
         ? authenticateApiPrincipal(request.headers.authorization, request.headers.cookie)
         : null;
+      const projectActor = projectId => projectActorFor(authenticatedOwner, projectId);
       if (authenticatedOwner) {
         assertCookieMutationOrigin(request, authenticatedOwner);
         assertApiPermission(request, url, authenticatedOwner);
@@ -2938,7 +3009,13 @@ export function createHeroServer(options = {}) {
       }
 
       if (request.method === "GET" && url.pathname === "/api/portfolio") {
-        return json(response, 200, { service: HERO_SERVICE, portfolio: portfolioSnapshot(authenticatedOwner, { view: url.searchParams.get("view") === "archived" ? "archived" : "active" }) });
+        const pagination = parsePagination({ page: url.searchParams.get("page"), pageSize: url.searchParams.get("pageSize") });
+        if (!pagination) throw new ProjectWorkspaceError("PAGINATION_INVALID", "page must be >= 1 and pageSize 1-50.", 400);
+        return json(response, 200, { service: HERO_SERVICE, portfolio: portfolioSnapshot(authenticatedOwner, { view: url.searchParams.get("view") === "archived" ? "archived" : "active", ...pagination }) });
+      }
+      const portfolioKpiMatch = url.pathname.match(/^\/api\/portfolio\/kpis\/([a-z][a-z0-9-]{2,63})$/);
+      if (request.method === "GET" && portfolioKpiMatch) {
+        return json(response, 200, { service: HERO_SERVICE, kpi: portfolioKpi(authenticatedOwner, portfolioKpiMatch[1], { view: url.searchParams.get("view") === "archived" ? "archived" : "active" }) });
       }
 
       if (request.method === "GET" && url.pathname === "/api/portfolio/search") {
@@ -2992,6 +3069,7 @@ export function createHeroServer(options = {}) {
           throw error;
         }
         projectSettings.purgeProject?.({ projectId: purge.projectId });
+        projectCollaboration.purgeProject?.({ projectId: purge.projectId });
         const revokedGrants = projectAccessRegistry?.revokeProjectGrants?.({ actor: authenticatedOwner, projectId: purge.projectId }) ?? [];
         for (const grant of revokedGrants) {
           if (postgresRuntime?.projectIdentity?.appendGrant) await postgresRuntime.projectIdentity.appendGrant({ projectId: grant.projectId, userId: grant.userId, role: grant.role, status: "revoked", grantedBy: authenticatedOwner.subject });
@@ -3145,7 +3223,7 @@ export function createHeroServer(options = {}) {
       }
 
       const projectWorkspaceOverviewMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/workspace-overview$/);
-      if (projectWorkspaceOverviewMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, overview: projectOverview(projectWorkspaceOverviewMatch[1]) });
+      if (projectWorkspaceOverviewMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, overview: projectOverview(projectWorkspaceOverviewMatch[1], authenticatedOwner) });
 
       const projectCompletionMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/completion$/);
       if (projectCompletionMatch && request.method === "GET") {
@@ -3176,19 +3254,40 @@ export function createHeroServer(options = {}) {
       }
 
       const projectTeamsMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/teams$/);
-      if (projectTeamsMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, teams: projectCollaboration.listTeams({ actor: authenticatedOwner, projectId: projectTeamsMatch[1] }) });
-      if (projectTeamsMatch && request.method === "POST") { const input = await readJson(request); return json(response, 201, { service: HERO_SERVICE, assignment: projectCollaboration.assignTeam({ actor: authenticatedOwner, projectId: projectTeamsMatch[1], teamId: input.teamId, principles: input.principles, kpis: input.kpis }) }); }
+      if (projectTeamsMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, teams: projectCollaboration.listTeams({ actor: projectActor(projectTeamsMatch[1]), projectId: projectTeamsMatch[1] }) });
+      if (projectTeamsMatch && request.method === "POST") { const input = await readJson(request); const assignment = projectCollaboration.assignTeam({ actor: projectActor(projectTeamsMatch[1]), projectId: projectTeamsMatch[1], teamId: input.teamId, roleIds: input.roleIds, principles: input.principles, kpis: input.kpis, policy: input.policy, expectedVersion: input.expectedVersion ?? null }); await persistCollaboration(); return json(response, 201, { service: HERO_SERVICE, assignment }); }
+      const projectTeamUnassignMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/teams\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/unassign$/);
+      if (projectTeamUnassignMatch && request.method === "POST") { const input = await readJson(request); const assignment = projectCollaboration.unassignTeam({ actor: projectActor(projectTeamUnassignMatch[1]), projectId: projectTeamUnassignMatch[1], teamId: projectTeamUnassignMatch[2], expectedVersion: input.expectedVersion, reason: input.reason }); await persistCollaboration(); return json(response, 200, { service: HERO_SERVICE, assignment }); }
+
+      const projectProfilesMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/profiles$/);
+      if (projectProfilesMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, profiles: projectCollaboration.listProfiles({ actor: projectActor(projectProfilesMatch[1]), projectId: projectProfilesMatch[1], kind: url.searchParams.get("kind") }) });
+      if (projectProfilesMatch && request.method === "POST") { const input = await readJson(request); const profile = projectCollaboration.setProfile({ actor: projectActor(projectProfilesMatch[1]), projectId: projectProfilesMatch[1], kind: input.kind, targetId: input.targetId, profile: input.profile, expectedVersion: input.expectedVersion ?? 0 }); await persistCollaboration(); return json(response, 201, { service: HERO_SERVICE, profile }); }
 
       const projectConversationsMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/conversations$/);
-      if (projectConversationsMatch && request.method === "POST") { const input = await readJson(request); return json(response, 201, { service: HERO_SERVICE, conversation: projectCollaboration.bindContext({ actor: authenticatedOwner, projectId: projectConversationsMatch[1], contextType: input.contextType, teamId: input.teamId, roleId: input.roleId, entityId: input.entityId, model: input.model, retentionDays: input.retentionDays }) }); }
+      if (projectConversationsMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, conversations: projectCollaboration.listConversations({ actor: projectActor(projectConversationsMatch[1]), projectId: projectConversationsMatch[1], contextType: url.searchParams.get("contextType"), status: url.searchParams.get("status") }) });
+      if (projectConversationsMatch && request.method === "POST") { const input = await readJson(request); const conversation = projectCollaboration.bindContext({ actor: projectActor(projectConversationsMatch[1]), projectId: projectConversationsMatch[1], contextType: input.contextType, teamId: input.teamId ?? null, roleId: input.roleId ?? null, entityId: input.entityId ?? null, model: input.model ?? null, retentionDays: input.retentionDays ?? 30, title: input.title ?? null }); await persistCollaboration(); return json(response, 201, { service: HERO_SERVICE, conversation }); }
       const projectConversationMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/conversations\/([A-Za-z][A-Za-z0-9._:-]{2,127})$/);
-      if (projectConversationMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, conversation: projectCollaboration.readConversation({ actor: authenticatedOwner, projectId: projectConversationMatch[1], conversationId: projectConversationMatch[2] }) });
+      if (projectConversationMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, conversation: projectCollaboration.readConversation({ actor: projectActor(projectConversationMatch[1]), projectId: projectConversationMatch[1], conversationId: projectConversationMatch[2] }) });
       const projectConversationMessageMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/conversations\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/messages$/);
-      if (projectConversationMessageMatch && request.method === "POST") { const input = await readJson(request); return json(response, 201, { service: HERO_SERVICE, message: projectCollaboration.appendMessage({ actor: authenticatedOwner, projectId: projectConversationMessageMatch[1], conversationId: projectConversationMessageMatch[2], content: input.content, citations: input.citations }) }); }
+      if (projectConversationMessageMatch && request.method === "POST") { const input = await readJson(request); const message = projectCollaboration.appendMessage({ actor: projectActor(projectConversationMessageMatch[1]), projectId: projectConversationMessageMatch[1], conversationId: projectConversationMessageMatch[2], content: input.content, citations: input.citations ?? [] }); await persistCollaboration(); return json(response, 201, { service: HERO_SERVICE, message }); }
+      const projectConversationCloseMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/conversations\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/close$/);
+      if (projectConversationCloseMatch && request.method === "POST") { const input = await readJson(request); const conversation = projectCollaboration.closeConversation({ actor: projectActor(projectConversationCloseMatch[1]), projectId: projectConversationCloseMatch[1], conversationId: projectConversationCloseMatch[2], reason: input.reason }); await persistCollaboration(); return json(response, 200, { service: HERO_SERVICE, conversation }); }
 
       const projectMemoryMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/memory$/);
-      if (projectMemoryMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, memory: projectCollaboration.retrieveMemory({ actor: authenticatedOwner, projectId: projectMemoryMatch[1], level: url.searchParams.get("level"), query: url.searchParams.get("q") ?? "" }) });
-      if (projectMemoryMatch && request.method === "POST") { const input = await readJson(request); return json(response, 201, { service: HERO_SERVICE, memory: projectCollaboration.recordMemory({ actor: authenticatedOwner, projectId: projectMemoryMatch[1], ...input }) }); }
+      if (projectMemoryMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, memory: projectCollaboration.retrieveMemory({ actor: projectActor(projectMemoryMatch[1]), projectId: projectMemoryMatch[1], level: url.searchParams.get("level"), scopeId: url.searchParams.get("scopeId"), query: url.searchParams.get("q") ?? "" }) });
+      if (projectMemoryMatch && request.method === "POST") { const input = await readJson(request); const memory = projectCollaboration.recordMemory({ actor: projectActor(projectMemoryMatch[1]), projectId: projectMemoryMatch[1], memoryId: input.memoryId, level: input.level, scopeId: input.scopeId ?? null, key: input.key, content: input.content, provenance: input.provenance, confidence: input.confidence, sensitivity: input.sensitivity, expiresAt: input.expiresAt ?? null, supersedesMemoryId: input.supersedesMemoryId ?? null }); await persistCollaboration(); return json(response, 201, { service: HERO_SERVICE, memory }); }
+      const projectMemoryItemMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/memory\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/(history|correct|disable)$/);
+      if (projectMemoryItemMatch && request.method === "GET" && projectMemoryItemMatch[3] === "history") return json(response, 200, { service: HERO_SERVICE, history: projectCollaboration.memoryHistory({ actor: projectActor(projectMemoryItemMatch[1]), projectId: projectMemoryItemMatch[1], memoryId: projectMemoryItemMatch[2] }) });
+      if (projectMemoryItemMatch && request.method === "POST" && projectMemoryItemMatch[3] === "correct") { const input = await readJson(request); const memory = projectCollaboration.correctMemory({ actor: projectActor(projectMemoryItemMatch[1]), projectId: projectMemoryItemMatch[1], memoryId: projectMemoryItemMatch[2], content: input.content, provenance: input.provenance, confidence: input.confidence, expiresAt: input.expiresAt ?? null }); await persistCollaboration(); return json(response, 201, { service: HERO_SERVICE, memory }); }
+      if (projectMemoryItemMatch && request.method === "POST" && projectMemoryItemMatch[3] === "disable") { const input = await readJson(request); const memory = projectCollaboration.disableMemory({ actor: projectActor(projectMemoryItemMatch[1]), projectId: projectMemoryItemMatch[1], memoryId: projectMemoryItemMatch[2], reason: input.reason }); await persistCollaboration(); return json(response, 200, { service: HERO_SERVICE, memory }); }
+
+      // Knowledge proposals: the source project proposes (write grant on the source),
+      // the target project lists and decides (write grant on the target).
+      const projectKnowledgeMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/knowledge-proposals$/);
+      if (projectKnowledgeMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, proposals: projectCollaboration.listKnowledgeProposals({ actor: projectActor(projectKnowledgeMatch[1]), projectId: projectKnowledgeMatch[1] }) });
+      if (projectKnowledgeMatch && request.method === "POST") { const input = await readJson(request); const proposal = projectCollaboration.proposeKnowledge({ actor: projectActor(projectKnowledgeMatch[1]), sourceProjectId: projectKnowledgeMatch[1], targetProjectId: input.targetProjectId, memoryId: input.memoryId, summary: input.summary }); await persistCollaboration(); return json(response, 201, { service: HERO_SERVICE, proposal: { knowledgeProposalId: proposal.knowledgeProposalId, targetProjectId: proposal.targetProjectId, state: proposal.state, summary: proposal.summary } }); }
+      const projectKnowledgeDecisionMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/knowledge-proposals\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/(accept|reject)$/);
+      if (projectKnowledgeDecisionMatch && request.method === "POST") { const input = await readJson(request); const decision = projectKnowledgeDecisionMatch[3] === "accept" ? projectCollaboration.acceptKnowledge({ actor: projectActor(projectKnowledgeDecisionMatch[1]), projectId: projectKnowledgeDecisionMatch[1], knowledgeProposalId: projectKnowledgeDecisionMatch[2] }) : projectCollaboration.rejectKnowledge({ actor: projectActor(projectKnowledgeDecisionMatch[1]), projectId: projectKnowledgeDecisionMatch[1], knowledgeProposalId: projectKnowledgeDecisionMatch[2], reason: input.reason }); await persistCollaboration(); const { sourceProjectId, sourceMemoryId, ...visible } = decision; return json(response, 200, { service: HERO_SERVICE, proposal: visible }); }
 
       const projectCommandsMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/commands$/);
       if (projectCommandsMatch && request.method === "POST") { const input = await readJson(request); return json(response, 201, { service: HERO_SERVICE, command: commandCenter.createIntent({ actor: authenticatedOwner, projectId: projectCommandsMatch[1], ...input }) }); }
@@ -3602,6 +3701,7 @@ export function createHeroServer(options = {}) {
         return json(response, 200, { service: HERO_SERVICE, projectSettingsContract: getProjectSettingsContractSummary() });
       }
 
+      if (request.method === "GET" && url.pathname === "/backoffice-portfolio-contract") return json(response, 200, { service: HERO_SERVICE, portfolioContract: getBackofficePortfolioContractSummary() });
       if (request.method === "GET" && url.pathname === "/backoffice-collaboration-contract") return json(response, 200, { service: HERO_SERVICE, collaborationContract: getBackofficeCollaborationContractSummary() });
       if (request.method === "GET" && url.pathname === "/backoffice-command-center-contract") return json(response, 200, { service: HERO_SERVICE, commandCenterContract: getBackofficeCommandCenterContractSummary() });
       if (request.method === "GET" && url.pathname === "/system-catalog-contract") return json(response, 200, { service: HERO_SERVICE, systemCatalogContract: getSystemCatalogContractSummary() });
@@ -4037,6 +4137,13 @@ export function createHeroServer(options = {}) {
             projectWorkspace.hydrateImport({ plan });
             persistedWorkspaceRecords.add(workspaceRecordKey("import", plan));
           }
+        }
+        if (postgresRuntime.collaboration?.listRecords && projectCollaboration.hydrate) {
+          for (const record of await postgresRuntime.collaboration.listRecords()) {
+            if (purgedProjectIds.has(record.projectId) || purgedProjectIds.has(record.metadata?.sourceProjectId)) continue;
+            projectCollaboration.hydrate(record);
+          }
+          projectCollaboration.drainRecords?.();
         }
       }
       if (postgresRuntime?.pricingCatalogStore && typeof pricingCatalog.publish === "function") {

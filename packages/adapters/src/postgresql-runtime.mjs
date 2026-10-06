@@ -9,6 +9,7 @@ import { createPostgresPricingCatalogStore } from "./postgresql-pricing-catalog.
 import { createPostgresNotionSyncStore } from "./postgresql-notion-sync-store.mjs";
 import { createPostgresProjectIdentityStore } from "./postgresql-project-identity-store.mjs";
 import { createPostgresProjectWorkspaceStore } from "./postgresql-project-workspace-store.mjs";
+import { createPostgresCollaborationStore } from "./postgresql-collaboration-store.mjs";
 import { createPostgresProductRuntimeReservationStore } from "./postgresql-product-runtime-reservation-store.mjs";
 
 export class PostgresRuntimeError extends Error {
@@ -69,6 +70,7 @@ export async function createPostgresRuntime({ connectionString = process.env.HER
         notionSyncMappings: createPostgresNotionSyncStore({ pool, client }),
         projectIdentity: createPostgresProjectIdentityStore({ pool, client }),
         projectWorkspace: createPostgresProjectWorkspaceStore({ pool, client }),
+        collaboration: createPostgresCollaborationStore({ pool, client }),
         productRuntimeReservations: createPostgresProductRuntimeReservationStore({ pool, client }),
         async ping() {
           await target.query("SELECT 1");

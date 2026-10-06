@@ -6,7 +6,7 @@
 > Type: evidence
 > Scope: hero
 > Status: active
-> Version: 1.1.0
+> Version: 1.2.0
 > Owner: hero-architecture
 > Review cadence: none
 > Supersedes: none
@@ -87,3 +87,20 @@ image مرجع باینری `pnpm` ندارد؛ بنابراین همان زنج
 - `pnpm check:postgres` روی PostgreSQL 16 محلی PASS؛ رفت‌وبرگشت واقعی ذخیره/بازخوانی تنظیمات پس از restart: override حذف‌شده زنده نشد و readiness درست بود.
 - تست `Product Studio requires a project selection` به متغیرهای Notion میزبان وابسته بود و در نشستی که این متغیرها را داشت می‌شکست؛ adapter غیرفعال صریحاً به آن تزریق شد تا مستقل از محیط باشد. هیچ تستی skip یا حذف نشد.
 - هیچ Test deploy، Production، Secret، Provider زنده، هزینهٔ بیرونی یا نوشتن در Notion انجام نشد.
+
+## الحاق ۲۰۲۶-۱۰-۰۶ — تکمیل source بستهٔ WP-05 (BO-053..BO-060)
+
+مجوز: `BATCH-BACKOFFICE-20261006-022` (`BO-053..BO-072`، رودمپ `1.2.0`، نقل مستقیم دستور مالک؛ `BO-073` و `BO-074` خارج Scope). گام‌های `BO-061..BO-062` در سند `HERO-EVIDENCE-BACKOFFICE-COLLABORATION-COMMAND-CATALOG-BO-061-090` ثبت شده‌اند.
+
+| گام | خروجی source |
+|---|---|
+| BO-053 | contract `backoffice-portfolio@1.0`: معماری اطلاعات با سطح Portfolio/Project، surface و حداقل نقش هر بخش (`command` فقط از Admin به بالا) |
+| BO-054 | overview پروژه بخش‌های مجاز همان نقش و نقش بیننده را برمی‌گرداند؛ ناوبری همچنان project-aware است |
+| BO-055 | read model Portfolio با فیلتر Project Grant و صفحه‌بندی سخت‌گیر (`page>=1`، `pageSize 1..50`، خطای `PAGINATION_INVALID`) |
+| BO-056 | کارت پروژه: roadmap، health، token، task، output، **آخرین تصمیم Foundation**، نقش بیننده و قابلیت‌ها (`canEdit`، `canManageLifecycle`) |
+| BO-057 | پیوند هر کارت و نتیجهٔ جست‌وجو به Product Studio همان `projectId` |
+| BO-058 | overview پروژه بخش‌های استاندارد را با نقش‌محوری ارائه می‌کند |
+| BO-059 | breadcrumb پایدار Portfolio › Project › Section › Context با hrefهای قطعی؛ نمایش در Workspace |
+| BO-060 | چهار KPI تعریف‌شده (`visible-projects`، `active-projects`، `foundation-pending`، `health-unknown`)؛ API `GET /api/portfolio/kpis/:kpiId` همان مجموعه را برمی‌گرداند و مقدار همیشه برابر تعداد آیتم‌هاست؛ شمارش‌های مبهم سمت مرورگر حذف شدند |
+
+نقص واقعی که آزمون مرورگر آشکار کرد: قاعدهٔ CSS `.button { display: inline-flex }` اثر `hidden` را خنثی می‌کرد و دکمه‌های «پروژهٔ جدید» و آرشیو برای Admin و Viewer دیده می‌شدند. سرور این عملیات را رد می‌کرد، اما rendering نقش‌محور نبود. قاعدهٔ `[hidden] { display: none !important; }` افزوده شد.

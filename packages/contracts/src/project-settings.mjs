@@ -14,6 +14,7 @@ const MODEL_ID = "^[a-z][a-z0-9._-]{1,63}$";
 export const SETTINGS_FIELD_SCHEMA = Object.freeze([
   Object.freeze({ path: "ai.defaultModel", type: "string", pattern: MODEL_ID, labelFa: "مدل پیش‌فرض AI" }),
   Object.freeze({ pathPattern: "^ai\\.roleModels\\.[a-z][A-Za-z0-9]{1,31}$", type: "string", pattern: MODEL_ID, labelFa: "مدل اختصاصی نقش" }),
+  Object.freeze({ pathPattern: "^ai\\.teamModels\\.[a-z][A-Za-z0-9]{1,31}$", type: "string", pattern: MODEL_ID, labelFa: "مدل اختصاصی تیم" }),
   Object.freeze({ path: "automation.mode", type: "enum", values: AUTOMATION_MODES, strictness: "ordered", labelFa: "حالت خودکارسازی" }),
   Object.freeze({ path: "budget.tokenHardCap", type: "integer", minimum: 1000, maximum: 10000000, strictness: "lower-is-stricter", labelFa: "سقف Token" }),
   Object.freeze({ path: "project.type", type: "enum", values: PRODUCT_TYPES, labelFa: "نوع پروژه" }),
