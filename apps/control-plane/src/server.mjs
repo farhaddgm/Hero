@@ -87,6 +87,7 @@ import { createProjectWorkspace, ProjectWorkspaceError } from "../../../packages
 import { createProjectCollaboration, CollaborationError } from "../../../packages/domain/src/project-collaboration.mjs";
 import { PORTFOLIO_KPIS, breadcrumbsFor, getBackofficePortfolioContractSummary, parsePagination, sectionsFor } from "../../../packages/contracts/src/backoffice-portfolio.mjs";
 import { createCommandCenter, CommandCenterError } from "../../../packages/domain/src/command-center.mjs";
+import { getProjectCollaborationHtml } from "./project-collaboration-view.mjs";
 import { createSystemCatalog, SystemCatalogError } from "../../../packages/domain/src/system-catalog.mjs";
 import { createPerformanceIntelligence, PerformanceError } from "../../../packages/domain/src/performance-intelligence.mjs";
 import { createNotificationObservability, NotificationError } from "../../../packages/domain/src/notification-observability.mjs";
@@ -135,7 +136,7 @@ const IDENTITY_PATHS = new Set(["/identity"]);
 const BROWSER_PORTAL_PATH = "/api/portal";
 const BROWSER_PORTAL_DATA_PATH = "/api/portal-data";
 const BROWSER_PORTAL_DOCUMENT_PATH = "/api/portal-document";
-const BROWSER_PORTAL_SURFACES = new Set(["identity", "portfolio", "command", "studio", "workspace", "control", "walkthrough", "ai"]);
+const BROWSER_PORTAL_SURFACES = new Set(["identity", "portfolio", "command", "studio", "workspace", "control", "collaboration", "walkthrough", "ai"]);
 const DEFAULT_BACKOFFICE_RESPONSE_LIMIT_BYTES = 512 * 1024;
 const OPENAI_TEST_ADVISOR = Object.freeze({
   providerId: "openai",
@@ -1560,6 +1561,17 @@ export function createHeroServer(options = {}) {
     return cards.map(card => Object.freeze({ commandId: card.commandId, state: card.state, risk: card.risk, action: card.action, summary: card.summary, blocker: card.blocker ? card.blocker.code : null, attempts: card.attempts ?? 0, requiredGates: card.requiredGates ?? [], actions: actionsFor(card.state, card) }));
   }
 
+  /** BO-074: everything rendered uses the viewer's role in this project, so restricted memory stays redacted. */
+  function projectCollaborationSnapshot(principal, projectId) {
+    const actor = projectActorFor(principal, projectId);
+    const viewer = ["project-owner", "admin", "viewer"].includes(actor?.role) ? actor : Object.freeze({ ...actor, role: "viewer" });
+    const project = projectWorkspace.getProject(projectId);
+    const conversations = projectCollaboration.listConversations({ actor: viewer, projectId }).slice(0, 20).map(item => projectCollaboration.readConversation({ actor: viewer, projectId, conversationId: item.conversationId }));
+    const memory = projectCollaboration.retrieveMemory({ actor: viewer, projectId });
+    const flaggedMemoryCount = ["project-owner", "admin"].includes(viewer.role) ? projectCollaboration.retrieveMemory({ actor: viewer, projectId, includeFlagged: true }).length - memory.length : 0;
+    return { project: { projectId: project.projectId, name: project.name }, viewerRole: viewer.role, teams: projectCollaboration.listTeams({ actor: viewer, projectId }), profiles: projectCollaboration.listProfiles({ actor: viewer, projectId }), conversations, memory, flaggedMemoryCount };
+  }
+
   function projectControlSnapshot(projectId) {
     const actor = { subject: identityOwner.userId, role: "project-owner" };
     const project = projectWorkspace.getProject(projectId);
@@ -2325,13 +2337,13 @@ export function createHeroServer(options = {}) {
         const principal = authenticateBrowserPortalPrincipal(request);
         if (!principal) return redirect(response, portalIdentityLocation(`${url.pathname}${url.search}`));
         const projectId = url.searchParams.get("projectId");
-        if (["command", "studio", "workspace", "control", "walkthrough"].includes(surface) && !projectId) {
+        if (["command", "studio", "workspace", "control", "collaboration", "walkthrough"].includes(surface) && !projectId) {
           return redirect(response, "/api/portal?surface=portfolio&select=project&next=" + encodeURIComponent(surface));
         }
-        if (["command", "studio", "workspace", "control", "walkthrough"].includes(surface)) requirePortalProjectScope(principal, projectId);
+        if (["command", "studio", "workspace", "control", "collaboration", "walkthrough"].includes(surface)) requirePortalProjectScope(principal, projectId);
         if (surface === "portfolio") {
           const destinationCandidate = url.searchParams.get("next") ?? url.searchParams.get("open");
-          const destination = ["command", "studio", "workspace", "control", "walkthrough"].includes(destinationCandidate) ? destinationCandidate : null;
+          const destination = ["command", "studio", "workspace", "control", "collaboration", "walkthrough"].includes(destinationCandidate) ? destinationCandidate : null;
           const view = url.searchParams.get("view") === "archived" ? "archived" : "active";
           return html(response, getPortfolioHtml({ portfolio: portfolioSnapshot(principal, { view, ...(parsePagination({ page: url.searchParams.get("page"), pageSize: url.searchParams.get("pageSize") }) ?? {}) }), destination, selectionRequired: url.searchParams.get("select") === "project" || Boolean(destination), archiveView: view === "archived" }));
         }
@@ -2347,6 +2359,7 @@ export function createHeroServer(options = {}) {
         if (surface === "studio") return html(response, getProductStudioHtml({ initialData: productStudioSnapshot({ projectId }), dataEndpoint: `${BROWSER_PORTAL_DATA_PATH}?surface=studio`, documentEndpoint: `${BROWSER_PORTAL_DOCUMENT_PATH}?surface=studio` }));
         if (surface === "workspace") return html(response, getProjectWorkspaceHtml({ projectId }));
         if (surface === "control") return html(response, getProjectControlRoomHtml({ initialData: { service: HERO_SERVICE, controlRoom: projectControlSnapshot(projectId) }, dataEndpoint: `${BROWSER_PORTAL_DATA_PATH}?surface=control` }));
+        if (surface === "collaboration") return html(response, getProjectCollaborationHtml(projectCollaborationSnapshot(principal, projectId)));
         if (surface === "walkthrough") return html(response, getProjectWalkthroughHtml({ projectId }));
         if (surface === "ai") {
           if (principal.role !== "project-owner") throw new ProjectAccessError("OWNER_REQUIRED", "The global AI catalog is available only to the Owner.", 403);
@@ -2498,7 +2511,7 @@ export function createHeroServer(options = {}) {
           }));
         }
         const destinationCandidate = url.searchParams.get("next") ?? url.searchParams.get("open");
-        const destination = ["command", "studio", "workspace", "control", "walkthrough"].includes(destinationCandidate) ? destinationCandidate : null;
+        const destination = ["command", "studio", "workspace", "control", "collaboration", "walkthrough"].includes(destinationCandidate) ? destinationCandidate : null;
         const view = url.searchParams.get("view") === "archived" ? "archived" : "active";
         return html(response, getPortfolioHtml({ portfolio: portfolioSnapshot(null, { view, ...(parsePagination({ page: url.searchParams.get("page"), pageSize: url.searchParams.get("pageSize") }) ?? {}) }), destination, selectionRequired: url.searchParams.get("select") === "project" || Boolean(destination), archiveView: view === "archived" }));
       }
@@ -3323,7 +3336,7 @@ export function createHeroServer(options = {}) {
       if (projectConversationCloseMatch && request.method === "POST") { const input = await readJson(request); const conversation = projectCollaboration.closeConversation({ actor: projectActor(projectConversationCloseMatch[1]), projectId: projectConversationCloseMatch[1], conversationId: projectConversationCloseMatch[2], reason: input.reason }); await persistCollaboration(); return json(response, 200, { service: HERO_SERVICE, conversation }); }
 
       const projectMemoryMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/memory$/);
-      if (projectMemoryMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, memory: projectCollaboration.retrieveMemory({ actor: projectActor(projectMemoryMatch[1]), projectId: projectMemoryMatch[1], level: url.searchParams.get("level"), scopeId: url.searchParams.get("scopeId"), query: url.searchParams.get("q") ?? "" }) });
+      if (projectMemoryMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, memory: projectCollaboration.retrieveMemory({ actor: projectActor(projectMemoryMatch[1]), projectId: projectMemoryMatch[1], level: url.searchParams.get("level"), scopeId: url.searchParams.get("scopeId"), query: url.searchParams.get("q") ?? "", includeFlagged: url.searchParams.get("includeFlagged") === "true" }) });
       if (projectMemoryMatch && request.method === "POST") { const input = await readJson(request); const memory = projectCollaboration.recordMemory({ actor: projectActor(projectMemoryMatch[1]), projectId: projectMemoryMatch[1], memoryId: input.memoryId, level: input.level, scopeId: input.scopeId ?? null, key: input.key, content: input.content, provenance: input.provenance, confidence: input.confidence, sensitivity: input.sensitivity, expiresAt: input.expiresAt ?? null, supersedesMemoryId: input.supersedesMemoryId ?? null }); await persistCollaboration(); return json(response, 201, { service: HERO_SERVICE, memory }); }
       const projectMemoryItemMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/memory\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/(history|correct|disable)$/);
       if (projectMemoryItemMatch && request.method === "GET" && projectMemoryItemMatch[3] === "history") return json(response, 200, { service: HERO_SERVICE, history: projectCollaboration.memoryHistory({ actor: projectActor(projectMemoryItemMatch[1]), projectId: projectMemoryItemMatch[1], memoryId: projectMemoryItemMatch[2] }) });
