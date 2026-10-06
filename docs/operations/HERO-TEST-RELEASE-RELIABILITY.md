@@ -1,7 +1,7 @@
 # پایایی انتشار Hero در محیط Test
 
 - Document ID: `HERO-OPS-HERO-TEST-RELEASE-RELIABILITY`
-- Version: `1.5.1`
+- Version: `1.6.0`
 - Status: `active`
 - Owner: `hero-operations`
 - Scope: `hero`
@@ -135,6 +135,17 @@ Rollback فقط وقتی انجام می‌شود که state وضعیت `promote
 ```
 
 این endpoint جایگزین احراز هویت انسانی نیست و نباید هیچ Secretی در آن افزوده شود.
+
+## آزمون پذیرش نقش‌محور روی Test
+
+`tools/run-test-acceptance.sh` همان image immutable Candidate را به‌صورت یک نمونهٔ یک‌بارمصرف با PostgreSQL موقت و شبکهٔ Docker داخلیِ بدون اینترنت اجرا می‌کند. این ابزار به containerها، volumeها، پورت‌ها و فایل env سرویس زندهٔ `hero-test` دست نمی‌زند، رمزی نمی‌پرسد و اعتبارنامه‌ای چاپ نمی‌کند. همهٔ اعتبارنامه‌ها موقت‌اند و پس از اجرا همراه همهٔ منابع پاک می‌شوند.
+
+```bash
+cd /opt/hero && git pull --ff-only
+sudo bash tools/run-test-acceptance.sh ghcr.io/farhaddgm/hero@sha256:<64-hex>
+```
+
+اجرا دو مرحله دارد: `seed` با سه نقش Owner، Admin و Viewer همهٔ بسته‌های WP-04..WP-08 را می‌آزماید؛ سپس نمونه با `SIGKILL` کشته و دوباره راه‌اندازی می‌شود و `verify` پایداری و replay را بررسی می‌کند (از جمله `interrupted` شدن اجرای نیمه‌کاره). حکم نهایی فقط بر چک‌های `BO-043..BO-092` است؛ چک‌های گام‌های دیگر به‌صورت `FINDING` گزارش می‌شوند. نتیجهٔ redacted در `/var/lib/hero-acceptance/acceptance-<run>.json` می‌ماند.
 
 ## شواهد اجباری هر release
 
