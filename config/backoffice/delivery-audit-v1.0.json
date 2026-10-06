@@ -6,9 +6,9 @@
   "roadmap": "HERO-ROADMAP-BACKOFFICE-COMMAND-CENTER-V1@1.1.0",
   "source": {
     "branch": "codex/hero-001-project-charter",
-    "branch_head": "9db97df1405738db75d64e931d0582061fab1166",
-    "release_candidate": "v1.1.5-rc.37",
-    "test_deployment": "ghcr.io/farhaddgm/hero@sha256:ab5ddffc1412cca1e05efe10f0183bcaab22c90cb36f3a72fb294d84fc5ea346",
+    "branch_head": "a17cbc9f8536597330e8eb37989259c0b4695aac",
+    "release_candidate": "v1.1.5-rc.38",
+    "test_deployment": "ghcr.io/farhaddgm/hero@sha256:072a6ae0c7b2a8717ae1519701a4aaaf69a69a51a3839175783b86aabae0173a",
     "production_change": "none"
   },
   "status_definitions": {
@@ -20,12 +20,12 @@
   },
   "summary": {
     "total": 170,
-    "verified": 70,
-    "partial": 72,
+    "verified": 88,
+    "partial": 54,
     "gated": 26,
     "owner_pending": 1,
     "deferred": 1,
-    "remaining_to_verified": 100
+    "remaining_to_verified": 82
   },
   "requirement_current": {
     "registry": "config/backoffice/requirement-trace-v1.0.json",
@@ -125,30 +125,66 @@
     },
     {
       "from": "BO-093",
-      "to": "BO-098",
-      "count": 6,
+      "to": "BO-095",
+      "count": 3,
+      "work_package": "WP-08",
+      "status": "verified",
+      "evidence": ["apps/control-plane/src/server.mjs", "config/authorizations/backoffice-20261006-024.json", "packages/adapters/src/postgresql-system-catalog-store.mjs", "packages/contracts/src/system-catalog.mjs", "packages/domain/src/command-center.mjs", "packages/domain/src/system-catalog.mjs", "tests/backoffice-catalog-performance-notification.test.mjs", "tests/system-catalog-wp08.test.mjs", "tests/wp08-integration-bo093.test.mjs", "tools/acceptance/run-test-acceptance.mjs"],
+      "open_gate": "Verified 2026-10-06 on Test runtime: owner-run role-based acceptance (tools/run-test-acceptance.sh, run 20261006T201133Z-7321df) on the exact candidate ghcr.io/farhaddgm/hero@sha256:072a6ae0c7b2a8717ae1519701a4aaaf69a69a51a3839175783b86aabae0173a (v1.1.5-rc.38) passed every in-scope check (103 seed + 27 after a SIGKILL restart) with PostgreSQL persistence. Follow-up outside these steps: catalog graph and search UI pages."
+    },
+    {
+      "from": "BO-096",
+      "to": "BO-096",
+      "count": 1,
       "work_package": "WP-08",
       "status": "partial",
       "evidence": ["apps/control-plane/src/server.mjs", "config/authorizations/backoffice-20261006-024.json", "packages/adapters/src/postgresql-system-catalog-store.mjs", "packages/contracts/src/system-catalog.mjs", "packages/domain/src/command-center.mjs", "packages/domain/src/system-catalog.mjs", "tests/backoffice-catalog-performance-notification.test.mjs", "tests/system-catalog-wp08.test.mjs", "tests/wp08-integration-bo093.test.mjs", "tools/acceptance/run-test-acceptance.mjs"],
-      "open_gate": "Source completed 2026-10-06 under BATCH-BACKOFFICE-20261006-024; the local acceptance rehearsal passes (130/130 in-scope checks including a SIGKILL restart). Stays partial until a promoted candidate (rc.38) passes tools/run-test-acceptance.sh on the Test host. Delivered: typed owner/team/document/run/artifact/health references with live health, document/decision/research/evidence/roadmap graph with supersession and cycle refusal, permission-aware search with restricted-document redaction, impact analysis shown on command cards, Git-canonical/Notion-projection proposals with conflict handling, deterministic rebuild. Remaining: catalog graph and search UI pages."
+      "open_gate": "Source and API are complete and verified on Test (impact analysis with dependency paths, command-card impact), but the step says to display the dependency graph and blast radius and no graph/blast-radius UI page exists yet."
+    },
+    {
+      "from": "BO-097",
+      "to": "BO-098",
+      "count": 2,
+      "work_package": "WP-08",
+      "status": "verified",
+      "evidence": ["apps/control-plane/src/server.mjs", "config/authorizations/backoffice-20261006-024.json", "packages/adapters/src/postgresql-system-catalog-store.mjs", "packages/contracts/src/system-catalog.mjs", "packages/domain/src/command-center.mjs", "packages/domain/src/system-catalog.mjs", "tests/backoffice-catalog-performance-notification.test.mjs", "tests/system-catalog-wp08.test.mjs", "tests/wp08-integration-bo093.test.mjs", "tools/acceptance/run-test-acceptance.mjs"],
+      "open_gate": "Verified 2026-10-06 on Test runtime: owner-run role-based acceptance (tools/run-test-acceptance.sh, run 20261006T201133Z-7321df) on the exact candidate ghcr.io/farhaddgm/hero@sha256:072a6ae0c7b2a8717ae1519701a4aaaf69a69a51a3839175783b86aabae0173a (v1.1.5-rc.38) passed every in-scope check (103 seed + 27 after a SIGKILL restart) with PostgreSQL persistence. "
     },
     {
       "from": "BO-099",
-      "to": "BO-110",
-      "count": 12,
+      "to": "BO-103",
+      "count": 5,
+      "work_package": "WP-09",
+      "status": "verified",
+      "evidence": ["apps/control-plane/src/server.mjs", "config/authorizations/backoffice-20261006-024.json", "packages/adapters/migrations/023_backoffice_domain_records.sql", "packages/adapters/src/postgresql-domain-record-store.mjs", "packages/contracts/src/performance-intelligence.mjs", "packages/domain/src/organization-performance.mjs", "packages/domain/src/performance-intelligence.mjs", "tests/backoffice-catalog-performance-notification.test.mjs", "tests/wp09-usage-health-bo099.test.mjs", "tools/acceptance/run-test-acceptance.mjs"],
+      "open_gate": "Verified 2026-10-06 on Test runtime: owner-run role-based acceptance (tools/run-test-acceptance.sh, run 20261006T201133Z-7321df) on the exact candidate ghcr.io/farhaddgm/hero@sha256:072a6ae0c7b2a8717ae1519701a4aaaf69a69a51a3839175783b86aabae0173a (v1.1.5-rc.38) passed every in-scope check (103 seed + 27 after a SIGKILL restart) with PostgreSQL persistence. Follow-ups outside these steps: cost/health UI pages and recorded provider ingestion."
+    },
+    {
+      "from": "BO-104",
+      "to": "BO-104",
+      "count": 1,
       "work_package": "WP-09",
       "status": "partial",
       "evidence": ["apps/control-plane/src/server.mjs", "config/authorizations/backoffice-20261006-024.json", "packages/adapters/migrations/023_backoffice_domain_records.sql", "packages/adapters/src/postgresql-domain-record-store.mjs", "packages/contracts/src/performance-intelligence.mjs", "packages/domain/src/organization-performance.mjs", "packages/domain/src/performance-intelligence.mjs", "tests/backoffice-catalog-performance-notification.test.mjs", "tests/wp09-usage-health-bo099.test.mjs", "tools/acceptance/run-test-acceptance.mjs"],
-      "open_gate": "Source completed 2026-10-06 under BATCH-BACKOFFICE-20261006-024; the local acceptance rehearsal passes (130/130 in-scope checks including a SIGKILL restart). Stays partial until a promoted candidate (rc.38) passes tools/run-test-acceptance.sh on the Test host. Delivered: one usage event, immutable invocation snapshots with scope inheritance, ledger by eight scopes with reconciliation, versioned caps with soft warning, hard-cap safe pause, race-proof reservations and owner-only raise/resume, evaluation datasets, AI-judge drift detection, optional feedback, scorecards normalised by work type and risk, replayable health with confidence/freshness and critical overrides, cost/health drill-down to evidence and runs, append-only persistence (migration 023). Remaining: cost/health UI pages and recorded (not live) provider ingestion."
+      "open_gate": "Optional Owner feedback for milestone, release and output is stored and verified on Test, but the step is an Owner-facing feature and no feedback UI exists yet."
+    },
+    {
+      "from": "BO-105",
+      "to": "BO-110",
+      "count": 6,
+      "work_package": "WP-09",
+      "status": "verified",
+      "evidence": ["apps/control-plane/src/server.mjs", "config/authorizations/backoffice-20261006-024.json", "packages/adapters/migrations/023_backoffice_domain_records.sql", "packages/adapters/src/postgresql-domain-record-store.mjs", "packages/contracts/src/performance-intelligence.mjs", "packages/domain/src/organization-performance.mjs", "packages/domain/src/performance-intelligence.mjs", "tests/backoffice-catalog-performance-notification.test.mjs", "tests/wp09-usage-health-bo099.test.mjs", "tools/acceptance/run-test-acceptance.mjs"],
+      "open_gate": "Verified 2026-10-06 on Test runtime: owner-run role-based acceptance (tools/run-test-acceptance.sh, run 20261006T201133Z-7321df) on the exact candidate ghcr.io/farhaddgm/hero@sha256:072a6ae0c7b2a8717ae1519701a4aaaf69a69a51a3839175783b86aabae0173a (v1.1.5-rc.38) passed every in-scope check (103 seed + 27 after a SIGKILL restart) with PostgreSQL persistence. Follow-ups outside these steps: cost/health UI pages and recorded provider ingestion."
     },
     {
       "from": "BO-111",
       "to": "BO-112",
       "count": 2,
       "work_package": "WP-10",
-      "status": "partial",
+      "status": "verified",
       "evidence": ["apps/control-plane/src/server.mjs", "config/authorizations/backoffice-20261006-024.json", "packages/adapters/migrations/023_backoffice_domain_records.sql", "packages/adapters/src/postgresql-domain-record-store.mjs", "packages/contracts/src/notification-observability.mjs", "packages/domain/src/notification-observability.mjs", "tests/backoffice-catalog-performance-notification.test.mjs", "tests/wp10-notifications-bo111.test.mjs", "tools/acceptance/run-test-acceptance.mjs"],
-      "open_gate": "Source completed 2026-10-06 under BATCH-BACKOFFICE-20261006-024; the local acceptance rehearsal passes (130/130 in-scope checks including a SIGKILL restart). Stays partial until a promoted candidate (rc.38) passes tools/run-test-acceptance.sh on the Test host. Delivered: taxonomy, severity, SLA deadlines, ownership, lifecycle with snooze limits and routed decision actions, deduplication that escalates severity and reopens after resolution, incident grouping with storm detection, append-only persistence. Remaining: none for BO-111..BO-112 beyond Test-runtime evidence."
+      "open_gate": "Verified 2026-10-06 on Test runtime: owner-run role-based acceptance (tools/run-test-acceptance.sh, run 20261006T201133Z-7321df) on the exact candidate ghcr.io/farhaddgm/hero@sha256:072a6ae0c7b2a8717ae1519701a4aaaf69a69a51a3839175783b86aabae0173a (v1.1.5-rc.38) passed every in-scope check (103 seed + 27 after a SIGKILL restart) with PostgreSQL persistence. Follow-up outside these steps: an actionable Inbox UI (BO-113..BO-120)."
     },
     {
       "from": "BO-113",
