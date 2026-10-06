@@ -1,5 +1,13 @@
 # تغییرات رودمپ شرکت
 
+# ۲۰۲۶-۱۰-۰۶ — Portfolio نقش‌محور و همکاری پایدار (BO-053..BO-072) و Runtime Test روی rc.35
+
+- افزوده‌شده: contract Portfolio با IA نقش‌محور، صفحه‌بندی، KPIهای تعریف‌شده با drill-down، breadcrumb؛ کارت با نقش و آخرین تصمیم؛ جست‌وجو با پیوند صفحه؛ مجموعهٔ آزمون مرورگر `pnpm test:browser`.
+- افزوده‌شده: تخصیص نسخه‌دار تیم/نقش، پروفایل با تاریخچه، فهرست/بستن گفتگو، انتخاب مدل گفتگو از تنظیمات، تاریخچهٔ memory، Knowledge Proposal با رد/پذیرش و APIهای مربوط.
+- اصلاح‌شده: گفتگو، memory و تخصیص‌ها اکنون در `collaboration_records` پایدارند؛ redaction بر اساس نقش همان پروژه انجام می‌شود؛ کنترل‌های `hidden` در Portfolio دیگر با CSS دیده نمی‌شوند.
+- Runtime Test: `v1.1.5-rc.35` با digest `sha256:d28082ec…` توسط مالک promote شد و `SUCCESS` گزارش داد.
+- شواهد: `pnpm check` `516/516` PASS؛ وضعیت ممیزی همچنان `partial`؛ هیچ Production، Secret، Provider زنده، هزینه یا نوشتن Notion.
+
 # ۲۰۲۶-۱۰-۰۵ — تکمیل source تنظیمات مؤثر و Policy Pack (BO-043..BO-052)
 
 - افزوده‌شده: schema تایپ‌دار فیلدهای تنظیمات، الگوهای قطعی Policy Pack برای هر نوع پروژه و سطح ریسک با کف‌های قفل، APIهای `settings/explain`، `settings/changes`، `settings/readiness` و `settings/remove-override`، و نمایش منشأ، زنجیره، کف، diff، عامل، دلیل و اثر در بخش Settings.
