@@ -1,0 +1,138 @@
+{
+  "schema": "hero.authorization-snapshot/v1",
+  "authorizationId": "BATCH-BACKOFFICE-20261006-024",
+  "status": "active",
+  "grantedBy": "project-owner",
+  "grantedAt": "2026-10-06",
+  "grantSource": "owner-chat-instruction-2026-10-06",
+  "ownerStatement": "مجوز می‌دهم گام‌های BO-093 تا BO-112 طبق HERO-ROADMAP-BACKOFFICE-COMMAND-CENTER-V1 نسخهٔ 1.2.0 و HERO-SPEC-022 نسخهٔ 1.0.0 طراحی، توسعه، مستندسازی، تست و بازبینی شوند. Production، Secret، هزینهٔ بیرونی، Provider زنده، فراخوانی زندهٔ GitHub و نوشتن در Notion مجاز نیست.",
+  "validUntil": "owner-revocation",
+  "globalStop": false,
+  "operations": [
+    "design",
+    "develop",
+    "document",
+    "test",
+    "review"
+  ],
+  "excludedOperations": [
+    "production-deploy",
+    "secret-change",
+    "external-spend",
+    "provider-live-call",
+    "github-live-call",
+    "notion-write",
+    "destructive-data-operation",
+    "external-message",
+    "irreversible-operation",
+    "pilot-execution"
+  ],
+  "documents": [
+    {
+      "documentId": "HERO-SPEC-022",
+      "documentVersion": "1.0.0"
+    },
+    {
+      "documentId": "HERO-ROADMAP-BACKOFFICE-COMMAND-CENTER-V1",
+      "documentVersion": "1.2.0"
+    }
+  ],
+  "steps": [
+    {
+      "stepId": "BO-093",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-094",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-095",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-096",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-097",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-098",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-099",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-100",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-101",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-102",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-103",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-104",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-105",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-106",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-107",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-108",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-109",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-110",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-111",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-112",
+      "documentVersion": "1.2.0"
+    }
+  ],
+  "scope": {
+    "environment": "development-and-test",
+    "service": "hero-control-plane",
+    "workPackages": [
+      "WP-08",
+      "WP-09",
+      "WP-10"
+    ],
+    "action": "catalog-integration-usage-ledger-evaluation-health-and-notification-source-completion",
+    "production": false,
+    "secrets": false,
+    "providers": false,
+    "githubLiveCalls": false,
+    "notionWrite": false
+  },
+  "note": "Covers BO-093..BO-098 (WP-08), BO-099..BO-110 (WP-09) and BO-111..BO-112 (WP-10) against roadmap 1.2.0. Usage, evaluation and health use recorded or synthetic internal data only; no live Provider call or external spend. BO-097 implements the Git-canonical/Notion-projection contract and conflict handling without writing to Notion. Production, Secret changes, live GitHub calls and Notion writes remain excluded."
+}

@@ -1,7 +1,7 @@
-export const SYSTEM_CATALOG_CONTRACT_VERSION = "1.1";
+export const SYSTEM_CATALOG_CONTRACT_VERSION = "1.2";
 export const SYSTEM_ENTITY_TYPES = Object.freeze(["project", "application", "component", "service", "repository", "api", "data", "environment", "server"]);
 export const SYSTEM_ENTITY_LIFECYCLES = Object.freeze(["planned", "active", "deprecated", "retired"]);
-export const SYSTEM_RECORD_KINDS = Object.freeze(["entity", "dependency", "inventory", "drift-proposal", "knowledge"]);
+export const SYSTEM_RECORD_KINDS = Object.freeze(["entity", "dependency", "inventory", "drift-proposal", "knowledge", "knowledge-link", "projection-proposal"]);
 
 /** BO-089: allowed lifecycle moves. Retired is terminal; a planned sketch may be dropped. */
 export const SYSTEM_LIFECYCLE_TRANSITIONS = Object.freeze({
@@ -44,6 +44,32 @@ export const SYSTEM_DEPENDENCY_RELATIONS = Object.freeze({
 export const SYSTEM_DISCOVERY_SOURCES = Object.freeze(["github-snapshot", "local-manifest"]);
 export const SYSTEM_DRIFT_RESOLUTIONS = Object.freeze(["adopt-observed", "fix-source", "reject"]);
 
+/** BO-093: typed links from a catalog entity to the rest of Hero. */
+export const SYSTEM_REFERENCE_KINDS = Object.freeze({
+  owner: "user id of the accountable person",
+  team: "a Hero team id",
+  document: "hero:// reference to a canonical document",
+  run: "a workflow or command run id",
+  artifact: "sha256 digest or hero:// artifact reference",
+  health: "unknown | healthy | degraded | critical"
+});
+export const SYSTEM_HEALTH_VALUES = Object.freeze(["unknown", "healthy", "degraded", "critical"]);
+
+/** BO-094: document catalog and roadmap graph. */
+export const KNOWLEDGE_KINDS = Object.freeze(["decision", "research", "evidence", "roadmap", "specification", "runbook", "note"]);
+export const KNOWLEDGE_RELATIONS = Object.freeze({
+  supersedes: Object.freeze({ acyclic: true }),
+  implements: Object.freeze({ acyclic: true }),
+  evidences: Object.freeze({ acyclic: true }),
+  decides: Object.freeze({ acyclic: true }),
+  "depends-on": Object.freeze({ acyclic: true }),
+  references: Object.freeze({ acyclic: false })
+});
+export const KNOWLEDGE_SENSITIVITIES = Object.freeze(["normal", "restricted"]);
+
+/** BO-097: Git is canonical; Notion only shows a projection and may propose. */
+export const SYSTEM_PROJECTION_STATES = Object.freeze(["proposed", "conflict", "accepted", "rejected", "no-change"]);
+
 export function getSystemCatalogContractSummary() {
   return Object.freeze({
     version: SYSTEM_CATALOG_CONTRACT_VERSION,
@@ -55,13 +81,17 @@ export function getSystemCatalogContractSummary() {
     discoverySources: SYSTEM_DISCOVERY_SOURCES,
     liveDiscovery: "github-live-call requires a separate authorization; the catalog only ingests offline snapshots",
     drift: { resolutions: SYSTEM_DRIFT_RESOLUTIONS, overwrite: "forbidden", staleWhenEntityVersionChanges: true },
+    references: SYSTEM_REFERENCE_KINDS,
+    knowledge: { kinds: KNOWLEDGE_KINDS, relations: Object.keys(KNOWLEDGE_RELATIONS), sensitivities: KNOWLEDGE_SENSITIVITIES },
+    search: "permission-aware: only the caller's project; restricted knowledge is redacted for viewers",
+    projection: { states: SYSTEM_PROJECTION_STATES, rule: "a Notion edit never overwrites Git; it becomes a proposal, or a conflict when the canonical version moved" },
     sourceOfTruth: "Git is canonical; Notion remains projection/proposal only"
   });
 }
 
 export function validateSystemCatalogContract() {
   const errors = [];
-  if (SYSTEM_CATALOG_CONTRACT_VERSION !== "1.1") errors.push("Unexpected System Catalog contract version.");
+  if (SYSTEM_CATALOG_CONTRACT_VERSION !== "1.2") errors.push("Unexpected System Catalog contract version.");
   if (SYSTEM_ENTITY_TYPES.length !== 9) errors.push("System Catalog must define nine entity types.");
   for (const type of SYSTEM_ENTITY_TYPES) if (!SYSTEM_ENTITY_RULES[type]) errors.push(`${type} has no rule.`);
   for (const lifecycle of SYSTEM_ENTITY_LIFECYCLES) if (!SYSTEM_LIFECYCLE_TRANSITIONS[lifecycle]) errors.push(`${lifecycle} has no transitions.`);

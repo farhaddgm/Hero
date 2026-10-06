@@ -67,6 +67,7 @@ const PRODUCT_RUNTIME_CAPACITY_TABLES = Object.freeze(["product_runtime_capacity
 const PRODUCT_RUNTIME_LEASE_TABLES = Object.freeze(["product_runtime_reconciliation_runs"]);
 const PROJECT_PURGE_TABLES = Object.freeze(["project_purge_tombstones"]);
 const SYSTEM_CATALOG_RECORD_TABLES = Object.freeze(["system_catalog_records"]);
+const BACKOFFICE_DOMAIN_RECORD_TABLES = Object.freeze(["backoffice_domain_records"]);
 const SMART_TESTER_TABLES = Object.freeze(["smart_tester_error_documents"]);
 const COLLABORATION_COMMAND_CATALOG_TABLES = Object.freeze(["collaboration_records", "command_decision_records", "approval_records", "system_catalog_entities", "system_catalog_dependencies"]);
 const INTELLIGENCE_NOTIFICATION_TABLES = Object.freeze(["usage_events", "evaluation_records", "health_records", "notification_records", "observability_audit_records", "catalog_drift_proposals"]);
@@ -227,6 +228,12 @@ export const POSTGRES_MIGRATIONS = Object.freeze([
     name: "system-catalog-records",
     file: "022_system_catalog_records.sql",
     tables: SYSTEM_CATALOG_RECORD_TABLES
+  }),
+  Object.freeze({
+    id: "023",
+    name: "backoffice-domain-records",
+    file: "023_backoffice_domain_records.sql",
+    tables: BACKOFFICE_DOMAIN_RECORD_TABLES
   })
 ]);
 

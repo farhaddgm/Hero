@@ -6,7 +6,7 @@
 > Type: evidence
 > Scope: hero
 > Status: active
-> Version: 1.7.0
+> Version: 1.8.0
 > Owner: hero-architecture
 > Review cadence: per-change
 > Supersedes: none
@@ -58,9 +58,10 @@
 | WP-06 | BO-063..074 | verified | verified در ۲۰۲۶-۱۰-۰۶ با آزمون پذیرش نقش‌محور روی Runtime Test (`v1.1.5-rc.37`): گفتگو و memory پایدار پس از SIGKILL، redaction، کنار گذاشتن memory دستورمانند، صفحهٔ همکاری با citation | پیگیری WP-02: ورود کاربر MFA‌دار پس از restart (BO-IAM-001) |
 | WP-07 | BO-075..088 | verified | verified در ۲۰۲۶-۱۰-۰۶ با آزمون پذیرش نقش‌محور روی Runtime Test (`v1.1.5-rc.37`): intent از گفتگو، تصمیم با snapshot سیاست، dispatch با گیت، Production مسدود، `interrupted` پس از crash، resume و پایان idempotent | adapter اجرای واقعی و Production جداگانه gated |
 | WP-08 | BO-089..092 | verified | verified در ۲۰۲۶-۱۰-۰۶ با آزمون پذیرش نقش‌محور روی Runtime Test (`v1.1.5-rc.37`): metadata لازم، رابطهٔ تایپ‌دار بدون چرخه، کشف آفلاین، Drift Proposal و تصمیم انسانی پس از restart | بسته است |
-| WP-08 | BO-093..098 | partial | ارجاع‌ها و جست‌وجوی پایه در Catalog | اتصال کامل به owner/team/document/run/artifact/health، گراف سند/تصمیم، UI جست‌وجو و گراف، Git canonical/Notion projection و آزمون BO-098 |
-| WP-09 | BO-099..110 | partial | usage، ledger، budget، evaluation و health domain | ingestion واقعی، UI و drill-down تا Run/Evidence |
-| WP-10 | BO-111..120 | partial | notification/audit/observability domain | Inbox قابل اقدام، trace سرتاسری و runtime storm/security evidence |
+| WP-08 | BO-093..098 | partial | source ۲۰۲۶-۱۰-۰۶: ارجاع‌های تایپ‌دار، گراف سند، جست‌وجوی مجوزدار، تحلیل اثر، Projection نوتیشن بدون بازنویسی Git، بازسازی قطعی؛ منتظر Candidate rc.38 | آزمون پذیرش روی rc.38 و صفحات گراف/جست‌وجو |
+| WP-09 | BO-099..110 | partial | source ۲۰۲۶-۱۰-۰۶: Usage و Invocation، Ledger و reconcile، سقف با pause امن و رزرو، ارزیابی و drift داوری، Scorecard نرمال‌شده، Health `1.1`، override، drill-down، پایداری `023` | آزمون پذیرش روی rc.38، صفحات هزینه/سلامت و ingestion ثبت‌شدهٔ Provider |
+| WP-10 | BO-111..112 | partial | source ۲۰۲۶-۱۰-۰۶: taxonomy، SLA، چرخهٔ عمر، deduplication، Incident | آزمون پذیرش روی rc.38 |\n| WP-10 | BO-113..120 | partial | notification/audit/observability domain | Inbox قابل اقدام، trace سرتاسری و شواهد runtime |
+| WP-10 | BO-113..120 | partial | notification/audit/observability domain | Inbox قابل اقدام، trace سرتاسری و شواهد runtime storm/security |
 | WP-11 | BO-121..134 | gated | metadata-only GitHub/Server/Node/Secret contracts | اتصال واقعی و آزمون امنیتی با credential و مجوز جدا |
 | WP-12 | BO-135..146 | gated | privacy/release/artifact/delivery record-only controls | clean-target recovery، telemetry/break-glass و acceptance عملیاتی |
 | WP-13 | BO-147..156 | partial | retention/hardening contracts و تست‌های داخلی | bilingual/accessibility/load/cleanup/security runtime evidence |

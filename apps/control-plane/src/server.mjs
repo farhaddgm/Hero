@@ -88,6 +88,7 @@ import { createProjectCollaboration, CollaborationError } from "../../../package
 import { PORTFOLIO_KPIS, breadcrumbsFor, getBackofficePortfolioContractSummary, parsePagination, sectionsFor } from "../../../packages/contracts/src/backoffice-portfolio.mjs";
 import { createCommandCenter, CommandCenterError } from "../../../packages/domain/src/command-center.mjs";
 import { getProjectCollaborationHtml } from "./project-collaboration-view.mjs";
+import { TEAM_CATALOG } from "../../../packages/contracts/src/team.mjs";
 import { createSystemCatalog, SystemCatalogError } from "../../../packages/domain/src/system-catalog.mjs";
 import { createPerformanceIntelligence, PerformanceError } from "../../../packages/domain/src/performance-intelligence.mjs";
 import { createNotificationObservability, NotificationError } from "../../../packages/domain/src/notification-observability.mjs";
@@ -545,9 +546,10 @@ export function createHeroServer(options = {}) {
   // Collaboration resolves conversation models through the WP-04 settings layers and
   // checks entity contexts against the project catalog (resolved lazily at request time).
   const projectCollaboration = options.projectCollaboration ?? createProjectCollaboration({ now: options.now, settings: projectSettings, entityExists: (projectId, entityId) => systemCatalog.list({ projectId }).some(entity => entity.entityId === entityId) });
-  const commandCenter = options.commandCenter ?? createCommandCenter({ now: options.now, settings: projectSettings, globalStop: () => Boolean(dashboard.snapshot().globalStop) });
-  const systemCatalog = options.systemCatalog ?? createSystemCatalog({ now: options.now });
-  const performanceIntelligence = options.performanceIntelligence ?? createPerformanceIntelligence({ now: options.now });
+  const commandCenter = options.commandCenter ?? createCommandCenter({ now: options.now, settings: projectSettings, globalStop: () => Boolean(dashboard.snapshot().globalStop), impactFor: (projectId, entityIds) => systemCatalog.impact({ projectId, entityIds }) });
+  const systemCatalog = options.systemCatalog ?? createSystemCatalog({ now: options.now, teamExists: teamId => TEAM_CATALOG.some(team => team.teamId === teamId), healthFor: (projectId, entityId) => { const health = performanceIntelligence.health({ actor: SYSTEM_READER, projectId, subjectId: entityId }); return health.sampleSize > 0 ? health.status : null; } });
+  // Budget events become in-Back-Office notifications; nothing leaves Hero.
+  const performanceIntelligence = options.performanceIntelligence ?? createPerformanceIntelligence({ now: options.now, onEvent: event => budgetNotification(event) });
   const notificationObservability = options.notificationObservability ?? createNotificationObservability({ now: options.now });
   const infrastructureControl = options.infrastructureControl ?? createInfrastructureControl({ now: options.now });
   const deliveryControl = options.deliveryControl ?? createDeliveryControl({ now: options.now });
@@ -644,6 +646,10 @@ export function createHeroServer(options = {}) {
     await persistWorkspaceProposal(proposal);
   }
 
+  // Internal, non-human actors for derived reads/writes (health lookups, budget notifications).
+  const SYSTEM_READER = Object.freeze({ subject: "hero-system", role: "viewer" });
+  const SYSTEM_EDITOR = Object.freeze({ subject: "hero-system", role: "admin" });
+
   /** A human user's role differs per project (admin in A, viewer in B). Domain
    * redaction and editor checks must see the role granted in *this* project. */
   function projectActorFor(principal, projectId) {
@@ -656,6 +662,17 @@ export function createHeroServer(options = {}) {
     const records = projectCollaboration.drainRecords?.() ?? [];
     if (!postgresRuntime?.collaboration) return;
     for (const record of records) await postgresRuntime.collaboration.appendRecord({ recordId: record.recordId, projectId: record.projectId, recordType: record.recordType, recordVersion: record.recordVersion, metadata: record.metadata, actorId: record.actorId });
+  }
+
+  function budgetNotification(event) {
+    const critical = event.type === "budget.hard-cap";
+    notificationObservability.createNotification({ actor: SYSTEM_EDITOR, projectId: event.projectId, category: "budget", severity: critical ? "critical" : "warning", title: critical ? `Token hard cap reached (${event.used}/${event.hardCap}); new work is paused` : `Token soft threshold passed (${event.used}/${event.softThreshold})`, ownerId: identityOwner.userId, deduplicationKey: critical ? "budget-hard-cap" : "budget-soft-threshold", correlationId: `budget-${event.projectId}`, groupKey: "budget", sourceRef: `hero://projects/${event.projectId}/budget` });
+  }
+
+  async function persistDomainRecords() {
+    const batches = [["performance", performanceIntelligence.drainRecords?.() ?? []], ["notifications", notificationObservability.drainRecords?.() ?? []]];
+    if (!postgresRuntime?.domainRecords) return;
+    for (const [domain, records] of batches) for (const record of records) await postgresRuntime.domainRecords.appendRecord(domain, record);
   }
 
   async function persistCommandCenter() {
@@ -3132,6 +3149,8 @@ export function createHeroServer(options = {}) {
         projectCollaboration.purgeProject?.({ projectId: purge.projectId });
         commandCenter.purgeProject?.({ projectId: purge.projectId });
         systemCatalog.purgeProject?.({ projectId: purge.projectId });
+        performanceIntelligence.purgeProject?.({ projectId: purge.projectId });
+        notificationObservability.purgeProject?.({ projectId: purge.projectId });
         const revokedGrants = projectAccessRegistry?.revokeProjectGrants?.({ actor: authenticatedOwner, projectId: purge.projectId }) ?? [];
         for (const grant of revokedGrants) {
           if (postgresRuntime?.projectIdentity?.appendGrant) await postgresRuntime.projectIdentity.appendGrant({ projectId: grant.projectId, userId: grant.userId, role: grant.role, status: "revoked", grantedBy: authenticatedOwner.subject });
@@ -3427,7 +3446,7 @@ export function createHeroServer(options = {}) {
       const projectCatalogGraphMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/catalog\/graph$/);
       if (projectCatalogGraphMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, graph: systemCatalog.graph({ projectId: projectCatalogGraphMatch[1] }) });
       const projectCatalogSearchMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/catalog\/search$/);
-      if (projectCatalogSearchMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, results: systemCatalog.search({ projectId: projectCatalogSearchMatch[1], query: url.searchParams.get("q") }) });
+      if (projectCatalogSearchMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, results: systemCatalog.search({ actor: projectActor(projectCatalogSearchMatch[1]), projectId: projectCatalogSearchMatch[1], query: url.searchParams.get("q"), types: url.searchParams.get("types") ? url.searchParams.get("types").split(",") : null }) });
       const projectCatalogDependencyMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/catalog\/dependencies(\/remove)?$/);
       if (projectCatalogDependencyMatch && request.method === "POST") {
         const input = await readJson(request); const projectId = projectCatalogDependencyMatch[1]; const actor = projectActor(projectId);
@@ -3441,33 +3460,83 @@ export function createHeroServer(options = {}) {
       if (projectCatalogDriftResolveMatch && request.method === "POST") { const input = await readJson(request); const result = systemCatalog.resolveDrift({ actor: projectActor(projectCatalogDriftResolveMatch[1]), projectId: projectCatalogDriftResolveMatch[1], driftProposalId: projectCatalogDriftResolveMatch[2], resolution: input.resolution, reason: input.reason }); await persistSystemCatalog(); return json(response, 200, { service: HERO_SERVICE, ...result }); }
       const projectCatalogDiscoveryMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/catalog\/discovery\/github-snapshot$/);
       if (projectCatalogDiscoveryMatch && request.method === "POST") { const input = await readJson(request); const result = systemCatalog.ingestGithubSnapshot({ actor: projectActor(projectCatalogDiscoveryMatch[1]), projectId: projectCatalogDiscoveryMatch[1], repositoryEntityId: input.repositoryEntityId, snapshot: input.snapshot }); await persistSystemCatalog(); return json(response, 201, { service: HERO_SERVICE, ...result }); }
-      const projectCatalogEntityMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/catalog\/entities\/([A-Za-z][A-Za-z0-9._:-]{2,127})(?:\/(history|transition|dependencies|blast-radius))?$/);
+      // Catalog integration (BO-093..BO-097)
+      const projectCatalogExtraMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/catalog\/(knowledge|knowledge\/links|documents\/graph|impact|projection-proposals)$/);
+      if (projectCatalogExtraMatch) {
+        const [, projectId, resource] = projectCatalogExtraMatch; const actor = projectActor(projectId);
+        if (request.method === "GET" && resource === "documents/graph") return json(response, 200, { service: HERO_SERVICE, graph: systemCatalog.documentGraph({ actor, projectId }) });
+        if (request.method === "GET" && resource === "projection-proposals") return json(response, 200, { service: HERO_SERVICE, proposals: systemCatalog.listProjectionProposals({ projectId, state: url.searchParams.get("state") }) });
+        if (request.method === "POST") {
+          const input = await readJson(request);
+          if (resource === "impact") return json(response, 200, { service: HERO_SERVICE, impact: systemCatalog.impact({ projectId, entityIds: input.entityIds }) });
+          const result = resource === "knowledge" ? { knowledge: systemCatalog.registerKnowledge({ actor, projectId, knowledgeId: input.knowledgeId, kind: input.kind, title: input.title, sourceRef: input.sourceRef, tags: input.tags ?? [], sensitivity: input.sensitivity ?? "normal", entityIds: input.entityIds ?? [] }) }
+            : resource === "knowledge/links" ? { link: systemCatalog.linkKnowledge({ actor, projectId, fromKnowledgeId: input.fromKnowledgeId, toKnowledgeId: input.toKnowledgeId, relation: input.relation }) } : null;
+          if (result) { await persistSystemCatalog(); return json(response, 201, { service: HERO_SERVICE, ...result }); }
+        }
+      }
+      const projectProjectionDecisionMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/catalog\/projection-proposals\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/decide$/);
+      if (projectProjectionDecisionMatch && request.method === "POST") { const input = await readJson(request); const [, projectId, projectionProposalId] = projectProjectionDecisionMatch; const proposal = systemCatalog.decideProjectionProposal({ actor: projectActor(projectId), projectId, projectionProposalId, decision: input.decision, reason: input.reason }); await persistSystemCatalog(); return json(response, 200, { service: HERO_SERVICE, proposal }); }
+      const projectCatalogEntityMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/catalog\/entities\/([A-Za-z][A-Za-z0-9._:-]{2,127})(?:\/(history|transition|dependencies|blast-radius|references|view|projection|projection-edits))?$/);
       if (projectCatalogEntityMatch) {
         const [, projectId, entityId, action] = projectCatalogEntityMatch;
         if (request.method === "GET" && action === "history") return json(response, 200, { service: HERO_SERVICE, history: systemCatalog.history({ projectId, entityId }) });
         if (request.method === "GET" && action === "dependencies") return json(response, 200, { service: HERO_SERVICE, dependencies: systemCatalog.dependencies({ projectId, entityId }) });
         if (request.method === "GET" && action === "blast-radius") return json(response, 200, { service: HERO_SERVICE, entities: systemCatalog.blastRadius({ projectId, entityId }) });
+        if (request.method === "GET" && action === "view") return json(response, 200, { service: HERO_SERVICE, view: systemCatalog.entityView({ actor: projectActor(projectId), projectId, entityId }) });
+        if (request.method === "GET" && action === "projection") return json(response, 200, { service: HERO_SERVICE, projection: systemCatalog.projection({ projectId, entityId }) });
+        if (request.method === "POST" && action === "references") { const input = await readJson(request); const entity = systemCatalog.attachReferences({ actor: projectActor(projectId), projectId, entityId, references: input.references }); await persistSystemCatalog(); return json(response, 200, { service: HERO_SERVICE, entity }); }
+        if (request.method === "POST" && action === "projection-edits") { const input = await readJson(request); const proposal = systemCatalog.reconcileProjectionEdit({ actor: projectActor(projectId), projectId, entityId, baseVersion: input.baseVersion, baseHash: input.baseHash, editedFields: input.editedFields }); await persistSystemCatalog(); return json(response, 201, { service: HERO_SERVICE, proposal }); }
         if (request.method === "POST" && action === "transition") { const input = await readJson(request); const entity = systemCatalog.transition({ actor: projectActor(projectId), projectId, entityId, to: input.to, expectedVersion: input.expectedVersion, reason: input.reason }); await persistSystemCatalog(); return json(response, 200, { service: HERO_SERVICE, entity }); }
       }
 
-      const projectUsageMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/usage$/);
-      if (projectUsageMatch && request.method === "POST") { const input = await readJson(request); return json(response, 201, { service: HERO_SERVICE, usage: performanceIntelligence.recordUsage({ actor: authenticatedOwner, projectId: projectUsageMatch[1], ...input }) }); }
-      const projectBudgetMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/budget$/);
-      if (projectBudgetMatch && request.method === "POST") { const input = await readJson(request); return json(response, 200, { service: HERO_SERVICE, budget: performanceIntelligence.setBudget({ actor: authenticatedOwner, projectId: projectBudgetMatch[1], ...input }) }); }
-      const projectLedgerMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/ledger$/);
-      if (projectLedgerMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, ledger: performanceIntelligence.ledger({ actor: authenticatedOwner, projectId: projectLedgerMatch[1], groupBy: url.searchParams.get("groupBy") ?? "project" }) });
-      const projectEvaluationMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/evaluations$/);
-      if (projectEvaluationMatch && request.method === "POST") { const input = await readJson(request); return json(response, 201, { service: HERO_SERVICE, evaluation: performanceIntelligence.recordEvaluation({ actor: authenticatedOwner, projectId: projectEvaluationMatch[1], ...input }) }); }
-      const projectHealthMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/health$/);
-      if (projectHealthMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, health: performanceIntelligence.health({ actor: authenticatedOwner, projectId: projectHealthMatch[1] }) });
+      // Usage, budget, evaluation and health (WP-09). Reads need a grant; writes need owner/admin in the project.
+      const projectIntelMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/(usage|invocations|budget|budget\/reservations|budget\/release|budget\/resume|budget\/history|ledger|ledger\/reconcile|evaluations|evaluation-datasets|evaluation-datasets\/drift|feedback|scorecard|health|health\/overrides|drill-down)$/);
+      if (projectIntelMatch) {
+        const [, projectId, resource] = projectIntelMatch; const actor = projectActor(projectId); const q = name => url.searchParams.get(name);
+        if (request.method === "GET") {
+          const reads = {
+            budget: () => ({ budget: performanceIntelligence.budgetStatus({ actor, projectId }) }),
+            "budget/history": () => ({ history: performanceIntelligence.budgetHistory({ actor, projectId }) }),
+            ledger: () => ({ ledger: performanceIntelligence.ledger({ actor, projectId, groupBy: q("groupBy") ?? "project", from: q("from"), to: q("to") }) }),
+            "ledger/reconcile": () => ({ reconciliation: performanceIntelligence.reconcile({ actor, projectId }) }),
+            "evaluation-datasets/drift": () => ({ drift: performanceIntelligence.judgeDrift({ actor, projectId, datasetId: q("datasetId") }) }),
+            scorecard: () => ({ scorecard: performanceIntelligence.scorecard({ actor, projectId, subjectId: q("subjectId") }) }),
+            health: () => ({ health: performanceIntelligence.health({ actor, projectId, asOf: q("asOf"), subjectId: q("subjectId") }) }),
+            "drill-down": () => ({ drillDown: performanceIntelligence.drillDown({ actor, projectId, kind: q("kind"), groupBy: q("groupBy") ?? "project", scope: q("scope") }) })
+          };
+          if (reads[resource]) return json(response, 200, { service: HERO_SERVICE, ...reads[resource]() });
+        }
+        if (request.method === "POST") {
+          const input = await readJson(request);
+          const writes = {
+            usage: () => ({ usage: performanceIntelligence.recordUsage({ actor, projectId, usageId: input.usageId, invocationId: input.invocationId, provider: input.provider ?? null, model: input.model ?? null, inputTokens: input.inputTokens ?? 0, cachedTokens: input.cachedTokens ?? 0, outputTokens: input.outputTokens ?? 0, teamId: input.teamId ?? null, roleId: input.roleId ?? null, taskId: input.taskId ?? null, runId: input.runId ?? null, source: input.source ?? "recorded", reservationId: input.reservationId ?? null }) }),
+            invocations: () => ({ invocation: performanceIntelligence.recordInvocation({ actor, projectId, invocationId: input.invocationId, provider: input.provider, model: input.model, teamId: input.teamId ?? null, roleId: input.roleId ?? null, taskId: input.taskId ?? null, runId: input.runId ?? null, source: input.source ?? "recorded", promptVersion: input.promptVersion ?? null }) }),
+            budget: () => ({ budget: performanceIntelligence.setBudget({ actor, projectId, softThreshold: input.softThreshold, hardCap: input.hardCap, expectedVersion: input.expectedVersion ?? null, reason: input.reason }) }),
+            "budget/reservations": () => ({ reservation: performanceIntelligence.reserve({ actor, projectId, reservationId: input.reservationId, estimatedTokens: input.estimatedTokens }) }),
+            "budget/release": () => ({ reservation: performanceIntelligence.release({ actor, projectId, reservationId: input.reservationId }) }),
+            "budget/resume": () => ({ pause: performanceIntelligence.resume({ actor, projectId, reason: input.reason }) }),
+            evaluations: () => ({ evaluation: performanceIntelligence.recordEvaluation({ actor, projectId, evaluationId: input.evaluationId, subjectType: input.subjectType, subjectId: input.subjectId, method: input.method, goalFit: input.goalFit, errorCount: input.errorCount ?? 0, reworkCount: input.reworkCount ?? 0, evidenceRefs: input.evidenceRefs ?? [], datasetId: input.datasetId ?? null, caseId: input.caseId ?? null, judge: input.judge ?? null, runId: input.runId ?? null, workType: input.workType ?? "general", riskLevel: input.riskLevel ?? "standard", cycleTimeMinutes: input.cycleTimeMinutes ?? null }) }),
+            "evaluation-datasets": () => ({ dataset: performanceIntelligence.registerDataset({ actor, projectId, datasetId: input.datasetId, workType: input.workType ?? "general", cases: input.cases }) }),
+            feedback: () => ({ feedback: performanceIntelligence.recordFeedback({ actor, projectId, feedbackId: input.feedbackId, subjectId: input.subjectId, subjectKind: input.subjectKind ?? "output", rating: input.rating ?? null, comment: input.comment ?? "" }) }),
+            "health/overrides": () => ({ override: performanceIntelligence.setCriticalOverride({ actor, projectId, overrideId: input.overrideId, reason: input.reason, kind: input.kind ?? "manual", active: input.active ?? true, expiresAt: input.expiresAt ?? null }) })
+          };
+          if (writes[resource]) { const result = writes[resource](); await persistDomainRecords(); return json(response, resource === "budget" || resource.startsWith("budget/") ? 200 : 201, { service: HERO_SERVICE, ...result }); }
+        }
+      }
 
-      const projectNotificationsMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/notifications$/);
-      if (projectNotificationsMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, notifications: notificationObservability.inbox({ actor: authenticatedOwner, projectId: projectNotificationsMatch[1], view: url.searchParams.get("view") ?? "all" }) });
-      if (projectNotificationsMatch && request.method === "POST") { const input = await readJson(request); return json(response, 201, { service: HERO_SERVICE, notification: notificationObservability.createNotification({ actor: authenticatedOwner, projectId: projectNotificationsMatch[1], ...input }) }); }
+      // Notifications and incidents (WP-10)
+      const projectNotificationsMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/(notifications|incidents)$/);
+      if (projectNotificationsMatch && request.method === "GET") {
+        const [, projectId, resource] = projectNotificationsMatch; const actor = projectActor(projectId);
+        return json(response, 200, { service: HERO_SERVICE, ...(resource === "notifications" ? { notifications: notificationObservability.inbox({ actor, projectId, view: url.searchParams.get("view") ?? "all" }) } : { incidents: notificationObservability.incidents({ actor, projectId, state: url.searchParams.get("state") }) }) });
+      }
+      if (projectNotificationsMatch && request.method === "POST" && projectNotificationsMatch[2] === "notifications") { const input = await readJson(request); const projectId = projectNotificationsMatch[1]; const notification = notificationObservability.createNotification({ actor: projectActor(projectId), projectId, category: input.category, severity: input.severity, title: input.title, ownerId: input.ownerId ?? null, deduplicationKey: input.deduplicationKey, correlationId: input.correlationId, groupKey: input.groupKey ?? null, action: input.action ?? null, sourceRef: input.sourceRef ?? null }); await persistDomainRecords(); return json(response, 201, { service: HERO_SERVICE, notification }); }
+      const projectNotificationActMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/notifications\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/act$/);
+      if (projectNotificationActMatch && request.method === "POST") { const input = await readJson(request); const [, projectId, notificationId] = projectNotificationActMatch; const notification = notificationObservability.act({ actor: projectActor(projectId), projectId, notificationId, action: input.action, reason: input.reason ?? "", ownerId: input.ownerId ?? null, minutes: input.minutes ?? 60 }); await persistDomainRecords(); return json(response, 200, { service: HERO_SERVICE, notification }); }
       const projectAuditMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/audit-log$/);
-      if (projectAuditMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, audit: notificationObservability.audit({ actor: authenticatedOwner, projectId: projectAuditMatch[1], kind: url.searchParams.get("kind") }) });
+      if (projectAuditMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, audit: notificationObservability.audit({ actor: projectActor(projectAuditMatch[1]), projectId: projectAuditMatch[1], kind: url.searchParams.get("kind") }) });
       const projectObservabilityMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/observability$/);
-      if (projectObservabilityMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, observability: notificationObservability.observability({ actor: authenticatedOwner, projectId: projectObservabilityMatch[1] }) });
+      if (projectObservabilityMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, observability: notificationObservability.observability({ actor: projectActor(projectObservabilityMatch[1]), projectId: projectObservabilityMatch[1] }) });
 
       const projectInfrastructureMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/infrastructure$/);
       if (projectInfrastructureMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, infrastructure: infrastructureControl.view({ actor: authenticatedOwner, projectId: projectInfrastructureMatch[1] }) });
@@ -4287,6 +4356,13 @@ export function createHeroServer(options = {}) {
             commandCenter.hydrate(record);
           }
           commandCenter.drainRecords?.();
+        }
+        if (postgresRuntime.domainRecords?.listRecords) {
+          for (const [domain, target] of [["performance", performanceIntelligence], ["notifications", notificationObservability]]) {
+            if (!target.hydrate) continue;
+            for (const record of await postgresRuntime.domainRecords.listRecords(domain)) { if (!purgedProjectIds.has(record.projectId)) target.hydrate(record); }
+            target.drainRecords?.();
+          }
         }
         if (postgresRuntime.systemCatalog?.listRecords && systemCatalog.hydrate) {
           for (const record of await postgresRuntime.systemCatalog.listRecords()) {

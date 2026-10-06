@@ -26,7 +26,7 @@ export class CommandCenterError extends Error { constructor(code, message, statu
  * settings: optional project settings registry (WP-04) for the direct-execution
  * policy, the decision snapshot and the dispatch readiness gate.
  */
-export function createCommandCenter({ now = () => new Date().toISOString(), globalStop = () => false, workflow = createWorkflowEngine({ now }), heavyRunLimit = 2, settings = null, maxAttempts = COMMAND_DEFAULT_MAX_ATTEMPTS, timeoutMinutes = COMMAND_DEFAULT_TIMEOUT_MINUTES } = {}) {
+export function createCommandCenter({ now = () => new Date().toISOString(), globalStop = () => false, workflow = createWorkflowEngine({ now }), heavyRunLimit = 2, settings = null, maxAttempts = COMMAND_DEFAULT_MAX_ATTEMPTS, timeoutMinutes = COMMAND_DEFAULT_TIMEOUT_MINUTES, impactFor = null } = {}) {
   if (!Number.isInteger(heavyRunLimit) || heavyRunLimit < 1 || heavyRunLimit > 20) throw new Error("heavyRunLimit is invalid.");
   const intents = new Map(); const entries = new Map(); const templates = new Map(); const preauthorizations = new Map(); const locks = new Map();
   const outbox = []; const seenVersions = new Map();
@@ -84,7 +84,13 @@ export function createCommandCenter({ now = () => new Date().toISOString(), glob
   function card(intent) {
     const policy = actionPolicy(intent.action); const entry = entries.get(intent.commandId) ?? null;
     const gates = [HIGH.has(intent.risk) ? "human-approval" : intent.executionMode === "direct-if-policy" && policy.directEligible && intent.risk === "low" ? "explicit-direct-policy" : "human-approval", "global-stop", "policy-readiness", ...(policy.sideEffect === "production" ? ["production-preauthorization", "production-separate-gate"] : [])];
-    return copy({ commandId: intent.commandId, projectId: intent.projectId, action: intent.action, category: policy.category, risk: intent.risk, riskFloor: policy.minRisk, sideEffect: policy.sideEffect, compensation: policy.compensation, summary: intent.summary, source: intent.sourceRef ?? null, payloadPreview: intent.payload, state: entry?.state ?? intent.state, requiredGates: [...new Set(gates)], decision: intent.decision ? { version: intent.decision.version, state: intent.decision.state, policyMode: intent.decision.snapshot.policy.automationMode } : null, approval: intent.approval ? { state: intent.approval.state, expiresAt: intent.approval.expiresAt, approvedBy: intent.approval.approvedBy } : null, blocker: entry?.blocker ?? null, attempts: entry?.attempts ?? 0, correlationId: intent.correlationId });
+    return copy({ commandId: intent.commandId, projectId: intent.projectId, action: intent.action, category: policy.category, risk: intent.risk, riskFloor: policy.minRisk, sideEffect: policy.sideEffect, compensation: policy.compensation, summary: intent.summary, source: intent.sourceRef ?? null, payloadPreview: intent.payload, state: entry?.state ?? intent.state, requiredGates: [...new Set(gates)], decision: intent.decision ? { version: intent.decision.version, state: intent.decision.state, policyMode: intent.decision.snapshot.policy.automationMode } : null, approval: intent.approval ? { state: intent.approval.state, expiresAt: intent.approval.expiresAt, approvedBy: intent.approval.approvedBy } : null, blocker: entry?.blocker ?? null, attempts: entry?.attempts ?? 0, correlationId: intent.correlationId, impact: impactOf(intent) });
+  }
+  /** BO-096: when a command names catalog entities, its card shows what else the change reaches. */
+  function impactOf(intent) {
+    const entityIds = intent.payload?.entityIds;
+    if (!impactFor || !Array.isArray(entityIds) || !entityIds.length) return null;
+    try { return impactFor(intent.projectId, entityIds); } catch (error) { return { error: error.code ?? "IMPACT_UNAVAILABLE" }; }
   }
   function startWorkflow(entry, actor) {
     const runId = `run-${entry.commandId}-${entry.attempts}`; const who = { kind: "project-owner", id: actor.subject };
