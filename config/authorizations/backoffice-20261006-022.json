@@ -1,0 +1,139 @@
+{
+  "schema": "hero.authorization-snapshot/v1",
+  "authorizationId": "BATCH-BACKOFFICE-20261006-022",
+  "status": "active",
+  "grantedBy": "project-owner",
+  "grantedAt": "2026-10-06",
+  "grantSource": "owner-chat-instruction-2026-10-06",
+  "ownerStatement": "مجوز می‌دهم گام‌های BO-053 تا BO-072 طبق HERO-ROADMAP-BACKOFFICE-COMMAND-CENTER-V1 نسخهٔ 1.2.0 و HERO-SPEC-022 نسخهٔ 1.0.0 طراحی، توسعه، مستندسازی، تست و بازبینی شوند. Production، Secret، هزینهٔ بیرونی، Provider زنده و نوشتن در Notion مجاز نیست.",
+  "validUntil": "owner-revocation",
+  "globalStop": false,
+  "operations": [
+    "design",
+    "develop",
+    "document",
+    "test",
+    "review"
+  ],
+  "excludedOperations": [
+    "production-deploy",
+    "secret-change",
+    "external-spend",
+    "provider-live-call",
+    "notion-write",
+    "destructive-data-operation",
+    "external-message",
+    "irreversible-operation",
+    "pilot-execution"
+  ],
+  "documents": [
+    {
+      "documentId": "HERO-SPEC-022",
+      "documentVersion": "1.0.0"
+    },
+    {
+      "documentId": "HERO-ROADMAP-BACKOFFICE-COMMAND-CENTER-V1",
+      "documentVersion": "1.2.0"
+    }
+  ],
+  "steps": [
+    {
+      "stepId": "BO-053",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-054",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-055",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-056",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-057",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-058",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-059",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-060",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-061",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-062",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-063",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-064",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-065",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-066",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-067",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-068",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-069",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-070",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-071",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-072",
+      "documentVersion": "1.2.0"
+    }
+  ],
+  "scope": {
+    "environment": "development-and-test",
+    "service": "hero-control-plane",
+    "workPackages": [
+      "WP-05",
+      "WP-06"
+    ],
+    "action": "portfolio-shell-and-project-scoped-team-conversation-memory-source-completion",
+    "excludedSteps": [
+      "BO-073",
+      "BO-074"
+    ],
+    "production": false,
+    "secrets": false,
+    "providers": false,
+    "notionWrite": false
+  },
+  "note": "Covers WP-05 (BO-053..BO-062) and WP-06 BO-063..BO-072 against roadmap 1.2.0. BO-073 and BO-074 are not authorized. Source work only; Test promotion, Production, Secret changes, external spend, live Provider calls and Notion writes remain excluded."
+}

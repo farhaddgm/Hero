@@ -540,7 +540,9 @@ export function createHeroServer(options = {}) {
     parser: options.projectInputParser,
     objectStoreAdapter: privateObjectStore
   });
-  const projectCollaboration = options.projectCollaboration ?? createProjectCollaboration({ now: options.now });
+  // Collaboration resolves conversation models through the WP-04 settings layers and
+  // checks entity contexts against the project catalog (resolved lazily at request time).
+  const projectCollaboration = options.projectCollaboration ?? createProjectCollaboration({ now: options.now, settings: projectSettings, entityExists: (projectId, entityId) => systemCatalog.list({ projectId }).some(entity => entity.entityId === entityId) });
   const commandCenter = options.commandCenter ?? createCommandCenter({ now: options.now });
   const systemCatalog = options.systemCatalog ?? createSystemCatalog({ now: options.now });
   const performanceIntelligence = options.performanceIntelligence ?? createPerformanceIntelligence({ now: options.now });
@@ -638,6 +640,20 @@ export function createHeroServer(options = {}) {
     }
     await persistWorkspaceProject(project, reason);
     await persistWorkspaceProposal(proposal);
+  }
+
+  /** A human user's role differs per project (admin in A, viewer in B). Domain
+   * redaction and editor checks must see the role granted in *this* project. */
+  function projectActorFor(principal, projectId) {
+    if (!principal || principal.source !== "human-identity") return principal;
+    const role = projectAccessRegistry?.principalRole?.(principal, projectId);
+    return role ? Object.freeze({ ...principal, role }) : principal;
+  }
+
+  async function persistCollaboration() {
+    const records = projectCollaboration.drainRecords?.() ?? [];
+    if (!postgresRuntime?.collaboration) return;
+    for (const record of records) await postgresRuntime.collaboration.appendRecord({ recordId: record.recordId, projectId: record.projectId, recordType: record.recordType, recordVersion: record.recordVersion, metadata: record.metadata, actorId: record.actorId });
   }
 
   async function persistWorkspaceSettings(projectId) {
@@ -2399,6 +2415,7 @@ export function createHeroServer(options = {}) {
       const authenticatedOwner = url.pathname.startsWith("/api/") && !PUBLIC_IDENTITY_PATHS.has(url.pathname) && !PUBLIC_UI_ASSET_PATHS.has(url.pathname)
         ? authenticateApiPrincipal(request.headers.authorization, request.headers.cookie)
         : null;
+      const projectActor = projectId => projectActorFor(authenticatedOwner, projectId);
       if (authenticatedOwner) {
         assertCookieMutationOrigin(request, authenticatedOwner);
         assertApiPermission(request, url, authenticatedOwner);
@@ -2992,6 +3009,7 @@ export function createHeroServer(options = {}) {
           throw error;
         }
         projectSettings.purgeProject?.({ projectId: purge.projectId });
+        projectCollaboration.purgeProject?.({ projectId: purge.projectId });
         const revokedGrants = projectAccessRegistry?.revokeProjectGrants?.({ actor: authenticatedOwner, projectId: purge.projectId }) ?? [];
         for (const grant of revokedGrants) {
           if (postgresRuntime?.projectIdentity?.appendGrant) await postgresRuntime.projectIdentity.appendGrant({ projectId: grant.projectId, userId: grant.userId, role: grant.role, status: "revoked", grantedBy: authenticatedOwner.subject });
@@ -3176,19 +3194,40 @@ export function createHeroServer(options = {}) {
       }
 
       const projectTeamsMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/teams$/);
-      if (projectTeamsMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, teams: projectCollaboration.listTeams({ actor: authenticatedOwner, projectId: projectTeamsMatch[1] }) });
-      if (projectTeamsMatch && request.method === "POST") { const input = await readJson(request); return json(response, 201, { service: HERO_SERVICE, assignment: projectCollaboration.assignTeam({ actor: authenticatedOwner, projectId: projectTeamsMatch[1], teamId: input.teamId, principles: input.principles, kpis: input.kpis }) }); }
+      if (projectTeamsMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, teams: projectCollaboration.listTeams({ actor: projectActor(projectTeamsMatch[1]), projectId: projectTeamsMatch[1] }) });
+      if (projectTeamsMatch && request.method === "POST") { const input = await readJson(request); const assignment = projectCollaboration.assignTeam({ actor: projectActor(projectTeamsMatch[1]), projectId: projectTeamsMatch[1], teamId: input.teamId, roleIds: input.roleIds, principles: input.principles, kpis: input.kpis, policy: input.policy, expectedVersion: input.expectedVersion ?? null }); await persistCollaboration(); return json(response, 201, { service: HERO_SERVICE, assignment }); }
+      const projectTeamUnassignMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/teams\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/unassign$/);
+      if (projectTeamUnassignMatch && request.method === "POST") { const input = await readJson(request); const assignment = projectCollaboration.unassignTeam({ actor: projectActor(projectTeamUnassignMatch[1]), projectId: projectTeamUnassignMatch[1], teamId: projectTeamUnassignMatch[2], expectedVersion: input.expectedVersion, reason: input.reason }); await persistCollaboration(); return json(response, 200, { service: HERO_SERVICE, assignment }); }
+
+      const projectProfilesMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/profiles$/);
+      if (projectProfilesMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, profiles: projectCollaboration.listProfiles({ actor: projectActor(projectProfilesMatch[1]), projectId: projectProfilesMatch[1], kind: url.searchParams.get("kind") }) });
+      if (projectProfilesMatch && request.method === "POST") { const input = await readJson(request); const profile = projectCollaboration.setProfile({ actor: projectActor(projectProfilesMatch[1]), projectId: projectProfilesMatch[1], kind: input.kind, targetId: input.targetId, profile: input.profile, expectedVersion: input.expectedVersion ?? 0 }); await persistCollaboration(); return json(response, 201, { service: HERO_SERVICE, profile }); }
 
       const projectConversationsMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/conversations$/);
-      if (projectConversationsMatch && request.method === "POST") { const input = await readJson(request); return json(response, 201, { service: HERO_SERVICE, conversation: projectCollaboration.bindContext({ actor: authenticatedOwner, projectId: projectConversationsMatch[1], contextType: input.contextType, teamId: input.teamId, roleId: input.roleId, entityId: input.entityId, model: input.model, retentionDays: input.retentionDays }) }); }
+      if (projectConversationsMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, conversations: projectCollaboration.listConversations({ actor: projectActor(projectConversationsMatch[1]), projectId: projectConversationsMatch[1], contextType: url.searchParams.get("contextType"), status: url.searchParams.get("status") }) });
+      if (projectConversationsMatch && request.method === "POST") { const input = await readJson(request); const conversation = projectCollaboration.bindContext({ actor: projectActor(projectConversationsMatch[1]), projectId: projectConversationsMatch[1], contextType: input.contextType, teamId: input.teamId ?? null, roleId: input.roleId ?? null, entityId: input.entityId ?? null, model: input.model ?? null, retentionDays: input.retentionDays ?? 30, title: input.title ?? null }); await persistCollaboration(); return json(response, 201, { service: HERO_SERVICE, conversation }); }
       const projectConversationMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/conversations\/([A-Za-z][A-Za-z0-9._:-]{2,127})$/);
-      if (projectConversationMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, conversation: projectCollaboration.readConversation({ actor: authenticatedOwner, projectId: projectConversationMatch[1], conversationId: projectConversationMatch[2] }) });
+      if (projectConversationMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, conversation: projectCollaboration.readConversation({ actor: projectActor(projectConversationMatch[1]), projectId: projectConversationMatch[1], conversationId: projectConversationMatch[2] }) });
       const projectConversationMessageMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/conversations\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/messages$/);
-      if (projectConversationMessageMatch && request.method === "POST") { const input = await readJson(request); return json(response, 201, { service: HERO_SERVICE, message: projectCollaboration.appendMessage({ actor: authenticatedOwner, projectId: projectConversationMessageMatch[1], conversationId: projectConversationMessageMatch[2], content: input.content, citations: input.citations }) }); }
+      if (projectConversationMessageMatch && request.method === "POST") { const input = await readJson(request); const message = projectCollaboration.appendMessage({ actor: projectActor(projectConversationMessageMatch[1]), projectId: projectConversationMessageMatch[1], conversationId: projectConversationMessageMatch[2], content: input.content, citations: input.citations ?? [] }); await persistCollaboration(); return json(response, 201, { service: HERO_SERVICE, message }); }
+      const projectConversationCloseMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/conversations\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/close$/);
+      if (projectConversationCloseMatch && request.method === "POST") { const input = await readJson(request); const conversation = projectCollaboration.closeConversation({ actor: projectActor(projectConversationCloseMatch[1]), projectId: projectConversationCloseMatch[1], conversationId: projectConversationCloseMatch[2], reason: input.reason }); await persistCollaboration(); return json(response, 200, { service: HERO_SERVICE, conversation }); }
 
       const projectMemoryMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/memory$/);
-      if (projectMemoryMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, memory: projectCollaboration.retrieveMemory({ actor: authenticatedOwner, projectId: projectMemoryMatch[1], level: url.searchParams.get("level"), query: url.searchParams.get("q") ?? "" }) });
-      if (projectMemoryMatch && request.method === "POST") { const input = await readJson(request); return json(response, 201, { service: HERO_SERVICE, memory: projectCollaboration.recordMemory({ actor: authenticatedOwner, projectId: projectMemoryMatch[1], ...input }) }); }
+      if (projectMemoryMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, memory: projectCollaboration.retrieveMemory({ actor: projectActor(projectMemoryMatch[1]), projectId: projectMemoryMatch[1], level: url.searchParams.get("level"), scopeId: url.searchParams.get("scopeId"), query: url.searchParams.get("q") ?? "" }) });
+      if (projectMemoryMatch && request.method === "POST") { const input = await readJson(request); const memory = projectCollaboration.recordMemory({ actor: projectActor(projectMemoryMatch[1]), projectId: projectMemoryMatch[1], memoryId: input.memoryId, level: input.level, scopeId: input.scopeId ?? null, key: input.key, content: input.content, provenance: input.provenance, confidence: input.confidence, sensitivity: input.sensitivity, expiresAt: input.expiresAt ?? null, supersedesMemoryId: input.supersedesMemoryId ?? null }); await persistCollaboration(); return json(response, 201, { service: HERO_SERVICE, memory }); }
+      const projectMemoryItemMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/memory\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/(history|correct|disable)$/);
+      if (projectMemoryItemMatch && request.method === "GET" && projectMemoryItemMatch[3] === "history") return json(response, 200, { service: HERO_SERVICE, history: projectCollaboration.memoryHistory({ actor: projectActor(projectMemoryItemMatch[1]), projectId: projectMemoryItemMatch[1], memoryId: projectMemoryItemMatch[2] }) });
+      if (projectMemoryItemMatch && request.method === "POST" && projectMemoryItemMatch[3] === "correct") { const input = await readJson(request); const memory = projectCollaboration.correctMemory({ actor: projectActor(projectMemoryItemMatch[1]), projectId: projectMemoryItemMatch[1], memoryId: projectMemoryItemMatch[2], content: input.content, provenance: input.provenance, confidence: input.confidence, expiresAt: input.expiresAt ?? null }); await persistCollaboration(); return json(response, 201, { service: HERO_SERVICE, memory }); }
+      if (projectMemoryItemMatch && request.method === "POST" && projectMemoryItemMatch[3] === "disable") { const input = await readJson(request); const memory = projectCollaboration.disableMemory({ actor: projectActor(projectMemoryItemMatch[1]), projectId: projectMemoryItemMatch[1], memoryId: projectMemoryItemMatch[2], reason: input.reason }); await persistCollaboration(); return json(response, 200, { service: HERO_SERVICE, memory }); }
+
+      // Knowledge proposals: the source project proposes (write grant on the source),
+      // the target project lists and decides (write grant on the target).
+      const projectKnowledgeMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/knowledge-proposals$/);
+      if (projectKnowledgeMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, proposals: projectCollaboration.listKnowledgeProposals({ actor: projectActor(projectKnowledgeMatch[1]), projectId: projectKnowledgeMatch[1] }) });
+      if (projectKnowledgeMatch && request.method === "POST") { const input = await readJson(request); const proposal = projectCollaboration.proposeKnowledge({ actor: projectActor(projectKnowledgeMatch[1]), sourceProjectId: projectKnowledgeMatch[1], targetProjectId: input.targetProjectId, memoryId: input.memoryId, summary: input.summary }); await persistCollaboration(); return json(response, 201, { service: HERO_SERVICE, proposal: { knowledgeProposalId: proposal.knowledgeProposalId, targetProjectId: proposal.targetProjectId, state: proposal.state, summary: proposal.summary } }); }
+      const projectKnowledgeDecisionMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/knowledge-proposals\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/(accept|reject)$/);
+      if (projectKnowledgeDecisionMatch && request.method === "POST") { const input = await readJson(request); const decision = projectKnowledgeDecisionMatch[3] === "accept" ? projectCollaboration.acceptKnowledge({ actor: projectActor(projectKnowledgeDecisionMatch[1]), projectId: projectKnowledgeDecisionMatch[1], knowledgeProposalId: projectKnowledgeDecisionMatch[2] }) : projectCollaboration.rejectKnowledge({ actor: projectActor(projectKnowledgeDecisionMatch[1]), projectId: projectKnowledgeDecisionMatch[1], knowledgeProposalId: projectKnowledgeDecisionMatch[2], reason: input.reason }); await persistCollaboration(); const { sourceProjectId, sourceMemoryId, ...visible } = decision; return json(response, 200, { service: HERO_SERVICE, proposal: visible }); }
 
       const projectCommandsMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/commands$/);
       if (projectCommandsMatch && request.method === "POST") { const input = await readJson(request); return json(response, 201, { service: HERO_SERVICE, command: commandCenter.createIntent({ actor: authenticatedOwner, projectId: projectCommandsMatch[1], ...input }) }); }
@@ -4037,6 +4076,13 @@ export function createHeroServer(options = {}) {
             projectWorkspace.hydrateImport({ plan });
             persistedWorkspaceRecords.add(workspaceRecordKey("import", plan));
           }
+        }
+        if (postgresRuntime.collaboration?.listRecords && projectCollaboration.hydrate) {
+          for (const record of await postgresRuntime.collaboration.listRecords()) {
+            if (purgedProjectIds.has(record.projectId) || purgedProjectIds.has(record.metadata?.sourceProjectId)) continue;
+            projectCollaboration.hydrate(record);
+          }
+          projectCollaboration.drainRecords?.();
         }
       }
       if (postgresRuntime?.pricingCatalogStore && typeof pricingCatalog.publish === "function") {

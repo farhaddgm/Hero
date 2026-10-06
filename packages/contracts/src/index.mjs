@@ -536,7 +536,7 @@ export {
   validateProductDeliveryBundleContract
 } from "./product-delivery-bundle.mjs";
 
-export { BACKOFFICE_COLLABORATION_CONTRACT_VERSION, CONVERSATION_CONTEXTS, MEMORY_LEVELS, MEMORY_SENSITIVITIES, getBackofficeCollaborationContractSummary, validateBackofficeCollaborationContract } from "./backoffice-collaboration.mjs";
+export { BACKOFFICE_COLLABORATION_CONTRACT_VERSION, CONVERSATION_CONTEXTS, MEMORY_LEVELS, MEMORY_SENSITIVITIES, COLLABORATION_RECORD_TYPES, CONVERSATION_MODEL_PRECEDENCE, settingsKeyFor, getBackofficeCollaborationContractSummary, validateBackofficeCollaborationContract } from "./backoffice-collaboration.mjs";
 export { BACKOFFICE_COMMAND_CENTER_CONTRACT_VERSION, COMMAND_RISKS, COMMAND_STATES, getBackofficeCommandCenterContractSummary, validateBackofficeCommandCenterContract } from "./backoffice-command-center.mjs";
 export { SYSTEM_CATALOG_CONTRACT_VERSION, SYSTEM_ENTITY_TYPES, SYSTEM_ENTITY_LIFECYCLES, getSystemCatalogContractSummary, validateSystemCatalogContract } from "./system-catalog.mjs";
 export { PERFORMANCE_INTELLIGENCE_CONTRACT_VERSION, USAGE_EVENT_FIELDS, HEALTH_STATUSES, getPerformanceIntelligenceContractSummary, validatePerformanceIntelligenceContract } from "./performance-intelligence.mjs";
