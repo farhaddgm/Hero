@@ -1,5 +1,11 @@
 # تغییرات رودمپ شرکت
 
+# ۲۰۲۶-۱۰-۰۶ — Runtime Test روی rc.38: ۱۸ گام دیگر verified
+
+- Runtime Test: `v1.1.5-rc.38` با digest `sha256:072a6ae0…` توسط مالک promote شد (`SUCCESS`، smoke `PASS`، persistence `postgresql`)؛ آزمون پذیرش `103/103` و `27/27` و `HERO ACCEPTANCE: PASS`.
+- ممیزی: `BO-093..095`، `BO-097..103`، `BO-105..112` اکنون `verified` است (`88/170`)؛ `BO-096` و `BO-104` به‌دلیل نبود UI `partial` ماندند.
+- یافتهٔ باز بیرون از دامنه: ورود کاربر MFA‌دار غیرمالک پس از restart (WP-02، `BO-IAM-001`).
+
 # ۲۰۲۶-۱۰-۰۶ — Catalog، مصرف و سلامت، اعلان‌ها (BO-093..BO-112)
 
 - افزوده‌شده: ارجاع‌های تایپ‌دار Catalog، گراف سند و تصمیم با supersession، جست‌وجوی permission-aware، تحلیل اثر روی کارت فرمان، Projection نوتیشن با Proposal/conflict (Git canonical).

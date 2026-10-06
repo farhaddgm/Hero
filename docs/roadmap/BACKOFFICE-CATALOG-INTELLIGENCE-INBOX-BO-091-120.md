@@ -6,7 +6,7 @@
 > Type: evidence
 > Scope: hero
 > Status: active
-> Version: 1.2.0
+> Version: 1.3.0
 > Owner: hero-architecture
 > Review cadence: none
 > Supersedes: none
@@ -78,3 +78,7 @@ Snapshotهای `BATCH-BACKOFFICE-20260910-010` تا `012`، گام‌های `BO-
 - PostgreSQL 16 واقعی: رکوردهای مصرف، ارزیابی، override، اعلان، سند و گراف ذخیره و بازخوانی شدند؛ `DELETE` روی جدول با خطای append-only رد شد؛ migration `023` اعمال شد.
 - آزمون پذیرش محلی با پایگاه دادهٔ واقعی و `SIGKILL`: `103/103` پیش از crash و `27/27` پس از آن.
 - هیچ Production، Secret، Provider زنده، هزینهٔ بیرونی، فراخوانی زندهٔ GitHub یا نوشتن در Notion انجام نشد.
+
+### تأیید روی Runtime Test — ۲۰۲۶-۱۰-۰۶
+
+آزمون پذیرش نقش‌محور (run `20261006T201133Z-7321df`) روی `v1.1.5-rc.38` در host Test `PASS` شد. گام‌های `BO-093..095`، `BO-097..103` و `BO-105..112` `verified` شدند. `BO-096` (نمایش گراف وابستگی و blast radius) و `BO-104` (Feedback مالک) فقط API دارند و تا ساخت رابط کاربری `partial` می‌مانند.
