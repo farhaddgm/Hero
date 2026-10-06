@@ -68,6 +68,8 @@ export function getPortfolioHtml({ portfolio, destination = null, selectionRequi
     ${getHeroShellStyles()}
     :root { color-scheme: light; font-family: Vazirmatn, sans-serif; }
     * { box-sizing: border-box; }
+    /* Author display rules (e.g. .button { display: inline-flex }) must not revive role-gated controls. */
+    [hidden] { display: none !important; }
     body { min-width: 320px; margin: 0; background: var(--hero-canvas); color: var(--hero-ink); }
     button, input, select { font: inherit; }
     button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid color-mix(in srgb, var(--hero-brand) 45%, transparent); outline-offset: 3px; }

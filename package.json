@@ -65,6 +65,7 @@
     "notion:sync-first": "node tools/sync-notion-document.mjs",
     "build": "node tools/build.mjs",
     "test": "node --test",
+    "test:browser": "node --test tests/browser/*.browser.mjs",
     "check": "node tools/doctor.mjs && node tools/check-governance.mjs && node tools/check-deployment-contract.mjs && node tools/check-environment-parity.mjs && node tools/check-roadmap-audit.mjs && node tools/check-owner-handoff.mjs && node tools/check-notion-config.mjs && node tools/check-backoffice-baseline.mjs && node tools/check-backoffice-foundation.mjs && node tools/check-backoffice-identity.mjs && node tools/check-backoffice-workspace.mjs && node tools/check-backoffice-collaboration-command.mjs && node tools/check-backoffice-catalog-intelligence.mjs && node tools/check-backoffice-final-delivery.mjs && node tools/check-backoffice-delivery-audit.mjs && node tools/check-documentation.mjs && node tools/build.mjs && node --test"
   }
 }
