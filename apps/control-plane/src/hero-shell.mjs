@@ -151,6 +151,7 @@ export const HERO_FEATURE_HELP = Object.freeze({
   "control.readiness": "جمع‌بندی گیت‌های مهاجرت، سناریو، traceability و پذیرش پیش از Pilot یا Production.",
   "control.collaborationMemory": "گفتگوها، تیم‌ها و حافظهٔ پروژه با provenance و جداسازی بین پروژه‌ای.",
   "control.commandOperations": "فرمان، Approval، Queue، Run و وضعیت بازیابی عملیات پروژه.",
+  "control.commandBoard": "کارت هر فرمان با وضعیت، ریسک، مانع و اقدام‌های مجاز؛ هر اقدام دوباره در سرور بررسی می‌شود و Production از اینجا اجرا نمی‌شود.",
   "control.catalogDrift": "کاتالوگ اجزا، وابستگی‌ها، تغییر ناهمخوان و Proposal اصلاح بدون overwrite خودکار.",
   "control.performanceHealth": "مصرف Token، بودجه، ارزیابی دقت، خطا، بازکاری و Health قابل‌توضیح.",
   "control.inboxObservability": "Inbox، Audit، Trace و SLIهای عملیاتی پروژه.",

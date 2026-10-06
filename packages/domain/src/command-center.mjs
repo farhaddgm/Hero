@@ -296,6 +296,8 @@ export function createCommandCenter({ now = () => new Date().toISOString(), glob
         failed: scoped.filter(item => item.state === "failed"),
         completed: scoped.filter(item => ["completed", "compensated", "cancelled"].includes(item.state)),
         awaitingApproval: [...intents.values()].filter(item => item.projectId === projectId && item.state === "awaiting-approval").map(card),
+        drafts: [...intents.values()].filter(item => item.projectId === projectId && item.state === "draft").map(card),
+        readyToQueue: [...intents.values()].filter(item => item.projectId === projectId && item.state === "approved").map(card),
         approvals: [...intents.values()].filter(item => item.projectId === projectId && item.approval).map(item => item.approval),
         templates: [...templates.values()].filter(item => item.projectId === projectId),
         preauthorizations: [...preauthorizations.values()].filter(item => item.projectId === projectId),

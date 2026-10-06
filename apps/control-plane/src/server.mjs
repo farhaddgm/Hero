@@ -1533,6 +1533,27 @@ export function createHeroServer(options = {}) {
     });
   }
 
+  function commandCardsFor(operations) {
+    const actionsFor = (state, card) => ({
+      "awaiting-approval": ["approve"],
+      draft: ["authorize"],
+      approved: ["queue"],
+      running: ["checkpoint", "complete", "fail"],
+      paused: ["resume", "complete"],
+      interrupted: ["resume", "recover:abandon"],
+      blocked: ["authorize", "recover:retry", "recover:abandon"],
+      failed: ["recover:retry", "recover:abandon", ...(card.compensation ? ["recover:compensate"] : [])]
+    })[state] ?? [];
+    const cards = [
+      ...operations.drafts,
+      ...operations.awaitingApproval,
+      ...operations.readyToQueue,
+      ...[...operations.queue, ...operations.running, ...operations.blocked].map(item => item.card),
+      ...[...operations.interrupted, ...operations.failed].map(item => ({ commandId: item.commandId, state: item.state, risk: null, action: null, summary: item.lastError ?? "", blocker: null, attempts: item.attempts, compensation: item.compensation?.required ? item.compensation.action : null }))
+    ];
+    return cards.map(card => Object.freeze({ commandId: card.commandId, state: card.state, risk: card.risk, action: card.action, summary: card.summary, blocker: card.blocker ? card.blocker.code : null, attempts: card.attempts ?? 0, requiredGates: card.requiredGates ?? [], actions: actionsFor(card.state, card) }));
+  }
+
   function projectControlSnapshot(projectId) {
     const actor = { subject: identityOwner.userId, role: "project-owner" };
     const project = projectWorkspace.getProject(projectId);
@@ -1566,7 +1587,14 @@ export function createHeroServer(options = {}) {
         ])
       }),
       commands: Object.freeze({
+        // BO-086: actionable cards. Actions are offers only; every POST is re-checked by the domain.
+        cards: Object.freeze(commandCardsFor(operations)),
+        heavyRunLimit: operations.heavyRunLimit,
+        activeHeavy: operations.activeHeavy,
         items: Object.freeze([
+          ...operations.blocked.map(item => row(item.commandId, "blocked", `${item.blocker?.code ?? "blocked"} · ${item.blocker?.message ?? ""}`)),
+          ...operations.interrupted.map(item => row(item.commandId, "interrupted", `attempts: ${item.attempts} · resume or recover`)),
+          ...operations.failed.map(item => row(item.commandId, "failed", `attempts: ${item.attempts} · ${item.compensation?.required ? `compensation: ${item.compensation.action}` : "no compensation step"}`)),
           ...operations.queue.map(item => row(item.commandId, item.state, `priority: ${item.priority} · attempts: ${item.attempts}`)),
           ...operations.completed.map(item => row(item.commandId, item.state, `completed: ${item.completedAt ?? "recorded"}`)),
           ...operations.approvals.map(item => row(item.commandId, item.state, `expires: ${item.expiresAt}`)),
