@@ -8,6 +8,10 @@ const SECRET = /(?:api[_-]?key|access[_-]?token|refresh[_-]?token|secret|passwor
 const SECRET_VALUE = /(?:\bsk-[A-Za-z0-9_-]{12,}\b|\bBearer\s+[A-Za-z0-9._-]{12,}\b|-----BEGIN .*PRIVATE KEY-----)/i;
 const PROJECT_REFERENCE = /^hero:\/\/projects\/([^/]+)(?:\/|$)/;
 const DAY_MS = 86_400_000;
+// BO-073: memory is data, never instructions. Content that reads like an order to
+// the AI or tries to bypass a gate is flagged and kept out of default retrieval.
+const INSTRUCTION_LIKE = /(?:ignore (?:all |any )?(?:previous|prior|above) (?:instructions|rules)|disregard (?:the )?(?:rules|policy|instructions)|you are now|system prompt|developer message|bypass (?:the )?(?:approval|gate|global stop)|disable (?:the )?(?:approval|global stop|gate)|skip (?:the )?approval|auto-?approve|deploy (?:it )?(?:directly )?to production|reveal (?:the )?(?:secret|key|token))/i;
+export function memoryFlags(content) { return INSTRUCTION_LIKE.test(String(content)) ? ["instruction-like"] : []; }
 function copy(value) { return Object.freeze(structuredClone(value)); }
 function id(label, value) { if (typeof value !== "string" || !ID.test(value)) throw new CollaborationError("INVALID_IDENTIFIER", `${label} is invalid.`, 400); return value; }
 function safe(value, path = "data") { if (Array.isArray(value)) return value.forEach((item, index) => safe(item, `${path}[${index}]`)); if (!value || typeof value !== "object") { if (typeof value === "string" && SECRET_VALUE.test(value)) throw new CollaborationError("SENSITIVE_CONTENT_REJECTED", `${path} contains a secret-shaped value.`, 400); return; } for (const [key, child] of Object.entries(value)) { if (SECRET.test(key)) throw new CollaborationError("SENSITIVE_CONTENT_REJECTED", `${path}.${key} is forbidden.`, 400); safe(child, `${path}.${key}`); } }
@@ -200,7 +204,7 @@ export function createProjectCollaboration({ now = () => new Date().toISOString(
       const currentKey = `${projectId}:${level}:${scopeId ?? "-"}:${key}`; const previousId = currentMemory.get(currentKey) ?? null;
       if (previousId !== supersedesMemoryId) throw new CollaborationError("MEMORY_SUPERSEDE_REQUIRED", "Memory updates must explicitly supersede the current memory.", 409);
       if (expiresAt !== null && (Number.isNaN(Date.parse(expiresAt)) || Date.parse(expiresAt) <= Date.parse(now()))) throw new CollaborationError("MEMORY_EXPIRY_INVALID", "Expiry must be in the future.", 400);
-      const entry = copy({ memoryId, projectId, level, scopeId, key, content, provenance: src, confidence, sensitivity, status: "active", expiresAt, supersedesMemoryId: previousId, recordedAt: now(), recordedBy: actor.subject });
+      const entry = copy({ memoryId, projectId, level, scopeId, key, content, provenance: src, confidence, sensitivity, status: "active", flags: memoryFlags(`${key} ${content}`), trust: "data-not-instruction", expiresAt, supersedesMemoryId: previousId, recordedAt: now(), recordedBy: actor.subject });
       if (previousId) { const superseded = copy({ ...memory.get(previousId), status: "superseded", supersededBy: memoryId }); applyMemory(superseded); emit("memory", projectId, actor.subject, superseded, 2); }
       applyMemory(entry); emit("memory", projectId, actor.subject, entry);
       return entry;
@@ -223,9 +227,11 @@ export function createProjectCollaboration({ now = () => new Date().toISOString(
       for (let item = cursor; item; item = item.supersedesMemoryId ? memory.get(item.supersedesMemoryId) : null) chain.push(redact(item, actor));
       return Object.freeze(chain);
     },
-    retrieveMemory({ actor, projectId, level = null, scopeId = null, query = "" }) {
+    /** Flagged (instruction-like) memory is excluded unless an editor explicitly asks to review it. */
+    retrieveMemory({ actor, projectId, level = null, scopeId = null, query = "", includeFlagged = false }) {
       reader(actor); scoped(projectId); const moment = Date.parse(now()); const needle = String(query ?? "").toLowerCase();
-      return Object.freeze([...memory.values()].filter(item => item.projectId === projectId && item.status === "active" && (!item.expiresAt || Date.parse(item.expiresAt) > moment) && (!level || item.level === level) && (!scopeId || item.scopeId === scopeId) && `${item.key} ${item.content}`.toLowerCase().includes(needle)).map(item => redact(item, actor)));
+      if (includeFlagged) editor(actor);
+      return Object.freeze([...memory.values()].filter(item => item.projectId === projectId && item.status === "active" && (includeFlagged || !(item.flags ?? memoryFlags(`${item.key} ${item.content}`)).length) && (!item.expiresAt || Date.parse(item.expiresAt) > moment) && (!level || item.level === level) && (!scopeId || item.scopeId === scopeId) && `${item.key} ${item.content}`.toLowerCase().includes(needle)).map(item => redact(item, actor)));
     },
     proposeKnowledge({ actor, sourceProjectId, targetProjectId, memoryId, summary }) {
       editor(actor); scoped(sourceProjectId); scoped(targetProjectId);

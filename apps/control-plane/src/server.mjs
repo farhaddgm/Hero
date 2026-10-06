@@ -87,6 +87,7 @@ import { createProjectWorkspace, ProjectWorkspaceError } from "../../../packages
 import { createProjectCollaboration, CollaborationError } from "../../../packages/domain/src/project-collaboration.mjs";
 import { PORTFOLIO_KPIS, breadcrumbsFor, getBackofficePortfolioContractSummary, parsePagination, sectionsFor } from "../../../packages/contracts/src/backoffice-portfolio.mjs";
 import { createCommandCenter, CommandCenterError } from "../../../packages/domain/src/command-center.mjs";
+import { getProjectCollaborationHtml } from "./project-collaboration-view.mjs";
 import { createSystemCatalog, SystemCatalogError } from "../../../packages/domain/src/system-catalog.mjs";
 import { createPerformanceIntelligence, PerformanceError } from "../../../packages/domain/src/performance-intelligence.mjs";
 import { createNotificationObservability, NotificationError } from "../../../packages/domain/src/notification-observability.mjs";
@@ -135,7 +136,7 @@ const IDENTITY_PATHS = new Set(["/identity"]);
 const BROWSER_PORTAL_PATH = "/api/portal";
 const BROWSER_PORTAL_DATA_PATH = "/api/portal-data";
 const BROWSER_PORTAL_DOCUMENT_PATH = "/api/portal-document";
-const BROWSER_PORTAL_SURFACES = new Set(["identity", "portfolio", "command", "studio", "workspace", "control", "walkthrough", "ai"]);
+const BROWSER_PORTAL_SURFACES = new Set(["identity", "portfolio", "command", "studio", "workspace", "control", "collaboration", "walkthrough", "ai"]);
 const DEFAULT_BACKOFFICE_RESPONSE_LIMIT_BYTES = 512 * 1024;
 const OPENAI_TEST_ADVISOR = Object.freeze({
   providerId: "openai",
@@ -544,7 +545,7 @@ export function createHeroServer(options = {}) {
   // Collaboration resolves conversation models through the WP-04 settings layers and
   // checks entity contexts against the project catalog (resolved lazily at request time).
   const projectCollaboration = options.projectCollaboration ?? createProjectCollaboration({ now: options.now, settings: projectSettings, entityExists: (projectId, entityId) => systemCatalog.list({ projectId }).some(entity => entity.entityId === entityId) });
-  const commandCenter = options.commandCenter ?? createCommandCenter({ now: options.now });
+  const commandCenter = options.commandCenter ?? createCommandCenter({ now: options.now, settings: projectSettings, globalStop: () => Boolean(dashboard.snapshot().globalStop) });
   const systemCatalog = options.systemCatalog ?? createSystemCatalog({ now: options.now });
   const performanceIntelligence = options.performanceIntelligence ?? createPerformanceIntelligence({ now: options.now });
   const notificationObservability = options.notificationObservability ?? createNotificationObservability({ now: options.now });
@@ -655,6 +656,18 @@ export function createHeroServer(options = {}) {
     const records = projectCollaboration.drainRecords?.() ?? [];
     if (!postgresRuntime?.collaboration) return;
     for (const record of records) await postgresRuntime.collaboration.appendRecord({ recordId: record.recordId, projectId: record.projectId, recordType: record.recordType, recordVersion: record.recordVersion, metadata: record.metadata, actorId: record.actorId });
+  }
+
+  async function persistCommandCenter() {
+    const records = commandCenter.drainRecords?.() ?? [];
+    if (!postgresRuntime?.commandCenter) return;
+    for (const record of records) await postgresRuntime.commandCenter.appendRecord(record);
+  }
+
+  async function persistSystemCatalog() {
+    const records = systemCatalog.drainRecords?.() ?? [];
+    if (!postgresRuntime?.systemCatalog) return;
+    for (const record of records) await postgresRuntime.systemCatalog.appendRecord(record);
   }
 
   async function persistWorkspaceSettings(projectId) {
@@ -1527,6 +1540,38 @@ export function createHeroServer(options = {}) {
     });
   }
 
+  function commandCardsFor(operations) {
+    const actionsFor = (state, card) => ({
+      "awaiting-approval": ["approve"],
+      draft: ["authorize"],
+      approved: ["queue"],
+      running: ["checkpoint", "complete", "fail"],
+      paused: ["resume", "complete"],
+      interrupted: ["resume", "recover:abandon"],
+      blocked: ["authorize", "recover:retry", "recover:abandon"],
+      failed: ["recover:retry", "recover:abandon", ...(card.compensation ? ["recover:compensate"] : [])]
+    })[state] ?? [];
+    const cards = [
+      ...operations.drafts,
+      ...operations.awaitingApproval,
+      ...operations.readyToQueue,
+      ...[...operations.queue, ...operations.running, ...operations.blocked].map(item => item.card),
+      ...[...operations.interrupted, ...operations.failed].map(item => ({ commandId: item.commandId, state: item.state, risk: null, action: null, summary: item.lastError ?? "", blocker: null, attempts: item.attempts, compensation: item.compensation?.required ? item.compensation.action : null }))
+    ];
+    return cards.map(card => Object.freeze({ commandId: card.commandId, state: card.state, risk: card.risk, action: card.action, summary: card.summary, blocker: card.blocker ? card.blocker.code : null, attempts: card.attempts ?? 0, requiredGates: card.requiredGates ?? [], actions: actionsFor(card.state, card) }));
+  }
+
+  /** BO-074: everything rendered uses the viewer's role in this project, so restricted memory stays redacted. */
+  function projectCollaborationSnapshot(principal, projectId) {
+    const actor = projectActorFor(principal, projectId);
+    const viewer = ["project-owner", "admin", "viewer"].includes(actor?.role) ? actor : Object.freeze({ ...actor, role: "viewer" });
+    const project = projectWorkspace.getProject(projectId);
+    const conversations = projectCollaboration.listConversations({ actor: viewer, projectId }).slice(0, 20).map(item => projectCollaboration.readConversation({ actor: viewer, projectId, conversationId: item.conversationId }));
+    const memory = projectCollaboration.retrieveMemory({ actor: viewer, projectId });
+    const flaggedMemoryCount = ["project-owner", "admin"].includes(viewer.role) ? projectCollaboration.retrieveMemory({ actor: viewer, projectId, includeFlagged: true }).length - memory.length : 0;
+    return { project: { projectId: project.projectId, name: project.name }, viewerRole: viewer.role, teams: projectCollaboration.listTeams({ actor: viewer, projectId }), profiles: projectCollaboration.listProfiles({ actor: viewer, projectId }), conversations, memory, flaggedMemoryCount };
+  }
+
   function projectControlSnapshot(projectId) {
     const actor = { subject: identityOwner.userId, role: "project-owner" };
     const project = projectWorkspace.getProject(projectId);
@@ -1560,7 +1605,14 @@ export function createHeroServer(options = {}) {
         ])
       }),
       commands: Object.freeze({
+        // BO-086: actionable cards. Actions are offers only; every POST is re-checked by the domain.
+        cards: Object.freeze(commandCardsFor(operations)),
+        heavyRunLimit: operations.heavyRunLimit,
+        activeHeavy: operations.activeHeavy,
         items: Object.freeze([
+          ...operations.blocked.map(item => row(item.commandId, "blocked", `${item.blocker?.code ?? "blocked"} · ${item.blocker?.message ?? ""}`)),
+          ...operations.interrupted.map(item => row(item.commandId, "interrupted", `attempts: ${item.attempts} · resume or recover`)),
+          ...operations.failed.map(item => row(item.commandId, "failed", `attempts: ${item.attempts} · ${item.compensation?.required ? `compensation: ${item.compensation.action}` : "no compensation step"}`)),
           ...operations.queue.map(item => row(item.commandId, item.state, `priority: ${item.priority} · attempts: ${item.attempts}`)),
           ...operations.completed.map(item => row(item.commandId, item.state, `completed: ${item.completedAt ?? "recorded"}`)),
           ...operations.approvals.map(item => row(item.commandId, item.state, `expires: ${item.expiresAt}`)),
@@ -1568,7 +1620,10 @@ export function createHeroServer(options = {}) {
         ])
       }),
       catalog: Object.freeze({
-        items: Object.freeze(entities.map(entity => row(entity.entityId, entity.state ?? "registered", `type: ${entity.type}`)))
+        items: Object.freeze([
+          ...systemCatalog.listDriftProposals({ projectId, state: "proposed" }).map(proposal => row(`Drift ${proposal.entityId}`, "proposed", `fields: ${proposal.changes.map(change => change.path).join(", ")} · source: ${proposal.source} · overwrite: forbidden`)),
+          ...entities.map(entity => row(entity.entityId, entity.lifecycle ?? "registered", `type: ${entity.type} · version: ${entity.version}`))
+        ])
       }),
       performance: Object.freeze({
         items: Object.freeze([
@@ -2082,6 +2137,10 @@ export function createHeroServer(options = {}) {
         return;
       }
       if ((["/api/portfolio", "/api/portfolio/search"].includes(url.pathname) || url.pathname.startsWith("/api/portfolio/kpis/")) && request.method === "GET") return;
+      if (url.pathname === "/api/operations/heavy-run-limit" && request.method === "POST") {
+        if (principal.role !== "project-owner") throw new ProjectAccessError("OWNER_REQUIRED", "Only the owner sets the global heavy-run limit.", 403);
+        return;
+      }
       const projectMatch = url.pathname.match(/^\/api\/projects\/([A-Za-z][A-Za-z0-9._:-]{2,127})(?:\/|$)/);
       const projectId = projectMatch?.[1] ?? url.searchParams.get("projectId");
       if (!projectId) throw new ProjectAccessError("PROJECT_SCOPE_REQUIRED", "A projectId is required for human-identity API access.", 403);
@@ -2278,13 +2337,13 @@ export function createHeroServer(options = {}) {
         const principal = authenticateBrowserPortalPrincipal(request);
         if (!principal) return redirect(response, portalIdentityLocation(`${url.pathname}${url.search}`));
         const projectId = url.searchParams.get("projectId");
-        if (["command", "studio", "workspace", "control", "walkthrough"].includes(surface) && !projectId) {
+        if (["command", "studio", "workspace", "control", "collaboration", "walkthrough"].includes(surface) && !projectId) {
           return redirect(response, "/api/portal?surface=portfolio&select=project&next=" + encodeURIComponent(surface));
         }
-        if (["command", "studio", "workspace", "control", "walkthrough"].includes(surface)) requirePortalProjectScope(principal, projectId);
+        if (["command", "studio", "workspace", "control", "collaboration", "walkthrough"].includes(surface)) requirePortalProjectScope(principal, projectId);
         if (surface === "portfolio") {
           const destinationCandidate = url.searchParams.get("next") ?? url.searchParams.get("open");
-          const destination = ["command", "studio", "workspace", "control", "walkthrough"].includes(destinationCandidate) ? destinationCandidate : null;
+          const destination = ["command", "studio", "workspace", "control", "collaboration", "walkthrough"].includes(destinationCandidate) ? destinationCandidate : null;
           const view = url.searchParams.get("view") === "archived" ? "archived" : "active";
           return html(response, getPortfolioHtml({ portfolio: portfolioSnapshot(principal, { view, ...(parsePagination({ page: url.searchParams.get("page"), pageSize: url.searchParams.get("pageSize") }) ?? {}) }), destination, selectionRequired: url.searchParams.get("select") === "project" || Boolean(destination), archiveView: view === "archived" }));
         }
@@ -2300,6 +2359,7 @@ export function createHeroServer(options = {}) {
         if (surface === "studio") return html(response, getProductStudioHtml({ initialData: productStudioSnapshot({ projectId }), dataEndpoint: `${BROWSER_PORTAL_DATA_PATH}?surface=studio`, documentEndpoint: `${BROWSER_PORTAL_DOCUMENT_PATH}?surface=studio` }));
         if (surface === "workspace") return html(response, getProjectWorkspaceHtml({ projectId }));
         if (surface === "control") return html(response, getProjectControlRoomHtml({ initialData: { service: HERO_SERVICE, controlRoom: projectControlSnapshot(projectId) }, dataEndpoint: `${BROWSER_PORTAL_DATA_PATH}?surface=control` }));
+        if (surface === "collaboration") return html(response, getProjectCollaborationHtml(projectCollaborationSnapshot(principal, projectId)));
         if (surface === "walkthrough") return html(response, getProjectWalkthroughHtml({ projectId }));
         if (surface === "ai") {
           if (principal.role !== "project-owner") throw new ProjectAccessError("OWNER_REQUIRED", "The global AI catalog is available only to the Owner.", 403);
@@ -2451,7 +2511,7 @@ export function createHeroServer(options = {}) {
           }));
         }
         const destinationCandidate = url.searchParams.get("next") ?? url.searchParams.get("open");
-        const destination = ["command", "studio", "workspace", "control", "walkthrough"].includes(destinationCandidate) ? destinationCandidate : null;
+        const destination = ["command", "studio", "workspace", "control", "collaboration", "walkthrough"].includes(destinationCandidate) ? destinationCandidate : null;
         const view = url.searchParams.get("view") === "archived" ? "archived" : "active";
         return html(response, getPortfolioHtml({ portfolio: portfolioSnapshot(null, { view, ...(parsePagination({ page: url.searchParams.get("page"), pageSize: url.searchParams.get("pageSize") }) ?? {}) }), destination, selectionRequired: url.searchParams.get("select") === "project" || Boolean(destination), archiveView: view === "archived" }));
       }
@@ -3070,6 +3130,8 @@ export function createHeroServer(options = {}) {
         }
         projectSettings.purgeProject?.({ projectId: purge.projectId });
         projectCollaboration.purgeProject?.({ projectId: purge.projectId });
+        commandCenter.purgeProject?.({ projectId: purge.projectId });
+        systemCatalog.purgeProject?.({ projectId: purge.projectId });
         const revokedGrants = projectAccessRegistry?.revokeProjectGrants?.({ actor: authenticatedOwner, projectId: purge.projectId }) ?? [];
         for (const grant of revokedGrants) {
           if (postgresRuntime?.projectIdentity?.appendGrant) await postgresRuntime.projectIdentity.appendGrant({ projectId: grant.projectId, userId: grant.userId, role: grant.role, status: "revoked", grantedBy: authenticatedOwner.subject });
@@ -3274,7 +3336,7 @@ export function createHeroServer(options = {}) {
       if (projectConversationCloseMatch && request.method === "POST") { const input = await readJson(request); const conversation = projectCollaboration.closeConversation({ actor: projectActor(projectConversationCloseMatch[1]), projectId: projectConversationCloseMatch[1], conversationId: projectConversationCloseMatch[2], reason: input.reason }); await persistCollaboration(); return json(response, 200, { service: HERO_SERVICE, conversation }); }
 
       const projectMemoryMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/memory$/);
-      if (projectMemoryMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, memory: projectCollaboration.retrieveMemory({ actor: projectActor(projectMemoryMatch[1]), projectId: projectMemoryMatch[1], level: url.searchParams.get("level"), scopeId: url.searchParams.get("scopeId"), query: url.searchParams.get("q") ?? "" }) });
+      if (projectMemoryMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, memory: projectCollaboration.retrieveMemory({ actor: projectActor(projectMemoryMatch[1]), projectId: projectMemoryMatch[1], level: url.searchParams.get("level"), scopeId: url.searchParams.get("scopeId"), query: url.searchParams.get("q") ?? "", includeFlagged: url.searchParams.get("includeFlagged") === "true" }) });
       if (projectMemoryMatch && request.method === "POST") { const input = await readJson(request); const memory = projectCollaboration.recordMemory({ actor: projectActor(projectMemoryMatch[1]), projectId: projectMemoryMatch[1], memoryId: input.memoryId, level: input.level, scopeId: input.scopeId ?? null, key: input.key, content: input.content, provenance: input.provenance, confidence: input.confidence, sensitivity: input.sensitivity, expiresAt: input.expiresAt ?? null, supersedesMemoryId: input.supersedesMemoryId ?? null }); await persistCollaboration(); return json(response, 201, { service: HERO_SERVICE, memory }); }
       const projectMemoryItemMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/memory\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/(history|correct|disable)$/);
       if (projectMemoryItemMatch && request.method === "GET" && projectMemoryItemMatch[3] === "history") return json(response, 200, { service: HERO_SERVICE, history: projectCollaboration.memoryHistory({ actor: projectActor(projectMemoryItemMatch[1]), projectId: projectMemoryItemMatch[1], memoryId: projectMemoryItemMatch[2] }) });
@@ -3289,30 +3351,104 @@ export function createHeroServer(options = {}) {
       const projectKnowledgeDecisionMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/knowledge-proposals\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/(accept|reject)$/);
       if (projectKnowledgeDecisionMatch && request.method === "POST") { const input = await readJson(request); const decision = projectKnowledgeDecisionMatch[3] === "accept" ? projectCollaboration.acceptKnowledge({ actor: projectActor(projectKnowledgeDecisionMatch[1]), projectId: projectKnowledgeDecisionMatch[1], knowledgeProposalId: projectKnowledgeDecisionMatch[2] }) : projectCollaboration.rejectKnowledge({ actor: projectActor(projectKnowledgeDecisionMatch[1]), projectId: projectKnowledgeDecisionMatch[1], knowledgeProposalId: projectKnowledgeDecisionMatch[2], reason: input.reason }); await persistCollaboration(); const { sourceProjectId, sourceMemoryId, ...visible } = decision; return json(response, 200, { service: HERO_SERVICE, proposal: visible }); }
 
+      // Command Center (WP-07). Every command-id route checks the id belongs to the
+      // URL project and runs with the caller's role in *that* project.
       const projectCommandsMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/commands$/);
-      if (projectCommandsMatch && request.method === "POST") { const input = await readJson(request); return json(response, 201, { service: HERO_SERVICE, command: commandCenter.createIntent({ actor: authenticatedOwner, projectId: projectCommandsMatch[1], ...input }) }); }
-      const projectCommandAuthorizeMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/commands\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/authorize$/);
-      if (projectCommandAuthorizeMatch && request.method === "POST") { const input = await readJson(request); return json(response, 200, { service: HERO_SERVICE, command: commandCenter.authorize({ actor: authenticatedOwner, commandId: projectCommandAuthorizeMatch[2], authorizationSnapshotId: input.authorizationSnapshotId }) }); }
-      const projectCommandApproveMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/commands\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/approve$/);
-      if (projectCommandApproveMatch && request.method === "POST") { const input = await readJson(request); return json(response, 200, { service: HERO_SERVICE, command: commandCenter.approve({ actor: authenticatedOwner, commandId: projectCommandApproveMatch[2], templateId: input.templateId, reason: input.reason }) }); }
-      const projectCommandQueueMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/commands\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/queue$/);
-      if (projectCommandQueueMatch && request.method === "POST") { const input = await readJson(request); return json(response, 202, { service: HERO_SERVICE, queue: commandCenter.queue({ actor: authenticatedOwner, commandId: projectCommandQueueMatch[2], heavy: input.heavy, resourceClaim: input.resourceClaim, priority: input.priority }) }); }
+      if (projectCommandsMatch && request.method === "POST") {
+        const input = await readJson(request); const projectId = projectCommandsMatch[1]; const actor = projectActor(projectId);
+        const { conversationId, messageId, sourceRef, summary, ...fields } = input;
+        let command;
+        if (conversationId !== undefined || messageId !== undefined) {
+          const conversation = projectCollaboration.readConversation({ actor, projectId, conversationId, });
+          const message = conversation.messages.find(item => item.messageId === messageId);
+          if (!message) throw new CommandCenterError("MESSAGE_NOT_FOUND", "The cited message is not in this project's conversation.", 404);
+          command = commandCenter.createIntentFromMessage({ actor, projectId, conversationId, message, ...fields });
+        } else command = commandCenter.createIntent({ actor, projectId, ...fields, sourceRef: sourceRef ?? null, summary: summary ?? null });
+        await persistCommandCenter();
+        return json(response, 201, { service: HERO_SERVICE, command, card: commandCenter.commandCard({ actor, commandId: command.commandId }) });
+      }
+      const projectCommandActionMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/commands\/([A-Za-z][A-Za-z0-9._:-]{2,127})(?:\/(authorize|approve|revoke-approval|queue|priority|checkpoint|resume|complete|fail|recover))?$/);
+      if (projectCommandActionMatch) {
+        const [, projectId, commandId, action] = projectCommandActionMatch; const actor = projectActor(projectId);
+        commandCenter.assertInProject({ commandId, projectId });
+        if (!action && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, card: commandCenter.commandCard({ actor, commandId }) });
+        if (action && request.method === "POST") {
+          const input = await readJson(request);
+          const handlers = {
+            authorize: () => commandCenter.authorize({ actor, commandId, authorizationSnapshotId: input.authorizationSnapshotId }),
+            approve: () => commandCenter.approve({ actor, commandId, templateId: input.templateId ?? null, reason: input.reason }),
+            "revoke-approval": () => commandCenter.revokeApproval({ actor, commandId, reason: input.reason }),
+            queue: () => commandCenter.queue({ actor, commandId, heavy: input.heavy, resourceClaim: input.resourceClaim ?? null, priority: input.priority ?? 0 }),
+            priority: () => commandCenter.setPriority({ actor, commandId, priority: input.priority }),
+            checkpoint: () => commandCenter.checkpoint({ actor, commandId, checkpoint: input.checkpoint ?? {}, reason: input.reason }),
+            resume: () => commandCenter.resume({ actor, commandId }),
+            complete: () => commandCenter.complete({ actor, commandId }),
+            fail: () => commandCenter.fail({ actor, commandId, error: input.error }),
+            recover: () => commandCenter.recover({ actor, commandId, action: input.action, reason: input.reason })
+          };
+          const result = handlers[action]();
+          await persistCommandCenter();
+          return json(response, action === "queue" ? 202 : 200, { service: HERO_SERVICE, result, card: commandCenter.commandCard({ actor, commandId }) });
+        }
+      }
       const projectOperationsMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/operations$/);
-      if (projectOperationsMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, operations: commandCenter.operations({ actor: authenticatedOwner, projectId: projectOperationsMatch[1] }) });
-      const projectDispatchMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/operations\/dispatch-next$/);
-      if (projectDispatchMatch && request.method === "POST") return json(response, 202, { service: HERO_SERVICE, dispatch: commandCenter.dispatchNext({ actor: authenticatedOwner }) });
-      const projectApprovalTemplateMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/approval-templates$/);
-      if (projectApprovalTemplateMatch && request.method === "POST") { const input = await readJson(request); return json(response, 201, { service: HERO_SERVICE, template: commandCenter.createApprovalTemplate({ actor: authenticatedOwner, projectId: projectApprovalTemplateMatch[1], ...input }) }); }
-      const projectProductionPreauthMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/production-preauthorizations$/);
-      if (projectProductionPreauthMatch && request.method === "POST") { const input = await readJson(request); return json(response, 201, { service: HERO_SERVICE, preauthorization: commandCenter.preauthorizeProduction({ actor: authenticatedOwner, projectId: projectProductionPreauthMatch[1], ...input }) }); }
+      if (projectOperationsMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, operations: commandCenter.operations({ actor: projectActor(projectOperationsMatch[1]), projectId: projectOperationsMatch[1] }) });
+      const projectOperationsActionMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/operations\/(dispatch-next|sweep-timeouts)$/);
+      if (projectOperationsActionMatch && request.method === "POST") {
+        const [, projectId, action] = projectOperationsActionMatch; const actor = projectActor(projectId);
+        const result = action === "dispatch-next" ? commandCenter.dispatchNext({ actor, projectId }) : commandCenter.sweepTimeouts({ actor });
+        await persistCommandCenter();
+        return json(response, 202, { service: HERO_SERVICE, [action === "dispatch-next" ? "dispatch" : "timedOut"]: action === "dispatch-next" ? result : result.filter(item => item.projectId === projectId) });
+      }
+      if (request.method === "POST" && url.pathname === "/api/operations/heavy-run-limit") { const input = await readJson(request); const scheduler = commandCenter.setHeavyRunLimit({ actor: authenticatedOwner, limit: input.limit }); await persistCommandCenter(); return json(response, 200, { service: HERO_SERVICE, scheduler }); }
+      const projectApprovalTemplateMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/approval-templates(\/suggest)?$/);
+      if (projectApprovalTemplateMatch && request.method === "POST") {
+        const input = await readJson(request); const projectId = projectApprovalTemplateMatch[1]; const actor = projectActor(projectId);
+        if (projectApprovalTemplateMatch[2]) return json(response, 200, { service: HERO_SERVICE, suggestion: commandCenter.suggestApprovalTemplate({ actor, projectId, risk: input.risk }) });
+        const template = commandCenter.createApprovalTemplate({ actor, projectId, ...input }); await persistCommandCenter();
+        return json(response, 201, { service: HERO_SERVICE, template });
+      }
+      const projectProductionPreauthMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/production-preauthorizations(?:\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/revoke)?$/);
+      if (projectProductionPreauthMatch && request.method === "POST") {
+        const input = await readJson(request); const projectId = projectProductionPreauthMatch[1]; const actor = projectActor(projectId);
+        if (projectProductionPreauthMatch[2]) {
+          if (!commandCenter.operations({ actor, projectId }).preauthorizations.some(item => item.preauthorizationId === projectProductionPreauthMatch[2])) throw new CommandCenterError("PREAUTHORIZATION_NOT_ACTIVE", "Preauthorization is not active.", 404);
+          const preauthorization = commandCenter.revokePreauthorization({ actor, preauthorizationId: projectProductionPreauthMatch[2], reason: input.reason }); await persistCommandCenter();
+          return json(response, 200, { service: HERO_SERVICE, preauthorization });
+        }
+        const preauthorization = commandCenter.preauthorizeProduction({ actor, projectId, ...input }); await persistCommandCenter();
+        return json(response, 201, { service: HERO_SERVICE, preauthorization });
+      }
 
+      // System Catalog (WP-08): reads need a project grant, writes need owner/admin in that project.
       const projectCatalogMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/catalog$/);
-      if (projectCatalogMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, entities: systemCatalog.list({ projectId: projectCatalogMatch[1], type: url.searchParams.get("type") }) });
-      if (projectCatalogMatch && request.method === "POST") { const input = await readJson(request); return json(response, 201, { service: HERO_SERVICE, entity: systemCatalog.register({ actor: authenticatedOwner, projectId: projectCatalogMatch[1], ...input }) }); }
+      if (projectCatalogMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, entities: systemCatalog.list({ projectId: projectCatalogMatch[1], type: url.searchParams.get("type"), lifecycle: url.searchParams.get("lifecycle") }) });
+      if (projectCatalogMatch && request.method === "POST") { const input = await readJson(request); const entity = systemCatalog.register({ actor: projectActor(projectCatalogMatch[1]), projectId: projectCatalogMatch[1], entityId: input.entityId, type: input.type, name: input.name, lifecycle: input.lifecycle, metadata: input.metadata ?? {}, expectedVersion: input.expectedVersion ?? null }); await persistSystemCatalog(); return json(response, 201, { service: HERO_SERVICE, entity }); }
+      const projectCatalogGraphMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/catalog\/graph$/);
+      if (projectCatalogGraphMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, graph: systemCatalog.graph({ projectId: projectCatalogGraphMatch[1] }) });
       const projectCatalogSearchMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/catalog\/search$/);
       if (projectCatalogSearchMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, results: systemCatalog.search({ projectId: projectCatalogSearchMatch[1], query: url.searchParams.get("q") }) });
+      const projectCatalogDependencyMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/catalog\/dependencies(\/remove)?$/);
+      if (projectCatalogDependencyMatch && request.method === "POST") {
+        const input = await readJson(request); const projectId = projectCatalogDependencyMatch[1]; const actor = projectActor(projectId);
+        const dependency = projectCatalogDependencyMatch[2] ? systemCatalog.unlink({ actor, projectId, dependencyId: input.dependencyId, reason: input.reason }) : systemCatalog.link({ actor, projectId, fromEntityId: input.fromEntityId, toEntityId: input.toEntityId, relation: input.relation ?? "depends-on" });
+        await persistSystemCatalog(); return json(response, projectCatalogDependencyMatch[2] ? 200 : 201, { service: HERO_SERVICE, dependency });
+      }
       const projectCatalogDriftMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/catalog\/drift$/);
-      if (projectCatalogDriftMatch && request.method === "POST") { const input = await readJson(request); return json(response, 201, { service: HERO_SERVICE, proposal: systemCatalog.detectDrift({ actor: authenticatedOwner, projectId: projectCatalogDriftMatch[1], ...input }) }); }
+      if (projectCatalogDriftMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, proposals: systemCatalog.listDriftProposals({ projectId: projectCatalogDriftMatch[1], state: url.searchParams.get("state") }) });
+      if (projectCatalogDriftMatch && request.method === "POST") { const input = await readJson(request); const proposal = systemCatalog.detectDrift({ actor: projectActor(projectCatalogDriftMatch[1]), projectId: projectCatalogDriftMatch[1], entityId: input.entityId, observed: input.observed ?? {}, source: input.source ?? "local-manifest" }); await persistSystemCatalog(); return json(response, 201, { service: HERO_SERVICE, proposal }); }
+      const projectCatalogDriftResolveMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/catalog\/drift\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/resolve$/);
+      if (projectCatalogDriftResolveMatch && request.method === "POST") { const input = await readJson(request); const result = systemCatalog.resolveDrift({ actor: projectActor(projectCatalogDriftResolveMatch[1]), projectId: projectCatalogDriftResolveMatch[1], driftProposalId: projectCatalogDriftResolveMatch[2], resolution: input.resolution, reason: input.reason }); await persistSystemCatalog(); return json(response, 200, { service: HERO_SERVICE, ...result }); }
+      const projectCatalogDiscoveryMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/catalog\/discovery\/github-snapshot$/);
+      if (projectCatalogDiscoveryMatch && request.method === "POST") { const input = await readJson(request); const result = systemCatalog.ingestGithubSnapshot({ actor: projectActor(projectCatalogDiscoveryMatch[1]), projectId: projectCatalogDiscoveryMatch[1], repositoryEntityId: input.repositoryEntityId, snapshot: input.snapshot }); await persistSystemCatalog(); return json(response, 201, { service: HERO_SERVICE, ...result }); }
+      const projectCatalogEntityMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/catalog\/entities\/([A-Za-z][A-Za-z0-9._:-]{2,127})(?:\/(history|transition|dependencies|blast-radius))?$/);
+      if (projectCatalogEntityMatch) {
+        const [, projectId, entityId, action] = projectCatalogEntityMatch;
+        if (request.method === "GET" && action === "history") return json(response, 200, { service: HERO_SERVICE, history: systemCatalog.history({ projectId, entityId }) });
+        if (request.method === "GET" && action === "dependencies") return json(response, 200, { service: HERO_SERVICE, dependencies: systemCatalog.dependencies({ projectId, entityId }) });
+        if (request.method === "GET" && action === "blast-radius") return json(response, 200, { service: HERO_SERVICE, entities: systemCatalog.blastRadius({ projectId, entityId }) });
+        if (request.method === "POST" && action === "transition") { const input = await readJson(request); const entity = systemCatalog.transition({ actor: projectActor(projectId), projectId, entityId, to: input.to, expectedVersion: input.expectedVersion, reason: input.reason }); await persistSystemCatalog(); return json(response, 200, { service: HERO_SERVICE, entity }); }
+      }
 
       const projectUsageMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/usage$/);
       if (projectUsageMatch && request.method === "POST") { const input = await readJson(request); return json(response, 201, { service: HERO_SERVICE, usage: performanceIntelligence.recordUsage({ actor: authenticatedOwner, projectId: projectUsageMatch[1], ...input }) }); }
@@ -4144,6 +4280,20 @@ export function createHeroServer(options = {}) {
             projectCollaboration.hydrate(record);
           }
           projectCollaboration.drainRecords?.();
+        }
+        if (postgresRuntime.commandCenter?.listRecords && commandCenter.hydrate) {
+          for (const record of await postgresRuntime.commandCenter.listRecords()) {
+            if (purgedProjectIds.has(record.projectId)) continue;
+            commandCenter.hydrate(record);
+          }
+          commandCenter.drainRecords?.();
+        }
+        if (postgresRuntime.systemCatalog?.listRecords && systemCatalog.hydrate) {
+          for (const record of await postgresRuntime.systemCatalog.listRecords()) {
+            if (purgedProjectIds.has(record.projectId)) continue;
+            systemCatalog.hydrate(record);
+          }
+          systemCatalog.drainRecords?.();
         }
       }
       if (postgresRuntime?.pricingCatalogStore && typeof pricingCatalog.publish === "function") {

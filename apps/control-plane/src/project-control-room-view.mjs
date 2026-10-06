@@ -19,6 +19,17 @@ function fallbackList(items, empty = "داده‌ای ثبت نشده است.") 
   return `<div class="list">${items.map(item => `<article class="row"><div class="head"><strong>${escapeHtml(item.title)}</strong>${fallbackPill(item.state)}</div><div class="meta">${escapeHtml(item.meta)}</div></article>`).join("")}</div>`;
 }
 
+const COMMAND_ACTION_LABELS = Object.freeze({ authorize: "تصمیم دوباره", approve: "تأیید", queue: "صف", checkpoint: "توقف با checkpoint", complete: "پایان", fail: "ثبت شکست", resume: "ادامه", "recover:retry": "تلاش دوباره", "recover:abandon": "کنار گذاشتن", "recover:compensate": "ثبت جبران" });
+
+/** BO-086: the actionable Command Center board. Buttons are offers; the server re-checks every gate. */
+export function commandBoardMarkup(commands, projectId) {
+  const cards = commands?.cards ?? [];
+  const body = cards.length
+    ? `<div class="list command-board">${cards.map(card => `<article class="row" data-command-card="${escapeHtml(card.commandId)}" data-command-state="${escapeHtml(card.state)}"><div class="head"><strong>${escapeHtml(card.summary || card.commandId)}</strong>${fallbackPill(card.state)}</div><div class="meta"><code>${escapeHtml(card.commandId)}</code>${card.action ? ` · ${escapeHtml(card.action)}` : ""}${card.risk ? ` · ریسک: ${escapeHtml(card.risk)}` : ""} · تلاش: ${escapeHtml(card.attempts)}${card.blocker ? ` · مانع: <span data-command-blocker>${escapeHtml(card.blocker)}</span>` : ""}</div><div class="actions command-actions">${card.actions.map(action => `<button type="button" class="button secondary" data-command-action="${escapeHtml(action)}" data-command-id="${escapeHtml(card.commandId)}">${escapeHtml(COMMAND_ACTION_LABELS[action] ?? action)}</button>`).join("")}</div></article>`).join("")}</div>`
+    : `<div class="empty">فرمان فعالی برای این پروژه وجود ندارد.</div>`;
+  return `<section class="section full" id="command-board" data-hero-guide-target="control.command-board"${projectId ? ` data-project-id="${escapeHtml(projectId)}"` : ""}><div class="head"><div><h2 data-hero-info-key="control.commandBoard">مرکز فرمان</h2><p class="muted">اجرای سنگین: ${escapeHtml(commands?.activeHeavy ?? 0)} از ${escapeHtml(commands?.heavyRunLimit ?? 2)} · Production هرگز از این صفحه اجرا نمی‌شود.</p></div><div class="actions"><button type="button" id="dispatch-next">اجرای نوبت بعد</button><button type="button" class="button secondary" id="sweep-timeouts">بررسی Timeout</button></div></div>${body}<p id="command-status" class="muted" role="status" aria-live="polite"></p></section>`;
+}
+
 function fallbackControlRoomMarkup(controlRoom) {
   if (!controlRoom) return { metrics: "", sections: '<section class="section full"><div class="empty">دادهٔ پروژه پیدا نشد.</div></section>' };
   const data = controlRoom;
@@ -48,7 +59,7 @@ function fallbackControlRoomMarkup(controlRoom) {
   const targetMarkup = testServers.length
     ? `<section class="section full" data-hero-guide-target="control.infrastructure"><div class="head"><div><h2>انتخاب سرور ساخت محصول</h2><p class="muted">این انتخاب فقط نسخه‌دار ثبت می‌شود؛ build، start یا dispatch خودکار انجام نمی‌شود.</p></div></div><form id="target-selection-form" class="target-form"><label>سرور Test<select name="serverId" required>${testServers.map(server => `<option value="${escapeHtml(server.serverId)}"${currentTarget?.serverId === server.serverId ? " selected" : ""}>${escapeHtml(`${server.serverId} · ${server.address}`)}</option>`).join("")}</select></label><input type="hidden" name="expectedVersion" value="${escapeHtml(currentTarget?.version ?? 0)}"><button type="submit">ثبت Target برای این پروژه</button><span id="target-selection-status" class="muted" role="status">${escapeHtml(currentTarget ? `Target فعلی: ${currentTarget.serverId} · نسخه ${currentTarget.version}` : "هنوز Targetی برای این پروژه انتخاب نشده است.")}</span></form></section>`
     : `<section class="section full" data-hero-guide-target="control.infrastructure"><div class="head"><div><h2>انتخاب سرور ساخت محصول</h2><p class="muted">هنوز سرور Testای برای این پروژه ثبت نشده است. پس از ثبت metadata سرور، گزینهٔ انتخاب Target اینجا نمایش داده می‌شود.</p></div></div><div class="empty">Targetی برای انتخاب وجود ندارد.</div></section>`;
-  return { metrics: metricMarkup, sections: sectionMarkup + targetMarkup };
+  return { metrics: metricMarkup, sections: commandBoardMarkup(data.commands, data.project?.projectId) + sectionMarkup + targetMarkup };
 }
 
 export function getProjectControlRoomHtml({ initialData = null, dataEndpoint = "/project-control-data", active = "control", heading = "اتاق کنترل پروژه", environment = "Private · Operations" } = {}) {
@@ -75,19 +86,49 @@ export function getProjectControlRoomHtml({ initialData = null, dataEndpoint = "
   <body>
     ${getHeroGlobalNavigation({ active, projectId: initialData?.controlRoom?.project?.projectId ?? null, environment })}
     <main id="hero-main" tabindex="-1">
-      <header class="top hero-page-header" data-hero-guide-target="${headerGuideTarget}"><div><p class="muted">Hero / Project Operations</p><h1 id="title" data-hero-info-key="control.projectOperations">${escapeHtml(initialHeading)}</h1><p id="subtitle" class="muted helper-copy">نمای خواندنی، project-scoped و redacted از وضعیت عملیاتی.</p></div><div class="actions"><a class="button secondary" id="studio-link" href="/api/portal?surface=studio${projectId ? `&projectId=${encodeURIComponent(projectId)}` : ""}">Product Studio</a><a class="button secondary" href="/api/portal?surface=portfolio&select=project">تغییر پروژه</a><button id="refresh" type="button">به‌روزرسانی</button></div></header>
+      <header class="top hero-page-header" data-hero-guide-target="${headerGuideTarget}"><div><p class="muted">Hero / Project Operations</p><h1 id="title" data-hero-info-key="control.projectOperations">${escapeHtml(initialHeading)}</h1><p id="subtitle" class="muted helper-copy">نمای خواندنی، project-scoped و redacted از وضعیت عملیاتی.</p></div><div class="actions"><a class="button secondary" id="studio-link" href="/api/portal?surface=studio${projectId ? `&projectId=${encodeURIComponent(projectId)}` : ""}">Product Studio</a>${projectId ? `<a class="button secondary" id="collaboration-link" href="/api/portal?surface=collaboration&projectId=${encodeURIComponent(projectId)}">همکاری و حافظه</a>` : ""}<a class="button secondary" href="/api/portal?surface=portfolio&select=project">تغییر پروژه</a><button id="refresh" type="button">به‌روزرسانی</button></div></header>
       <p class="notice">این صفحه فقط وضعیت و metadata امن را نمایش می‌دهد. Provider زنده، Dispatch بیرونی، Secret، Production و Pilot از این مسیر فعال نمی‌شوند.</p>
       <section id="metrics" class="metrics">${fallbackMarkup.metrics}</section>
       <section id="sections" class="grid" aria-live="polite">${fallbackMarkup.sections}</section>
     </main>
     <script>
-      const $ = selector => document.querySelector(selector);
+      const $ = id => document.getElementById(id);
       const INITIAL_DATA = ${initialDataJson};
       const DATA_ENDPOINT = ${dataEndpointJson};
       let state = INITIAL_DATA;
       const escapeHtml = value => String(value ?? "—").replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));
       const pill = value => { const text = String(value ?? "unknown"); const cls = /^(active|ready|healthy|accepted|completed|clean|ok)$/i.test(text) ? "good" : /^(critical|failed|blocked|revoked)$/i.test(text) ? "bad" : "warn"; return '<span class="pill ' + cls + '">' + escapeHtml(text) + '</span>'; };
       const list = (items, empty = "داده‌ای ثبت نشده است.") => !items?.length ? '<div class="empty">' + empty + '</div>' : '<div class="list">' + items.map(item => '<article class="row"><div class="head"><strong>' + escapeHtml(item.title) + '</strong>' + pill(item.state) + '</div><div class="meta">' + escapeHtml(item.meta) + '</div></article>').join('') + '</div>';
+      const COMMAND_LABELS = ${safeJson(COMMAND_ACTION_LABELS)};
+      function commandBoard(commands, projectId) {
+        const cards = commands?.cards || [];
+        const body = cards.length ? '<div class="list command-board">' + cards.map(card => '<article class="row" data-command-card="' + escapeHtml(card.commandId) + '" data-command-state="' + escapeHtml(card.state) + '"><div class="head"><strong>' + escapeHtml(card.summary || card.commandId) + '</strong>' + pill(card.state) + '</div><div class="meta"><code>' + escapeHtml(card.commandId) + '</code>' + (card.action ? ' · ' + escapeHtml(card.action) : '') + (card.risk ? ' · ریسک: ' + escapeHtml(card.risk) : '') + ' · تلاش: ' + escapeHtml(card.attempts) + (card.blocker ? ' · مانع: <span data-command-blocker>' + escapeHtml(card.blocker) + '</span>' : '') + '</div><div class="actions command-actions">' + card.actions.map(action => '<button type="button" class="button secondary" data-command-action="' + escapeHtml(action) + '" data-command-id="' + escapeHtml(card.commandId) + '">' + escapeHtml(COMMAND_LABELS[action] || action) + '</button>').join('') + '</div></article>').join('') + '</div>' : '<div class="empty">فرمان فعالی برای این پروژه وجود ندارد.</div>';
+        return '<section class="section full" id="command-board" data-hero-guide-target="control.command-board" data-project-id="' + escapeHtml(projectId) + '"><div class="head"><div><h2 data-hero-info-key="control.commandBoard">مرکز فرمان</h2><p class="muted">اجرای سنگین: ' + escapeHtml(commands?.activeHeavy ?? 0) + ' از ' + escapeHtml(commands?.heavyRunLimit ?? 2) + ' · Production هرگز از این صفحه اجرا نمی‌شود.</p></div><div class="actions"><button type="button" id="dispatch-next">اجرای نوبت بعد</button><button type="button" class="button secondary" id="sweep-timeouts">بررسی Timeout</button></div></div>' + body + '<p id="command-status" class="muted" role="status" aria-live="polite"></p></section>';
+      }
+      async function commandPost(path, body) {
+        const status = document.querySelector('#command-status');
+        if (status) status.textContent = 'در حال ارسال…';
+        const response = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body || {}) });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) { if (status) status.textContent = (payload.error?.message || payload.message || 'درخواست رد شد.') + (payload.code ? ' (' + payload.code + ')' : ''); return false; }
+        await refresh();
+        const after = document.querySelector('#command-status'); if (after) after.textContent = 'ثبت شد.';
+        return true;
+      }
+      function bindCommandBoard(projectId) {
+        const base = '/api/projects/' + encodeURIComponent(projectId);
+        document.querySelector('#dispatch-next')?.addEventListener('click', () => commandPost(base + '/operations/dispatch-next'));
+        document.querySelector('#sweep-timeouts')?.addEventListener('click', () => commandPost(base + '/operations/sweep-timeouts'));
+        document.querySelectorAll('[data-command-action]').forEach(button => button.addEventListener('click', () => {
+          const action = button.dataset.commandAction; const commandId = button.dataset.commandId; const path = base + '/commands/' + encodeURIComponent(commandId);
+          if (action.startsWith('recover:')) { const reason = window.prompt('دلیل این بازیابی را بنویسید:'); if (!reason) return; return commandPost(path + '/recover', { action: action.slice(8), reason }); }
+          if (action === 'authorize') { const authorizationSnapshotId = window.prompt('شناسهٔ مجوز فعال (Authorization Snapshot):'); if (!authorizationSnapshotId) return; return commandPost(path + '/authorize', { authorizationSnapshotId }); }
+          if (action === 'approve') return commandPost(path + '/approve', { reason: 'approved from the command board' });
+          if (action === 'checkpoint') return commandPost(path + '/checkpoint', { checkpoint: { source: 'command-board' }, reason: 'paused from the command board' });
+          if (action === 'fail') { const error = window.prompt('خطا را کوتاه بنویسید:'); if (!error) return; return commandPost(path + '/fail', { error }); }
+          return commandPost(path + '/' + action);
+        }));
+      }
       function render() {
         const data = state?.controlRoom;
         if (!data) { $('sections').innerHTML = '<div class="section full">دادهٔ پروژه پیدا نشد.</div>'; return; }
@@ -112,7 +153,8 @@ export function getProjectControlRoomHtml({ initialData = null, dataEndpoint = "
         const currentTarget = (infrastructure.targetSelections || []).find(selection => selection.environment === 'test') || null;
         const testServers = (infrastructure.servers || []).filter(server => server.environment === 'test' && server.state !== 'revoked');
         const targetForm = testServers.length ? '<section class="section full" data-hero-guide-target="control.infrastructure"><div class="head"><div><h2>انتخاب سرور ساخت محصول</h2><p class="muted">ادمین می‌تواند Target تست این پروژه را انتخاب کند. این کار فقط انتخاب نسخه‌دار را ثبت می‌کند و هنوز build، start یا dispatch اجرا نمی‌شود.</p></div></div><form id="target-selection-form" class="target-form"><label>سرور Test<select name="serverId" required>' + testServers.map(server => '<option value="' + escapeHtml(server.serverId) + '"' + (currentTarget?.serverId === server.serverId ? ' selected' : '') + '>' + escapeHtml(server.serverId + ' · ' + server.address) + '</option>').join('') + '</select></label><input type="hidden" name="expectedVersion" value="' + escapeHtml(currentTarget?.version ?? 0) + '"><button type="submit">ثبت Target برای این پروژه</button><span id="target-selection-status" class="muted" role="status">' + escapeHtml(currentTarget ? 'Target فعلی: ' + currentTarget.serverId + ' · نسخه ' + currentTarget.version : 'هنوز Targetی برای این پروژه انتخاب نشده است.') + '</span></form></section>' : '';
-        $('sections').innerHTML = sections.map(([title,items,help,infoKey,guideTarget], index) => '<section class="section ' + (index === 0 || index === 1 ? 'wide' : '') + '"' + (guideTarget ? ' data-hero-guide-target="' + guideTarget + '"' : '') + '><div class="head"><div><h2 data-hero-info-key="' + infoKey + '">' + title + '</h2><p class="muted helper-copy">' + help + '</p></div></div>' + list(items) + '</section>').join('') + targetForm;
+        $('sections').innerHTML = commandBoard(data.commands, p.projectId) + sections.map(([title,items,help,infoKey,guideTarget], index) => '<section class="section ' + (index === 0 || index === 1 ? 'wide' : '') + '"' + (guideTarget ? ' data-hero-guide-target="' + guideTarget + '"' : '') + '><div class="head"><div><h2 data-hero-info-key="' + infoKey + '">' + title + '</h2><p class="muted helper-copy">' + help + '</p></div></div>' + list(items) + '</section>').join('') + targetForm;
+        bindCommandBoard(p.projectId);
         const targetSelectionForm = document.querySelector('#target-selection-form');
         if (targetSelectionForm) targetSelectionForm.addEventListener('submit', async event => { event.preventDefault(); const form = new FormData(targetSelectionForm); const status = document.querySelector('#target-selection-status'); status.textContent = 'در حال ثبت انتخاب نسخه‌دار…'; try { const response = await fetch('/api/projects/' + encodeURIComponent(p.projectId) + '/infrastructure', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'select-target', serverId: form.get('serverId'), environment: 'test', expectedVersion: Number(form.get('expectedVersion')) }) }); const payload = await response.json(); if (!response.ok) throw new Error(payload.error?.message || 'ثبت Target انجام نشد.'); status.textContent = 'Target با موفقیت ثبت شد؛ اجرای محصول هنوز جداگانه نیازمند مجوز Test است.'; await refresh(); } catch (error) { status.textContent = error.message || 'ثبت Target انجام نشد.'; } });
       }

@@ -1,0 +1,74 @@
+{
+  "schema": "hero.authorization-snapshot/v1",
+  "authorizationId": "TEST-RELEASE-20261006-007",
+  "status": "active",
+  "grantedBy": "project-owner",
+  "grantedAt": "2026-10-06",
+  "grantSource": "owner-chat-instruction-2026-10-06",
+  "ownerStatement": "مرج کن و سرور رو اپدیت کن.",
+  "validUntil": "owner-revocation",
+  "globalStop": false,
+  "operations": [
+    "version",
+    "build",
+    "test",
+    "review",
+    "github-write",
+    "test-deploy"
+  ],
+  "excludedOperations": [
+    "production-deploy",
+    "secret-change",
+    "external-spend",
+    "external-message",
+    "destructive-data-operation",
+    "irreversible-operation",
+    "pilot-execution",
+    "notion-write"
+  ],
+  "documents": [
+    {
+      "documentId": "HERO-OPS-HERO-TEST-RELEASE-RELIABILITY",
+      "documentVersion": "1.5.1"
+    },
+    {
+      "documentId": "HERO-OPS-GITHUB-RELEASE-AUTOMATION",
+      "documentVersion": "1.0.0"
+    }
+  ],
+  "steps": [
+    {
+      "stepId": "TEST-RELEASE-001",
+      "documentVersion": "1.5.1"
+    },
+    {
+      "stepId": "TEST-RELEASE-002",
+      "documentVersion": "1.5.1"
+    },
+    {
+      "stepId": "TEST-RELEASE-003",
+      "documentVersion": "1.5.1"
+    },
+    {
+      "stepId": "TEST-RELEASE-004",
+      "documentVersion": "1.5.1"
+    }
+  ],
+  "scope": {
+    "environment": "test",
+    "repository": "farhaddgm/Hero",
+    "releaseVersion": "1.1.5-rc.37",
+    "allowedActions": [
+      "commit",
+      "push-branch",
+      "run-release-candidate-workflow",
+      "publish-test-candidate-artifact",
+      "run-test-environment-verification-workflow"
+    ],
+    "production": false,
+    "secrets": false,
+    "providers": false,
+    "pilot": false
+  },
+  "note": "Owner-authorized merge of PR #7 (BO-073..BO-092) and publication as Test candidate 1.1.5-rc.37. The Test-host promotion itself runs on the server by the owner with the digest from the release manifest. Production, Provider calls, Secret changes, external spend, Pilot and destructive data operations remain excluded."
+}
