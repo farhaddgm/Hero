@@ -102,8 +102,8 @@
       "count": 12,
       "work_package": "WP-06",
       "status": "partial",
-      "evidence": ["config/authorizations/backoffice-20261006-022.json", "packages/adapters/src/postgresql-collaboration-store.mjs", "packages/domain/src/project-collaboration.mjs", "packages/domain/src/project-memory.mjs", "tests/backoffice-collaboration-command-catalog.test.mjs", "tests/project-collaboration-wp06.test.mjs"],
-      "open_gate": "BO-063..BO-072 source completed 2026-10-06 under BATCH-BACKOFFICE-20261006-022: versioned team/role assignments and profiles, five bound contexts, continuable retained threads, model precedence via settings, scoped persisted memory with corrections, same-project citations, per-project redaction and sanitized knowledge proposals. Remaining: BO-073 adversarial tests and BO-074 pages (not authorized), plus Test-runtime evidence."
+      "evidence": ["apps/control-plane/src/project-collaboration-view.mjs", "config/authorizations/backoffice-20261006-022.json", "config/authorizations/backoffice-20261006-023.json", "packages/adapters/src/postgresql-collaboration-store.mjs", "packages/domain/src/project-collaboration.mjs", "packages/domain/src/project-memory.mjs", "tests/backoffice-collaboration-command-catalog.test.mjs", "tests/collaboration-adversarial-bo073.test.mjs", "tests/project-collaboration-wp06.test.mjs"],
+      "open_gate": "BO-063..BO-074 source completed 2026-10-06 (BATCH-BACKOFFICE-20261006-022 and -023): versioned team/role assignments and profiles, five bound contexts, retained threads, model precedence via settings, persisted scoped memory, per-project redaction, sanitized knowledge proposals; BO-073 adversarial suite (cross-project prompt, memory poisoning with instruction-like memory flagged out of AI context, stale memory, unauthorized context); BO-074 per-project Team/Role/Conversation/Memory page with internal citations. Remaining: Test-runtime evidence on a promoted candidate."
     },
     {
       "from": "BO-075",
@@ -111,8 +111,8 @@
       "count": 14,
       "work_package": "WP-07",
       "status": "partial",
-      "evidence": ["packages/domain/src/command-center.mjs", "packages/domain/src/workflow-engine.mjs", "packages/domain/src/runner-engine.mjs", "tests/backoffice-collaboration-command-catalog.test.mjs"],
-      "open_gate": "Complete conversation-to-command integration, durable shared execution, actionable Operations UI and crash/resume/no-duplicate side-effect evidence."
+      "evidence": ["apps/control-plane/src/project-control-room-view.mjs", "apps/control-plane/src/server.mjs", "config/authorizations/backoffice-20261006-023.json", "packages/adapters/src/postgresql-command-center-store.mjs", "packages/contracts/src/backoffice-command-center.mjs", "packages/domain/src/command-center.mjs", "packages/domain/src/workflow-engine.mjs", "tests/backoffice-collaboration-command-catalog.test.mjs", "tests/backoffice-command-center-http.test.mjs", "tests/backoffice-command-center-wp07.test.mjs", "tests/browser/command-board.browser.mjs"],
+      "open_gate": "BO-075..BO-088 source completed 2026-10-06 under BATCH-BACKOFFICE-20261006-023: action taxonomy with risk floors, conversation-sourced intents citing the message, command cards, immutable decision versions bound to the project policy snapshot, approval expiry/revocation, every gate re-checked at dispatch (Global Stop, policy drift, readiness, Production separate gate), weighted fair scheduling with owner-only priority and heavy-run limit, bounded retry, timeout sweep, compensation, manual recovery, crash replay to interrupted, append-only PostgreSQL persistence and a browser-verified actionable command board. Remaining: Test-runtime evidence; a real execution adapter stays separately gated."
     },
     {
       "from": "BO-089",
@@ -120,8 +120,8 @@
       "count": 10,
       "work_package": "WP-08",
       "status": "partial",
-      "evidence": ["packages/domain/src/system-catalog.mjs", "packages/domain/src/product-development.mjs", "tests/backoffice-collaboration-command-catalog.test.mjs"],
-      "open_gate": "Complete permission-aware catalog UI, real metadata acquisition behind authorization, dependency visualization and rebuild/drift runtime evidence."
+      "evidence": ["apps/control-plane/src/server.mjs", "config/authorizations/backoffice-20261006-023.json", "packages/adapters/migrations/022_system_catalog_records.sql", "packages/adapters/src/postgresql-system-catalog-store.mjs", "packages/contracts/src/system-catalog.mjs", "packages/domain/src/product-development.mjs", "packages/domain/src/system-catalog.mjs", "tests/backoffice-collaboration-command-catalog.test.mjs", "tests/system-catalog-wp08.test.mjs"],
+      "open_gate": "BO-089..BO-092 source completed 2026-10-06 under BATCH-BACKOFFICE-20261006-023: lifecycle transitions with per-type required metadata, typed acyclic relations, retirement blocked by live dependents, append-only entity history, offline GitHub snapshot discovery (live call refused), field-level drift proposals with dedupe/supersede/stale and human resolution without automatic overwrite, persisted via migration 022. Remaining: BO-093..BO-098 (not in this authorization), authorized live metadata acquisition, catalog graph UI and Test-runtime evidence."
     },
     {
       "from": "BO-099",

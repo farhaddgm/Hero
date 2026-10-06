@@ -6,7 +6,7 @@
 > Type: evidence
 > Scope: hero
 > Status: active
-> Version: 1.5.0
+> Version: 1.6.0
 > Owner: hero-architecture
 > Review cadence: per-change
 > Supersedes: none
@@ -51,9 +51,9 @@
 | WP-03 | BO-031..042 | partial | Project workspace، create/archive/clone/intake/foundation و storage metadata | object storage خصوصی، scan/parser sandbox، import واقعی و UI |
 | WP-04 | BO-043..052 | partial | source کامل ۲۰۲۶-۱۰-۰۵: schema تایپ‌دار، کف Policy، explain/changes/readiness، UI منشأ/diff، حذف پایدار پس از restart، property test | شواهد Runtime Test روی Candidate promote‌شده و اتصال گیت Policy به dispatch در WP-07 |
 | WP-05 | BO-053..062 | partial | source کامل ۲۰۲۶-۱۰-۰۶: IA نقش‌محور، Portfolio صفحه‌بندی‌شده با نقش/تصمیم، KPI تعریف‌شده با drill-down دقیق، breadcrumb، آزمون HTTP و مرورگر سه‌نقشی | شواهد Runtime Test و shell واحد برای همهٔ surfaceها |
-| WP-06 | BO-063..074 | partial | source کامل BO-063..072 در ۲۰۲۶-۱۰-۰۶: تیم/نقش/پروفایل نسخه‌دار، پنج context، thread پایدار، انتخاب مدل از تنظیمات، memory پایدار، redaction بر اساس نقش همان پروژه، Knowledge Proposal پاک‌سازی‌شده | BO-073 و BO-074 (خارج مجوز) و شواهد Runtime Test |
-| WP-07 | BO-075..088 | partial | command intent، approval، workflow، scheduler و operations read model | Conversation-to-command، durable execution، Operations UI و crash evidence |
-| WP-08 | BO-089..098 | partial | system catalog، drift و knowledge/document integration | acquisition مجاز واقعی، UI graph/search و rebuild evidence |
+| WP-06 | BO-063..074 | partial | source کامل BO-063..074 در ۲۰۲۶-۱۰-۰۶: تیم/نقش/پروفایل نسخه‌دار، پنج context، memory پایدار با redaction نقش همان پروژه، Knowledge Proposal، آزمون‌های مهاجمانهٔ BO-073 (memory دستورمانند از Context کنار می‌رود) و صفحهٔ همکاری با citation | شواهد Runtime Test |
+| WP-07 | BO-075..088 | partial | source کامل ۲۰۲۶-۱۰-۰۶: taxonomy و کف ریسک، intent از گفتگو، کارت فرمان، تصمیم تغییرناپذیر وابسته به سیاست، بازبینی گیت‌ها هنگام dispatch، زمان‌بندی منصفانه، retry/timeout/جبران، replay پس از crash، پایداری PostgreSQL و تابلوی قابل اقدام با آزمون مرورگر | شواهد Runtime Test؛ adapter اجرای واقعی جداگانه gated |
+| WP-08 | BO-089..098 | partial | source BO-089..092 در ۲۰۲۶-۱۰-۰۶: چرخهٔ عمر و metadata لازم، رابطهٔ تایپ‌دار بدون چرخه، کشف آفلاین snapshot گیت‌هاب، Drift Proposal بدون overwrite، migration `022` | BO-093..098، acquisition زندهٔ مجاز، UI گراف و شواهد Runtime Test |
 | WP-09 | BO-099..110 | partial | usage، ledger، budget، evaluation و health domain | ingestion واقعی، UI و drill-down تا Run/Evidence |
 | WP-10 | BO-111..120 | partial | notification/audit/observability domain | Inbox قابل اقدام، trace سرتاسری و runtime storm/security evidence |
 | WP-11 | BO-121..134 | gated | metadata-only GitHub/Server/Node/Secret contracts | اتصال واقعی و آزمون امنیتی با credential و مجوز جدا |

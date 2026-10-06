@@ -1,5 +1,15 @@
 # تغییرات رودمپ شرکت
 
+# ۲۰۲۶-۱۰-۰۶ — Command Center، System Catalog و تکمیل WP-06 (BO-073..BO-092) و Runtime Test روی rc.36
+
+- افزوده‌شده: Command Center v1.1 با taxonomy عمل و کف ریسک، intent از پیام گفتگو با citation، کارت فرمان، تصمیم نسخه‌دار وابسته به snapshot سیاست، لغو/انقضای تأیید، زمان‌بندی منصفانه، retry/timeout/جبران/بازیابی دستی، replay پس از crash و تابلوی قابل اقدام در Project Operations.
+- افزوده‌شده: System Catalog v1.1 با چرخهٔ عمر و metadata لازم، رابطه‌های تایپ‌دار بدون چرخه، کشف آفلاین از snapshot گیت‌هاب (فراخوانی زنده رد می‌شود)، Drift Proposal با تصمیم انسانی و migration `022`.
+- افزوده‌شده: صفحهٔ همکاری و حافظهٔ هر پروژه با citation داخلی و آزمون‌های مهاجمانهٔ BO-073.
+- سخت‌سازی‌شده: memory دستورمانند از Context هوش مصنوعی کنار می‌رود؛ مسیرهای فرمان شناسهٔ پروژهٔ دیگر را نمی‌پذیرند و با نقش همان پروژه اجرا می‌شوند.
+- اصلاح‌شده: اسکریپت اتاق کنترل پروژه که به‌دلیل جست‌وجوی نام تگ هرگز render نمی‌شد.
+- Runtime Test: `v1.1.5-rc.36` با digest `sha256:99ed556a…` توسط مالک promote شد؛ `SUCCESS`، smoke `PASS`، persistence `postgresql`.
+- شواهد: `pnpm check` `538/538` PASS و `pnpm test:browser` `2/2` PASS؛ وضعیت ممیزی همچنان `partial`؛ هیچ Production، Secret، Provider زنده، هزینه، فراخوانی زندهٔ GitHub یا نوشتن Notion.
+
 # ۲۰۲۶-۱۰-۰۶ — Portfolio نقش‌محور و همکاری پایدار (BO-053..BO-072) و Runtime Test روی rc.35
 
 - افزوده‌شده: contract Portfolio با IA نقش‌محور، صفحه‌بندی، KPIهای تعریف‌شده با drill-down، breadcrumb؛ کارت با نقش و آخرین تصمیم؛ جست‌وجو با پیوند صفحه؛ مجموعهٔ آزمون مرورگر `pnpm test:browser`.

@@ -6,7 +6,7 @@
 > Type: evidence
 > Scope: hero
 > Status: active
-> Version: 1.0.1
+> Version: 1.1.0
 > Owner: hero-architecture
 > Review cadence: none
 > Supersedes: none
@@ -29,3 +29,9 @@ Snapshotهای `BATCH-BACKOFFICE-20260910-010` تا `012`، گام‌های `BO-
 ## نتیجهٔ آزمون
 
 در ۱۰ سپتامبر ۲۰۲۶، `npm run check` در Linux reference container با نتیجهٔ موفق اجرا شد: ۳۸۸ فایل Clean Room بررسی شد؛ ۱۱۸ سند بدون خطا اعتبارسنجی شد؛ Build شامل ۲۱۱ ماژول و ۲۷ فایل JSON بود؛ و ۲۹۹ آزمون با صفر خطا گذشت. هشدار Docker در خروجی Doctor فقط بیانگر آن است که خودِ کانتینر نمی‌تواند Docker میزبان را اجرا کند و به معنی استقرار نیست. این سند مجوز هیچ محیط، اتصال خارجی، مصرف Provider، یا عملیات Production نیست.
+
+## به‌روزرسانی ۲۰۲۶-۱۰-۰۶ — BO-091 و BO-092 (مجوز `BATCH-BACKOFFICE-20261006-023`)
+
+- BO-091: snapshot آفلاین و GitHub-شکل یک مخزن (`normalizeGithubSnapshot`) به metadata مشاهده‌شده تبدیل، با Catalog مطلوب مقایسه و به‌صورت inventory با وضعیت `recorded-no-external-fetch` ثبت می‌شود. snapshot مخزن دیگر رد می‌شود. منبع زندهٔ GitHub عمداً با `GITHUB_LIVE_CALL_NOT_AUTHORIZED` fail-closed است.
+- BO-092: Drift در سطح فیلد (`changed`، `missing-observed`، `unexpected-observed`) به Proposal تبدیل می‌شود؛ Proposal تکراری ساخته نمی‌شود، Proposal قدیمی `superseded` و Proposal روی نسخهٔ قدیمی entity `stale` می‌شود. فقط انسان تصمیم می‌گیرد: `adopt-observed` نسخهٔ تازهٔ desired می‌سازد، `fix-source` فقط اصلاح منبع را ثبت می‌کند و `reject` می‌بندد. هیچ overwrite خودکاری وجود ندارد.
+- شواهد: `tests/system-catalog-wp08.test.mjs` (واحد، HTTP و replay) و رفت‌وبرگشت واقعی PostgreSQL با migration `022` و رد `DELETE`. هیچ فراخوانی زندهٔ GitHub انجام نشد.
