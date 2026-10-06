@@ -11,6 +11,7 @@ import { createPostgresProjectIdentityStore } from "./postgresql-project-identit
 import { createPostgresProjectWorkspaceStore } from "./postgresql-project-workspace-store.mjs";
 import { createPostgresCollaborationStore } from "./postgresql-collaboration-store.mjs";
 import { createPostgresCommandCenterStore } from "./postgresql-command-center-store.mjs";
+import { createPostgresSystemCatalogStore } from "./postgresql-system-catalog-store.mjs";
 import { createPostgresProductRuntimeReservationStore } from "./postgresql-product-runtime-reservation-store.mjs";
 
 export class PostgresRuntimeError extends Error {
@@ -73,6 +74,7 @@ export async function createPostgresRuntime({ connectionString = process.env.HER
         projectWorkspace: createPostgresProjectWorkspaceStore({ pool, client }),
         collaboration: createPostgresCollaborationStore({ pool, client }),
         commandCenter: createPostgresCommandCenterStore({ pool, client }),
+        systemCatalog: createPostgresSystemCatalogStore({ pool, client }),
         productRuntimeReservations: createPostgresProductRuntimeReservationStore({ pool, client }),
         async ping() {
           await target.query("SELECT 1");

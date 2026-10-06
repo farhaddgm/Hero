@@ -663,6 +663,12 @@ export function createHeroServer(options = {}) {
     for (const record of records) await postgresRuntime.commandCenter.appendRecord(record);
   }
 
+  async function persistSystemCatalog() {
+    const records = systemCatalog.drainRecords?.() ?? [];
+    if (!postgresRuntime?.systemCatalog) return;
+    for (const record of records) await postgresRuntime.systemCatalog.appendRecord(record);
+  }
+
   async function persistWorkspaceSettings(projectId) {
     if (!postgresRuntime?.projectWorkspace || !projectSettings.listRecords) return;
     for (const setting of projectSettings.listRecords({ projectId })) {
@@ -1602,7 +1608,10 @@ export function createHeroServer(options = {}) {
         ])
       }),
       catalog: Object.freeze({
-        items: Object.freeze(entities.map(entity => row(entity.entityId, entity.state ?? "registered", `type: ${entity.type}`)))
+        items: Object.freeze([
+          ...systemCatalog.listDriftProposals({ projectId, state: "proposed" }).map(proposal => row(`Drift ${proposal.entityId}`, "proposed", `fields: ${proposal.changes.map(change => change.path).join(", ")} · source: ${proposal.source} · overwrite: forbidden`)),
+          ...entities.map(entity => row(entity.entityId, entity.lifecycle ?? "registered", `type: ${entity.type} · version: ${entity.version}`))
+        ])
       }),
       performance: Object.freeze({
         items: Object.freeze([
@@ -3108,6 +3117,8 @@ export function createHeroServer(options = {}) {
         }
         projectSettings.purgeProject?.({ projectId: purge.projectId });
         projectCollaboration.purgeProject?.({ projectId: purge.projectId });
+        commandCenter.purgeProject?.({ projectId: purge.projectId });
+        systemCatalog.purgeProject?.({ projectId: purge.projectId });
         const revokedGrants = projectAccessRegistry?.revokeProjectGrants?.({ actor: authenticatedOwner, projectId: purge.projectId }) ?? [];
         for (const grant of revokedGrants) {
           if (postgresRuntime?.projectIdentity?.appendGrant) await postgresRuntime.projectIdentity.appendGrant({ projectId: grant.projectId, userId: grant.userId, role: grant.role, status: "revoked", grantedBy: authenticatedOwner.subject });
@@ -3396,13 +3407,35 @@ export function createHeroServer(options = {}) {
         return json(response, 201, { service: HERO_SERVICE, preauthorization });
       }
 
+      // System Catalog (WP-08): reads need a project grant, writes need owner/admin in that project.
       const projectCatalogMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/catalog$/);
-      if (projectCatalogMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, entities: systemCatalog.list({ projectId: projectCatalogMatch[1], type: url.searchParams.get("type") }) });
-      if (projectCatalogMatch && request.method === "POST") { const input = await readJson(request); return json(response, 201, { service: HERO_SERVICE, entity: systemCatalog.register({ actor: authenticatedOwner, projectId: projectCatalogMatch[1], ...input }) }); }
+      if (projectCatalogMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, entities: systemCatalog.list({ projectId: projectCatalogMatch[1], type: url.searchParams.get("type"), lifecycle: url.searchParams.get("lifecycle") }) });
+      if (projectCatalogMatch && request.method === "POST") { const input = await readJson(request); const entity = systemCatalog.register({ actor: projectActor(projectCatalogMatch[1]), projectId: projectCatalogMatch[1], entityId: input.entityId, type: input.type, name: input.name, lifecycle: input.lifecycle, metadata: input.metadata ?? {}, expectedVersion: input.expectedVersion ?? null }); await persistSystemCatalog(); return json(response, 201, { service: HERO_SERVICE, entity }); }
+      const projectCatalogGraphMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/catalog\/graph$/);
+      if (projectCatalogGraphMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, graph: systemCatalog.graph({ projectId: projectCatalogGraphMatch[1] }) });
       const projectCatalogSearchMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/catalog\/search$/);
       if (projectCatalogSearchMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, results: systemCatalog.search({ projectId: projectCatalogSearchMatch[1], query: url.searchParams.get("q") }) });
+      const projectCatalogDependencyMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/catalog\/dependencies(\/remove)?$/);
+      if (projectCatalogDependencyMatch && request.method === "POST") {
+        const input = await readJson(request); const projectId = projectCatalogDependencyMatch[1]; const actor = projectActor(projectId);
+        const dependency = projectCatalogDependencyMatch[2] ? systemCatalog.unlink({ actor, projectId, dependencyId: input.dependencyId, reason: input.reason }) : systemCatalog.link({ actor, projectId, fromEntityId: input.fromEntityId, toEntityId: input.toEntityId, relation: input.relation ?? "depends-on" });
+        await persistSystemCatalog(); return json(response, projectCatalogDependencyMatch[2] ? 200 : 201, { service: HERO_SERVICE, dependency });
+      }
       const projectCatalogDriftMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/catalog\/drift$/);
-      if (projectCatalogDriftMatch && request.method === "POST") { const input = await readJson(request); return json(response, 201, { service: HERO_SERVICE, proposal: systemCatalog.detectDrift({ actor: authenticatedOwner, projectId: projectCatalogDriftMatch[1], ...input }) }); }
+      if (projectCatalogDriftMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, proposals: systemCatalog.listDriftProposals({ projectId: projectCatalogDriftMatch[1], state: url.searchParams.get("state") }) });
+      if (projectCatalogDriftMatch && request.method === "POST") { const input = await readJson(request); const proposal = systemCatalog.detectDrift({ actor: projectActor(projectCatalogDriftMatch[1]), projectId: projectCatalogDriftMatch[1], entityId: input.entityId, observed: input.observed ?? {}, source: input.source ?? "local-manifest" }); await persistSystemCatalog(); return json(response, 201, { service: HERO_SERVICE, proposal }); }
+      const projectCatalogDriftResolveMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/catalog\/drift\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/resolve$/);
+      if (projectCatalogDriftResolveMatch && request.method === "POST") { const input = await readJson(request); const result = systemCatalog.resolveDrift({ actor: projectActor(projectCatalogDriftResolveMatch[1]), projectId: projectCatalogDriftResolveMatch[1], driftProposalId: projectCatalogDriftResolveMatch[2], resolution: input.resolution, reason: input.reason }); await persistSystemCatalog(); return json(response, 200, { service: HERO_SERVICE, ...result }); }
+      const projectCatalogDiscoveryMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/catalog\/discovery\/github-snapshot$/);
+      if (projectCatalogDiscoveryMatch && request.method === "POST") { const input = await readJson(request); const result = systemCatalog.ingestGithubSnapshot({ actor: projectActor(projectCatalogDiscoveryMatch[1]), projectId: projectCatalogDiscoveryMatch[1], repositoryEntityId: input.repositoryEntityId, snapshot: input.snapshot }); await persistSystemCatalog(); return json(response, 201, { service: HERO_SERVICE, ...result }); }
+      const projectCatalogEntityMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/catalog\/entities\/([A-Za-z][A-Za-z0-9._:-]{2,127})(?:\/(history|transition|dependencies|blast-radius))?$/);
+      if (projectCatalogEntityMatch) {
+        const [, projectId, entityId, action] = projectCatalogEntityMatch;
+        if (request.method === "GET" && action === "history") return json(response, 200, { service: HERO_SERVICE, history: systemCatalog.history({ projectId, entityId }) });
+        if (request.method === "GET" && action === "dependencies") return json(response, 200, { service: HERO_SERVICE, dependencies: systemCatalog.dependencies({ projectId, entityId }) });
+        if (request.method === "GET" && action === "blast-radius") return json(response, 200, { service: HERO_SERVICE, entities: systemCatalog.blastRadius({ projectId, entityId }) });
+        if (request.method === "POST" && action === "transition") { const input = await readJson(request); const entity = systemCatalog.transition({ actor: projectActor(projectId), projectId, entityId, to: input.to, expectedVersion: input.expectedVersion, reason: input.reason }); await persistSystemCatalog(); return json(response, 200, { service: HERO_SERVICE, entity }); }
+      }
 
       const projectUsageMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/usage$/);
       if (projectUsageMatch && request.method === "POST") { const input = await readJson(request); return json(response, 201, { service: HERO_SERVICE, usage: performanceIntelligence.recordUsage({ actor: authenticatedOwner, projectId: projectUsageMatch[1], ...input }) }); }
@@ -4241,6 +4274,13 @@ export function createHeroServer(options = {}) {
             commandCenter.hydrate(record);
           }
           commandCenter.drainRecords?.();
+        }
+        if (postgresRuntime.systemCatalog?.listRecords && systemCatalog.hydrate) {
+          for (const record of await postgresRuntime.systemCatalog.listRecords()) {
+            if (purgedProjectIds.has(record.projectId)) continue;
+            systemCatalog.hydrate(record);
+          }
+          systemCatalog.drainRecords?.();
         }
       }
       if (postgresRuntime?.pricingCatalogStore && typeof pricingCatalog.publish === "function") {
