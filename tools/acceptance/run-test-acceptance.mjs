@@ -1,4 +1,4 @@
-// Hero Test acceptance runner (WP-04..WP-08, BO-043..BO-092).
+// Hero Test acceptance runner (WP-04..WP-10, BO-043..BO-112).
 //
 // Runs INSIDE a container of the exact candidate image, against a disposable
 // Hero instance on an internal Docker network (see tools/run-test-acceptance.sh).
@@ -164,7 +164,90 @@ async function seed() {
   check("BO-092", "viewer cannot resolve drift", (await call(viewer, "POST", `${catalog}/drift/${discovery.body?.proposal?.driftProposalId}/resolve`, { resolution: "reject", reason: "no" })).status === 403);
   check("BO-092", "detection does not overwrite the desired state", (await call(viewer, "GET", `${catalog}?type=repository`)).body?.entities?.[0]?.metadata?.desired?.defaultBranch === "main");
 
-  fs.writeFileSync(STATE_FILE, JSON.stringify({ run, P1, P2, users, chatId, prodId, driftProposalId: discovery.body?.proposal?.driftProposalId, repoId: `${run}-repo`, conversationId: conversation?.conversationId }), { mode: 0o600 });
+
+  // WP-08 (BO-093..098): references, document graph, permission-aware search, impact, projection
+  const repoEntity = `${run}-repo`; const svcEntity = `${run}-svc`;
+  check("BO-093", "typed references attach to an entity", (await call(admin, "POST", `${catalog}/entities/${svcEntity}/references`, { references: { owner: "hero-owner", team: "developero", document: "hero://docs/acceptance", health: "healthy" } })).status === 200);
+  check("BO-093", "an unknown team reference is refused", (await call(admin, "POST", `${catalog}/entities/${svcEntity}/references`, { references: { team: "shadow-team" } })).status === 400);
+  check("BO-093", "entity view joins references and dependencies", ((await call(viewer, "GET", `${catalog}/entities/${svcEntity}/view`)).body?.view?.references?.team) === "developero");
+  const doc = (knowledgeId, kind, title, extra = {}) => call(admin, "POST", `${catalog}/knowledge`, { knowledgeId: `${run}-${knowledgeId}`, kind, title, sourceRef: `hero://docs/${knowledgeId}`, ...extra });
+  check("BO-094", "decision, research and restricted documents register", [await doc("dec-1", "decision", "Acceptance decision one"), await doc("dec-2", "decision", "Acceptance decision two"), await doc("pricing", "note", "Acceptance discount floor", { sensitivity: "restricted" })].every(r => r.status === 201));
+  check("BO-094", "supersession links documents", (await call(admin, "POST", `${catalog}/knowledge/links`, { fromKnowledgeId: `${run}-dec-2`, toKnowledgeId: `${run}-dec-1`, relation: "supersedes" })).status === 201);
+  check("BO-094", "a document cycle is refused", (await call(admin, "POST", `${catalog}/knowledge/links`, { fromKnowledgeId: `${run}-dec-1`, toKnowledgeId: `${run}-dec-2`, relation: "supersedes" })).status === 409);
+  const graph = (await call(viewer, "GET", `${catalog}/documents/graph`)).body?.graph;
+  check("BO-094", "a superseded decision is marked, not removed", graph?.nodes?.find(node => node.knowledgeId === `${run}-dec-1`)?.current === false);
+  check("BO-095", "search hides restricted text from a viewer", ((await call(viewer, "GET", `${catalog}/search?q=discount`)).body?.results ?? []).length === 0);
+  check("BO-095", "search shows it to an editor", ((await call(admin, "GET", `${catalog}/search?q=discount`)).body?.results ?? []).length === 1);
+  check("BO-095", "search never crosses projects", ((await call(admin, "GET", `/api/projects/${P2}/catalog/search?q=acceptance`)).status) === 403);
+  const impact = await call(admin, "POST", `${catalog}/impact`, { entityIds: [repoEntity] });
+  check("BO-096", "impact lists dependants with their path", impact.body?.impact?.affected?.some(item => item.entityId === svcEntity && item.path.length === 2), JSON.stringify(impact.body?.impact ?? impact.status));
+  const projection = (await call(viewer, "GET", `${catalog}/entities/${repoEntity}/projection`)).body?.projection;
+  check("BO-097", "Git is canonical in the projection", projection?.canonical === "git" && /^sha256:/.test(projection?.canonicalHash ?? ""));
+  const edit = await call(admin, "POST", `${catalog}/entities/${repoEntity}/projection-edits`, { baseVersion: projection?.canonicalVersion, baseHash: projection?.canonicalHash, editedFields: { name: "Renamed from Notion" } });
+  check("BO-097", "a Notion edit becomes a proposal and never overwrites", edit.body?.proposal?.state === "proposed" && (await call(viewer, "GET", `${catalog}?type=repository`)).body?.entities?.[0]?.name === "Acceptance repo", JSON.stringify(edit.body?.code ?? edit.status));
+  const stale = await call(admin, "POST", `${catalog}/entities/${repoEntity}/projection-edits`, { baseVersion: 0, baseHash: "sha256:" + "0".repeat(64), editedFields: { name: "Late edit" } });
+  check("BO-097", "an edit on a moved canonical version is a conflict", stale.body?.proposal?.state === "conflict");
+  check("BO-097", "only the owner decides a projection proposal", (await call(admin, "POST", `${catalog}/projection-proposals/${edit.body?.proposal?.projectionProposalId}/decide`, { decision: "accept", reason: "ok" })).status === 403);
+  check("BO-098", "viewer cannot write documents", (await call(viewer, "POST", `${catalog}/knowledge`, { knowledgeId: `${run}-v`, kind: "note", title: "nope", sourceRef: "hero://docs/v" })).status === 403);
+
+  // WP-09 (BO-099..110): usage, ledger, caps, evaluation, health
+  const root = `/api/projects/${P1}`;
+  check("BO-102", "admin sets a budget", (await call(admin, "POST", `${root}/budget`, { softThreshold: 200, hardCap: 500 })).status === 200);
+  check("BO-099", "viewer cannot record usage", (await call(viewer, "POST", `${root}/usage`, { usageId: `${run}-uv`, invocationId: `${run}-iv`, provider: "openai", model: "sol" })).status === 403);
+  const use = (n, extra) => call(admin, "POST", `${root}/usage`, { usageId: `${run}-u${n}`, invocationId: `${run}-i${n}`, provider: "synthetic", model: "sol", source: "synthetic", ...extra });
+  check("BO-100", "usage inherits scopes from its invocation snapshot", (await call(admin, "POST", `${root}/invocations`, { invocationId: `${run}-inv`, provider: "synthetic", model: "sol", teamId: "developero", roleId: "executor", runId: `${run}-run`, source: "synthetic" })).status === 201 && (await use(0, { invocationId: `${run}-inv`, inputTokens: 100, cachedTokens: 20, outputTokens: 30 })).body?.usage?.teamId === "developero");
+  check("BO-099", "usage is immutable", (await use(0, { invocationId: `${run}-inv` })).status === 409);
+  check("BO-099", "a live source is refused", (await call(admin, "POST", `${root}/invocations`, { invocationId: `${run}-live`, provider: "openai", model: "sol", source: "live" })).status === 400);
+  const ledger = (await call(viewer, "GET", `${root}/ledger?groupBy=team`)).body?.ledger;
+  check("BO-101", "ledger aggregates by team", ledger?.[0]?.scope === "developero" && ledger[0].totalTokens === 150);
+  check("BO-110", "every grouping adds up to the project total", (await call(viewer, "GET", `${root}/ledger/reconcile`)).body?.reconciliation?.complete === true);
+  check("BO-102", "a reservation within the cap is held", (await call(admin, "POST", `${root}/budget/reservations`, { reservationId: `${run}-r1`, estimatedTokens: 300 })).status === 200);
+  check("BO-110", "a second reservation cannot race past the cap", (await call(admin, "POST", `${root}/budget/reservations`, { reservationId: `${run}-r2`, estimatedTokens: 300 })).body?.code === "BUDGET_HARD_CAP");
+  await call(admin, "POST", `${root}/budget/release`, { reservationId: `${run}-r1` });
+  check("BO-102", "usage past the cap is recorded and pauses the project", (await use(1, { inputTokens: 400 })).body?.usage?.budgetDecision === "hard-cap-pause-required" && (await call(viewer, "GET", `${root}/budget`)).body?.budget?.paused === true);
+  check("BO-102", "a paused project refuses new reservations", (await call(admin, "POST", `${root}/budget/reservations`, { reservationId: `${run}-r3`, estimatedTokens: 1 })).body?.code === "BUDGET_PAUSED");
+  check("BO-102", "admin cannot raise the cap or resume", (await call(admin, "POST", `${root}/budget`, { softThreshold: 200, hardCap: 5000 })).status === 403 && (await call(admin, "POST", `${root}/budget/resume`, { reason: "try" })).status === 403);
+  const hardNotice = ((await call(viewer, "GET", `${root}/notifications?view=critical`)).body?.notifications ?? []).find(item => item.category === "budget");
+  check("BO-111", "the hard cap raised a critical, owner-assigned notification", hardNotice?.severity === "critical" && Boolean(hardNotice?.ownerId));
+  check("BO-103", "an evaluation dataset registers", (await call(admin, "POST", `${root}/evaluation-datasets`, { datasetId: `${run}-ds`, workType: "build", cases: [{ caseId: "case-1", expected: "a" }, { caseId: "case-2", expected: "b" }, { caseId: "case-3", expected: "c" }] })).status === 201);
+  const judge = { model: "sol", version: "2026-09" };
+  for (const n of [1, 2, 3]) { await call(admin, "POST", `${root}/evaluations`, { evaluationId: `${run}-h${n}`, subjectId: "developero", method: "human", goalFit: n === 3 ? 0.2 : 0.8, datasetId: `${run}-ds`, caseId: `case-${n}`, runId: `${run}-run`, evidenceRefs: ["hero://evidence/acceptance"] }); await call(admin, "POST", `${root}/evaluations`, { evaluationId: `${run}-a${n}`, subjectId: "developero", method: "ai", goalFit: n === 3 ? 0.95 : 0.82, datasetId: `${run}-ds`, caseId: `case-${n}`, judge }); }
+  check("BO-110", "AI-judge drift is detected against human scores", (await call(viewer, "GET", `${root}/evaluation-datasets/drift?datasetId=${run}-ds`)).body?.drift?.status === "drifted");
+  check("BO-103", "an AI evaluation must name its judge", (await call(admin, "POST", `${root}/evaluations`, { evaluationId: `${run}-nojudge`, subjectId: "developero", method: "ai", goalFit: 0.5 })).status === 400);
+  check("BO-104", "owner feedback is optional and stored", (await call(admin, "POST", `${root}/feedback`, { feedbackId: `${run}-fb`, subjectId: `${run}-rel`, subjectKind: "release", rating: 4 })).status === 201);
+  const score = (await call(viewer, "GET", `${root}/scorecard?subjectId=developero`)).body?.scorecard;
+  check("BO-105", "scorecard has goal fit, efficiency and error/rework", typeof score?.goalFit === "number" && score?.tokenEfficiency !== undefined && score?.errorRework !== undefined && score?.normalizedScore !== undefined);
+  check("BO-106", "sparse data is explicit", (await call(viewer, "GET", `${root}/scorecard?subjectId=nobody-yet`)).body?.scorecard?.status === "insufficient-data");
+  const health = (await call(viewer, "GET", `${root}/health`)).body?.health;
+  check("BO-107", "health carries a formula version, confidence and freshness", health?.formulaVersion === "1.1" && typeof health?.confidence === "number" && health?.freshnessMinutes !== undefined);
+  const replay = (await call(viewer, "GET", `${root}/health?asOf=${encodeURIComponent(new Date(Date.now() - 3600_000).toISOString())}`)).body?.health;
+  check("BO-107", "health can be replayed as of an earlier time", replay?.sampleSize === 0 && replay?.status !== "critical");
+  check("BO-108", "a critical override forces critical health", (await call(admin, "POST", `${root}/health/overrides`, { overrideId: `${run}-ov`, kind: "outage", reason: "Acceptance outage drill" })).status === 201 && (await call(viewer, "GET", `${root}/health`)).body?.health?.status === "critical");
+  check("BO-108", "only the owner clears an override", (await call(admin, "POST", `${root}/health/overrides`, { overrideId: `${run}-ov`, kind: "outage", reason: "clear it", active: false })).status === 403);
+  const cost = (await call(viewer, "GET", `${root}/drill-down?kind=cost&groupBy=team&scope=developero`)).body?.drillDown;
+  check("BO-109", "cost drill-down reaches usage events, invocations and runs", cost?.events?.[0]?.invocation?.provider === "synthetic" && cost.events[0].runId === `${run}-run`);
+  const healthDrill = (await call(viewer, "GET", `${root}/drill-down?kind=health&scope=developero`)).body?.drillDown;
+  check("BO-109", "health drill-down reaches evaluations and evidence", healthDrill?.evaluations?.some(item => item.evidenceRefs?.includes("hero://evidence/acceptance")));
+  check("BO-101", "another project's ledger is closed", (await call(admin, "GET", `/api/projects/${P2}/ledger`)).status === 403);
+
+  // WP-10 (BO-111..112): notifications
+  const note = extra => call(admin, "POST", `${root}/notifications`, { category: "health", severity: "warning", title: "Acceptance alert", deduplicationKey: "acc-alert", correlationId: `${run}-corr`, ...extra });
+  const n1 = await note({});
+  for (let n = 0; n < 4; n += 1) await note({});
+  const alerts = ((await call(viewer, "GET", `${root}/notifications`)).body?.notifications ?? []).filter(item => item.deduplicationKey === "acc-alert");
+  check("BO-112", "repeats fold into one notification", alerts.length === 1 && alerts[0].occurrences === 5, JSON.stringify(alerts.map(item => item.occurrences)));
+  check("BO-111", "a critical notification needs an owner", (await note({ severity: "critical", deduplicationKey: "acc-crit" })).status === 400);
+  check("BO-111", "an unknown category is refused", (await note({ category: "gossip", deduplicationKey: "acc-bad" })).status === 400);
+  check("BO-111", "deadlines are set from the SLA", Boolean(n1.body?.notification?.due?.acknowledgeBy) && Boolean(n1.body?.notification?.due?.resolveBy));
+  await note({ deduplicationKey: "acc-second", title: "Acceptance second alert" });
+  check("BO-112", "alerts with one correlation share an incident", ((await call(viewer, "GET", `${root}/incidents`)).body?.incidents ?? []).some(item => item.notificationIds.length >= 2));
+  const notificationId = alerts[0]?.notificationId;
+  check("BO-111", "viewer cannot act on a notification", (await call(viewer, "POST", `${root}/notifications/${notificationId}/act`, { action: "acknowledge" })).status === 403);
+  check("BO-111", "resolving needs a reason", (await call(admin, "POST", `${root}/notifications/${notificationId}/act`, { action: "resolve" })).status === 400);
+  check("BO-111", "admin acknowledges then resolves", (await call(admin, "POST", `${root}/notifications/${notificationId}/act`, { action: "acknowledge" })).body?.notification?.state === "acknowledged" && (await call(admin, "POST", `${root}/notifications/${notificationId}/act`, { action: "resolve", reason: "acceptance done" })).body?.notification?.state === "resolved");
+  check("BO-112", "a repeat after resolution reopens instead of adding a row", (await note({})).body?.notification?.reopened === true);
+
+  fs.writeFileSync(STATE_FILE, JSON.stringify({ run, P1, P2, users, chatId, prodId, driftProposalId: discovery.body?.proposal?.driftProposalId, repoId: `${run}-repo`, conversationId: conversation?.conversationId, svcId: `${run}-svc`, docId: `${run}-dec-1`, noteId: notificationId }), { mode: 0o600 });
 }
 
 async function verify() {
@@ -202,6 +285,24 @@ async function verify() {
   check("BO-092", "a human adopts the observed value as a new desired version", resolved.body?.entity?.metadata?.desired?.defaultBranch === "develop", `${resolved.status} ${resolved.body?.code ?? ""}`);
   check("BO-089", "entity history is kept", ((await call(viewer, "GET", `${catalog}/entities/${state.repoId}/history`)).body?.history?.length ?? 0) >= 2);
   check("BO-090", "dependency graph survives a restart", (await call(viewer, "GET", `${catalog}/graph`)).body?.graph?.edges?.length === 1);
+
+  // WP-08..WP-10 replay (BO-093..BO-112)
+  const rootV = `/api/projects/${P1}`;
+  const graphV = (await call(viewer, "GET", `${catalog}/documents/graph`)).body?.graph;
+  check("BO-098", "the document graph is rebuilt after a restart", graphV?.nodes?.find(node => node.knowledgeId === state.docId)?.current === false && graphV.edges.length === 1);
+  check("BO-093", "entity references survive a restart", (await call(viewer, "GET", `${catalog}/entities/${state.svcId}/view`)).body?.view?.references?.team === "developero");
+  check("BO-095", "restricted search stays closed after a restart", ((await call(viewer, "GET", `${catalog}/search?q=discount`)).body?.results ?? []).length === 0);
+  check("BO-097", "projection proposals survive a restart", ((await call(viewer, "GET", `${catalog}/projection-proposals`)).body?.proposals ?? []).length === 2);
+  check("BO-101", "the ledger survives a restart and still reconciles", (await call(viewer, "GET", `${rootV}/ledger/reconcile`)).body?.reconciliation?.complete === true && (await call(viewer, "GET", `${rootV}/ledger?groupBy=team`)).body?.ledger?.find(row => row.scope === "developero")?.totalTokens === 150);
+  const budgetV = (await call(viewer, "GET", `${rootV}/budget`)).body?.budget;
+  check("BO-102", "the pause and cap survive a restart", budgetV?.paused === true && budgetV?.budget?.hardCap === 500);
+  check("BO-102", "a paused project still refuses new reservations after a restart", (await call(admin, "POST", `${rootV}/budget/reservations`, { reservationId: `${state.run}-rv`, estimatedTokens: 1 })).body?.code === "BUDGET_PAUSED");
+  check("BO-108", "the critical override survives a restart", (await call(viewer, "GET", `${rootV}/health`)).body?.health?.status === "critical");
+  check("BO-103", "evaluations survive a restart", (await call(viewer, "GET", `${rootV}/evaluation-datasets/drift?datasetId=${state.run}-ds`)).body?.drift?.status === "drifted");
+  const alertsV = ((await call(viewer, "GET", `${rootV}/notifications`)).body?.notifications ?? []).filter(item => item.deduplicationKey === "acc-alert");
+  check("BO-112", "deduplication survives a restart", alertsV.length === 1 && alertsV[0].reopenCount === 1 && alertsV[0].occurrences === 6, JSON.stringify(alertsV.map(item => [item.occurrences, item.reopenCount])));
+  check("BO-112", "a repeat after a restart still folds", (await call(admin, "POST", `${rootV}/notifications`, { category: "health", severity: "warning", title: "Acceptance alert", deduplicationKey: "acc-alert", correlationId: `${state.run}-corr` })).body?.notification?.deduplicated === true);
+  check("BO-112", "incidents survive a restart", ((await call(viewer, "GET", `${rootV}/incidents`)).body?.incidents ?? []).length >= 1);
 }
 
 let fatal = null;
@@ -209,9 +310,9 @@ try { await (phase === "seed" ? seed() : verify()); } catch (error) { fatal = er
 const resultFile = path.join(STATE_DIR, `checks-${phase}.json`);
 fs.writeFileSync(resultFile, JSON.stringify(checks, null, 2));
 // The verdict covers BO-043..BO-092 (and the runner itself); other steps are reported as findings.
-const inScope = item => item.step === "runner" || (/^BO-\d{3}$/.test(item.step) && Number(item.step.slice(3)) >= 43 && Number(item.step.slice(3)) <= 92);
+const inScope = item => item.step === "runner" || (/^BO-\d{3}$/.test(item.step) && Number(item.step.slice(3)) >= 43 && Number(item.step.slice(3)) <= 112);
 const scoped = checks.filter(inScope); const failed = scoped.filter(item => !item.ok); const findings = checks.filter(item => !inScope(item) && !item.ok);
-console.log(`Hero acceptance ${phase}: ${scoped.length - failed.length}/${scoped.length} in-scope checks passed (BO-043..BO-092); ${checks.length - scoped.length} supporting checks`);
+console.log(`Hero acceptance ${phase}: ${scoped.length - failed.length}/${scoped.length} in-scope checks passed (BO-043..BO-112); ${checks.length - scoped.length} supporting checks`);
 for (const item of failed) console.log(`  FAIL ${item.step} — ${item.name}${item.detail ? ` (${item.detail})` : ""}`);
 for (const item of findings) console.log(`  FINDING ${item.step} — ${item.name}${item.detail ? ` (${item.detail})` : ""}`);
 process.exit(failed.length || fatal ? 1 : 0);

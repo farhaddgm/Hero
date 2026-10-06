@@ -1,5 +1,13 @@
 # تغییرات رودمپ شرکت
 
+# ۲۰۲۶-۱۰-۰۶ — Catalog، مصرف و سلامت، اعلان‌ها (BO-093..BO-112)
+
+- افزوده‌شده: ارجاع‌های تایپ‌دار Catalog، گراف سند و تصمیم با supersession، جست‌وجوی permission-aware، تحلیل اثر روی کارت فرمان، Projection نوتیشن با Proposal/conflict (Git canonical).
+- افزوده‌شده: Invocation snapshot، Ledger و reconcile، سقف نرم/سخت با رزرو و pause امن، Dataset و ارزیابی با drift داوری AI، Scorecard نرمال‌شده، Health `1.1` تکرارپذیر، override بحرانی و drill-down تا Evidence.
+- افزوده‌شده: اعلان با taxonomy، SLA و چرخهٔ عمر، deduplication، گروه‌بندی Incident و اعلان خودکار سقف مصرف؛ migration `023`.
+- اصلاح‌شده: ترتیب گراف کاتالوگ مستقل از replay شد؛ store دیگر کلید redactشده را رد نمی‌کند.
+- شواهد: `pnpm check` `557/557` PASS، آزمون پذیرش محلی `130/130` و PostgreSQL واقعی؛ وضعیت ممیزی `partial` تا Candidate `rc.38`؛ هیچ Production، Secret، Provider زنده، هزینه، فراخوانی زندهٔ GitHub یا نوشتن Notion.
+
 # ۲۰۲۶-۱۰-۰۶ — آزمون پذیرش نقش‌محور: BO-043..BO-092 verified
 
 - افزوده‌شده: `tools/run-test-acceptance.sh` و runner آن برای آزمون پذیرش سه‌نقشی روی همان image Candidate، در نمونهٔ یک‌بارمصرف و ایزوله با crash و replay.

@@ -2,7 +2,8 @@ const KEY = /^[A-Za-z][A-Za-z0-9._:-]{2,320}$/;
 const SENSITIVE = /(?:api[_-]?key|access[_-]?token|refresh[_-]?token|secret|password|credential|private[_-]?key)/i;
 export const DOMAIN_RECORD_DOMAINS = Object.freeze(["performance", "notifications"]);
 function copy(value) { return Object.freeze(structuredClone(value)); }
-function safe(value, path = "payload") { if (Array.isArray(value)) return value.forEach((item, index) => safe(item, `${path}[${index}]`)); if (!value || typeof value !== "object") return; for (const [key, child] of Object.entries(value)) { if (SENSITIVE.test(key)) throw new DomainRecordStoreError("SENSITIVE_PERSISTENCE_FORBIDDEN", `${path}.${key} is forbidden.`); safe(child, `${path}.${key}`); } }
+// A credential-shaped key is allowed only when its value was already redacted by the domain.
+function safe(value, path = "payload") { if (Array.isArray(value)) return value.forEach((item, index) => safe(item, `${path}[${index}]`)); if (!value || typeof value !== "object") return; for (const [key, child] of Object.entries(value)) { if (SENSITIVE.test(key) && child !== "[redacted]") throw new DomainRecordStoreError("SENSITIVE_PERSISTENCE_FORBIDDEN", `${path}.${key} is forbidden.`); safe(child, `${path}.${key}`); } }
 function targetOf({ client, pool }) { if (client?.query) return client; if (pool?.query) return pool; throw new Error("Domain record store requires an injected PostgreSQL client or pool."); }
 
 export class DomainRecordStoreError extends Error {

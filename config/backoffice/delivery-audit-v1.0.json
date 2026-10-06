@@ -129,8 +129,8 @@
       "count": 6,
       "work_package": "WP-08",
       "status": "partial",
-      "evidence": ["packages/domain/src/system-catalog.mjs", "tests/backoffice-catalog-performance-notification.test.mjs", "tests/system-catalog-wp08.test.mjs"],
-      "open_gate": "Not yet in an authorization batch: catalog links to owner/team/document/run/artifact/health (partial references exist), document/decision/roadmap graph, permission-aware catalog search UI, dependency graph and blast-radius UI, Git-canonical/Notion-projection enforcement and the BO-098 rebuild/cycle/drift/conflict test suite."
+      "evidence": ["apps/control-plane/src/server.mjs", "config/authorizations/backoffice-20261006-024.json", "packages/adapters/src/postgresql-system-catalog-store.mjs", "packages/contracts/src/system-catalog.mjs", "packages/domain/src/command-center.mjs", "packages/domain/src/system-catalog.mjs", "tests/backoffice-catalog-performance-notification.test.mjs", "tests/system-catalog-wp08.test.mjs", "tests/wp08-integration-bo093.test.mjs", "tools/acceptance/run-test-acceptance.mjs"],
+      "open_gate": "Source completed 2026-10-06 under BATCH-BACKOFFICE-20261006-024; the local acceptance rehearsal passes (130/130 in-scope checks including a SIGKILL restart). Stays partial until a promoted candidate (rc.38) passes tools/run-test-acceptance.sh on the Test host. Delivered: typed owner/team/document/run/artifact/health references with live health, document/decision/research/evidence/roadmap graph with supersession and cycle refusal, permission-aware search with restricted-document redaction, impact analysis shown on command cards, Git-canonical/Notion-projection proposals with conflict handling, deterministic rebuild. Remaining: catalog graph and search UI pages."
     },
     {
       "from": "BO-099",
@@ -138,17 +138,26 @@
       "count": 12,
       "work_package": "WP-09",
       "status": "partial",
-      "evidence": ["packages/domain/src/performance-intelligence.mjs", "packages/domain/src/organization-performance.mjs", "tests/backoffice-catalog-performance-notification.test.mjs"],
-      "open_gate": "Complete production-shaped usage ingestion, editable layered caps, human feedback UI, normalized scorecards and Evidence-to-Run drill-down."
+      "evidence": ["apps/control-plane/src/server.mjs", "config/authorizations/backoffice-20261006-024.json", "packages/adapters/migrations/023_backoffice_domain_records.sql", "packages/adapters/src/postgresql-domain-record-store.mjs", "packages/contracts/src/performance-intelligence.mjs", "packages/domain/src/organization-performance.mjs", "packages/domain/src/performance-intelligence.mjs", "tests/backoffice-catalog-performance-notification.test.mjs", "tests/wp09-usage-health-bo099.test.mjs", "tools/acceptance/run-test-acceptance.mjs"],
+      "open_gate": "Source completed 2026-10-06 under BATCH-BACKOFFICE-20261006-024; the local acceptance rehearsal passes (130/130 in-scope checks including a SIGKILL restart). Stays partial until a promoted candidate (rc.38) passes tools/run-test-acceptance.sh on the Test host. Delivered: one usage event, immutable invocation snapshots with scope inheritance, ledger by eight scopes with reconciliation, versioned caps with soft warning, hard-cap safe pause, race-proof reservations and owner-only raise/resume, evaluation datasets, AI-judge drift detection, optional feedback, scorecards normalised by work type and risk, replayable health with confidence/freshness and critical overrides, cost/health drill-down to evidence and runs, append-only persistence (migration 023). Remaining: cost/health UI pages and recorded (not live) provider ingestion."
     },
     {
       "from": "BO-111",
+      "to": "BO-112",
+      "count": 2,
+      "work_package": "WP-10",
+      "status": "partial",
+      "evidence": ["apps/control-plane/src/server.mjs", "config/authorizations/backoffice-20261006-024.json", "packages/adapters/migrations/023_backoffice_domain_records.sql", "packages/adapters/src/postgresql-domain-record-store.mjs", "packages/contracts/src/notification-observability.mjs", "packages/domain/src/notification-observability.mjs", "tests/backoffice-catalog-performance-notification.test.mjs", "tests/wp10-notifications-bo111.test.mjs", "tools/acceptance/run-test-acceptance.mjs"],
+      "open_gate": "Source completed 2026-10-06 under BATCH-BACKOFFICE-20261006-024; the local acceptance rehearsal passes (130/130 in-scope checks including a SIGKILL restart). Stays partial until a promoted candidate (rc.38) passes tools/run-test-acceptance.sh on the Test host. Delivered: taxonomy, severity, SLA deadlines, ownership, lifecycle with snooze limits and routed decision actions, deduplication that escalates severity and reopens after resolution, incident grouping with storm detection, append-only persistence. Remaining: none for BO-111..BO-112 beyond Test-runtime evidence."
+    },
+    {
+      "from": "BO-113",
       "to": "BO-120",
-      "count": 10,
+      "count": 8,
       "work_package": "WP-10",
       "status": "partial",
       "evidence": ["packages/domain/src/notification-observability.mjs", "tests/backoffice-catalog-performance-notification.test.mjs"],
-      "open_gate": "Complete actionable Inbox/Audit UI, end-to-end trace propagation, export/retention enforcement and alert-storm runtime tests."
+      "open_gate": "Not yet in an authorization batch: actionable Inbox UI, decision/approval/chat/run-fix surface routing, trace end to end, observability storage and alert-storm, retention and security runtime evidence."
     },
     {
       "from": "BO-121",

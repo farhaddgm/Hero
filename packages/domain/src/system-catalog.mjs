@@ -131,7 +131,7 @@ export function createSystemCatalog({ now = () => new Date().toISOString(), team
     },
     list({ projectId, type = null, lifecycle = null }) { id("projectId", projectId); return Object.freeze([...entities.values()].filter(item => item.projectId === projectId && (!type || item.type === type) && (!lifecycle || item.lifecycle === lifecycle)).sort((a, b) => a.entityId.localeCompare(b.entityId)).map(copy)); },
     dependencies({ projectId, entityId }) { get(entityId, projectId); return Object.freeze(activeLinks(projectId).filter(item => item.fromEntityId === entityId || item.toEntityId === entityId).map(copy)); },
-    graph({ projectId }) { id("projectId", projectId); return copy({ nodes: [...entities.values()].filter(item => item.projectId === projectId).map(item => ({ entityId: item.entityId, type: item.type, name: item.name, lifecycle: item.lifecycle })).sort((a, b) => a.entityId.localeCompare(b.entityId)), edges: activeLinks(projectId).map(link => ({ dependencyId: link.dependencyId, from: link.fromEntityId, to: link.toEntityId, relation: link.relation })) }); },
+    graph({ projectId }) { id("projectId", projectId); return copy({ nodes: [...entities.values()].filter(item => item.projectId === projectId).map(item => ({ entityId: item.entityId, type: item.type, name: item.name, lifecycle: item.lifecycle })).sort((a, b) => a.entityId.localeCompare(b.entityId)), edges: activeLinks(projectId).map(link => ({ dependencyId: link.dependencyId, from: link.fromEntityId, to: link.toEntityId, relation: link.relation })).sort((a, b) => a.dependencyId.localeCompare(b.dependencyId)) }); },
     recordRepositoryInventory({ actor, projectId, repositoryEntityId, observed = {}, source = "local-manifest" }) {
       editor(actor); const repository = get(repositoryEntityId, projectId);
       if (repository.type !== "repository") throw new SystemCatalogError("REPOSITORY_REQUIRED", "Inventory can only bind to a repository entity.", 400);
@@ -239,7 +239,7 @@ export function createSystemCatalog({ now = () => new Date().toISOString(), team
       reader(actor); id("projectId", projectId);
       const links = [...knowledgeLinks.values()].filter(link => link.projectId === projectId);
       const superseded = new Set(links.filter(link => link.relation === "supersedes").map(link => link.to));
-      return copy({ nodes: [...knowledge.values()].filter(item => item.projectId === projectId).map(item => redactKnowledge({ ...item, current: !superseded.has(item.knowledgeId) }, actor)).sort((a, b) => a.knowledgeId.localeCompare(b.knowledgeId)), edges: links.map(link => ({ from: link.from, to: link.to, relation: link.relation })) });
+      return copy({ nodes: [...knowledge.values()].filter(item => item.projectId === projectId).map(item => redactKnowledge({ ...item, current: !superseded.has(item.knowledgeId) }, actor)).sort((a, b) => a.knowledgeId.localeCompare(b.knowledgeId)), edges: links.map(link => ({ from: link.from, to: link.to, relation: link.relation })).sort((a, b) => `${a.from}:${a.to}:${a.relation}`.localeCompare(`${b.from}:${b.to}:${b.relation}`)) });
     },
     /** BO-095: permission-aware search inside one project; viewers never see restricted knowledge text. */
     search({ actor = null, projectId, query, types = null, limit = 50 }) {
