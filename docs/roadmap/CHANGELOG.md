@@ -1,5 +1,11 @@
 # تغییرات رودمپ شرکت
 
+# ۲۰۲۶-۱۰-۰۶ — آزمون پذیرش نقش‌محور: BO-043..BO-092 verified
+
+- افزوده‌شده: `tools/run-test-acceptance.sh` و runner آن برای آزمون پذیرش سه‌نقشی روی همان image Candidate، در نمونهٔ یک‌بارمصرف و ایزوله با crash و replay.
+- Runtime Test: اجرای مالک روی host Test با `v1.1.5-rc.37` `PASS` شد (seed `52/52`، verify `15/15`)؛ `BO-043..BO-092` اکنون `verified` است (`70/170`).
+- یافته: کاربر MFA‌دار غیرمالک پس از restart نمی‌تواند وارد شود (WP-02، `BO-IAM-001`)؛ رفع آن مجوز جداگانه می‌خواهد.
+
 # ۲۰۲۶-۱۰-۰۶ — Runtime Test روی rc.37
 
 - Runtime Test: `v1.1.5-rc.37` با digest `sha256:ab5ddffc…` توسط مالک promote شد؛ GHCR preflight `PASS`، promotion `SUCCESS`، smoke `PASS`، persistence `postgresql`؛ rollback به `sha256:99ed556a…` در دسترس است.
