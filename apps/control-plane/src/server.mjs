@@ -544,7 +544,7 @@ export function createHeroServer(options = {}) {
   // Collaboration resolves conversation models through the WP-04 settings layers and
   // checks entity contexts against the project catalog (resolved lazily at request time).
   const projectCollaboration = options.projectCollaboration ?? createProjectCollaboration({ now: options.now, settings: projectSettings, entityExists: (projectId, entityId) => systemCatalog.list({ projectId }).some(entity => entity.entityId === entityId) });
-  const commandCenter = options.commandCenter ?? createCommandCenter({ now: options.now });
+  const commandCenter = options.commandCenter ?? createCommandCenter({ now: options.now, settings: projectSettings, globalStop: () => Boolean(dashboard.snapshot().globalStop) });
   const systemCatalog = options.systemCatalog ?? createSystemCatalog({ now: options.now });
   const performanceIntelligence = options.performanceIntelligence ?? createPerformanceIntelligence({ now: options.now });
   const notificationObservability = options.notificationObservability ?? createNotificationObservability({ now: options.now });
@@ -655,6 +655,12 @@ export function createHeroServer(options = {}) {
     const records = projectCollaboration.drainRecords?.() ?? [];
     if (!postgresRuntime?.collaboration) return;
     for (const record of records) await postgresRuntime.collaboration.appendRecord({ recordId: record.recordId, projectId: record.projectId, recordType: record.recordType, recordVersion: record.recordVersion, metadata: record.metadata, actorId: record.actorId });
+  }
+
+  async function persistCommandCenter() {
+    const records = commandCenter.drainRecords?.() ?? [];
+    if (!postgresRuntime?.commandCenter) return;
+    for (const record of records) await postgresRuntime.commandCenter.appendRecord(record);
   }
 
   async function persistWorkspaceSettings(projectId) {
@@ -2082,6 +2088,10 @@ export function createHeroServer(options = {}) {
         return;
       }
       if ((["/api/portfolio", "/api/portfolio/search"].includes(url.pathname) || url.pathname.startsWith("/api/portfolio/kpis/")) && request.method === "GET") return;
+      if (url.pathname === "/api/operations/heavy-run-limit" && request.method === "POST") {
+        if (principal.role !== "project-owner") throw new ProjectAccessError("OWNER_REQUIRED", "Only the owner sets the global heavy-run limit.", 403);
+        return;
+      }
       const projectMatch = url.pathname.match(/^\/api\/projects\/([A-Za-z][A-Za-z0-9._:-]{2,127})(?:\/|$)/);
       const projectId = projectMatch?.[1] ?? url.searchParams.get("projectId");
       if (!projectId) throw new ProjectAccessError("PROJECT_SCOPE_REQUIRED", "A projectId is required for human-identity API access.", 403);
@@ -3289,22 +3299,74 @@ export function createHeroServer(options = {}) {
       const projectKnowledgeDecisionMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/knowledge-proposals\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/(accept|reject)$/);
       if (projectKnowledgeDecisionMatch && request.method === "POST") { const input = await readJson(request); const decision = projectKnowledgeDecisionMatch[3] === "accept" ? projectCollaboration.acceptKnowledge({ actor: projectActor(projectKnowledgeDecisionMatch[1]), projectId: projectKnowledgeDecisionMatch[1], knowledgeProposalId: projectKnowledgeDecisionMatch[2] }) : projectCollaboration.rejectKnowledge({ actor: projectActor(projectKnowledgeDecisionMatch[1]), projectId: projectKnowledgeDecisionMatch[1], knowledgeProposalId: projectKnowledgeDecisionMatch[2], reason: input.reason }); await persistCollaboration(); const { sourceProjectId, sourceMemoryId, ...visible } = decision; return json(response, 200, { service: HERO_SERVICE, proposal: visible }); }
 
+      // Command Center (WP-07). Every command-id route checks the id belongs to the
+      // URL project and runs with the caller's role in *that* project.
       const projectCommandsMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/commands$/);
-      if (projectCommandsMatch && request.method === "POST") { const input = await readJson(request); return json(response, 201, { service: HERO_SERVICE, command: commandCenter.createIntent({ actor: authenticatedOwner, projectId: projectCommandsMatch[1], ...input }) }); }
-      const projectCommandAuthorizeMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/commands\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/authorize$/);
-      if (projectCommandAuthorizeMatch && request.method === "POST") { const input = await readJson(request); return json(response, 200, { service: HERO_SERVICE, command: commandCenter.authorize({ actor: authenticatedOwner, commandId: projectCommandAuthorizeMatch[2], authorizationSnapshotId: input.authorizationSnapshotId }) }); }
-      const projectCommandApproveMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/commands\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/approve$/);
-      if (projectCommandApproveMatch && request.method === "POST") { const input = await readJson(request); return json(response, 200, { service: HERO_SERVICE, command: commandCenter.approve({ actor: authenticatedOwner, commandId: projectCommandApproveMatch[2], templateId: input.templateId, reason: input.reason }) }); }
-      const projectCommandQueueMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/commands\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/queue$/);
-      if (projectCommandQueueMatch && request.method === "POST") { const input = await readJson(request); return json(response, 202, { service: HERO_SERVICE, queue: commandCenter.queue({ actor: authenticatedOwner, commandId: projectCommandQueueMatch[2], heavy: input.heavy, resourceClaim: input.resourceClaim, priority: input.priority }) }); }
+      if (projectCommandsMatch && request.method === "POST") {
+        const input = await readJson(request); const projectId = projectCommandsMatch[1]; const actor = projectActor(projectId);
+        const { conversationId, messageId, sourceRef, summary, ...fields } = input;
+        let command;
+        if (conversationId !== undefined || messageId !== undefined) {
+          const conversation = projectCollaboration.readConversation({ actor, projectId, conversationId, });
+          const message = conversation.messages.find(item => item.messageId === messageId);
+          if (!message) throw new CommandCenterError("MESSAGE_NOT_FOUND", "The cited message is not in this project's conversation.", 404);
+          command = commandCenter.createIntentFromMessage({ actor, projectId, conversationId, message, ...fields });
+        } else command = commandCenter.createIntent({ actor, projectId, ...fields, sourceRef: sourceRef ?? null, summary: summary ?? null });
+        await persistCommandCenter();
+        return json(response, 201, { service: HERO_SERVICE, command, card: commandCenter.commandCard({ actor, commandId: command.commandId }) });
+      }
+      const projectCommandActionMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/commands\/([A-Za-z][A-Za-z0-9._:-]{2,127})(?:\/(authorize|approve|revoke-approval|queue|priority|checkpoint|resume|complete|fail|recover))?$/);
+      if (projectCommandActionMatch) {
+        const [, projectId, commandId, action] = projectCommandActionMatch; const actor = projectActor(projectId);
+        commandCenter.assertInProject({ commandId, projectId });
+        if (!action && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, card: commandCenter.commandCard({ actor, commandId }) });
+        if (action && request.method === "POST") {
+          const input = await readJson(request);
+          const handlers = {
+            authorize: () => commandCenter.authorize({ actor, commandId, authorizationSnapshotId: input.authorizationSnapshotId }),
+            approve: () => commandCenter.approve({ actor, commandId, templateId: input.templateId ?? null, reason: input.reason }),
+            "revoke-approval": () => commandCenter.revokeApproval({ actor, commandId, reason: input.reason }),
+            queue: () => commandCenter.queue({ actor, commandId, heavy: input.heavy, resourceClaim: input.resourceClaim ?? null, priority: input.priority ?? 0 }),
+            priority: () => commandCenter.setPriority({ actor, commandId, priority: input.priority }),
+            checkpoint: () => commandCenter.checkpoint({ actor, commandId, checkpoint: input.checkpoint ?? {}, reason: input.reason }),
+            resume: () => commandCenter.resume({ actor, commandId }),
+            complete: () => commandCenter.complete({ actor, commandId }),
+            fail: () => commandCenter.fail({ actor, commandId, error: input.error }),
+            recover: () => commandCenter.recover({ actor, commandId, action: input.action, reason: input.reason })
+          };
+          const result = handlers[action]();
+          await persistCommandCenter();
+          return json(response, action === "queue" ? 202 : 200, { service: HERO_SERVICE, result, card: commandCenter.commandCard({ actor, commandId }) });
+        }
+      }
       const projectOperationsMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/operations$/);
-      if (projectOperationsMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, operations: commandCenter.operations({ actor: authenticatedOwner, projectId: projectOperationsMatch[1] }) });
-      const projectDispatchMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/operations\/dispatch-next$/);
-      if (projectDispatchMatch && request.method === "POST") return json(response, 202, { service: HERO_SERVICE, dispatch: commandCenter.dispatchNext({ actor: authenticatedOwner }) });
-      const projectApprovalTemplateMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/approval-templates$/);
-      if (projectApprovalTemplateMatch && request.method === "POST") { const input = await readJson(request); return json(response, 201, { service: HERO_SERVICE, template: commandCenter.createApprovalTemplate({ actor: authenticatedOwner, projectId: projectApprovalTemplateMatch[1], ...input }) }); }
-      const projectProductionPreauthMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/production-preauthorizations$/);
-      if (projectProductionPreauthMatch && request.method === "POST") { const input = await readJson(request); return json(response, 201, { service: HERO_SERVICE, preauthorization: commandCenter.preauthorizeProduction({ actor: authenticatedOwner, projectId: projectProductionPreauthMatch[1], ...input }) }); }
+      if (projectOperationsMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, operations: commandCenter.operations({ actor: projectActor(projectOperationsMatch[1]), projectId: projectOperationsMatch[1] }) });
+      const projectOperationsActionMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/operations\/(dispatch-next|sweep-timeouts)$/);
+      if (projectOperationsActionMatch && request.method === "POST") {
+        const [, projectId, action] = projectOperationsActionMatch; const actor = projectActor(projectId);
+        const result = action === "dispatch-next" ? commandCenter.dispatchNext({ actor, projectId }) : commandCenter.sweepTimeouts({ actor });
+        await persistCommandCenter();
+        return json(response, 202, { service: HERO_SERVICE, [action === "dispatch-next" ? "dispatch" : "timedOut"]: action === "dispatch-next" ? result : result.filter(item => item.projectId === projectId) });
+      }
+      if (request.method === "POST" && url.pathname === "/api/operations/heavy-run-limit") { const input = await readJson(request); const scheduler = commandCenter.setHeavyRunLimit({ actor: authenticatedOwner, limit: input.limit }); await persistCommandCenter(); return json(response, 200, { service: HERO_SERVICE, scheduler }); }
+      const projectApprovalTemplateMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/approval-templates(\/suggest)?$/);
+      if (projectApprovalTemplateMatch && request.method === "POST") {
+        const input = await readJson(request); const projectId = projectApprovalTemplateMatch[1]; const actor = projectActor(projectId);
+        if (projectApprovalTemplateMatch[2]) return json(response, 200, { service: HERO_SERVICE, suggestion: commandCenter.suggestApprovalTemplate({ actor, projectId, risk: input.risk }) });
+        const template = commandCenter.createApprovalTemplate({ actor, projectId, ...input }); await persistCommandCenter();
+        return json(response, 201, { service: HERO_SERVICE, template });
+      }
+      const projectProductionPreauthMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/production-preauthorizations(?:\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/revoke)?$/);
+      if (projectProductionPreauthMatch && request.method === "POST") {
+        const input = await readJson(request); const projectId = projectProductionPreauthMatch[1]; const actor = projectActor(projectId);
+        if (projectProductionPreauthMatch[2]) {
+          if (!commandCenter.operations({ actor, projectId }).preauthorizations.some(item => item.preauthorizationId === projectProductionPreauthMatch[2])) throw new CommandCenterError("PREAUTHORIZATION_NOT_ACTIVE", "Preauthorization is not active.", 404);
+          const preauthorization = commandCenter.revokePreauthorization({ actor, preauthorizationId: projectProductionPreauthMatch[2], reason: input.reason }); await persistCommandCenter();
+          return json(response, 200, { service: HERO_SERVICE, preauthorization });
+        }
+        const preauthorization = commandCenter.preauthorizeProduction({ actor, projectId, ...input }); await persistCommandCenter();
+        return json(response, 201, { service: HERO_SERVICE, preauthorization });
+      }
 
       const projectCatalogMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/catalog$/);
       if (projectCatalogMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, entities: systemCatalog.list({ projectId: projectCatalogMatch[1], type: url.searchParams.get("type") }) });
@@ -4144,6 +4206,13 @@ export function createHeroServer(options = {}) {
             projectCollaboration.hydrate(record);
           }
           projectCollaboration.drainRecords?.();
+        }
+        if (postgresRuntime.commandCenter?.listRecords && commandCenter.hydrate) {
+          for (const record of await postgresRuntime.commandCenter.listRecords()) {
+            if (purgedProjectIds.has(record.projectId)) continue;
+            commandCenter.hydrate(record);
+          }
+          commandCenter.drainRecords?.();
         }
       }
       if (postgresRuntime?.pricingCatalogStore && typeof pricingCatalog.publish === "function") {
