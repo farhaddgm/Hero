@@ -1,5 +1,10 @@
 # تغییرات رودمپ شرکت
 
+# ۲۰۲۶-۱۰-۰۶ — Runtime Test روی rc.37
+
+- Runtime Test: `v1.1.5-rc.37` با digest `sha256:ab5ddffc…` توسط مالک promote شد؛ GHCR preflight `PASS`، promotion `SUCCESS`، smoke `PASS`، persistence `postgresql`؛ rollback به `sha256:99ed556a…` در دسترس است.
+- وضعیت ممیزی BO-043..BO-092 همچنان `partial` تا آزمون پذیرش نقش‌محور روی Runtime Test؛ هیچ Production، Secret، Provider زنده، هزینه یا نوشتن Notion.
+
 # ۲۰۲۶-۱۰-۰۶ — Command Center، System Catalog و تکمیل WP-06 (BO-073..BO-092) و Runtime Test روی rc.36
 
 - افزوده‌شده: Command Center v1.1 با taxonomy عمل و کف ریسک، intent از پیام گفتگو با citation، کارت فرمان، تصمیم نسخه‌دار وابسته به snapshot سیاست، لغو/انقضای تأیید، زمان‌بندی منصفانه، retry/timeout/جبران/بازیابی دستی، replay پس از crash و تابلوی قابل اقدام در Project Operations.
