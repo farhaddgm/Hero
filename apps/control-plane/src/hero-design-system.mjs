@@ -174,6 +174,10 @@ export function getHeroDesignSystemStyles() {
     :root[data-hero-theme="dark"] #hero-main :is(.notice, .banner, .selection-notice, .decision-card, .context.panel) { background: var(--hero-brand-soft) !important; }
     :root[data-hero-theme="dark"] #hero-main :is(.project-facts > div, .runtime-status, .login-steps li, .capability-card, .view-toolbar, .admin-bar, .nav-icon, .capability-icon, .nav-item) { background: var(--hero-surface-raised); border-color: var(--hero-line); color: var(--hero-ink); }
     :root[data-hero-theme="dark"] :is(.create-dialog, .dialog-head, .dialog-body, pre) { background: var(--hero-surface); color: var(--hero-ink); border-color: var(--hero-line); }
+    #hero-main :is(.role-badge, .citation) { background: var(--hero-brand-soft); color: var(--hero-brand); border-color: var(--hero-line); }
+    #hero-main .pager { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px; padding: 20px; color: var(--hero-muted); font-size: 12px; }
+    #hero-main .graph rect { fill: var(--hero-surface-raised); stroke: var(--hero-line-strong); }
+    #hero-main .graph text { fill: var(--hero-ink); } #hero-main .graph line { stroke: var(--hero-line-strong); }
     @media (max-width: 1200px) {
       :root { --hero-sidebar-width: 208px; }.hero-appbar-inner { padding-inline: 20px; }.hero-app-actions { display: flex; }.hero-project-context { max-width: 165px; }
       .hero-side-nav ~ #hero-main { margin-inline-start: calc(var(--hero-sidebar-width) + 24px) !important; margin-inline-end: 24px !important; }

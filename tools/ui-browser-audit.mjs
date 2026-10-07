@@ -119,13 +119,13 @@ try {
       report.cases.push(`create-project-dialog:${width}:${theme}`);
     }
   }
-  const surfaces = ["portfolio", "identity", "studio", "workspace", "control", "command", "ai", "walkthrough", "lab", "management-overview", "management-teams", "management-project", "management-operations", "management-guide"];
+  const surfaces = ["portfolio", "identity", "studio", "workspace", "control", "command", "catalog", "inbox", "insights", "collaboration", "ai", "walkthrough", "lab", "management-overview", "management-teams", "management-project", "management-operations", "management-guide"];
   for (const width of [1440, 768, 390, 320]) {
     await page.setViewportSize({ width, height: 1000 });
     for (const theme of ["light", "dark"]) {
       await page.evaluate(theme => localStorage.setItem("hero.ui.theme", theme), theme);
       for (const surface of surfaces) {
-        const url = surface === "lab" ? base + "/" : surface.startsWith("management-") ? base + "/api/portal?surface=ai#" + surface.slice("management-".length) : base + "/api/portal?surface=" + surface + (["studio", "workspace", "control", "command", "walkthrough"].includes(surface) ? "&projectId=hero-workshop" : "");
+        const url = surface === "lab" ? base + "/" : surface.startsWith("management-") ? base + "/api/portal?surface=ai#" + surface.slice("management-".length) : base + "/api/portal?surface=" + surface + (["studio", "workspace", "control", "command", "walkthrough", "catalog", "inbox", "insights", "collaboration"].includes(surface) ? "&projectId=hero-workshop" : "");
         await page.goto(url);
         await page.locator("#hero-main").waitFor();
         if (surface === "workspace") await page.locator("#content:not([hidden])").waitFor();

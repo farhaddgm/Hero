@@ -49,7 +49,7 @@ export function getProjectInboxHtml({ project, viewerRole, canAct, views, counts
       <div class="tabs" role="tablist" aria-label="نمای صندوق">${tabs}</div>
       ${panels}
       <section class="section" id="timeline"><h2>خط زمانی</h2><ul class="timeline">${timelineRows}</ul></section>
-      <section class="section" id="slo"><h2>هدف‌های سرویس (SLO)</h2><div style="overflow:auto"><table><thead><tr><th>بخش</th><th>هدف</th><th>تأخیر اندازه‌گیری‌شده</th><th>وضعیت</th></tr></thead><tbody>${sloRows}</tbody></table></div><p class="muted">بخشی که اندازه‌گیری تازه ندارد سالم فرض نمی‌شود.</p></section>
+      <section class="section" id="slo"><h2>هدف‌های سرویس (SLO)</h2><div style="overflow:auto" tabindex="0"><table><thead><tr><th>بخش</th><th>هدف</th><th>تأخیر اندازه‌گیری‌شده</th><th>وضعیت</th></tr></thead><tbody>${sloRows}</tbody></table></div><p class="muted">بخشی که اندازه‌گیری تازه ندارد سالم فرض نمی‌شود.</p></section>
     </main>
     <script>
       const CONFIG = ${config};

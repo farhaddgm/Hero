@@ -1,0 +1,58 @@
+{
+  "schema": "hero.authorization-snapshot/v1",
+  "authorizationId": "BATCH-UI-RELEASE-20261007-001",
+  "status": "active",
+  "grantedBy": "project-owner",
+  "grantedAt": "2026-10-07",
+  "grantSource": "owner-current-chat-explicit-request: نسخه رو منتشر کن.",
+  "validUntil": "owner-revocation",
+  "globalStop": false,
+  "operations": [
+    "develop",
+    "test",
+    "review",
+    "document",
+    "github-write",
+    "release-publish",
+    "test-deploy",
+    "production-deploy"
+  ],
+  "excludedOperations": [
+    "destructive-data-operation",
+    "external-spend",
+    "secret-change",
+    "external-message",
+    "pilot-execution",
+    "notion-write"
+  ],
+  "documents": [
+    {
+      "documentId": "HERO-UI-RELEASE-20261007",
+      "documentVersion": "1.0.0"
+    }
+  ],
+  "steps": [
+    {
+      "stepId": "UI-RELEASE-20261007-01",
+      "documentVersion": "1.0.0"
+    },
+    {
+      "stepId": "UI-RELEASE-20261007-02",
+      "documentVersion": "1.0.0"
+    },
+    {
+      "stepId": "UI-RELEASE-20261007-03",
+      "documentVersion": "1.0.0"
+    },
+    {
+      "stepId": "UI-RELEASE-20261007-04",
+      "documentVersion": "1.0.0"
+    }
+  ],
+  "scope": {
+    "environment": "test-and-production",
+    "service": "hero-control-plane",
+    "action": "integrate-latest-source-verify-publish-immutable-ui-release-promote-test-then-production-with-rollback"
+  },
+  "note": "Separate owner authorization for publication following the UI handoff. The earlier redesign authorization remains unchanged. Preserve live credentials, volumes and databases; retain prior images for rollback. No provider or agent dispatch."
+}
