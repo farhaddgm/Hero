@@ -2212,20 +2212,6 @@
       "canonical": true,
       "supersedes": [],
       "review_cadence": "per-release"
-    },
-    {
-      "id": "HERO-SECURITY-HARDENING-20261007",
-      "path": "docs/operations/HERO-SECURITY-HARDENING-20261007.md",
-      "title": "اصلاح امنیتی Hero: ورودی فرمان و مجوز اجرا",
-      "type": "operation",
-      "scope": "hero",
-      "status": "active",
-      "version": "1.0.0",
-      "owner": "hero-security",
-      "canonical": true,
-      "supersedes": [],
-      "superseded_by": null,
-      "review_cadence": "per-change"
     }
   ]
 }
