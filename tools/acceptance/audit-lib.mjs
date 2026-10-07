@@ -35,25 +35,36 @@ export function contrastRatio(foreground, background) {
   return (light + 0.05) / (dark + 0.05);
 }
 
-/** Resolves `var(--token)` against the declared :root tokens. */
-function resolveColor(value, tokens) {
-  const text = value.trim().toLowerCase(); const variable = text.match(/^var\(--([a-z0-9-]+)\)$/);
-  const resolved = variable ? tokens[variable[1]] : text; if (!resolved) return null;
-  if (/^#[0-9a-f]{3}$/.test(resolved) || /^#[0-9a-f]{6}$/.test(resolved)) return resolved;
-  if (resolved === "#fff" || resolved === "white") return "#ffffff"; if (resolved === "#000" || resolved === "black") return "#000000";
+/** Resolves a colour, following `var(--token)` chains through the token table. */
+function resolveColor(value, tokens, depth = 0) {
+  const text = String(value).trim().toLowerCase(); if (depth > 8) return null;
+  const variable = text.match(/^var\(--([a-z0-9-]+)(?:\s*,\s*([^)]+))?\)$/);
+  if (variable) { const next = tokens[variable[1]] ?? variable[2]; return next === undefined ? null : resolveColor(next, tokens, depth + 1); }
+  if (text === "white") return "#ffffff"; if (text === "black") return "#000000";
+  if (/^#[0-9a-f]{3}$/.test(text)) return `#${[...text.slice(1)].map(character => character + character).join("")}`;
+  if (/^#[0-9a-f]{6}$/.test(text)) return text;
   return null;
 }
-/** Every rule that sets both a text colour and a background colour is measured; 4.5:1 is required. */
+/**
+ * Every rule that sets both a text colour and a background colour is measured at 4.5:1.
+ * A page can carry a light and a dark theme: tokens declared under a selector that
+ * mentions "dark" apply only to the dark pass, and each rule is measured under every
+ * theme it can render in.
+ */
 export function auditContrast(html) {
   const style = [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)].map(match => match[1]).join("\n");
-  const tokens = {}; for (const match of style.matchAll(/--([a-z0-9-]+)\s*:\s*(#[0-9a-fA-F]{3,6})/g)) tokens[match[1]] = match[2].toLowerCase();
+  const rules = [...style.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(rule => ({ selector: rule[1].trim().replace(/\s+/g, " ").replace(/^.*\*\/\s*/, ""), body: rule[2] }));
+  const isDark = selector => /dark/i.test(selector);
+  const light = {}; const dark = {};
+  for (const rule of rules) for (const token of rule.body.matchAll(/--([a-z0-9-]+)\s*:\s*([^;]+)/g)) { const value = token[2].trim(); if (!isDark(rule.selector)) { light[token[1]] = value; dark[token[1]] ??= value; } }
+  Object.assign(dark, light); for (const rule of rules) if (isDark(rule.selector)) for (const token of rule.body.matchAll(/--([a-z0-9-]+)\s*:\s*([^;]+)/g)) dark[token[1]] = token[2].trim();
   const pairs = [];
-  for (const rule of style.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-    const selector = rule[1].trim().replace(/\s+/g, " "); const body = rule[2];
-    const foreground = body.match(/(?:^|;|\s)color\s*:\s*([^;]+)/i)?.[1]; const background = body.match(/background(?:-color)?\s*:\s*([^;]+)/i)?.[1];
-    if (!foreground || !background) continue;
-    const fg = resolveColor(foreground, tokens); const bgToken = background.trim().split(/\s+/)[0]; const bg = resolveColor(bgToken, tokens);
-    if (fg && bg) pairs.push({ selector: selector.slice(0, 80), foreground: fg, background: bg, ratio: Number(contrastRatio(fg, bg).toFixed(2)) });
+  for (const rule of rules) {
+    const foreground = rule.body.match(/(?:^|;|\s)color\s*:\s*([^;]+)/i)?.[1]; const background = rule.body.match(/background(?:-color)?\s*:\s*([^;]+)/i)?.[1]; if (!foreground || !background) continue;
+    for (const [theme, tokens] of (isDark(rule.selector) ? [["dark", dark]] : [["light", light], ["dark", dark]])) {
+      const fg = resolveColor(foreground, tokens); const bg = resolveColor(background.trim().split(/\s+/)[0], tokens);
+      if (fg && bg) pairs.push({ selector: `${rule.selector.slice(0, 80)} [${theme}]`, foreground: fg, background: bg, ratio: Number(contrastRatio(fg, bg).toFixed(2)) });
+    }
   }
   return pairs;
 }

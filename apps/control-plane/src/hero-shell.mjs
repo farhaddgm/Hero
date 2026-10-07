@@ -1,4 +1,6 @@
 import { HERO_PROJECT_WALKTHROUGH_FIELD_GUIDANCE, HERO_PROJECT_WALKTHROUGH_STEPS } from "./project-walkthrough.mjs";
+import { getHeroDesignSystemStyles } from "./hero-design-system.mjs";
+import { normalizeHeroSearch } from "./ui-copy.mjs";
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, character => ({
@@ -206,6 +208,10 @@ function icon(name) {
     control: '<path d="M4 6h9M17 6h3M4 12h3m4 0h9M4 18h7m4 0h5M13 4v4M7 10v4m4 2v4"/>',
     walkthrough: '<path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 0-3 3V4Zm3 5h7M8 13h7M8 17h4"/><path d="m17 20 1.5 1.5L22 18"/>',
     identity: '<path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm7 8a7 7 0 0 0-14 0m12-8 2 2 4-4"/>',
+    ai: '<path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5L12 3Z"/>',
+    menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
+    close: '<path d="m6 6 12 12M6 18 18 6"/>',
+    tools: '<path d="M4 7h10m4 0h2M4 17h2m4 0h10M14 4v6M10 14v6"/>',
     search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>',
     theme: '<path d="M20 15.2A8 8 0 0 1 8.8 4 8.5 8.5 0 1 0 20 15.2Z"/>'
   };
@@ -453,10 +459,11 @@ export function getHeroShellStyles() {
     .hero-side-nav ~ #hero-main { max-width: calc(100% - 296px); margin-inline-start: auto !important; margin-inline-end: 278px !important; }
     @media (max-width: 1160px) { .hero-app-actions { display: none; } .hero-side-nav { width: 222px; }.hero-side-nav ~ #hero-main { max-width: calc(100% - 268px); margin-inline-end: 254px !important; } }
     @media (max-width: 760px) { .hero-appbar { position: static; } .hero-appbar-inner { width: min(100% - 20px, 740px); grid-template-columns: 1fr; gap: 7px; padding: 10px 0; } .hero-app-brand { justify-self: start; } .hero-side-nav { position: static; width: min(100% - 20px, 740px); max-height: 254px; margin: 10px auto 0; border-radius: 13px; } .hero-side-nav ~ #hero-main { max-width: none; margin-inline: auto !important; } .hero-global-nav a { min-height: 40px; } .hero-nav-copy small { display: none; } .hero-walkthrough-coach, .hero-walkthrough-advisor, .hero-smart-tester-panel, .hero-action-feedback { top: auto; right: 10px; bottom: 10px; left: 10px; width: auto; max-height: min(62vh, 540px); } .hero-form-suggestion-dialog { width: calc(100% - 20px); max-height: calc(100vh - 20px); } .hero-walkthrough-coach[data-hero-walkthrough-side="left"], .hero-walkthrough-coach[data-hero-walkthrough-side="right"], .hero-walkthrough-advisor[data-hero-walkthrough-side="left"], .hero-walkthrough-advisor[data-hero-walkthrough-side="right"], .hero-smart-tester-panel[data-hero-smart-tester-side="left"], .hero-smart-tester-panel[data-hero-smart-tester-side="right"], .hero-action-feedback[data-hero-action-feedback-side="left"], .hero-action-feedback[data-hero-action-feedback-side="right"] { right: 10px; left: 10px; } .hero-walkthrough-launcher { top:auto; bottom:10px; } .hero-walkthrough-launcher[data-hero-walkthrough-side="left"] { left:10px; }.hero-walkthrough-launcher[data-hero-walkthrough-side="right"] { right:10px; } }
+    ${getHeroDesignSystemStyles()}
   `;
 }
 
-export function getHeroGlobalNavigation({ active = "portfolio", projectId = null, environment = "Private" } = {}) {
+export function getHeroGlobalNavigation({ active = "portfolio", projectId = null, environment = "Private", runtimeEnvironment = process.env.HERO_UI_ENVIRONMENT } = {}) {
   // The browser portal is delivered under /api because the Test proxy already
   // forwards that namespace to Hero. The portal itself requires the secure
   // Human Identity cookie and Project Grant; this prevents a stale outer
@@ -482,36 +489,43 @@ export function getHeroGlobalNavigation({ active = "portfolio", projectId = null
     ["walkthrough", walkthroughHref, "راهنمای ساخت", "Guide", "walkthrough", true],
     ["identity", portalHref("identity"), "هویت و دسترسی", "Access", "identity", false]
   ];
-  const links = entries.map(([id, href, fa, en, iconName, scoped]) => `<a href="${escapeHtml(href)}"${id === active ? ' aria-current="page"' : ""}${scoped ? ' data-hero-project-link="true"' : ""}><span aria-hidden="true">${icon(iconName)}</span><span class="hero-nav-copy"><b>${fa}</b><small>${en}</small></span></a>`).join("");
+  const environmentKind = ["development", "test", "production"].includes(runtimeEnvironment) ? runtimeEnvironment : "private";
+  const environmentLabel = { development: "محیط توسعه", test: "محیط تست", production: "پروداکشن", private: "محیط خصوصی" }[environmentKind];
+  const links = entries.map(([id, href, fa, en, iconName, scoped], index) => `${index === 0 ? '<span class="hero-nav-group">نمای کلی</span>' : index === 1 ? '<span class="hero-nav-group">پروژه و ساخت محصول</span>' : index === 5 ? '<span class="hero-nav-group">ابزارها و دسترسی</span>' : ""}<a href="${escapeHtml(href)}"${id === active ? ' aria-current="page"' : ""}${scoped ? ' data-hero-project-link="true"' : ""}><span aria-hidden="true">${icon(iconName)}</span><span class="hero-nav-copy"><b>${fa}</b><small>${en}</small></span></a>`).join("");
   return `
     <a class="hero-skip-link" href="#hero-main">رفتن به محتوای اصلی / Skip to content</a>
-    <header class="hero-appbar" data-hero-shell="v1" role="banner">
+    <header class="hero-appbar" data-hero-shell="v1" data-hero-design="2026.10" role="banner">
       <div class="hero-appbar-inner">
+        <div class="hero-brand-group">
+        <button class="hero-shell-button hero-menu-button" type="button" data-hero-nav-toggle aria-controls="hero-navigation" aria-expanded="false" aria-label="باز کردن منوی اصلی">${icon("menu")}</button>
         <a class="hero-app-brand" href="${portalHref("portfolio")}" aria-label="Hero Portfolio">
           <span class="hero-app-mark" aria-hidden="true">H</span>
-          <span class="hero-app-brand-copy"><strong>Hero</strong><small>Private Control Plane</small></span>
+          <span class="hero-app-brand-copy"><strong>Hero</strong><small>از ایده تا محصول</small></span>
         </a>
+        </div>
         <div class="hero-app-actions">
           ${projectId ? `<a class="hero-project-context" href="${portalHref("portfolio", { select: "project" })}" title="تغییر پروژهٔ فعال"><em aria-hidden="true">◈</em><span><small>پروژهٔ فعال / Active project</small><b>${escapeHtml(projectId)}</b></span></a>` : ""}
-          <span class="hero-environment" title="محیط خصوصی و محافظت‌شده">${escapeHtml(environment)}</span>
-          <button class="hero-shell-button" type="button" data-hero-smart-tester-toggle aria-pressed="false" aria-label="روشن کردن اسمارت تستر"><span aria-hidden="true">✦</span><span>اسمارت تستر</span></button>
-          <button class="hero-shell-button" type="button" data-hero-form-suggestions-toggle aria-pressed="true" aria-label="خاموش کردن ادوایزر"><span aria-hidden="true">✎</span><span>ادوایزر</span></button>
+          <span class="hero-environment" data-environment="${environmentKind}" title="${escapeHtml(environment)}؛ این نشان وضعیت سلامت سرویس نیست">${environmentLabel}</span>
+          <button class="hero-shell-button" type="button" data-hero-command-button aria-label="جست‌وجوی صفحه یا قابلیت" aria-haspopup="dialog">${icon("search")}<span>جست‌وجو در Hero</span><kbd dir="ltr">Ctrl K</kbd></button>
           <button class="hero-shell-button" type="button" data-hero-theme-button aria-label="تغییر پوسته">${icon("theme")}<span>پوسته</span></button>
-          <button class="hero-shell-button" type="button" data-hero-command-button aria-haspopup="dialog">${icon("search")}<span>جست‌وجو</span><kbd>⌘K</kbd></button>
+          <details class="hero-tools"><summary class="hero-shell-button" aria-label="ابزارهای کمکی">${icon("tools")}<span>ابزارها</span></summary><div class="hero-tools-menu"><small>دستیارهای اختیاری این مرورگر</small><button class="hero-shell-button" type="button" data-hero-smart-tester-toggle aria-pressed="false" aria-label="روشن کردن اسمارت تستر"><span aria-hidden="true">✦</span><span>اسمارت تستر</span></button><button class="hero-shell-button" type="button" data-hero-form-suggestions-toggle aria-pressed="true" aria-label="خاموش کردن ادوایزر"><span aria-hidden="true">✎</span><span>ادوایزر</span></button></div></details>
         </div>
       </div>
     </header>
-    <aside class="hero-side-nav" aria-label="ناوبری اصلی Hero">
-      <div class="hero-side-nav-head"><span aria-hidden="true">≡</span> ناوبری / Navigation</div>
+    <button class="hero-nav-scrim" type="button" data-hero-nav-scrim aria-label="بستن منوی اصلی" tabindex="-1" hidden></button>
+    <aside id="hero-navigation" class="hero-side-nav" aria-label="ناوبری اصلی Hero">
+      <div class="hero-side-nav-head"><span aria-hidden="true">≡</span> ناوبری / Navigation<button class="hero-shell-button hero-nav-close" type="button" data-hero-nav-close aria-label="بستن منوی اصلی">${icon("close")}</button></div>
       <nav class="hero-global-nav" aria-label="ناوبری اصلی / Primary navigation">${links}</nav>
+      <div class="hero-side-nav-foot"><a href="${walkthroughHref}" data-hero-project-link="true">${icon("walkthrough")} راهنمای گام‌به‌گام</a><small>مسیر بعدی پروژه را پیدا کنید.</small></div>
     </aside>
     <dialog class="hero-command-dialog" data-hero-command-dialog aria-labelledby="hero-command-title">
-      <div class="hero-command-head">${icon("search")}<input id="hero-command-title" data-hero-command-input type="search" autocomplete="off" placeholder="جست‌وجوی صفحه یا قابلیت…" aria-label="جست‌وجوی صفحه یا قابلیت"><kbd>ESC</kbd></div>
+      <div class="hero-command-head">${icon("search")}<input id="hero-command-title" data-hero-command-input type="search" autocomplete="off" placeholder="کجا می‌خواهید بروید؟" aria-label="جست‌وجوی صفحه یا قابلیت"><button class="hero-shell-button" type="button" data-hero-command-close aria-label="بستن جست‌وجو">${icon("close")}</button></div>
       <div class="hero-command-list" data-hero-command-list>
         <div class="hero-command-group">Navigate / ناوبری</div>
         ${entries.map(([id, href, fa, en, iconName, scoped]) => `<a href="${escapeHtml(href)}" data-hero-command="${escapeHtml(`${fa} ${en} ${id}`)}"${scoped ? ' data-hero-project-link="true"' : ""}><span class="hero-command-symbol">${icon(iconName)}</span><span class="hero-command-copy"><strong>${fa}</strong><small>${en}</small></span><small>↵</small></a>`).join("")}
         <div class="hero-command-empty" data-hero-command-empty hidden>نتیجه‌ای پیدا نشد / No result</div>
       </div>
+      <div class="hero-command-footer">↑ ↓ انتخاب صفحه &nbsp; · &nbsp; Enter باز کردن &nbsp; · &nbsp; Esc بستن</div>
     </dialog>
     <div id="hero-feature-tooltip" class="hero-feature-tooltip" role="tooltip" hidden></div>
   `;
@@ -519,19 +533,67 @@ export function getHeroGlobalNavigation({ active = "portfolio", projectId = null
 
 export function getHeroShellScript() {
   return `<script>(() => {
+    ${normalizeHeroSearch.toString()}
     const root = document.documentElement;
+    const heroStorage = {
+      getItem(key) { try { return localStorage.getItem(key); } catch { return null; } },
+      setItem(key, value) { try { localStorage.setItem(key, value); } catch { /* preferences are optional */ } },
+      removeItem(key) { try { localStorage.removeItem(key); } catch { /* preferences are optional */ } }
+    };
     const themeKey = 'hero.ui.theme';
-    const storedTheme = localStorage.getItem(themeKey);
-    if (storedTheme === 'dark') root.dataset.heroTheme = 'dark';
+    const storedTheme = heroStorage.getItem(themeKey);
+    const systemTheme = matchMedia('(prefers-color-scheme: dark)');
+    if (storedTheme === 'dark' || (!storedTheme && systemTheme.matches)) root.dataset.heroTheme = 'dark';
+    const navigation = document.querySelector('.hero-side-nav');
+    const navToggle = document.querySelector('[data-hero-nav-toggle]');
+    const navScrim = document.querySelector('[data-hero-nav-scrim]');
+    const mobileNavigation = matchMedia('(max-width: 900px)');
+    const setNavigationOpen = (open, restoreFocus = true) => {
+      if (!navigation) return;
+      const expanded = open && mobileNavigation.matches;
+      navigation.dataset.open = String(expanded);
+      navigation.inert = mobileNavigation.matches && !expanded;
+      navToggle?.setAttribute('aria-expanded', String(expanded));
+      if (navScrim) navScrim.hidden = !expanded;
+      document.body.dataset.heroNavOpen = String(expanded);
+      document.querySelector('#hero-main')?.toggleAttribute('inert', expanded);
+      document.querySelector('.hero-appbar')?.toggleAttribute('inert', expanded);
+      if (expanded) {
+        navigation.setAttribute('role', 'dialog'); navigation.setAttribute('aria-modal', 'true');
+        navigation.querySelector('[data-hero-nav-close]')?.focus();
+      } else {
+        navigation.removeAttribute('role'); navigation.removeAttribute('aria-modal');
+        if (restoreFocus && mobileNavigation.matches) navToggle?.focus();
+      }
+    };
+    setNavigationOpen(false, false);
+    navToggle?.addEventListener('click', () => setNavigationOpen(true));
+    navScrim?.addEventListener('click', () => setNavigationOpen(false));
+    navigation?.querySelector('[data-hero-nav-close]')?.addEventListener('click', () => setNavigationOpen(false));
+    navigation?.addEventListener('click', event => { if (event.target.closest('a')) setNavigationOpen(false, false); });
+    mobileNavigation.addEventListener('change', () => setNavigationOpen(false, false));
+    document.addEventListener('keydown', event => {
+      if (navigation?.dataset.open !== 'true') return;
+      if (event.key === 'Escape') { event.preventDefault(); setNavigationOpen(false); }
+      if (event.key === 'Tab') {
+        const targets = Array.from(navigation.querySelectorAll('a[href],button')).filter(node => node.getClientRects().length && !node.disabled);
+        const first = targets[0], last = targets.at(-1);
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+      }
+    });
+    const tools = document.querySelector('.hero-tools');
+    document.addEventListener('click', event => { if (tools?.open && !tools.contains(event.target)) tools.open = false; });
+    tools?.addEventListener('keydown', event => { if (event.key === 'Escape') { tools.open = false; tools.querySelector('summary')?.focus(); } });
     const dialog = document.querySelector('[data-hero-command-dialog]');
     const input = document.querySelector('[data-hero-command-input]');
     const button = document.querySelector('[data-hero-command-button]');
     const activeProjectKey = 'hero.active-project-id';
     const projectPattern = /^[a-z][a-z0-9-]{2,62}$/;
     const urlProjectId = new URL(location.href).searchParams.get('projectId');
-    const storedProjectId = localStorage.getItem(activeProjectKey);
+    const storedProjectId = heroStorage.getItem(activeProjectKey);
     const projectId = projectPattern.test(urlProjectId || '') ? urlProjectId : (projectPattern.test(storedProjectId || '') ? storedProjectId : null);
-    if (projectPattern.test(urlProjectId || '')) localStorage.setItem(activeProjectKey, urlProjectId);
+    if (projectPattern.test(urlProjectId || '')) heroStorage.setItem(activeProjectKey, urlProjectId);
     if (projectId) document.querySelectorAll('[data-hero-project-link]').forEach(link => {
       const url = new URL(link.getAttribute('href'), location.origin);
       url.searchParams.set('projectId', projectId);
@@ -540,19 +602,32 @@ export function getHeroShellScript() {
     document.addEventListener('click', event => {
       const projectLink = event.target.closest?.('[data-hero-select-project]');
       const selectedId = projectLink?.dataset?.heroSelectProject;
-      if (projectPattern.test(selectedId || '')) localStorage.setItem(activeProjectKey, selectedId);
+      if (projectPattern.test(selectedId || '')) heroStorage.setItem(activeProjectKey, selectedId);
     });
-    const openCommand = () => { if (!dialog) return; dialog.showModal(); input.value = ''; filterCommands(''); queueMicrotask(() => input.focus()); };
+    let commandIndex = 0;
+    const visibleCommands = () => Array.from(dialog?.querySelectorAll('[data-hero-command]') || []).filter(item => !item.hidden);
+    const selectCommand = index => {
+      const items = visibleCommands(); commandIndex = items.length ? (index + items.length) % items.length : 0;
+      items.forEach((item, position) => item.dataset.heroCommandActive = String(position === commandIndex));
+      items[commandIndex]?.scrollIntoView({ block: 'nearest' });
+    };
+    const openCommand = () => { if (!dialog || dialog.open) return; setNavigationOpen(false, false); dialog.showModal(); input.value = ''; filterCommands(''); queueMicrotask(() => input.focus()); };
     const filterCommands = query => {
       if (!dialog) return;
-      const needle = String(query || '').trim().toLocaleLowerCase();
+      const needle = normalizeHeroSearch(query);
       let visible = 0;
-      dialog.querySelectorAll('[data-hero-command]').forEach(item => { const show = !needle || item.dataset.heroCommand.toLocaleLowerCase().includes(needle); item.hidden = !show; if (show) visible += 1; });
+      dialog.querySelectorAll('[data-hero-command]').forEach(item => { const show = !needle || normalizeHeroSearch(item.dataset.heroCommand).includes(needle); item.hidden = !show; if (show) visible += 1; });
       const empty = dialog.querySelector('[data-hero-command-empty]'); if (empty) empty.hidden = visible > 0;
+      selectCommand(0);
     };
     button?.addEventListener('click', openCommand);
     input?.addEventListener('input', event => filterCommands(event.target.value));
     dialog?.addEventListener('click', event => { if (event.target === dialog) dialog.close(); });
+    document.querySelector('[data-hero-command-close]')?.addEventListener('click', () => dialog?.close());
+    input?.addEventListener('keydown', event => {
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); selectCommand(commandIndex + (event.key === 'ArrowDown' ? 1 : -1)); }
+      if (event.key === 'Enter') { event.preventDefault(); visibleCommands()[commandIndex]?.click(); }
+    });
     document.addEventListener('keydown', event => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLocaleLowerCase() === 'k') { event.preventDefault(); openCommand(); }
       if (event.key === 'Escape' && dialog?.open) dialog.close();
@@ -560,10 +635,11 @@ export function getHeroShellScript() {
     const themeButton = document.querySelector('[data-hero-theme-button]');
     const syncThemeButton = () => themeButton?.setAttribute('aria-pressed', String(root.dataset.heroTheme === 'dark'));
     syncThemeButton();
+    systemTheme.addEventListener('change', event => { if (!heroStorage.getItem(themeKey)) { if (event.matches) root.dataset.heroTheme = 'dark'; else delete root.dataset.heroTheme; syncThemeButton(); } });
     themeButton?.addEventListener('click', () => {
       const next = root.dataset.heroTheme === 'dark' ? 'light' : 'dark';
       if (next === 'dark') root.dataset.heroTheme = 'dark'; else delete root.dataset.heroTheme;
-      localStorage.setItem(themeKey, next);
+      heroStorage.setItem(themeKey, next);
       syncThemeButton();
     });
     // Process-action feedback is deliberately centralized here so every
@@ -571,7 +647,7 @@ export function getHeroShellScript() {
     // navigation or read-only controls. The wrapper observes only same-origin
     // mutation requests armed by a real process action.
     const heroActionReadOnly = /(?:بازخوانی|فراخوانی|نمایش|مشاهده|به‌روزرسانی|بازگشت|انصراف|لغو|بستن|cancel|close|refresh|recall|open|view)/i;
-    const heroActionExcluded = '.hero-global-nav,.hero-command-dialog,.hero-smart-tester-panel,.hero-walkthrough-coach,.hero-walkthrough-advisor';
+    const heroActionExcluded = '.hero-appbar,.hero-side-nav,.hero-nav-scrim,.hero-global-nav,.hero-command-dialog,.hero-smart-tester-panel,.hero-walkthrough-coach,.hero-walkthrough-advisor';
     const heroActionMutation = /^(POST|PUT|PATCH|DELETE)$/;
     const heroActionFeedbackKey = 'hero.action-feedback.v1';
     const heroActionFeedbackSideKey = 'hero.action-feedback.side.v1';
@@ -583,7 +659,7 @@ export function getHeroShellScript() {
     // historical side key only for backwards-compatible error-panel controls;
     // normal notifications must not jump around between surfaces.
     const heroActionFeedbackSide = () => 'left';
-    const setHeroActionFeedbackSide = side => { try { localStorage.setItem(heroActionFeedbackSideKey, side); } catch { /* browser-local preference only */ } };
+    const setHeroActionFeedbackSide = side => { try { heroStorage.setItem(heroActionFeedbackSideKey, side); } catch { /* browser-local preference only */ } };
     const heroActionText = node => String(node?.getAttribute?.('aria-label') || node?.textContent || node?.labels?.[0]?.textContent || '').replace(/\\s+/g, ' ').trim().slice(0, 160);
     const heroActionButton = node => node?.closest?.('button,input[type="submit"],input[type="button"],input[type="checkbox"][data-hero-process-action],#autonomy') || null;
     const heroActionIsSubmit = node => { const button = heroActionButton(node); if (!button || !button.form) return false; const type = (button.getAttribute('type') || (button.tagName === 'BUTTON' ? 'submit' : 'button')).toLowerCase(); return type === 'submit' || type === ''; };
@@ -661,7 +737,7 @@ export function getHeroShellScript() {
       closeHeroActionFeedback({ forget: false });
       if (!restored) persistHeroActionFeedback(record);
       const popup = document.createElement('aside');
-      popup.className = 'hero-action-feedback'; popup.dataset.state = record.ok ? 'success' : 'error'; popup.dataset.heroActionFeedback = 'true'; popup.dataset.heroActionFeedbackSide = heroActionFeedbackSide(); popup.setAttribute('role', record.ok ? 'status' : 'dialog'); popup.setAttribute('aria-modal', 'false'); popup.setAttribute('aria-live', record.ok ? 'polite' : 'assertive'); popup.setAttribute('tabindex', '-1'); popup._heroActionTrigger = trigger;
+      popup.className = 'hero-action-feedback'; popup.dataset.state = record.ok ? 'success' : 'error'; popup.dataset.heroActionFeedback = 'true'; popup.dataset.heroActionFeedbackSide = heroActionFeedbackSide(); popup.setAttribute('role', record.ok ? 'status' : 'dialog'); if (!record.ok) popup.setAttribute('aria-modal', 'false'); popup.setAttribute('aria-live', record.ok ? 'polite' : 'assertive'); popup.setAttribute('tabindex', '-1'); popup._heroActionTrigger = trigger;
       const head = document.createElement('header'); head.className = 'hero-action-feedback-head'; const title = document.createElement('h2'); title.textContent = record.ok ? 'عملیات با موفقیت انجام شد' : 'عملیات ناموفق بود'; head.append(title); popup.append(head);
       const statusNode = document.createElement('p'); statusNode.className = 'hero-action-feedback-status'; statusNode.textContent = record.detail || (record.ok ? 'تغییر موردنظر ثبت شد.' : 'سرویس نتوانست اقدام را تکمیل کند.'); popup.append(statusNode);
       const meta = document.createElement('p'); meta.className = 'hero-action-feedback-meta'; meta.textContent = record.label + ' · ' + record.method + ' · HTTP ' + (record.status || '—') + (record.code ? ' · ' + record.code : '') + ' · ' + record.path; popup.append(meta);
@@ -741,6 +817,7 @@ export function getHeroShellScript() {
     const mainWalkthroughSteps = walkthroughSteps.filter(step => step.flow !== 'outside-main');
     let featureTooltip = document.getElementById('hero-feature-tooltip');
     let activeInfoTrigger = null;
+    const installedInfoNodes = new WeakSet();
     const infoLabel = node => {
       const explicit = node.dataset.heroInfoLabel;
       if (explicit) return explicit;
@@ -765,7 +842,8 @@ export function getHeroShellScript() {
       container?.querySelectorAll?.('[data-hero-info-key]').forEach(node => nodes.push(node));
       nodes.forEach(node => {
         const key = node.dataset.heroInfoKey;
-        if (!featureHelp[key] || node.querySelector(':scope > .hero-info-trigger')) return;
+        if (!featureHelp[key] || installedInfoNodes.has(node) || node.querySelector(':scope > .hero-info-trigger')) return;
+        installedInfoNodes.add(node);
         node.classList.add('hero-feature-with-info');
         const trigger = document.createElement('button');
         trigger.type = 'button';
@@ -777,7 +855,8 @@ export function getHeroShellScript() {
         const supplement = infoSupplement(node);
         if (supplement) trigger.dataset.heroInfoSupplement = supplement;
         trigger.textContent = 'i';
-        node.append(trigger);
+        const interactiveHost = node.closest('button, a, summary');
+        if (interactiveHost) interactiveHost.after(trigger); else node.append(trigger);
       });
     };
     const tooltipHost = trigger => trigger.closest('dialog[open]') || document.body;
@@ -831,9 +910,9 @@ export function getHeroShellScript() {
     const smartTesterCandidateSelector = '.hero-page-header,.page-head,.topbar,.top,.hero-head,.section,.panel,.card,.metric,.project-card,.team-card,.focus-card,.decision-card,.content-panel,.context,[data-hero-guide-target]';
     const smartTesterExcludedSelector = '.hero-smart-tester-panel,.hero-walkthrough-coach,.hero-walkthrough-advisor,.hero-feature-tooltip,.hero-command-dialog';
     let activeSmartTesterPanel = null;
-    const smartTesterEnabled = () => { try { return localStorage.getItem(smartTesterEnabledKey) === 'true'; } catch { return false; } };
-    const smartTesterSide = () => { try { const side = localStorage.getItem(smartTesterSideKey); return side === 'left' || side === 'right' ? side : 'right'; } catch { return 'right'; } };
-    const setSmartTesterSide = side => { try { localStorage.setItem(smartTesterSideKey, side); } catch { /* browser-local preference only */ } };
+    const smartTesterEnabled = () => { try { return heroStorage.getItem(smartTesterEnabledKey) === 'true'; } catch { return false; } };
+    const smartTesterSide = () => { try { const side = heroStorage.getItem(smartTesterSideKey); return side === 'left' || side === 'right' ? side : 'right'; } catch { return 'right'; } };
+    const setSmartTesterSide = side => { try { heroStorage.setItem(smartTesterSideKey, side); } catch { /* browser-local preference only */ } };
     const getSmartTesterLabel = node => {
       const heading = node.querySelector?.('h1,h2,h3,[data-hero-info-key]');
       const copy = heading?.cloneNode?.(true); copy?.querySelectorAll?.('[data-hero-info-trigger]').forEach(item => item.remove());
@@ -935,8 +1014,8 @@ export function getHeroShellScript() {
       const actions = document.createElement('div'); actions.className = 'hero-smart-tester-actions'; const test = document.createElement('button'); test.type = 'button'; test.textContent = 'تست این بخش'; const diagnose = document.createElement('button'); diagnose.type = 'button'; diagnose.textContent = 'خطایاب'; const submitError = document.createElement('button'); submitError.type = 'button'; submitError.textContent = 'ثبت در دفتر خطا'; submitError.disabled = true; const move = document.createElement('button'); move.type = 'button'; const close = document.createElement('button'); close.type = 'button'; close.textContent = 'بستن'; actions.append(test, diagnose, submitError, move, close); panel.append(head, selectorWrap, scroll, form, actions); document.body.append(panel); activeSmartTesterPanel = panel;
       let reportId = null; let errorReportId = null; let context = null; let side = panel.dataset.heroSmartTesterSide; let chatInformed = false; const actionFailure = overrides.actionFailure && typeof overrides.actionFailure === 'object' ? overrides.actionFailure : null;
       const advisorSelectionStorageKey = 'hero.advisor.selection.smart-tester.v1';
-      const restoreAdvisorSelection = () => { try { const saved = localStorage.getItem(advisorSelectionStorageKey); if (saved && Array.from(selector.options).some(option => option.value === saved && !option.disabled)) selector.value = saved; } catch { /* preference is optional */ } };
-      const saveAdvisorSelection = () => { try { localStorage.setItem(advisorSelectionStorageKey, selector.value); } catch { /* preference is optional */ } };
+      const restoreAdvisorSelection = () => { try { const saved = heroStorage.getItem(advisorSelectionStorageKey); if (saved && Array.from(selector.options).some(option => option.value === saved && !option.disabled)) selector.value = saved; } catch { /* preference is optional */ } };
+      const saveAdvisorSelection = () => { try { heroStorage.setItem(advisorSelectionStorageKey, selector.value); } catch { /* preference is optional */ } };
       const appendMessage = (speaker, value, state = '') => { const item = document.createElement('article'); item.className = 'hero-smart-tester-message'; item.dataset.speaker = speaker; if (state) item.dataset.state = state; const speakerName = document.createElement('b'); speakerName.textContent = speaker === 'user' ? 'شما' : 'اسمارت تستر'; const text = document.createElement('span'); text.textContent = value; item.append(speakerName, text); scroll.append(item); scroll.scrollTop = scroll.scrollHeight; };
       const endpoint = path => { const url = new URL(path, location.origin); url.searchParams.set('surface', smartTesterSurface()); url.searchParams.set('featureKey', featureKey); url.searchParams.set('boxId', boxId); url.searchParams.set('boxTitle', label); url.searchParams.set('boxDescription', boxDescription); if (projectId) url.searchParams.set('projectId', projectId); return url.pathname + url.search; };
       const applySide = nextSide => { side = nextSide; panel.dataset.heroSmartTesterSide = side; setSmartTesterSide(side); move.textContent = side === 'right' ? 'انتقال به لبهٔ چپ' : 'انتقال به لبهٔ راست'; move.setAttribute('aria-label', move.textContent); };
@@ -952,7 +1031,7 @@ export function getHeroShellScript() {
     };
     const smartTesterToggle = document.querySelector('[data-hero-smart-tester-toggle]');
     const syncSmartTesterToggle = () => { const enabled = smartTesterEnabled(); smartTesterToggle?.setAttribute('aria-pressed', String(enabled)); if (smartTesterToggle) { smartTesterToggle.title = enabled ? 'خاموش کردن اسمارت تستر' : 'روشن کردن اسمارت تستر'; smartTesterToggle.setAttribute('aria-label', smartTesterToggle.title); } };
-    const setSmartTesterEnabled = enabled => { try { localStorage.setItem(smartTesterEnabledKey, String(enabled === true)); } catch { /* the current document still updates */ } if (enabled) installSmartTesterTriggers(document); else uninstallSmartTesterTriggers(); syncSmartTesterToggle(); };
+    const setSmartTesterEnabled = enabled => { try { heroStorage.setItem(smartTesterEnabledKey, String(enabled === true)); } catch { /* the current document still updates */ } if (enabled) installSmartTesterTriggers(document); else uninstallSmartTesterTriggers(); syncSmartTesterToggle(); };
     smartTesterToggle?.addEventListener('click', () => setSmartTesterEnabled(!smartTesterEnabled()));
     document.addEventListener('click', event => { const trigger = event.target.closest?.('[data-hero-smart-tester-trigger]'); if (!trigger) return; event.preventDefault(); event.stopPropagation(); void openSmartTester(trigger); });
     const smartTesterObserver = new MutationObserver(records => { if (!smartTesterEnabled()) return; for (const record of records) for (const node of record.addedNodes) installSmartTesterTriggers(node); });
@@ -979,7 +1058,7 @@ export function getHeroShellScript() {
     const formSuggestionExcludedSelector = '.hero-global-nav,.hero-command-dialog,.hero-smart-tester-panel,.hero-walkthrough-coach,.hero-walkthrough-advisor,.hero-form-suggestion-dialog,[data-hero-no-form-suggestion]';
     const formSuggestionSensitive = /login|mfa|password|credential|secret|token|api.?key|grant|access|identity/i;
     let activeFormSuggestionDialog = null;
-    const formSuggestionEnabled = () => { try { return localStorage.getItem(formSuggestionEnabledKey) !== 'false'; } catch { return true; } };
+    const formSuggestionEnabled = () => { try { return heroStorage.getItem(formSuggestionEnabledKey) !== 'false'; } catch { return true; } };
     const formSuggestionPurposeCatalog = Object.freeze({
       'request-form': 'این باکس برای تعریف روشن درخواست ساخت یا تغییر یک نرم‌افزار است. عنوان، توضیح و سناریوی آزمایشی باید نتیجهٔ مورد انتظار را به شکلی قابل برنامه‌ریزی مشخص کنند تا Hero بتواند بدون شروع اقدام خودکار، برنامهٔ اولیهٔ قابل بازبینی بسازد.',
       'create-project-form': 'این باکس برای ایجاد Draft یک پروژه و ثبت ورودی‌های پایهٔ Foundation Proposal است. اطلاعات آن باید مسئله، کاربران، نوع محصول، سطح ریسک، شیوهٔ تأیید، محدودیت‌ها و خروجی‌های مورد انتظار را روشن کند؛ ثبت فرم به‌تنهایی هیچ کد، سرور یا انتشار عملیاتی ایجاد نمی‌کند.',
@@ -1130,8 +1209,8 @@ export function getHeroShellScript() {
       // setting.  Its value contains only a public profile id and is shared
       // by all project forms in this browser.
       const advisorSelectionStorageKey = 'hero.advisor.selection.form-suggestions.v1';
-      const restoreAdvisorSelection = () => { try { const saved = localStorage.getItem(advisorSelectionStorageKey); if (saved && Array.from(advisor.options).some(option => option.value === saved && !option.disabled)) advisor.value = saved; } catch { /* preference is optional */ } };
-      const saveAdvisorSelection = () => { try { localStorage.setItem(advisorSelectionStorageKey, advisor.value); } catch { /* preference is optional */ } };
+      const restoreAdvisorSelection = () => { try { const saved = heroStorage.getItem(advisorSelectionStorageKey); if (saved && Array.from(advisor.options).some(option => option.value === saved && !option.disabled)) advisor.value = saved; } catch { /* preference is optional */ } };
+      const saveAdvisorSelection = () => { try { heroStorage.setItem(advisorSelectionStorageKey, advisor.value); } catch { /* preference is optional */ } };
       const isLiveAdvisor = () => Boolean(advisor.value && advisor.value !== 'local');
       const resetSuggestionSession = () => { refinementCount = 0; suggestionCount = 0; suggestionsReady = false; results.replaceChildren(); advisorInsights.replaceChildren(); advisorInsights.hidden = true; conversation.replaceChildren(); feedbackInput.value = ''; feedbackPanel.hidden = true; documentPanel.hidden = true; documentTitle.textContent = ''; documentRationale.textContent = ''; documentName.textContent = ''; documentContent.value = ''; useDocument.onclick = null; box.value = description; };
       const syncRefinement = () => {
@@ -1183,7 +1262,7 @@ export function getHeroShellScript() {
     };
     const formSuggestionToggle = document.querySelector('[data-hero-form-suggestions-toggle]');
     const syncFormSuggestionToggle = () => { const enabled = formSuggestionEnabled(); formSuggestionToggle?.setAttribute('aria-pressed', String(enabled)); if (formSuggestionToggle) { formSuggestionToggle.title = enabled ? 'خاموش کردن ادوایزر' : 'روشن کردن ادوایزر'; formSuggestionToggle.setAttribute('aria-label', formSuggestionToggle.title); } };
-    const setFormSuggestionEnabled = enabled => { try { localStorage.setItem(formSuggestionEnabledKey, String(enabled === true)); } catch { /* current page still updates */ } if (enabled) installFormSuggestionTriggers(document); else uninstallFormSuggestionTriggers(); syncFormSuggestionToggle(); };
+    const setFormSuggestionEnabled = enabled => { try { heroStorage.setItem(formSuggestionEnabledKey, String(enabled === true)); } catch { /* current page still updates */ } if (enabled) installFormSuggestionTriggers(document); else uninstallFormSuggestionTriggers(); syncFormSuggestionToggle(); };
     formSuggestionToggle?.addEventListener('click', () => setFormSuggestionEnabled(!formSuggestionEnabled()));
     const formSuggestionObserver = new MutationObserver(records => { if (!formSuggestionEnabled()) return; for (const record of records) for (const node of record.addedNodes) installFormSuggestionTriggers(node); });
     formSuggestionObserver.observe(document.body, { childList: true, subtree: true });
@@ -1203,22 +1282,22 @@ export function getHeroShellScript() {
     const usableProjectId = value => projectPattern.test(value || '') ? value : null;
     const readWalkthroughState = () => {
       try {
-        const value = JSON.parse(localStorage.getItem(walkthroughStateKey) || 'null');
+        const value = JSON.parse(heroStorage.getItem(walkthroughStateKey) || 'null');
         if (!value || value.version !== 1 || !stepById(value.stepId)) return null;
         return value;
       } catch { return null; }
     };
     const writeWalkthroughState = value => {
       const next = { ...value, version: 1, updatedAt: Date.now() };
-      localStorage.setItem(walkthroughStateKey, JSON.stringify(next));
+      heroStorage.setItem(walkthroughStateKey, JSON.stringify(next));
       return next;
     };
-    const stateProjectId = state => usableProjectId(new URL(location.href).searchParams.get('projectId')) || usableProjectId(state?.projectId) || usableProjectId(localStorage.getItem(activeProjectKey));
+    const stateProjectId = state => usableProjectId(new URL(location.href).searchParams.get('projectId')) || usableProjectId(state?.projectId) || usableProjectId(heroStorage.getItem(activeProjectKey));
     const serviceSettingKey = projectId => walkthroughServicePrefix + projectId;
-    const serviceEnabled = projectId => !projectId || localStorage.getItem(serviceSettingKey(projectId)) !== 'false';
+    const serviceEnabled = projectId => !projectId || heroStorage.getItem(serviceSettingKey(projectId)) !== 'false';
     const setServiceEnabled = (projectId, enabled) => {
       if (!usableProjectId(projectId)) return;
-      localStorage.setItem(serviceSettingKey(projectId), String(enabled === true));
+      heroStorage.setItem(serviceSettingKey(projectId), String(enabled === true));
       if (enabled !== true) stopWalkthrough('service-disabled');
     };
     const portalHref = (surface, params = {}) => {
@@ -1242,19 +1321,19 @@ export function getHeroShellScript() {
     let activeWalkthroughCoach = null;
     let activeWalkthroughAdvisor = null;
     const preferredSide = (storageKey, fallback) => {
-      try { const side = localStorage.getItem(storageKey); return side === 'left' || side === 'right' ? side : fallback; } catch { return fallback; }
+      try { const side = heroStorage.getItem(storageKey); return side === 'left' || side === 'right' ? side : fallback; } catch { return fallback; }
     };
     const setPreferredSide = (storageKey, side) => {
-      try { localStorage.setItem(storageKey, side); } catch { /* preference remains for this page */ }
+      try { heroStorage.setItem(storageKey, side); } catch { /* preference remains for this page */ }
     };
     let coachMinimizedInMemory = null;
     const isCoachMinimized = () => {
       if (typeof coachMinimizedInMemory === 'boolean') return coachMinimizedInMemory;
-      try { return localStorage.getItem(walkthroughCoachMinimizedKey) === 'true'; } catch { return false; }
+      try { return heroStorage.getItem(walkthroughCoachMinimizedKey) === 'true'; } catch { return false; }
     };
     const setCoachMinimized = minimized => {
       coachMinimizedInMemory = minimized === true;
-      try { localStorage.setItem(walkthroughCoachMinimizedKey, String(minimized === true)); } catch { /* private mode can still use the visible state */ }
+      try { heroStorage.setItem(walkthroughCoachMinimizedKey, String(minimized === true)); } catch { /* private mode can still use the visible state */ }
     };
     const removeWalkthroughLauncher = () => document.querySelector('[data-hero-walkthrough-launcher]')?.remove();
     const clearWalkthroughAdvisor = () => {
@@ -1282,7 +1361,7 @@ export function getHeroShellScript() {
     };
     const routeForWalkthroughStep = (stepId, preferredProjectId = null) => {
       let step = stepById(stepId);
-      let projectId = usableProjectId(preferredProjectId) || usableProjectId(localStorage.getItem(activeProjectKey));
+      let projectId = usableProjectId(preferredProjectId) || usableProjectId(heroStorage.getItem(activeProjectKey));
       if (!step) step = stepById('project-selection') || mainWalkthroughSteps[0];
       if (!noProjectWalkthroughSteps.has(step.id) && !projectId) step = stepById('project-selection');
       const source = new URL(step.route, location.origin);
@@ -1296,7 +1375,7 @@ export function getHeroShellScript() {
     const stopWalkthrough = (status = 'closed') => {
       const previous = readWalkthroughState();
       if (previous) writeWalkthroughState({ ...previous, active: false, status, stoppedAt: Date.now() });
-      if (status === 'closed-by-user') { try { localStorage.setItem(walkthroughOwnerDismissedKey, 'true'); } catch { /* an unavailable browser store must not block closing the guide */ } }
+      if (status === 'closed-by-user') { try { heroStorage.setItem(walkthroughOwnerDismissedKey, 'true'); } catch { /* an unavailable browser store must not block closing the guide */ } }
       setCoachMinimized(false);
       clearWalkthroughCoach();
     };
@@ -1308,10 +1387,10 @@ export function getHeroShellScript() {
       // make the first numbered step look as though a choice was made.
       const scopedProjectId = step.id === 'project-selection' && !explicitProjectId
         ? null
-        : explicitProjectId || usableProjectId(localStorage.getItem(activeProjectKey));
+        : explicitProjectId || usableProjectId(heroStorage.getItem(activeProjectKey));
       if (!noProjectWalkthroughSteps.has(step.id) && !scopedProjectId) step = stepById('project-selection');
-      if (scopedProjectId) localStorage.setItem(activeProjectKey, scopedProjectId);
-      try { localStorage.removeItem(walkthroughOwnerDismissedKey); } catch { /* a manual restart still works in this page */ }
+      if (scopedProjectId) heroStorage.setItem(activeProjectKey, scopedProjectId);
+      try { heroStorage.removeItem(walkthroughOwnerDismissedKey); } catch { /* a manual restart still works in this page */ }
       setCoachMinimized(false); clearWalkthroughCoach();
       writeWalkthroughState({ active: true, status: 'active', stepId: step.id, projectId: scopedProjectId, startedAt: Date.now() });
       location.assign(routeForWalkthroughStep(step.id, scopedProjectId));
@@ -1321,7 +1400,7 @@ export function getHeroShellScript() {
       if (!previous?.active) return startWalkthrough({ stepId, projectId });
       const step = stepById(stepId) || stepById(previous.stepId) || stepById('project-selection') || mainWalkthroughSteps[0];
       const scopedProjectId = usableProjectId(projectId) || stateProjectId(previous);
-      if (scopedProjectId) localStorage.setItem(activeProjectKey, scopedProjectId);
+      if (scopedProjectId) heroStorage.setItem(activeProjectKey, scopedProjectId);
       setCoachMinimized(false); clearWalkthroughCoach();
       writeWalkthroughState({ ...previous, active: true, status: 'active', stepId: step.id, projectId: scopedProjectId });
       location.assign(routeForWalkthroughStep(step.id, scopedProjectId));
@@ -1387,7 +1466,7 @@ export function getHeroShellScript() {
     };
     const normalizeWalkthroughStateForSurface = () => {
       const active = readWalkthroughState();
-      if (!active || new URL(location.href).searchParams.has('walkthrough')) return active;
+      if (!active?.active || new URL(location.href).searchParams.has('walkthrough')) return active;
       if (stepById(active.stepId)?.flow === 'outside-main') {
         const resumed = { ...active, active: true, status: 'active', stepId: 'project-selection', projectId: stateProjectId(active) };
         writeWalkthroughState(resumed);
@@ -1625,8 +1704,8 @@ export function getHeroShellScript() {
         // than a property of the currently open project.  Project-level
         // binding/scope/cost gates are still verified separately at dispatch.
         const advisorSelectionStorageKey = 'hero.advisor.selection.walkthrough-guide.v1';
-        const restoreAdvisorSelection = () => { try { const saved = localStorage.getItem(advisorSelectionStorageKey); if (saved && Array.from(selector.options).some(option => option.value === saved && !option.disabled)) selector.value = saved; } catch { /* default local advisor remains available */ } };
-        const saveAdvisorSelection = () => { try { localStorage.setItem(advisorSelectionStorageKey, selector.value); } catch { /* preference is optional */ } };
+        const restoreAdvisorSelection = () => { try { const saved = heroStorage.getItem(advisorSelectionStorageKey); if (saved && Array.from(selector.options).some(option => option.value === saved && !option.disabled)) selector.value = saved; } catch { /* default local advisor remains available */ } };
+        const saveAdvisorSelection = () => { try { heroStorage.setItem(advisorSelectionStorageKey, selector.value); } catch { /* preference is optional */ } };
         const loadAdvisorOptions = async () => {
           if (!projectIdForGuide) return;
           const response = await fetch('/api/projects/' + encodeURIComponent(projectIdForGuide) + '/walkthrough-advisor/options', { credentials: 'same-origin', cache: 'no-store' });
@@ -1701,7 +1780,7 @@ export function getHeroShellScript() {
       }
       if (event.key?.startsWith(walkthroughServicePrefix)) scheduleWalkthroughCoachInstall();
     });
-    const ownerWalkthroughDismissed = () => { try { return localStorage.getItem(walkthroughOwnerDismissedKey) === 'true'; } catch { return false; } };
+    const ownerWalkthroughDismissed = () => { try { return heroStorage.getItem(walkthroughOwnerDismissedKey) === 'true'; } catch { return false; } };
     const consumeOwnerWalkthroughLogin = () => { try { const pending = sessionStorage.getItem(walkthroughOwnerLoginKey) === 'true'; sessionStorage.removeItem(walkthroughOwnerLoginKey); return pending; } catch { return false; } };
     const activateDefaultWalkthroughForOwner = async () => {
       const loginJustCompleted = consumeOwnerWalkthroughLogin();
@@ -1709,12 +1788,11 @@ export function getHeroShellScript() {
       try {
         const response = await fetch('/api/identity/me', { credentials: 'same-origin', cache: 'no-store' });
         const body = await response.json().catch(() => ({}));
-        if (!response.ok || body?.principal?.role !== 'project-owner') return;
+        if (!response.ok || body?.principal?.role !== 'project-owner' || ownerWalkthroughDismissed()) return;
         const current = readWalkthroughState();
         if (current?.active && !loginJustCompleted) { scheduleWalkthroughCoachInstall(); return; }
         const initial = { active: true, status: 'active', stepId: 'project-selection', projectId: null, startedAt: Date.now() };
-        setCoachMinimized(false); writeWalkthroughState(initial);
-        if (currentWalkthroughSurface() !== 'portfolio') { location.assign(routeForWalkthroughStep(initial.stepId)); return; }
+        setCoachMinimized(true); writeWalkthroughState(initial);
         scheduleWalkthroughCoachInstall();
       } catch { /* unauthenticated and degraded surfaces must remain usable */ }
     };

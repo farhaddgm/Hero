@@ -20,14 +20,14 @@ export function getProjectHelpHtml({ project, viewerRole, locale: requested = "f
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Hero · ${escapeHtml(t("help.title"))}</title>
     <style>
-      ${getHeroShellStyles()}
       :root { --ink:#162238; --muted:#566a85; --line:#dbe3ef; --surface:#fff; --canvas:#f4f7fb; --primary:#285ea8; --teal:#066356; }
       * { box-sizing:border-box; } body { margin:0; color:var(--ink); background:var(--canvas); font-family:Vazirmatn,sans-serif; line-height:1.8; }
       main { width:min(980px,calc(100% - 30px)); margin:0 auto; padding:28px 0 50px; }
       .top,.section { border:1px solid var(--line); border-radius:16px; background:var(--surface); } .top { padding:18px 20px; margin-bottom:16px; } .section { padding:14px 16px; margin-top:12px; }
       h1 { margin:0 0 4px; font-size:clamp(1.3rem,3vw,1.9rem); } h2 { margin:22px 0 4px; font-size:1.1rem; } h3 { margin:0 0 6px; font-size:1rem; } .muted { color:var(--muted); font-size:.82rem; }
       dt { margin-top:10px; font-weight:700; } dd { margin:2px 0 0; } code { direction:ltr; unicode-bidi:embed; font-family:ui-monospace,SFMono-Regular,Consolas,monospace; font-size:.8rem; }
-      .pill { padding:2px 8px; border-radius:999px; background:#e5f7f2; color:var(--teal); font-size:.72rem; font-weight:700; } a { color:var(--primary); } nav.crumbs { font-size:.8rem; color:var(--muted); margin-bottom:6px; }
+      .pill { padding:2px 8px; border-radius:999px; background:var(--teal-soft); color:var(--teal); font-size:.72rem; font-weight:700; } a { color:var(--primary); } nav.crumbs { font-size:.8rem; color:var(--muted); margin-bottom:6px; }
+      ${getHeroShellStyles()}
     </style>
   </head>
   <body>

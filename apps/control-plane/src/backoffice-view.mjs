@@ -21,8 +21,7 @@ export function getBackofficeHtml({ initialData = null, dataEndpoint = "/backoff
     <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate">
     <title>Hero — مرکز مدیریت</title>
     <style>
-      ${getHeroShellStyles()}
-      :root {
+        :root {
         color-scheme: light;
         font-family: Vazirmatn, sans-serif;
         background: #f4f7fb;
@@ -179,33 +178,34 @@ export function getBackofficeHtml({ initialData = null, dataEndpoint = "/backoff
       @media (max-width: 820px) { .app-shell { display: block; }.side-nav { position: static; display: block; margin-bottom: 16px; padding: 10px; }.side-nav-top, .side-nav-foot { display: none; }.nav-list { display: flex; gap: 7px; overflow-x: auto; padding: 1px; scrollbar-width: thin; }.nav-item { width: auto; min-width: max-content; padding: 8px 10px; }.nav-copy small { display: none; }.nav-icon { width: 28px; height: 28px; flex-basis: 28px; }.view-toolbar { min-height: 78px; padding: 14px 16px; } }
       @media (max-width: 720px) { main { width: min(100% - 22px, 650px); padding-top: 20px; }.topbar, .admin-bar, .section-head,.ai-connection-board-head,.ai-assignment-head,.ai-credential-entry-head { display: block; }.section-head-actions { justify-items: start; min-width: 0; margin-top: 10px; }.top-actions { justify-content: flex-start; margin-top: 16px; }.admin-bar { padding: 14px; }.token-field { margin-top: 12px; }.admin-token { width: 100%; }.metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }.focus-grid, .lower-grid, .concept-grid, .config-layout, .settings-grid, .route-list, .owner-action-list,.ai-connection-grid,.ai-credential-form { grid-template-columns: 1fr; }.roadmap-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }.roadmap-row { grid-template-columns: 1fr; gap: 4px; }.architecture { grid-template-columns: 1fr; gap: 7px; }.arch-node { min-height: 75px; }.arch-arrow { transform: rotate(90deg); text-align: center; }.section { padding: 17px; }.section-tools { margin-top: 14px; }.filters input, .filters select { min-width: 0; flex: 1 1 170px; }.team-summary, .detail-grid, .projection-row, .memory-row,.ai-assignment-row { grid-template-columns: 1fr; }.detail-block.full { grid-column: auto; }.timeline-item { grid-template-columns: 1fr; gap: 4px; }.timeline-item small { text-align: right; }.footer { display: block; }.footer span { display: block; margin-top: 4px; }.capability-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }.ai-assignment-project{margin-top:12px}.ai-assignment-row button{justify-self:start;} }
       @media (max-width: 420px) { .view-toolbar { align-items: flex-start; }.view-count { display: none; }.metrics { gap: 8px; }.metric { min-height: 100px; padding: 13px; }.metric strong { font-size: 1.4rem; }.team-card-head { flex-wrap: wrap; }.team-status { margin-right: 45px; }.roles { grid-template-columns: 1fr; }.team-meta { gap: 5px; }.team-meta > div { padding: 8px 7px; }.team-meta strong { font-size: .69rem; }.config-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-    </style>
+      ${getHeroShellStyles()}
+  </style>
   </head>
   <body>
     ${getHeroGlobalNavigation({ active, environment: "Private · AI & Command Center" })}
     <main id="hero-main" tabindex="-1">
-      <header class="topbar">
+      <header class="topbar hero-page-header">
         <div class="brand">
           <div class="brand-mark" aria-hidden="true">H</div>
           <div>
             <span class="eyebrow">HERO / CONTROL PLANE</span>
-            <h1 data-hero-info-key="command.statusOverview">مرکز مدیریت و راهبری</h1>
-            <p class="subtitle">بک‌آفیس توسعهٔ Hero برای دیدن تیم‌ها، نقش‌های هوش مصنوعی، گیت‌های ایمنی و مسیر تصمیم‌گیری پروژه.</p>
+            <h1 data-hero-info-key="command.statusOverview">${active === "ai" ? "اتصال‌های هوش مصنوعی" : "مرکز مدیریت و راهبری"}</h1>
+            <p class="subtitle">${active === "ai" ? "سرویس‌ها، مدل‌ها و نقش‌های هر پروژه را از یک‌جا مدیریت کنید." : "وضعیت تیم‌ها، تصمیم‌ها و پیشرفت پروژه‌ها را دنبال کنید."}</p>
           </div>
         </div>
         <div class="top-actions">
           <span id="overall" class="status-pill">در حال خواندن وضعیت…</span>
           <button id="refresh" class="button" type="button">به‌روزرسانی</button>
           <button id="download-report" class="button secondary" type="button">دریافت گزارش امن</button>
-          <a class="button secondary" href="/api/portal?surface=portfolio&select=project&next=studio">Product Studio</a>
+          <a class="button secondary" href="/api/portal?surface=portfolio&select=project&next=studio">استودیوی محصول</a>
           <a class="button secondary" href="/">اتاق کنترل</a>
         </div>
       </header>
 
-      <section class="admin-bar" aria-label="دسترسی مالک یا ادمین">
+      <details class="admin-bar" aria-label="دسترسی مالک یا ادمین"><summary>دسترسی مدیریتی و ابزارهای پیشرفته</summary>
         <div class="admin-copy"><div class="admin-icon" aria-hidden="true">✓</div><div><strong data-hero-info-key="command.adminAccess">دسترسی انسانی و کنترل‌شده</strong><span>ثبت Provider، Model و Profile سراسری با نشست انسانی Owner انجام می‌شود. Admin فقط می‌تواند Profile تأییدشده را در پروژه‌ای که Grant دارد Binding کند. فیلد Token فقط برای مسیرهای قدیمیِ سرویس باقی مانده و برای تنظیمات AI لازم نیست.</span></div></div>
         <label class="token-field" for="owner-token">توکن API اختیاری<input id="owner-token" class="admin-token" type="password" autocomplete="off" placeholder="فقط برای مسیرهای قدیمی API؛ تنظیم AI با ورود انسانی انجام می‌شود"></label>
-      </section>
+      </details>
 
       <div class="app-shell">
         <aside class="side-nav" aria-label="ناوبری بخش‌های پنل">
@@ -272,7 +272,7 @@ export function getBackofficeHtml({ initialData = null, dataEndpoint = "/backoff
               <section class="section" aria-labelledby="timeline-title"><div class="section-head"><div><span class="section-kicker">ردیابی</span><h2 id="timeline-title" data-hero-info-key="operations.timeline">Timeline تغییرات</h2></div></div><p class="muted" style="font-size:.78rem">فقط خلاصهٔ امن eventها نمایش داده می‌شود؛ prompt، credential و خروجی خام AI وارد این نما نمی‌شوند.</p><div id="timeline" class="timeline"></div></section>
               <section class="section" aria-labelledby="review-title"><div class="section-head"><div><span class="section-kicker">شواهد</span><h2 id="review-title" data-hero-info-key="operations.organizationEvaluation">ارزیابی سازمان</h2></div></div><p class="muted" style="font-size:.78rem">ارزیابی شواهد و پیشنهاد تولید می‌کند؛ خودش مجوز یا تغییر وضعیت تیم نیست.</p><div id="reviews" class="reviews"></div></section>
               <section class="section" aria-labelledby="next-title"><div class="section-head"><div><span class="section-kicker">ادامه مسیر</span><h2 id="next-title" data-hero-info-key="operations.nextSteps">گام‌های بعدی</h2></div></div><div id="next-steps" class="next-steps"></div></section>
-              <section id="roadmap-section" class="section full-span" aria-labelledby="roadmap-title"><div class="section-head"><div><span class="section-kicker">دفتر نسخه‌دار</span><h2 id="roadmap-title" data-hero-info-key="operations.priorityLedger">۵۰ گام اولویت‌دار و گیت‌های باز</h2><p>این دفتر فقط وضعیت و اقدام بعدی را نشان می‌دهد. هیچ ردیفی به‌تنهایی مجوز تغییر، هزینه، انتشار یا اجرای بیرونی نیست.</p></div><span id="roadmap-source" class="section-kicker">OPEN-50</span></div><div id="roadmap-summary" class="roadmap-summary"></div><div id="roadmap-list" class="roadmap-list"></div><div class="subsection-head"><h3 data-hero-info-key="operations.ownerActions" data-hero-info-label="اقدام‌های نیازمند تصمیم">اقدام‌هایی که قبل از ادامه به مالک یا ادمین نیاز دارند</h3><span id="owner-action-note">—</span></div><div id="owner-action-list" class="owner-action-list"></div></section>
+              <section id="roadmap-section" class="section full-span" aria-labelledby="roadmap-title"><div class="section-head"><div><span class="section-kicker">دفتر نسخه‌دار</span><h2 id="roadmap-title" data-hero-info-key="operations.priorityLedger">۵۰ گام اولویت‌دار و گیت‌های باز</h2><p>این دفتر فقط وضعیت و اقدام بعدی را نشان می‌دهد. هیچ ردیفی به‌تنهایی مجوز تغییر، هزینه، انتشار یا اجرای بیرونی نیست.</p></div><span id="roadmap-source" class="section-kicker">OPEN-50</span></div><div id="roadmap-summary" class="roadmap-summary"></div><div id="roadmap-list" class="roadmap-list" tabindex="0"></div><div class="subsection-head"><h3 data-hero-info-key="operations.ownerActions" data-hero-info-label="اقدام‌های نیازمند تصمیم">اقدام‌هایی که قبل از ادامه به مالک یا ادمین نیاز دارند</h3><span id="owner-action-note">—</span></div><div id="owner-action-list" class="owner-action-list"></div></section>
               <section class="section" aria-labelledby="boundary-title"><div class="section-head"><div><span class="section-kicker">مرزها</span><h2 id="boundary-title" data-hero-info-key="operations.invariantBoundaries">قواعدی که نباید گم شوند</h2></div></div><div class="learn-note"><strong>توقف اضطراری:</strong> اجرای جدید را می‌بندد؛ به معنی شکست نیست.<br><strong>اصول تیم:</strong> تغییر آن‌ها نسخه‌دار است و پس از ویرایش دوباره به تأیید مالک نیاز دارد.<br><strong>Provider زنده:</strong> بدون credential، هزینه و مجوز مستقل متصل نمی‌شود.<br><strong>انتشار:</strong> فقط از commit تست‌شده و گیت‌های مستقل عبور می‌کند.</div></section>
             </div>
           </div>
@@ -401,7 +401,7 @@ export function getBackofficeHtml({ initialData = null, dataEndpoint = "/backoff
         document.title = 'Hero — ' + info.title;
         if (updateUrl && window.location.hash !== '#' + activeView) window.history.replaceState(null, '', window.location.pathname + window.location.search + '#' + activeView);
       }
-      function syncViewFromHash() { setView(window.location.hash.slice(1), { updateUrl: false }); }
+      function syncViewFromHash() { setView(window.location.hash.slice(1) || ${JSON.stringify(active === "ai" ? "ai" : "overview")}, { updateUrl: false }); }
       const listNode = (items, className, limit) => { const list = document.createElement('div'); list.className = className || 'tag-list'; const values = Array.isArray(items) ? items : []; const shown = limit ? values.slice(0, limit) : values; shown.forEach(item => list.append(text('span', item, 'tag'))); if (limit && values.length > limit) list.append(text('span', '+' + (values.length - limit) + ' مورد دیگر', 'tag more')); if (!shown.length) list.append(text('span', 'ثبت نشده', 'tag')); return list; };
       const configField = (id, label, { type = 'text', value = '', options = [], required = true, help = '' } = {}) => { const wrapper = document.createElement('label'); wrapper.htmlFor = id; wrapper.append(text('span', label)); let control; if (type === 'select') { control = document.createElement('select'); options.forEach(option => { const item = document.createElement('option'); item.value = option.value === undefined ? option : option.value; item.textContent = option.label === undefined ? option : option.label; if (item.value === value) item.selected = true; control.append(item); }); } else { control = document.createElement('input'); control.type = type; control.value = value; } control.id = id; control.name = id; control.required = required; if (type === 'number') { control.min = '0'; control.step = '1'; } wrapper.append(control); if (help) wrapper.append(text('span', help, 'field-help')); return wrapper; };
       const configValue = id => { const element = $('#' + id); return element ? element.value.trim() : ''; };
@@ -444,7 +444,7 @@ export function getBackofficeHtml({ initialData = null, dataEndpoint = "/backoff
         const contract = teamContract(team); const card = document.createElement('article'); card.className = 'team-card';
         const head = document.createElement('div'); head.className = 'team-card-head'; const number = text('div', String(index).padStart(2, '0'), 'team-index'); const title = document.createElement('div'); title.className = 'team-title'; title.append(text('h3', team.name), text('span', team.teamId, 'team-id')); const state = text('span', statusLabels[team.status] || team.status, 'team-status ' + teamStatusTone(team)); head.append(number, title, state); card.append(head);
         card.append(text('p', team.responsibility, 'team-responsibility'));
-        const approved = team.approvals.approved || 0; const total = team.approvals.total || 0; const percent = total ? Math.round(approved * 100 / total) : 0; const progress = document.createElement('div'); progress.innerHTML = '<div class="progress-meta"><span data-hero-info-key="teams.contractProgress">پیشرفت قرارداد</span><strong>' + approved + ' از ' + total + ' بخش</strong></div><div class="progress-track" aria-label="پیشرفت قرارداد"><i style="width:' + percent + '%"></i></div>'; card.append(progress);
+        const approved = team.approvals.approved || 0; const total = team.approvals.total || 0; const percent = total ? Math.round(approved * 100 / total) : 0; const progress = document.createElement('div'); progress.innerHTML = '<div class="progress-meta"><span data-hero-info-key="teams.contractProgress">پیشرفت قرارداد</span><strong>' + approved + ' از ' + total + ' بخش</strong></div><div class="progress-track" role="progressbar" aria-label="پیشرفت قرارداد" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + percent + '"><i style="width:' + percent + '%"></i></div>'; card.append(progress);
         const meta = document.createElement('div'); meta.className = 'team-meta'; const training = team.training || {}; [['آمادگی', team.ready ? 'آماده' : statusLabels[training.status] || training.status || 'تکمیل نشده', 'teams.readiness'], ['خودکارسازی', autonomyLabels[contract.autonomy?.default] || contract.autonomy?.default || 'ثبت نشده', 'teams.autonomy'], ['تخصیص / بازبینی', (team.assignmentCount || 0) + ' / ' + (team.reviewCount || 0), 'teams.assignmentReview']].forEach(item => { const cell = document.createElement('div'); cell.append(featureText('span', item[0], '', item[2]), text('strong', item[1])); meta.append(cell); }); card.append(meta);
         const summary = document.createElement('div'); summary.className = 'team-summary'; const inputBlock = document.createElement('div'); inputBlock.append(featureText('span', 'ورودی‌های کلیدی', 'label', 'teams.inputs'), listNode(contract.inputs, 'tag-list', 3)); const outputBlock = document.createElement('div'); outputBlock.append(featureText('span', 'خروجی‌های مرجع', 'label', 'teams.outputs'), listNode(contract.outputs, 'tag-list', 3)); summary.append(inputBlock, outputBlock); card.append(summary);
         const details = document.createElement('details'); details.className = 'team-details'; const summaryNode = document.createElement('summary'); summaryNode.textContent = 'مشاهدهٔ قرارداد کامل تیم'; details.append(summaryNode); const detailGrid = document.createElement('div'); detailGrid.className = 'detail-grid';

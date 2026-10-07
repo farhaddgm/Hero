@@ -17,7 +17,6 @@ export function getProjectWorkspaceHtml({ projectId }) {
   <meta name="robots" content="noindex,nofollow,noarchive,nosnippet,noimageindex,notranslate">
   <title>Hero · فضای کاری پروژه</title>
   <style>
-    ${getHeroShellStyles()}
     :root { font-family: Vazirmatn, sans-serif; }
     * { box-sizing: border-box; }
     body { min-width: 320px; margin: 0; background: var(--hero-canvas); color: var(--hero-ink); }
@@ -56,12 +55,13 @@ export function getProjectWorkspaceHtml({ projectId }) {
     .code { direction: ltr; unicode-bidi: embed; font-family: ui-monospace,SFMono-Regular,Consolas,monospace; font-size: .72rem; }
     [hidden] { display: none !important; }
     @media (max-width: 780px) { main { width: min(100% - 20px,780px); padding-top: 20px; }.grid,.two,.three,.form-toolbar { grid-template-columns: 1fr; }.top { display: block; }.top .actions { margin-top: 12px; justify-content: flex-start; }.panel-head { display: block; }.panel-head-actions { justify-content: flex-start; margin-top: 10px; }.recall-picker select { max-width: 100%; width: 100%; } }
+    ${getHeroShellStyles()}
   </style>
 </head>
 <body>
   ${getHeroGlobalNavigation({ active: "workspace", projectId, environment: "Private · Workspace" })}
   <main id="hero-main" tabindex="-1">
-    <header class="top hero-page-header"><div class="hero-page-copy"><p class="eyebrow">PROJECT / WORKSPACE & POLICY</p><h1 data-hero-info-key="workspace.projectContext">فضای کاری و تنظیمات پروژه</h1><p class="muted">مدیریت داده و تنظیمات پروژهٔ فعال</p></div><div class="actions hero-page-actions"><a class="button secondary" href="/api/portal?surface=portfolio">Portfolio</a><a class="button secondary" id="studio" href="/api/portal?surface=studio&projectId=${projectQuery}">Product Studio</a><a class="button secondary" id="control" href="/api/portal?surface=control&projectId=${projectQuery}">عملیات</a><button id="refresh" class="secondary" type="button">بازخوانی</button></div></header>
+    <header class="top hero-page-header"><div class="hero-page-copy"><p class="eyebrow">PROJECT / WORKSPACE & POLICY</p><h1 data-hero-info-key="workspace.projectContext">فضای کاری و تنظیمات پروژه</h1><p class="muted">مدیریت داده و تنظیمات پروژهٔ فعال</p></div><div class="actions hero-page-actions"><a class="button secondary" href="/api/portal?surface=portfolio">پروژه‌ها</a><a class="button secondary" id="studio" href="/api/portal?surface=studio&projectId=${projectQuery}">استودیوی محصول</a><a class="button secondary" id="control" href="/api/portal?surface=control&projectId=${projectQuery}">عملیات</a><button id="refresh" class="secondary" type="button">بازخوانی</button></div></header>
     <p class="notice">Basic Auth فقط مرز شبکه است. مشاهده و تغییر پروژه به نشست انسانی و ProjectGrant نیاز دارد؛ Secret، Provider و Deploy از این فرم‌ها اجرا نمی‌شوند.</p>
     <nav id="breadcrumbs" class="meta" aria-label="مسیر صفحه"></nav><p id="stale-banner" class="meta" role="status" hidden>بازخوانی ناموفق بود؛ آخرین دادهٔ معتبر نمایش داده می‌شود و ممکن است قدیمی باشد.</p>
     <section class="context"><div class="row"><div><h2 id="project-name" data-hero-info-key="workspace.projectContext">در حال بارگذاری…</h2><p id="session" class="meta">در انتظار نشست انسانی</p></div><span id="lifecycle" class="pill warn">unknown</span></div><p id="status" class="status" role="status" aria-live="polite"></p></section>

@@ -26,19 +26,19 @@ export function getProjectInboxHtml({ project, viewerRole, canAct, views, counts
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Hero · ${escapeHtml(t("inbox.title"))}</title>
     <style>
-      ${getHeroShellStyles()}
       :root { --ink:#162238; --muted:#607089; --line:#dbe3ef; --surface:#fff; --canvas:#f4f7fb; --primary:#285ea8; --teal:#066356; --amber:#855000; --rose:#b03d5d; }
       * { box-sizing:border-box; } body { margin:0; color:var(--ink); background:var(--canvas); font-family:Vazirmatn,sans-serif; line-height:1.7; }
       main { width:min(1100px,calc(100% - 30px)); margin:0 auto; padding:28px 0 50px; }
       .top,.section { border:1px solid var(--line); border-radius:16px; background:var(--surface); box-shadow:0 10px 26px rgba(24,53,93,.05); } .top { padding:18px 20px; margin-bottom:16px; } .section { padding:16px; margin-top:14px; }
       h1 { margin:0 0 4px; font-size:clamp(1.3rem,3vw,1.9rem); } h2 { margin:0 0 10px; font-size:1.02rem; } .muted,.meta { color:var(--muted); font-size:.8rem; } .meta { overflow-wrap:anywhere; }
-      .tabs { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; } .tab { padding:8px 14px; border:1px solid var(--line); border-radius:999px; background:#fff; color:var(--ink); cursor:pointer; font:inherit; font-size:.84rem; } .tab[aria-selected="true"] { background:var(--primary); border-color:var(--primary); color:#fff; } .count { font-weight:700; }
-      .list { display:grid; gap:8px; } .row { padding:10px 12px; border:1px solid #e6ebf3; border-radius:10px; background:#fbfcfe; } .head { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; } .actions { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
-      .pill { padding:2px 8px; border-radius:999px; background:#edf2f8; color:#52647d; font-size:.72rem; font-weight:700; white-space:nowrap; } .pill.good { background:#e5f7f2; color:var(--teal); } .pill.warn { background:#fff3dc; color:var(--amber); } .pill.bad { background:#fff0f3; color:var(--rose); }
+      .tabs { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; } .tab { padding:8px 14px; border:1px solid var(--line); border-radius:999px; background:var(--surface); color:var(--ink); cursor:pointer; font:inherit; font-size:.84rem; } .tab[aria-selected="true"] { background:var(--primary); border-color:var(--primary); color:var(--hero-on-brand, #fff); } .count { font-weight:700; }
+      .list { display:grid; gap:8px; } .row { padding:10px 12px; border:1px solid #e6ebf3; border-radius:10px; background:var(--surface); } .head { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; } .actions { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+      .pill { padding:2px 8px; border-radius:999px; background:var(--primary-soft); color:var(--muted); font-size:.72rem; font-weight:700; white-space:nowrap; } .pill.good { background:var(--teal-soft); color:var(--teal); } .pill.warn { background:var(--amber-soft); color:var(--amber); } .pill.bad { background:var(--rose-soft); color:var(--rose); }
       .empty { padding:12px; border:1px dashed #cad4e2; border-radius:10px; color:var(--muted); text-align:center; font-size:.82rem; }
-      button[data-act] { padding:5px 12px; border:1px solid var(--primary); border-radius:9px; background:#fff; color:var(--primary); cursor:pointer; font:inherit; font-size:.78rem; }
+      button[data-act] { padding:5px 12px; border:1px solid var(--primary); border-radius:9px; background:var(--surface); color:var(--primary); cursor:pointer; font:inherit; font-size:.78rem; }
       table { width:100%; border-collapse:collapse; font-size:.82rem; } th,td { padding:6px 8px; text-align:start; border-bottom:1px solid #eef2f8; } th { color:var(--muted); } ul.timeline { list-style:none; margin:0; padding:0; display:grid; gap:4px; font-size:.82rem; }
       nav.crumbs { font-size:.8rem; color:var(--muted); margin-bottom:6px; } a { color:var(--primary); }
+      ${getHeroShellStyles()}
     </style>
   </head>
   <body>
@@ -48,7 +48,7 @@ export function getProjectInboxHtml({ project, viewerRole, canAct, views, counts
       <div class="tabs" role="tablist" aria-label="${escapeHtml(t("inbox.tabs"))}">${tabs}</div>
       ${panels}
       <section class="section" id="timeline"><h2>${escapeHtml(t("inbox.timeline"))}</h2><ul class="timeline">${timelineRows}</ul></section>
-      <section class="section" id="slo"><h2>${escapeHtml(t("slo.title"))}</h2><div style="overflow:auto"><table><thead><tr><th>${escapeHtml(t("slo.section"))}</th><th>${escapeHtml(t("slo.objective"))}</th><th>${escapeHtml(t("slo.lag"))}</th><th>${escapeHtml(t("slo.status"))}</th></tr></thead><tbody>${sloRows}</tbody></table></div><p class="muted">${escapeHtml(t("slo.note"))}</p></section>
+      <section class="section" id="slo"><h2>${escapeHtml(t("slo.title"))}</h2><div style="overflow:auto" tabindex="0"><table><thead><tr><th>${escapeHtml(t("slo.section"))}</th><th>${escapeHtml(t("slo.objective"))}</th><th>${escapeHtml(t("slo.lag"))}</th><th>${escapeHtml(t("slo.status"))}</th></tr></thead><tbody>${sloRows}</tbody></table></div><p class="muted">${escapeHtml(t("slo.note"))}</p></section>
     </main>
     <script>
       const CONFIG = ${config};

@@ -109,7 +109,7 @@ test("Product Studio requires a project selection and returns only the selected 
   assert.equal(selection.headers.get("location"), "/portfolio?select=project&next=studio");
   const page = await fetch(`${base}/product-studio?projectId=project-vpn`);
   assert.equal(page.status, 200);
-  assert.match(await page.text(), /مرکز توسعهٔ محصول و دانش Hero/);
+  assert.match(await page.text(), /استودیوی محصول/);
   const data = await (await fetch(`${base}/product-studio-data?projectId=project-vpn`)).json();
   assert.equal(data.scope.projectId, "project-vpn");
   assert.equal(data.summary.productCount, 1);

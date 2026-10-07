@@ -11,6 +11,9 @@ node_modules
 **/node_modules
 .pnpm-store
 **/.pnpm-store
+.hero-ui
+playwright-report
+test-results
 var
 dist
 coverage
