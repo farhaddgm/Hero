@@ -6,7 +6,7 @@ import { createAuditFixture } from "../tools/audit/local-fixture.mjs";
 import { createMemoryRuntime } from "../tools/audit/memory-runtime.mjs";
 import { createBackup, restoreBackup, verifyBackup, compareRuntimes, RestoreError } from "../tools/audit/backup-restore.mjs";
 import { scanSecrets, scanDependencies } from "../tools/audit/secret-dependency-scan.mjs";
-import { createRecorder } from "../tools/acceptance/audit-lib.mjs";
+import { createRecorder, sha256 } from "../tools/acceptance/audit-lib.mjs";
 import { fileURLToPath } from "node:url";
 import fs from "node:fs";
 import os from "node:os";
@@ -58,7 +58,7 @@ test("BO-155 the secret scanner finds a planted secret, honours only exact allow
     const recorder = createRecorder("t"); const found = scanSecrets({ root: directory, files: ["src.mjs", "tests/neg.test.mjs", "tests/real.test.mjs", ".env"], recorder, allowlist: [] });
     assert.deepEqual(found.findings.map(item => item.file).sort(), ["src.mjs", "tests/real.test.mjs"], "a real-looking key is found even in a test and even with a test- prefix; an explicit negative test string is not");
     assert.equal(found.synthetic, 1); assert.ok(recorder.finish().findings.some(item => item.includes(".env")), "a tracked .env is reported");
-    const allowed = scanSecrets({ root: directory, files: ["src.mjs"], recorder: createRecorder("t"), allowlist: [{ file: "src.mjs", label: "API key (sk- style)", value: "sk-live-other-value" }] }); assert.equal(allowed.findings.length, 1, "an allowlist entry never covers a different value");
+    const allowed = scanSecrets({ root: directory, files: ["src.mjs"], recorder: createRecorder("t"), allowlist: [{ file: "src.mjs", label: "API key (sk- style)", valueSha256: sha256("sk-live-other-value") }] }); assert.equal(allowed.findings.length, 1, "an allowlist entry never covers a different value");
     fs.writeFileSync(path.join(directory, "package.json"), JSON.stringify({ name: "x", dependencies: { good: "1.2.3", loose: "^1.0.0", gitdep: "github:evil/repo", local: "file:../x" } })); fs.writeFileSync(path.join(directory, "pnpm-lock.yaml"), "packages:\n\n  good@1.2.3:\n    resolution: {integrity: sha512-AAAA}\n\n  bad@1.0.0:\n    resolution: {tarball: https://evil.example/bad.tgz}\n\nsnapshots:\n\n  good@1.2.3: {}\n");
     const dependencyRecorder = createRecorder("d"); scanDependencies({ root: directory, recorder: dependencyRecorder }); const findings = dependencyRecorder.finish().findings.join(" | ");
     for (const needle of ["none from a path, git or URL", "pinned to an exact version", "integrity hash", "raw tarball"]) assert.ok(findings.includes(needle), needle);

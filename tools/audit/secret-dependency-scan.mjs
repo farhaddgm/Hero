@@ -4,7 +4,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { createRecorder } from "../acceptance/audit-lib.mjs";
+import { createRecorder, sha256 } from "../acceptance/audit-lib.mjs";
 
 const SECRET_PATTERNS = Object.freeze([
   ["private key block", /-----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY-----/],
@@ -36,8 +36,8 @@ export function scanSecrets({ root, files = listTrackedFiles(root), recorder, al
     for (const [label, pattern] of SECRET_PATTERNS) {
       const match = content.match(pattern); if (!match) continue;
       // A deliberately fake value in a test that proves it is rejected is not a secret; the wording must say so.
-      if (file.startsWith("tests/") && SYNTHETIC_MARKER.test(match[0])) { synthetic.push({ file, label }); continue; }
-      if (allowlist.some(entry => entry.file === file && entry.label === label && match[0].includes(entry.value))) { synthetic.push({ file, label }); continue; }
+      if (/^(?:tests|tools\/(?:acceptance|audit))\//.test(file) && SYNTHETIC_MARKER.test(match[0])) { synthetic.push({ file, label }); continue; }
+      if (allowlist.some(entry => entry.file === file && entry.label === label && entry.valueSha256 === sha256(match[0]))) { synthetic.push({ file, label }); continue; }
       findings.push({ file, label });
     }
   }
