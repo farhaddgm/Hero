@@ -88,6 +88,8 @@ import { createProjectCollaboration, CollaborationError } from "../../../package
 import { PORTFOLIO_KPIS, breadcrumbsFor, getBackofficePortfolioContractSummary, parsePagination, sectionsFor } from "../../../packages/contracts/src/backoffice-portfolio.mjs";
 import { createCommandCenter, CommandCenterError } from "../../../packages/domain/src/command-center.mjs";
 import { getProjectCollaborationHtml } from "./project-collaboration-view.mjs";
+import { getProjectCatalogHtml } from "./project-catalog-view.mjs";
+import { getProjectInsightsHtml } from "./project-insights-view.mjs";
 import { TEAM_CATALOG } from "../../../packages/contracts/src/team.mjs";
 import { createSystemCatalog, SystemCatalogError } from "../../../packages/domain/src/system-catalog.mjs";
 import { createPerformanceIntelligence, PerformanceError } from "../../../packages/domain/src/performance-intelligence.mjs";
@@ -137,7 +139,7 @@ const IDENTITY_PATHS = new Set(["/identity"]);
 const BROWSER_PORTAL_PATH = "/api/portal";
 const BROWSER_PORTAL_DATA_PATH = "/api/portal-data";
 const BROWSER_PORTAL_DOCUMENT_PATH = "/api/portal-document";
-const BROWSER_PORTAL_SURFACES = new Set(["identity", "portfolio", "command", "studio", "workspace", "control", "collaboration", "walkthrough", "ai"]);
+const BROWSER_PORTAL_SURFACES = new Set(["identity", "portfolio", "command", "studio", "workspace", "control", "collaboration", "catalog", "insights", "walkthrough", "ai"]);
 const DEFAULT_BACKOFFICE_RESPONSE_LIMIT_BYTES = 512 * 1024;
 const OPENAI_TEST_ADVISOR = Object.freeze({
   providerId: "openai",
@@ -1589,6 +1591,26 @@ export function createHeroServer(options = {}) {
     return { project: { projectId: project.projectId, name: project.name }, viewerRole: viewer.role, teams: projectCollaboration.listTeams({ actor: viewer, projectId }), profiles: projectCollaboration.listProfiles({ actor: viewer, projectId }), conversations, memory, flaggedMemoryCount };
   }
 
+  /** BO-096: everything the catalog page shows is read with the viewer's role in this project. */
+  function projectCatalogSnapshot(principal, projectId) {
+    const actor = viewerFor(principal, projectId); const project = projectWorkspace.getProject(projectId);
+    const entities = systemCatalog.list({ projectId }); const impacts = {};
+    for (const entity of entities) impacts[entity.entityId] = systemCatalog.impact({ projectId, entityIds: [entity.entityId] });
+    return { project: { projectId: project.projectId, name: project.name }, viewerRole: actor.role, entities, graph: systemCatalog.graph({ projectId }), documents: systemCatalog.documentGraph({ actor, projectId }), impacts, drift: systemCatalog.listDriftProposals({ projectId, state: "proposed" }), projections: systemCatalog.listProjectionProposals({ projectId }).filter(item => ["proposed", "conflict"].includes(item.state)) };
+  }
+
+  /** BO-104/BO-109: cost, health and feedback with the viewer's role; only editors may write feedback. */
+  function projectInsightsSnapshot(principal, projectId) {
+    const actor = viewerFor(principal, projectId); const project = projectWorkspace.getProject(projectId);
+    const subjects = [...new Set(performanceIntelligence.ledger({ actor, projectId, groupBy: "team" }).map(row => row.scope).filter(scope => scope !== "unassigned"))];
+    return { project: { projectId: project.projectId, name: project.name }, viewerRole: actor.role, canWrite: ["project-owner", "admin"].includes(actor.role), budget: performanceIntelligence.budgetStatus({ actor, projectId }), health: performanceIntelligence.health({ actor, projectId }), reconciliation: performanceIntelligence.reconcile({ actor, projectId }), ledgerByTeam: performanceIntelligence.ledger({ actor, projectId, groupBy: "team" }), ledgerByModel: performanceIntelligence.ledger({ actor, projectId, groupBy: "model" }), feedback: performanceIntelligence.feedbackList({ actor, projectId }), scorecards: subjects.map(subjectId => performanceIntelligence.scorecard({ actor, projectId, subjectId })) };
+  }
+
+  function viewerFor(principal, projectId) {
+    const actor = projectActorFor(principal, projectId);
+    return ["project-owner", "admin", "viewer"].includes(actor?.role) ? actor : Object.freeze({ ...actor, role: "viewer" });
+  }
+
   function projectControlSnapshot(projectId) {
     const actor = { subject: identityOwner.userId, role: "project-owner" };
     const project = projectWorkspace.getProject(projectId);
@@ -2354,13 +2376,13 @@ export function createHeroServer(options = {}) {
         const principal = authenticateBrowserPortalPrincipal(request);
         if (!principal) return redirect(response, portalIdentityLocation(`${url.pathname}${url.search}`));
         const projectId = url.searchParams.get("projectId");
-        if (["command", "studio", "workspace", "control", "collaboration", "walkthrough"].includes(surface) && !projectId) {
+        if (["command", "studio", "workspace", "control", "collaboration", "catalog", "insights", "walkthrough"].includes(surface) && !projectId) {
           return redirect(response, "/api/portal?surface=portfolio&select=project&next=" + encodeURIComponent(surface));
         }
-        if (["command", "studio", "workspace", "control", "collaboration", "walkthrough"].includes(surface)) requirePortalProjectScope(principal, projectId);
+        if (["command", "studio", "workspace", "control", "collaboration", "catalog", "insights", "walkthrough"].includes(surface)) requirePortalProjectScope(principal, projectId);
         if (surface === "portfolio") {
           const destinationCandidate = url.searchParams.get("next") ?? url.searchParams.get("open");
-          const destination = ["command", "studio", "workspace", "control", "collaboration", "walkthrough"].includes(destinationCandidate) ? destinationCandidate : null;
+          const destination = ["command", "studio", "workspace", "control", "collaboration", "catalog", "insights", "walkthrough"].includes(destinationCandidate) ? destinationCandidate : null;
           const view = url.searchParams.get("view") === "archived" ? "archived" : "active";
           return html(response, getPortfolioHtml({ portfolio: portfolioSnapshot(principal, { view, ...(parsePagination({ page: url.searchParams.get("page"), pageSize: url.searchParams.get("pageSize") }) ?? {}) }), destination, selectionRequired: url.searchParams.get("select") === "project" || Boolean(destination), archiveView: view === "archived" }));
         }
@@ -2377,6 +2399,8 @@ export function createHeroServer(options = {}) {
         if (surface === "workspace") return html(response, getProjectWorkspaceHtml({ projectId }));
         if (surface === "control") return html(response, getProjectControlRoomHtml({ initialData: { service: HERO_SERVICE, controlRoom: projectControlSnapshot(projectId) }, dataEndpoint: `${BROWSER_PORTAL_DATA_PATH}?surface=control` }));
         if (surface === "collaboration") return html(response, getProjectCollaborationHtml(projectCollaborationSnapshot(principal, projectId)));
+        if (surface === "catalog") return html(response, getProjectCatalogHtml(projectCatalogSnapshot(principal, projectId)));
+        if (surface === "insights") return html(response, getProjectInsightsHtml(projectInsightsSnapshot(principal, projectId)));
         if (surface === "walkthrough") return html(response, getProjectWalkthroughHtml({ projectId }));
         if (surface === "ai") {
           if (principal.role !== "project-owner") throw new ProjectAccessError("OWNER_REQUIRED", "The global AI catalog is available only to the Owner.", 403);
@@ -2528,7 +2552,7 @@ export function createHeroServer(options = {}) {
           }));
         }
         const destinationCandidate = url.searchParams.get("next") ?? url.searchParams.get("open");
-        const destination = ["command", "studio", "workspace", "control", "collaboration", "walkthrough"].includes(destinationCandidate) ? destinationCandidate : null;
+        const destination = ["command", "studio", "workspace", "control", "collaboration", "catalog", "insights", "walkthrough"].includes(destinationCandidate) ? destinationCandidate : null;
         const view = url.searchParams.get("view") === "archived" ? "archived" : "active";
         return html(response, getPortfolioHtml({ portfolio: portfolioSnapshot(null, { view, ...(parsePagination({ page: url.searchParams.get("page"), pageSize: url.searchParams.get("pageSize") }) ?? {}) }), destination, selectionRequired: url.searchParams.get("select") === "project" || Boolean(destination), archiveView: view === "archived" }));
       }
@@ -3497,6 +3521,7 @@ export function createHeroServer(options = {}) {
           const reads = {
             budget: () => ({ budget: performanceIntelligence.budgetStatus({ actor, projectId }) }),
             "budget/history": () => ({ history: performanceIntelligence.budgetHistory({ actor, projectId }) }),
+            feedback: () => ({ feedback: performanceIntelligence.feedbackList({ actor, projectId, subjectKind: q("subjectKind") }) }),
             ledger: () => ({ ledger: performanceIntelligence.ledger({ actor, projectId, groupBy: q("groupBy") ?? "project", from: q("from"), to: q("to") }) }),
             "ledger/reconcile": () => ({ reconciliation: performanceIntelligence.reconcile({ actor, projectId }) }),
             "evaluation-datasets/drift": () => ({ drift: performanceIntelligence.judgeDrift({ actor, projectId, datasetId: q("datasetId") }) }),

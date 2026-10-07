@@ -171,6 +171,10 @@ export function createPerformanceIntelligence({ now = () => new Date().toISOStri
       feedback.set(feedbackId, item); emit("feedback", feedbackId, 1, projectId, { feedback: item }, actor.subject);
       return item;
     },
+    feedbackList({ actor, projectId, subjectKind = null }) {
+      reader(actor); id("projectId", projectId);
+      return Object.freeze([...feedback.values()].filter(item => item.projectId === projectId && (!subjectKind || item.subjectKind === subjectKind)).sort((a, b) => String(b.recordedAt).localeCompare(String(a.recordedAt)) || b.feedbackId.localeCompare(a.feedbackId)).map(copy));
+    },
     /** BO-105/106: goal fit, token efficiency and error/rework, normalized by work type and risk. */
     scorecard({ actor, projectId, subjectId }) {
       reader(actor); id("projectId", projectId); id("subjectId", subjectId);

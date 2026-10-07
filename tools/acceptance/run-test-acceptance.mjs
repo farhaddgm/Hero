@@ -247,6 +247,19 @@ async function seed() {
   check("BO-111", "admin acknowledges then resolves", (await call(admin, "POST", `${root}/notifications/${notificationId}/act`, { action: "acknowledge" })).body?.notification?.state === "acknowledged" && (await call(admin, "POST", `${root}/notifications/${notificationId}/act`, { action: "resolve", reason: "acceptance done" })).body?.notification?.state === "resolved");
   check("BO-112", "a repeat after resolution reopens instead of adding a row", (await note({})).body?.notification?.reopened === true);
 
+
+  // Pages (BO-096 graph and impact, BO-104 feedback, BO-109 cost/health)
+  const catalogPage = await pageHtml(viewer, `/api/portal?surface=catalog&projectId=${P1}`);
+  check("BO-096", "the catalog page draws the dependency graph with every node", catalogPage.status === 200 && catalogPage.html.includes(`data-graph-node="${svcEntity}"`) && /data-edge-count="[1-9]/.test(catalogPage.html), catalogPage.status);
+  check("BO-096", "the catalog page shows what a change reaches", catalogPage.html.includes(`data-impact-for="${repoEntity}"`) && catalogPage.html.includes(`data-affected="${svcEntity}"`));
+  check("BO-095", "the catalog page hides restricted documents from a viewer", catalogPage.html.includes("[restricted document]") && !catalogPage.html.includes("Acceptance discount floor"));
+  check("BO-096", "the catalog page is closed without a grant", (await pageHtml(viewer, `/api/portal?surface=catalog&projectId=${P2}`)).status === 403);
+  check("BO-104", "an admin can submit feedback from the insights page", (await pageHtml(admin, `/api/portal?surface=insights&projectId=${P1}`)).html.includes('<form id="feedback-form"'));
+  const insightsPage = await pageHtml(viewer, `/api/portal?surface=insights&projectId=${P1}`);
+  check("BO-104", "a viewer sees feedback but no form", insightsPage.status === 200 && insightsPage.html.includes(`data-feedback-id="${run}-fb"`) && !insightsPage.html.includes('<form id="feedback-form"'));
+  check("BO-109", "the insights page links numbers to their evidence", insightsPage.html.includes("drill-down?kind=cost&amp;groupBy=team&amp;scope=developero") && insightsPage.html.includes('data-reconcile-complete="true"'));
+  check("BO-104", "a viewer cannot write feedback", (await call(viewer, "POST", `${root}/feedback`, { feedbackId: `${run}-fbv`, subjectId: "release-x", subjectKind: "release" })).status === 403);
+
   fs.writeFileSync(STATE_FILE, JSON.stringify({ run, P1, P2, users, chatId, prodId, driftProposalId: discovery.body?.proposal?.driftProposalId, repoId: `${run}-repo`, conversationId: conversation?.conversationId, svcId: `${run}-svc`, docId: `${run}-dec-1`, noteId: notificationId }), { mode: 0o600 });
 }
 
@@ -303,6 +316,11 @@ async function verify() {
   check("BO-112", "deduplication survives a restart", alertsV.length === 1 && alertsV[0].reopenCount === 1 && alertsV[0].occurrences === 6, JSON.stringify(alertsV.map(item => [item.occurrences, item.reopenCount])));
   check("BO-112", "a repeat after a restart still folds", (await call(admin, "POST", `${rootV}/notifications`, { category: "health", severity: "warning", title: "Acceptance alert", deduplicationKey: "acc-alert", correlationId: `${state.run}-corr` })).body?.notification?.deduplicated === true);
   check("BO-112", "incidents survive a restart", ((await call(viewer, "GET", `${rootV}/incidents`)).body?.incidents ?? []).length >= 1);
+  const insightsV = await pageHtml(viewer, `/api/portal?surface=insights&projectId=${P1}`);
+  check("BO-104", "feedback survives a restart and shows on the page", insightsV.status === 200 && insightsV.html.includes(`data-feedback-id="${state.run}-fb"`));
+  check("BO-109", "the cost and health numbers on the page survive a restart", insightsV.html.includes('data-budget-decision="hard-cap-pause-required"') && insightsV.html.includes('data-health-status="critical"'));
+  const catalogV = await pageHtml(viewer, `/api/portal?surface=catalog&projectId=${P1}`);
+  check("BO-096", "the dependency graph page is rebuilt after a restart", catalogV.status === 200 && catalogV.html.includes(`data-graph-node="${state.svcId}"`));
 }
 
 let fatal = null;
