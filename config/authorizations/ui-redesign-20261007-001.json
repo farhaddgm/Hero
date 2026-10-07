@@ -1,0 +1,24 @@
+{
+  "schema": "hero.authorization-snapshot/v1",
+  "authorizationId": "BATCH-UI-REDESIGN-20261007-001",
+  "status": "active",
+  "grantedBy": "project-owner",
+  "grantedAt": "2026-10-07",
+  "grantSource": "owner-request-in-current-chat-to-audit-and-redesign-hero-ui-for-test-and-production",
+  "validUntil": "owner-revocation",
+  "globalStop": false,
+  "operations": ["design", "document", "develop", "test", "review"],
+  "excludedOperations": ["production-deploy", "test-deploy", "destructive-data-operation", "external-spend", "secret-change", "external-message", "irreversible-operation", "pilot-execution", "notion-write", "github-write"],
+  "documents": [{ "documentId": "HERO-UI-REDESIGN-20261007", "documentVersion": "1.0.0" }],
+  "steps": [
+    { "stepId": "UI-20261007-01", "documentVersion": "1.0.0" },
+    { "stepId": "UI-20261007-02", "documentVersion": "1.0.0" },
+    { "stepId": "UI-20261007-03", "documentVersion": "1.0.0" }
+  ],
+  "scope": {
+    "environment": "local-development; read-only-test-and-production-audit",
+    "service": "hero-control-plane",
+    "action": "audit-shared-ui-redesign-and-local-browser-verification"
+  },
+  "note": "Append-only record of the current owner request. Source is shared by Test and Production; this authorizes no live deployment, credential change or authenticated access bypass. No agent/provider dispatch is requested."
+}

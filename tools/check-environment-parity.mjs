@@ -10,6 +10,7 @@ const composePath = path.join(repoRoot, "compose.yaml");
 const REQUIRED_KEYS = [
   "HERO_HTTP_HOST",
   "HERO_HTTP_PORT",
+  "HERO_UI_ENVIRONMENT",
   "HERO_BIND_ADDRESS",
   "HERO_EXPOSE_PORT",
   "HERO_IMAGE",
@@ -156,6 +157,8 @@ export function validateEnvironmentParity({ testEnv, productionEnv, compose }) {
 
   if (test.values.HERO_EXPOSE_PORT !== "43101") errors.push("Test HERO_EXPOSE_PORT must be 43101");
   if (production.values.HERO_EXPOSE_PORT !== "43100") errors.push("Production HERO_EXPOSE_PORT must be 43100");
+  if (test.values.HERO_UI_ENVIRONMENT !== "test") errors.push("Test UI environment must be test");
+  if (production.values.HERO_UI_ENVIRONMENT !== "production") errors.push("Production UI environment must be production");
 
   for (const key of EMPTY_IN_EXAMPLES) {
     if (test.values[key] !== "") errors.push(`Test ${key} must stay empty in the committed example`);
@@ -172,6 +175,7 @@ export function validateEnvironmentParity({ testEnv, productionEnv, compose }) {
     'HERO_RELEASE_VERSION: ${HERO_RELEASE_VERSION:-}',
     'HERO_SOURCE_COMMIT: ${HERO_SOURCE_COMMIT:-}',
     'HERO_IMAGE_DIGEST: ${HERO_IMAGE_DIGEST:-}',
+    'HERO_UI_ENVIRONMENT: ${HERO_UI_ENVIRONMENT:-}',
     'HERO_IDENTITY_SESSION_SECRET: ${HERO_IDENTITY_SESSION_SECRET:-}',
     'HERO_SECRET_STORE_ENABLED: ${HERO_SECRET_STORE_ENABLED:-false}',
     'HERO_SECRET_STORE_DIR: ${HERO_SECRET_STORE_DIR:-/var/lib/hero/secret-store}',
@@ -208,7 +212,7 @@ export function runEnvironmentParityCheck() {
   console.log("Environment parity: PASS");
   console.log("- Test and Production use the same Compose/application contract.");
   console.log("- Shared defaults, provider safety gates, and authorization stop controls match.");
-  console.log("- Allowed runtime differences: project name, secrets, and exposed port (43101 Test / 43100 Production).");
+  console.log("- Allowed runtime differences: project name, UI environment label, secrets, and exposed port (43101 Test / 43100 Production).");
   return 0;
 }
 

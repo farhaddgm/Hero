@@ -17,6 +17,7 @@
     "dev": "node --watch apps/control-plane/src/server.mjs",
     "doctor": "node tools/doctor.mjs",
     "check:secrets": "node tools/check-isolation.mjs",
+    "check:ui": "node tools/ui-browser-audit.mjs",
     "check:docs": "node tools/check-documentation.mjs",
     "check:governance": "node tools/check-governance.mjs",
     "check:isolation": "node tools/check-isolation.mjs",

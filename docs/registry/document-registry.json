@@ -1024,7 +1024,9 @@
       "version": "1.8.0",
       "owner": "hero-operations",
       "canonical": true,
-      "supersedes": ["HERO-ROADMAP-STATUS-20260910"],
+      "supersedes": [
+        "HERO-ROADMAP-STATUS-20260910"
+      ],
       "superseded_by": "HERO-ROADMAP-STATUS-20260917",
       "review_cadence": "per-change"
     },
@@ -1136,7 +1138,9 @@
       "version": "4.15.0",
       "owner": "hero-operations",
       "canonical": true,
-      "supersedes": ["HERO-ROADMAP-STATUS-20260911"],
+      "supersedes": [
+        "HERO-ROADMAP-STATUS-20260911"
+      ],
       "superseded_by": null,
       "review_cadence": "per-change"
     },
@@ -2140,6 +2144,48 @@
       "supersedes": [],
       "superseded_by": null,
       "review_cadence": "per-change"
+    },
+    {
+      "id": "HERO-UI-REDESIGN-20261007",
+      "path": "docs/roadmap/HERO-UI-REDESIGN-20261007.md",
+      "title": "بازطراحی رابط Hero — ۲۰۲۶-۱۰-۰۷",
+      "type": "roadmap",
+      "scope": "hero",
+      "status": "active",
+      "version": "1.0.0",
+      "owner": "hero-product",
+      "canonical": true,
+      "supersedes": [],
+      "superseded_by": null,
+      "review_cadence": "per-change"
+    },
+    {
+      "id": "HERO-OPS-UI-BROWSER-AUDIT",
+      "path": "docs/operations/HERO-UI-BROWSER-AUDIT.md",
+      "title": "ممیزی مرورگر رابط Hero",
+      "type": "operation",
+      "scope": "hero",
+      "status": "active",
+      "version": "1.0.0",
+      "owner": "hero-product",
+      "canonical": true,
+      "supersedes": [],
+      "superseded_by": null,
+      "review_cadence": "per-change"
+    },
+    {
+      "id": "HERO-EVIDENCE-UI-REDESIGN-20261007",
+      "path": "docs/evidence/HERO-UI-REDESIGN-20261007.md",
+      "title": "شواهد بازطراحی رابط Hero — ۲۰۲۶-۱۰-۰۷",
+      "type": "evidence",
+      "scope": "hero",
+      "status": "active",
+      "version": "1.0.0",
+      "owner": "hero-product",
+      "canonical": true,
+      "supersedes": [],
+      "superseded_by": null,
+      "review_cadence": "none"
     }
   ]
 }
