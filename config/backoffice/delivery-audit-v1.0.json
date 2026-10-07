@@ -138,8 +138,8 @@
       "count": 1,
       "work_package": "WP-08",
       "status": "partial",
-      "evidence": ["apps/control-plane/src/server.mjs", "config/authorizations/backoffice-20261006-024.json", "packages/adapters/src/postgresql-system-catalog-store.mjs", "packages/contracts/src/system-catalog.mjs", "packages/domain/src/command-center.mjs", "packages/domain/src/system-catalog.mjs", "tests/backoffice-catalog-performance-notification.test.mjs", "tests/system-catalog-wp08.test.mjs", "tests/wp08-integration-bo093.test.mjs", "tools/acceptance/run-test-acceptance.mjs"],
-      "open_gate": "Source and API are complete and verified on Test (impact analysis with dependency paths, command-card impact), but the step says to display the dependency graph and blast radius and no graph/blast-radius UI page exists yet."
+      "evidence": ["apps/control-plane/src/project-catalog-view.mjs", "apps/control-plane/src/server.mjs", "config/authorizations/backoffice-20261006-024.json", "packages/adapters/src/postgresql-system-catalog-store.mjs", "packages/contracts/src/system-catalog.mjs", "packages/domain/src/command-center.mjs", "packages/domain/src/system-catalog.mjs", "tests/backoffice-catalog-performance-notification.test.mjs", "tests/system-catalog-wp08.test.mjs", "tests/wp08-10-pages-bo096.test.mjs", "tests/wp08-integration-bo093.test.mjs", "tools/acceptance/run-test-acceptance.mjs"],
+      "open_gate": "Source completed 2026-10-06 under BATCH-BACKOFFICE-20261006-024: the catalog page (surface=catalog) draws the dependency graph as a deterministic layered SVG and shows, per entity, the impact of a change with its dependency path; permission-aware and escaped; local acceptance rehearsal passes (141 in-scope checks). The API and impact analysis were already verified on Test (rc.38). Stays partial until a promoted candidate (rc.39) passes the acceptance on the Test host."
     },
     {
       "from": "BO-097",
@@ -165,8 +165,8 @@
       "count": 1,
       "work_package": "WP-09",
       "status": "partial",
-      "evidence": ["apps/control-plane/src/server.mjs", "config/authorizations/backoffice-20261006-024.json", "packages/adapters/migrations/023_backoffice_domain_records.sql", "packages/adapters/src/postgresql-domain-record-store.mjs", "packages/contracts/src/performance-intelligence.mjs", "packages/domain/src/organization-performance.mjs", "packages/domain/src/performance-intelligence.mjs", "tests/backoffice-catalog-performance-notification.test.mjs", "tests/wp09-usage-health-bo099.test.mjs", "tools/acceptance/run-test-acceptance.mjs"],
-      "open_gate": "Optional Owner feedback for milestone, release and output is stored and verified on Test, but the step is an Owner-facing feature and no feedback UI exists yet."
+      "evidence": ["apps/control-plane/src/project-insights-view.mjs", "apps/control-plane/src/server.mjs", "config/authorizations/backoffice-20261006-024.json", "packages/adapters/migrations/023_backoffice_domain_records.sql", "packages/adapters/src/postgresql-domain-record-store.mjs", "packages/contracts/src/performance-intelligence.mjs", "packages/domain/src/organization-performance.mjs", "packages/domain/src/performance-intelligence.mjs", "tests/backoffice-catalog-performance-notification.test.mjs", "tests/browser/insights-feedback.browser.mjs", "tests/wp08-10-pages-bo096.test.mjs", "tests/wp09-usage-health-bo099.test.mjs", "tools/acceptance/run-test-acceptance.mjs"],
+      "open_gate": "Source completed 2026-10-06 under BATCH-BACKOFFICE-20261006-024: the cost and health page (surface=insights) has a feedback form for owner/admin (real-browser tested: typing, submit, stored and reloaded, server-side refusal of a viewer's crafted write) and a read-only view for viewers. Stays partial until a promoted candidate (rc.39) passes the acceptance on the Test host."
     },
     {
       "from": "BO-105",
@@ -192,8 +192,8 @@
       "count": 8,
       "work_package": "WP-10",
       "status": "partial",
-      "evidence": ["packages/domain/src/notification-observability.mjs", "tests/backoffice-catalog-performance-notification.test.mjs"],
-      "open_gate": "Not yet in an authorization batch: actionable Inbox UI, decision/approval/chat/run-fix surface routing, trace end to end, observability storage and alert-storm, retention and security runtime evidence."
+      "evidence": ["apps/control-plane/src/project-inbox-view.mjs", "apps/control-plane/src/server.mjs", "config/authorizations/backoffice-20261007-025.json", "packages/contracts/src/notification-observability.mjs", "packages/domain/src/command-center.mjs", "packages/domain/src/notification-observability.mjs", "tests/browser/inbox.browser.mjs", "tests/wp10-inbox-bo113-120.test.mjs", "tests/wp10-notifications-bo111.test.mjs", "tools/acceptance/run-test-acceptance.mjs"],
+      "open_gate": "Source completed 2026-10-07 under BATCH-BACKOFFICE-20261007-025: five-view Inbox page with real approve/reject/run-fix(draft only)/chat/snooze actions, correlation trail across command, notification, trace and audit, activity vs security streams with classification and value-level redaction, filtered and paged audit query, owner-only audited export, retention policy with dry-run plan, SLO report, and attack tests (alert storm, duplicates, missing trace, sensitive values, role filtering), a real-browser test and 30 new acceptance checks rehearsed locally against real PostgreSQL. Stays partial until a promoted candidate (rc.39) passes the acceptance on the Test host."
     },
     {
       "from": "BO-121",

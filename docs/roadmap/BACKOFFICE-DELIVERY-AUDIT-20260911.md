@@ -6,7 +6,7 @@
 > Type: evidence
 > Scope: hero
 > Status: active
-> Version: 1.9.0
+> Version: 1.10.0
 > Owner: hero-architecture
 > Review cadence: per-change
 > Supersedes: none
@@ -63,10 +63,10 @@
 | WP-07 | BO-075..088 | verified | verified در ۲۰۲۶-۱۰-۰۶ با آزمون پذیرش نقش‌محور روی Runtime Test (`v1.1.5-rc.37`): intent از گفتگو، تصمیم با snapshot سیاست، dispatch با گیت، Production مسدود، `interrupted` پس از crash، resume و پایان idempotent | adapter اجرای واقعی و Production جداگانه gated |
 | WP-08 | BO-089..092 | verified | verified در ۲۰۲۶-۱۰-۰۶ با آزمون پذیرش نقش‌محور روی Runtime Test (`v1.1.5-rc.37`): metadata لازم، رابطهٔ تایپ‌دار بدون چرخه، کشف آفلاین، Drift Proposal و تصمیم انسانی پس از restart | بسته است |
 | WP-08 | BO-093..095 | verified | verified در ۲۰۲۶-۱۰-۰۶ با آزمون پذیرش نقش‌محور روی Runtime Test (`v1.1.5-rc.38`): ارجاع‌های تایپ‌دار، گراف سند و جست‌وجوی مجوزدار با redaction | پیگیری: صفحات UI گراف و جست‌وجو |
-| WP-08 | BO-096 | partial | تحلیل اثر و مسیر وابستگی روی Test تأیید شد و روی کارت فرمان در API هست | صفحهٔ نمایش گراف وابستگی و blast radius وجود ندارد |
+| WP-08 | BO-096 | partial | source ۲۰۲۶-۱۰-۰۷: صفحهٔ کاتالوگ با گراف وابستگی و اثر تغییر؛ API روی Test تأیید شده بود | آزمون پذیرش صفحه روی Candidate rc.39 |
 | WP-08 | BO-097..098 | verified | verified در ۲۰۲۶-۱۰-۰۶ با آزمون پذیرش نقش‌محور روی Runtime Test (`v1.1.5-rc.38`): Projection نوتیشن با Proposal و conflict بدون بازنویسی Git، بازسازی قطعی پس از crash | بسته است |
 | WP-09 | BO-099..103 | verified | verified در ۲۰۲۶-۱۰-۰۶ با آزمون پذیرش نقش‌محور روی Runtime Test (`v1.1.5-rc.38`): Usage و Invocation، Ledger و reconcile، سقف با pause امن و رزرو بدون race، Dataset و ارزیابی | پیگیری: صفحات هزینه/سلامت و ingestion ثبت‌شدهٔ Provider |
-| WP-09 | BO-104 | partial | Feedback اختیاری مالک در API ذخیره و روی Test تأیید شد | رابط کاربری Feedback وجود ندارد |
+| WP-09 | BO-104 | partial | source ۲۰۲۶-۱۰-۰۷: فرم بازخورد مالک روی صفحهٔ هزینه و سلامت با آزمون مرورگر واقعی؛ API روی Test تأیید شده بود | آزمون پذیرش صفحه روی Candidate rc.39 |
 | WP-09 | BO-105..110 | verified | verified در ۲۰۲۶-۱۰-۰۶ با آزمون پذیرش نقش‌محور روی Runtime Test (`v1.1.5-rc.38`): Scorecard نرمال‌شده، Health `1.1` تکرارپذیر، override بحرانی، drill-down تا Evidence، drift داوری AI | پیگیری: صفحات هزینه/سلامت |
 | WP-10 | BO-111..112 | verified | verified در ۲۰۲۶-۱۰-۰۶ با آزمون پذیرش نقش‌محور روی Runtime Test (`v1.1.5-rc.38`): taxonomy، SLA، چرخهٔ عمر، deduplication که پس از restart هم حفظ می‌شود، Incident | پیگیری: Inbox قابل اقدام (BO-113..120) |
 | WP-10 | BO-113..120 | partial | notification/audit/observability domain | Inbox قابل اقدام، trace سرتاسری و شواهد runtime storm/security |

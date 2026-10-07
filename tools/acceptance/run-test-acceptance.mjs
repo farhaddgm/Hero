@@ -1,4 +1,4 @@
-// Hero Test acceptance runner (WP-04..WP-10, BO-043..BO-112).
+// Hero Test acceptance runner (WP-04..WP-10, BO-043..BO-120).
 //
 // Runs INSIDE a container of the exact candidate image, against a disposable
 // Hero instance on an internal Docker network (see tools/run-test-acceptance.sh).
@@ -247,7 +247,60 @@ async function seed() {
   check("BO-111", "admin acknowledges then resolves", (await call(admin, "POST", `${root}/notifications/${notificationId}/act`, { action: "acknowledge" })).body?.notification?.state === "acknowledged" && (await call(admin, "POST", `${root}/notifications/${notificationId}/act`, { action: "resolve", reason: "acceptance done" })).body?.notification?.state === "resolved");
   check("BO-112", "a repeat after resolution reopens instead of adding a row", (await note({})).body?.notification?.reopened === true);
 
-  fs.writeFileSync(STATE_FILE, JSON.stringify({ run, P1, P2, users, chatId, prodId, driftProposalId: discovery.body?.proposal?.driftProposalId, repoId: `${run}-repo`, conversationId: conversation?.conversationId, svcId: `${run}-svc`, docId: `${run}-dec-1`, noteId: notificationId }), { mode: 0o600 });
+
+  // Pages (BO-096 graph and impact, BO-104 feedback, BO-109 cost/health)
+  const catalogPage = await pageHtml(viewer, `/api/portal?surface=catalog&projectId=${P1}`);
+  check("BO-096", "the catalog page draws the dependency graph with every node", catalogPage.status === 200 && catalogPage.html.includes(`data-graph-node="${svcEntity}"`) && /data-edge-count="[1-9]/.test(catalogPage.html), catalogPage.status);
+  check("BO-096", "the catalog page shows what a change reaches", catalogPage.html.includes(`data-impact-for="${repoEntity}"`) && catalogPage.html.includes(`data-affected="${svcEntity}"`));
+  check("BO-095", "the catalog page hides restricted documents from a viewer", catalogPage.html.includes("[restricted document]") && !catalogPage.html.includes("Acceptance discount floor"));
+  check("BO-096", "the catalog page is closed without a grant", (await pageHtml(viewer, `/api/portal?surface=catalog&projectId=${P2}`)).status === 403);
+  check("BO-104", "an admin can submit feedback from the insights page", (await pageHtml(admin, `/api/portal?surface=insights&projectId=${P1}`)).html.includes('<form id="feedback-form"'));
+  const insightsPage = await pageHtml(viewer, `/api/portal?surface=insights&projectId=${P1}`);
+  check("BO-104", "a viewer sees feedback but no form", insightsPage.status === 200 && insightsPage.html.includes(`data-feedback-id="${run}-fb"`) && !insightsPage.html.includes('<form id="feedback-form"'));
+  check("BO-109", "the insights page links numbers to their evidence", insightsPage.html.includes("drill-down?kind=cost&amp;groupBy=team&amp;scope=developero") && insightsPage.html.includes('data-reconcile-complete="true"'));
+  check("BO-104", "a viewer cannot write feedback", (await call(viewer, "POST", `${root}/feedback`, { feedbackId: `${run}-fbv`, subjectId: "release-x", subjectKind: "release" })).status === 403);
+
+  // WP-10 (BO-113..120): inbox decisions, trace, audit streams, export, retention, SLO
+  const inboxCmd = `cmd-${run}-inbox`; const inboxCorr = `corr-${run}-inbox`;
+  await call(admin, "POST", `${root}/commands`, { commandId: inboxCmd, action: "run-tests", risk: "medium", correlationId: inboxCorr, idempotencyKey: `idem-${run}-inbox` });
+  await call(admin, "POST", `${root}/commands/${inboxCmd}/authorize`, { authorizationSnapshotId: SNAPSHOT });
+  const decisionNote = (await call(admin, "POST", `${root}/notifications`, { category: "approval", severity: "warning", title: "Approve acceptance command", deduplicationKey: `${run}-inbox-decision`, correlationId: inboxCorr, action: { type: "approve", commandId: inboxCmd, fix: { action: "run-tests", risk: "medium", payload: {} } } })).body?.notification;
+  const forgedNote = (await call(admin, "POST", `${root}/notifications`, { category: "approval", severity: "warning", title: "Forged decision", deduplicationKey: `${run}-inbox-forged`, correlationId: `corr-${run}-forged`, action: { type: "approve", commandId: "cmd-does-not-exist" } })).body?.notification;
+  const inboxList = await call(viewer, "GET", `${root}/notifications?view=needs-decision`);
+  check("BO-113", "a viewer has no decisions to make", inboxList.body?.notifications?.length === 0 && inboxList.body?.counts?.["needs-decision"] === 0);
+  const adminInbox = await call(admin, "GET", `${root}/notifications?view=needs-decision`);
+  check("BO-113", "an admin sees the decisions and the tab count equals the list", (adminInbox.body?.notifications?.length ?? -1) === adminInbox.body?.counts?.["needs-decision"] && adminInbox.body.notifications.some(item => item.notificationId === decisionNote?.notificationId));
+  check("BO-114", "a viewer cannot approve from the inbox", (await call(viewer, "POST", `${root}/notifications/${decisionNote?.notificationId}/act`, { action: "approve" })).status === 403);
+  check("BO-114", "a forged command id cannot be approved", (await call(admin, "POST", `${root}/notifications/${forgedNote?.notificationId}/act`, { action: "approve" })).status === 404);
+  const approvedFromInbox = await call(admin, "POST", `${root}/notifications/${decisionNote?.notificationId}/act`, { action: "approve", reason: "acceptance" });
+  check("BO-114", "approving from the inbox approves the real command", approvedFromInbox.body?.command?.state === "approved" && approvedFromInbox.body?.notification?.state === "resolved", JSON.stringify(approvedFromInbox.body?.code ?? approvedFromInbox.status));
+  check("BO-114", "a second decision is refused", (await call(admin, "POST", `${root}/notifications/${decisionNote?.notificationId}/act`, { action: "approve" })).status === 409);
+  const fixNote = (await call(admin, "POST", `${root}/notifications/${decisionNote?.notificationId}/act`, { action: "run-fix" })).status;
+  check("BO-114", "run-fix on a resolved decision is refused", fixNote === 409);
+  const trail = (await call(viewer, "GET", `${root}/correlations/${inboxCorr}`)).body?.correlation;
+  check("BO-115", "one correlation id links the command, notification and traces", trail?.commands?.length === 1 && trail?.notifications?.length === 1 && trail?.traces?.length >= 3 && trail?.gaps?.length === 0, JSON.stringify(trail?.gaps));
+  check("BO-115", "an unknown correlation is reported, not invented", (await call(viewer, "GET", `${root}/correlations/corr-${run}-nothing`)).body?.correlation?.gaps?.[0] === "unknown-correlation");
+  check("BO-116", "the human timeline carries the decision", ((await call(viewer, "GET", `${root}/timeline?correlationId=${inboxCorr}`)).body?.timeline ?? []).some(item => item.kind === "notification.approve"));
+  check("BO-116", "a viewer cannot read the security audit", (await call(viewer, "GET", `${root}/audit-log?stream=security`)).status === 403);
+  check("BO-118", "audit paging is bounded", (await call(viewer, "GET", `${root}/audit-log?limit=2`)).body?.audit?.length === 2 && (await call(viewer, "GET", `${root}/audit-log?limit=999`)).status === 400);
+  check("BO-118", "an admin cannot export", (await call(admin, "POST", `${root}/audit-log/export`, { reason: "acceptance" })).status === 403);
+  check("BO-118", "an export without a reason is refused", (await call(owner, "POST", `${root}/audit-log/export`, { format: "csv" })).status === 400);
+  const exported = await call(owner, "POST", `${root}/audit-log/export`, { reason: "acceptance review", format: "csv" });
+  check("BO-118", "the owner exports with a reason and no secret appears", exported.status === 200 && exported.body?.export?.rowCount >= 3 && !/Bearer |sk-[A-Za-z0-9]{12}/.test(exported.body.export.content));
+  check("BO-118", "the export itself is in the security audit", ((await call(owner, "GET", `${root}/audit-log?stream=security&kind=audit.export`)).body?.audit ?? []).length === 1);
+  check("BO-118", "retention below the minimum is refused", (await call(owner, "POST", `${root}/retention`, { stream: "security", days: 10, reason: "shrink" })).status === 409);
+  check("BO-118", "the owner sets a longer activity retention", (await call(owner, "POST", `${root}/retention`, { stream: "activity", days: 120, reason: "acceptance policy" })).body?.retention?.version === 1);
+  check("BO-118", "the retention plan never deletes", (await call(viewer, "GET", `${root}/retention`)).body?.retention?.deletion === "none");
+  const sloBefore = (await call(viewer, "GET", `${root}/slo`)).body?.slo;
+  check("BO-119", "an unmeasured projection is not healthy", sloBefore?.healthy === false && sloBefore.slos.every(item => item.status === "no-data"));
+  const sloAfter = (await call(admin, "POST", `${root}/slo`, { projection: "portfolio", lagSeconds: 1, freshnessSeconds: 60 })).body?.slo;
+  check("BO-119", "a fresh measurement inside the objective is meeting", sloAfter?.slos?.find(item => item.projection === "portfolio")?.status === "meeting");
+  const inboxPage = await pageHtml(admin, `/api/portal?surface=inbox&projectId=${P1}`);
+  check("BO-113", "the inbox page shows five tabs and the SLO table", inboxPage.status === 200 && ["needs-decision", "critical", "upcoming", "automation", "resolved"].every(name => inboxPage.html.includes(`data-tab="${name}"`)) && inboxPage.html.includes('data-slo="portfolio"'));
+  check("BO-113", "a viewer's inbox page has no action buttons", !/data-act="/.test((await pageHtml(viewer, `/api/portal?surface=inbox&projectId=${P1}`)).html.split("<script>")[0]));
+  check("BO-120", "another project's inbox is closed", (await pageHtml(viewer, `/api/portal?surface=inbox&projectId=${P2}`)).status === 403);
+
+  fs.writeFileSync(STATE_FILE, JSON.stringify({ run, P1, P2, users, chatId, prodId, driftProposalId: discovery.body?.proposal?.driftProposalId, repoId: `${run}-repo`, conversationId: conversation?.conversationId, svcId: `${run}-svc`, docId: `${run}-dec-1`, noteId: notificationId, inboxCmd, inboxCorr }), { mode: 0o600 });
 }
 
 async function verify() {
@@ -303,6 +356,20 @@ async function verify() {
   check("BO-112", "deduplication survives a restart", alertsV.length === 1 && alertsV[0].reopenCount === 1 && alertsV[0].occurrences === 6, JSON.stringify(alertsV.map(item => [item.occurrences, item.reopenCount])));
   check("BO-112", "a repeat after a restart still folds", (await call(admin, "POST", `${rootV}/notifications`, { category: "health", severity: "warning", title: "Acceptance alert", deduplicationKey: "acc-alert", correlationId: `${state.run}-corr` })).body?.notification?.deduplicated === true);
   check("BO-112", "incidents survive a restart", ((await call(viewer, "GET", `${rootV}/incidents`)).body?.incidents ?? []).length >= 1);
+  const insightsV = await pageHtml(viewer, `/api/portal?surface=insights&projectId=${P1}`);
+  check("BO-104", "feedback survives a restart and shows on the page", insightsV.status === 200 && insightsV.html.includes(`data-feedback-id="${state.run}-fb"`));
+  check("BO-109", "the cost and health numbers on the page survive a restart", insightsV.html.includes('data-budget-decision="hard-cap-pause-required"') && insightsV.html.includes('data-health-status="critical"'));
+  const catalogV = await pageHtml(viewer, `/api/portal?surface=catalog&projectId=${P1}`);
+  check("BO-096", "the dependency graph page is rebuilt after a restart", catalogV.status === 200 && catalogV.html.includes(`data-graph-node="${state.svcId}"`));
+  const trailV = (await call(viewer, "GET", `${rootV}/correlations/${state.inboxCorr}`)).body?.correlation;
+  check("BO-115", "the correlation trail survives a restart", trailV?.commands?.length === 1 && trailV?.notifications?.[0]?.state === "resolved" && trailV?.traces?.length >= 3 && trailV?.gaps?.length === 0, JSON.stringify(trailV?.gaps));
+  check("BO-114", "the approved command is still approved after a restart", (await call(admin, "GET", `${rootV}/commands/${state.inboxCmd}`)).body?.card?.state === "approved");
+  check("BO-118", "the export audit and retention policy survive a restart", ((await call(owner, "GET", `${rootV}/audit-log?stream=security&kind=audit.export`)).body?.audit ?? []).length === 1 && (await call(viewer, "GET", `${rootV}/retention`)).body?.retention?.policies?.activity?.days === 120);
+  check("BO-116", "a viewer is still refused the security audit after a restart", (await call(viewer, "GET", `${rootV}/audit-log?stream=security`)).status === 403);
+  const sloV = (await call(viewer, "GET", `${rootV}/slo`)).body?.slo;
+  check("BO-119", "the SLI measurement survives a restart", ["meeting", "measurement-stale"].includes(sloV?.slos?.find(item => item.projection === "portfolio")?.status) && sloV.slos.find(item => item.projection === "ledger")?.status === "no-data");
+  const inboxV = await pageHtml(viewer, `/api/portal?surface=inbox&projectId=${P1}`);
+  check("BO-113", "the inbox page is rebuilt after a restart", inboxV.status === 200 && inboxV.html.includes('data-tab="needs-decision"'));
 }
 
 let fatal = null;
@@ -310,9 +377,9 @@ try { await (phase === "seed" ? seed() : verify()); } catch (error) { fatal = er
 const resultFile = path.join(STATE_DIR, `checks-${phase}.json`);
 fs.writeFileSync(resultFile, JSON.stringify(checks, null, 2));
 // The verdict covers BO-043..BO-092 (and the runner itself); other steps are reported as findings.
-const inScope = item => item.step === "runner" || (/^BO-\d{3}$/.test(item.step) && Number(item.step.slice(3)) >= 43 && Number(item.step.slice(3)) <= 112);
+const inScope = item => item.step === "runner" || (/^BO-\d{3}$/.test(item.step) && Number(item.step.slice(3)) >= 43 && Number(item.step.slice(3)) <= 120);
 const scoped = checks.filter(inScope); const failed = scoped.filter(item => !item.ok); const findings = checks.filter(item => !inScope(item) && !item.ok);
-console.log(`Hero acceptance ${phase}: ${scoped.length - failed.length}/${scoped.length} in-scope checks passed (BO-043..BO-112); ${checks.length - scoped.length} supporting checks`);
+console.log(`Hero acceptance ${phase}: ${scoped.length - failed.length}/${scoped.length} in-scope checks passed (BO-043..BO-120); ${checks.length - scoped.length} supporting checks`);
 for (const item of failed) console.log(`  FAIL ${item.step} — ${item.name}${item.detail ? ` (${item.detail})` : ""}`);
 for (const item of findings) console.log(`  FINDING ${item.step} — ${item.name}${item.detail ? ` (${item.detail})` : ""}`);
 process.exit(failed.length || fatal ? 1 : 0);

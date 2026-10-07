@@ -21,7 +21,7 @@ const P = "project-shop";
 const create = (center, extra = {}) => center.createNotification({ actor: admin, projectId: P, category: "health", severity: "warning", title: "Health degraded", deduplicationKey: "health-degraded", correlationId: "corr-1", ...extra });
 
 test("BO-111 taxonomy, ownership, SLA deadlines, lifecycle and routed decision actions", () => {
-  assert.deepEqual(validateNotificationObservabilityContract(), []); assert.equal(getNotificationObservabilityContractSummary().version, "1.1");
+  assert.deepEqual(validateNotificationObservabilityContract(), []); assert.equal(getNotificationObservabilityContractSummary().version, "1.2");
   const center = createNotificationObservability({ now });
   assert.throws(() => create(center, { category: "gossip" }), code("NOTIFICATION_CATEGORY_INVALID"));
   assert.throws(() => create(center, { severity: "critical" }), code("NOTIFICATION_OWNER_REQUIRED"));
@@ -43,7 +43,8 @@ test("BO-111 taxonomy, ownership, SLA deadlines, lifecycle and routed decision a
   assert.equal(center.act({ actor: admin, projectId: P, notificationId: critical.notificationId, action: "assign", ownerId: "project-admin" }).ownerId, "project-admin");
   const decision = create(center, { deduplicationKey: "approve-deploy", title: "Approve test deploy", correlationId: "corr-4", action: { type: "approve", commandId: "cmd-1" } });
   assert.equal(center.act({ actor: admin, projectId: P, notificationId: decision.notificationId, action: "approve" }).lastAction.routed, true, "decision actions are routed, never executed by the inbox");
-  assert.equal(center.inbox({ actor: viewer, projectId: P, view: "decision" }).length, 1);
+  assert.equal(center.inbox({ actor: viewer, projectId: P, view: "decision" }).length, 0, "an approved decision is resolved and leaves the decision list");
+  assert.equal(center.inbox({ actor: viewer, projectId: P, view: "resolved" }).length, 1);
   const resolved = center.act({ actor: admin, projectId: P, notificationId: critical.notificationId, action: "resolve", reason: "host back online" });
   assert.equal(resolved.state, "resolved"); assert.equal(resolved.due.resolveBy, null);
   assert.equal(center.act({ actor: admin, projectId: P, notificationId: critical.notificationId, action: "reopen" }).state, "open");

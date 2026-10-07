@@ -162,6 +162,15 @@ export function createCommandCenter({ now = () => new Date().toISOString(), glob
       update(commandId, { state: "approved", approval });
       return save(commandId, actor.subject);
     },
+    /** BO-114: a rejected command is cancelled and can never be queued or dispatched. */
+    reject({ actor, commandId, reason: why = "rejected" }) {
+      editor(actor); const intent = get(commandId);
+      if (intent.state !== "awaiting-approval") throw new CommandCenterError("REJECT_STATE_INVALID", "Only a command awaiting approval can be rejected.", 409);
+      update(commandId, { state: "cancelled", rejection: copy({ state: "rejected", reason: String(why).slice(0, 500), rejectedAt: now(), rejectedBy: actor.subject }) });
+      return save(commandId, actor.subject);
+    },
+    /** BO-115: every command sharing a correlation id, for the cross-system trail. */
+    byCorrelation({ actor, projectId, correlationId }) { reader(actor); id("correlationId", correlationId); return Object.freeze([...intents.values()].filter(item => item.projectId === projectId && item.correlationId === correlationId).map(item => card(item))); },
     revokeApproval({ actor, commandId, reason: why }) {
       editor(actor); const intent = get(commandId);
       if (!intent.approval || intent.approval.state !== "approved") throw new CommandCenterError("APPROVAL_NOT_ACTIVE", "No active approval exists.", 409);

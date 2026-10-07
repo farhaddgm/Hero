@@ -88,10 +88,14 @@ import { createProjectCollaboration, CollaborationError } from "../../../package
 import { PORTFOLIO_KPIS, breadcrumbsFor, getBackofficePortfolioContractSummary, parsePagination, sectionsFor } from "../../../packages/contracts/src/backoffice-portfolio.mjs";
 import { createCommandCenter, CommandCenterError } from "../../../packages/domain/src/command-center.mjs";
 import { getProjectCollaborationHtml } from "./project-collaboration-view.mjs";
+import { getProjectCatalogHtml } from "./project-catalog-view.mjs";
+import { getProjectInsightsHtml } from "./project-insights-view.mjs";
+import { getProjectInboxHtml } from "./project-inbox-view.mjs";
 import { TEAM_CATALOG } from "../../../packages/contracts/src/team.mjs";
 import { createSystemCatalog, SystemCatalogError } from "../../../packages/domain/src/system-catalog.mjs";
 import { createPerformanceIntelligence, PerformanceError } from "../../../packages/domain/src/performance-intelligence.mjs";
 import { createNotificationObservability, NotificationError } from "../../../packages/domain/src/notification-observability.mjs";
+import { INBOX_VIEWS } from "../../../packages/contracts/src/notification-observability.mjs";
 import { createInfrastructureControl, InfrastructureError } from "../../../packages/domain/src/infrastructure-control.mjs";
 import { createDeliveryControl, DeliveryError } from "../../../packages/domain/src/delivery-control.mjs";
 import { createOperationalHardening, HardeningError } from "../../../packages/domain/src/operational-hardening.mjs";
@@ -137,7 +141,7 @@ const IDENTITY_PATHS = new Set(["/identity"]);
 const BROWSER_PORTAL_PATH = "/api/portal";
 const BROWSER_PORTAL_DATA_PATH = "/api/portal-data";
 const BROWSER_PORTAL_DOCUMENT_PATH = "/api/portal-document";
-const BROWSER_PORTAL_SURFACES = new Set(["identity", "portfolio", "command", "studio", "workspace", "control", "collaboration", "walkthrough", "ai"]);
+const BROWSER_PORTAL_SURFACES = new Set(["identity", "portfolio", "command", "studio", "workspace", "control", "collaboration", "catalog", "insights", "inbox", "walkthrough", "ai"]);
 const DEFAULT_BACKOFFICE_RESPONSE_LIMIT_BYTES = 512 * 1024;
 const OPENAI_TEST_ADVISOR = Object.freeze({
   providerId: "openai",
@@ -667,6 +671,13 @@ export function createHeroServer(options = {}) {
   function budgetNotification(event) {
     const critical = event.type === "budget.hard-cap";
     notificationObservability.createNotification({ actor: SYSTEM_EDITOR, projectId: event.projectId, category: "budget", severity: critical ? "critical" : "warning", title: critical ? `Token hard cap reached (${event.used}/${event.hardCap}); new work is paused` : `Token soft threshold passed (${event.used}/${event.softThreshold})`, ownerId: identityOwner.userId, deduplicationKey: critical ? "budget-hard-cap" : "budget-soft-threshold", correlationId: `budget-${event.projectId}`, groupKey: "budget", sourceRef: `hero://projects/${event.projectId}/budget` });
+  }
+
+  /** BO-115: every command decision leaves a trace and an activity audit under the command's own correlation id. */
+  function traceCommand({ actor, projectId, commandId, kind, outcome }) {
+    const correlationId = commandCenter.commandCard({ actor, commandId }).correlationId;
+    notificationObservability.recordTrace({ actor, projectId, traceId: `trace-${crypto.randomUUID()}`, correlationId, kind: `command.${kind}`, metadata: { commandId, outcome } });
+    notificationObservability.recordAudit({ actor, projectId, kind: `command.${kind}`, outcome, correlationId, data: { commandId } });
   }
 
   async function persistDomainRecords() {
@@ -1589,6 +1600,32 @@ export function createHeroServer(options = {}) {
     return { project: { projectId: project.projectId, name: project.name }, viewerRole: viewer.role, teams: projectCollaboration.listTeams({ actor: viewer, projectId }), profiles: projectCollaboration.listProfiles({ actor: viewer, projectId }), conversations, memory, flaggedMemoryCount };
   }
 
+  /** BO-096: everything the catalog page shows is read with the viewer's role in this project. */
+  function projectCatalogSnapshot(principal, projectId) {
+    const actor = viewerFor(principal, projectId); const project = projectWorkspace.getProject(projectId);
+    const entities = systemCatalog.list({ projectId }); const impacts = {};
+    for (const entity of entities) impacts[entity.entityId] = systemCatalog.impact({ projectId, entityIds: [entity.entityId] });
+    return { project: { projectId: project.projectId, name: project.name }, viewerRole: actor.role, entities, graph: systemCatalog.graph({ projectId }), documents: systemCatalog.documentGraph({ actor, projectId }), impacts, drift: systemCatalog.listDriftProposals({ projectId, state: "proposed" }), projections: systemCatalog.listProjectionProposals({ projectId }).filter(item => ["proposed", "conflict"].includes(item.state)) };
+  }
+
+  /** BO-104/BO-109: cost, health and feedback with the viewer's role; only editors may write feedback. */
+  function projectInsightsSnapshot(principal, projectId) {
+    const actor = viewerFor(principal, projectId); const project = projectWorkspace.getProject(projectId);
+    const subjects = [...new Set(performanceIntelligence.ledger({ actor, projectId, groupBy: "team" }).map(row => row.scope).filter(scope => scope !== "unassigned"))];
+    return { project: { projectId: project.projectId, name: project.name }, viewerRole: actor.role, canWrite: ["project-owner", "admin"].includes(actor.role), budget: performanceIntelligence.budgetStatus({ actor, projectId }), health: performanceIntelligence.health({ actor, projectId }), reconciliation: performanceIntelligence.reconcile({ actor, projectId }), ledgerByTeam: performanceIntelligence.ledger({ actor, projectId, groupBy: "team" }), ledgerByModel: performanceIntelligence.ledger({ actor, projectId, groupBy: "model" }), feedback: performanceIntelligence.feedbackList({ actor, projectId }), scorecards: subjects.map(subjectId => performanceIntelligence.scorecard({ actor, projectId, subjectId })) };
+  }
+
+  function projectInboxSnapshot(principal, projectId) {
+    const actor = viewerFor(principal, projectId); const project = projectWorkspace.getProject(projectId);
+    const views = Object.fromEntries(INBOX_VIEWS.map(name => [name, notificationObservability.inbox({ actor, projectId, view: name }).map(item => ({ ...item, availableActions: notificationObservability.actionsFor(item) }))]));
+    return { project: { projectId: project.projectId, name: project.name }, viewerRole: actor.role, canAct: ["project-owner", "admin"].includes(actor.role), views, counts: notificationObservability.inboxCounts({ actor, projectId }), timeline: notificationObservability.timeline({ actor, projectId, limit: 20 }), slo: notificationObservability.sloReport({ actor, projectId }) };
+  }
+
+  function viewerFor(principal, projectId) {
+    const actor = projectActorFor(principal, projectId);
+    return ["project-owner", "admin", "viewer"].includes(actor?.role) ? actor : Object.freeze({ ...actor, role: "viewer" });
+  }
+
   function projectControlSnapshot(projectId) {
     const actor = { subject: identityOwner.userId, role: "project-owner" };
     const project = projectWorkspace.getProject(projectId);
@@ -2354,13 +2391,13 @@ export function createHeroServer(options = {}) {
         const principal = authenticateBrowserPortalPrincipal(request);
         if (!principal) return redirect(response, portalIdentityLocation(`${url.pathname}${url.search}`));
         const projectId = url.searchParams.get("projectId");
-        if (["command", "studio", "workspace", "control", "collaboration", "walkthrough"].includes(surface) && !projectId) {
+        if (["command", "studio", "workspace", "control", "collaboration", "catalog", "insights", "inbox", "walkthrough"].includes(surface) && !projectId) {
           return redirect(response, "/api/portal?surface=portfolio&select=project&next=" + encodeURIComponent(surface));
         }
-        if (["command", "studio", "workspace", "control", "collaboration", "walkthrough"].includes(surface)) requirePortalProjectScope(principal, projectId);
+        if (["command", "studio", "workspace", "control", "collaboration", "catalog", "insights", "inbox", "walkthrough"].includes(surface)) requirePortalProjectScope(principal, projectId);
         if (surface === "portfolio") {
           const destinationCandidate = url.searchParams.get("next") ?? url.searchParams.get("open");
-          const destination = ["command", "studio", "workspace", "control", "collaboration", "walkthrough"].includes(destinationCandidate) ? destinationCandidate : null;
+          const destination = ["command", "studio", "workspace", "control", "collaboration", "catalog", "insights", "inbox", "walkthrough"].includes(destinationCandidate) ? destinationCandidate : null;
           const view = url.searchParams.get("view") === "archived" ? "archived" : "active";
           return html(response, getPortfolioHtml({ portfolio: portfolioSnapshot(principal, { view, ...(parsePagination({ page: url.searchParams.get("page"), pageSize: url.searchParams.get("pageSize") }) ?? {}) }), destination, selectionRequired: url.searchParams.get("select") === "project" || Boolean(destination), archiveView: view === "archived" }));
         }
@@ -2377,6 +2414,9 @@ export function createHeroServer(options = {}) {
         if (surface === "workspace") return html(response, getProjectWorkspaceHtml({ projectId }));
         if (surface === "control") return html(response, getProjectControlRoomHtml({ initialData: { service: HERO_SERVICE, controlRoom: projectControlSnapshot(projectId) }, dataEndpoint: `${BROWSER_PORTAL_DATA_PATH}?surface=control` }));
         if (surface === "collaboration") return html(response, getProjectCollaborationHtml(projectCollaborationSnapshot(principal, projectId)));
+        if (surface === "catalog") return html(response, getProjectCatalogHtml(projectCatalogSnapshot(principal, projectId)));
+        if (surface === "inbox") return html(response, getProjectInboxHtml(projectInboxSnapshot(principal, projectId)));
+        if (surface === "insights") return html(response, getProjectInsightsHtml(projectInsightsSnapshot(principal, projectId)));
         if (surface === "walkthrough") return html(response, getProjectWalkthroughHtml({ projectId }));
         if (surface === "ai") {
           if (principal.role !== "project-owner") throw new ProjectAccessError("OWNER_REQUIRED", "The global AI catalog is available only to the Owner.", 403);
@@ -2528,7 +2568,7 @@ export function createHeroServer(options = {}) {
           }));
         }
         const destinationCandidate = url.searchParams.get("next") ?? url.searchParams.get("open");
-        const destination = ["command", "studio", "workspace", "control", "collaboration", "walkthrough"].includes(destinationCandidate) ? destinationCandidate : null;
+        const destination = ["command", "studio", "workspace", "control", "collaboration", "catalog", "insights", "inbox", "walkthrough"].includes(destinationCandidate) ? destinationCandidate : null;
         const view = url.searchParams.get("view") === "archived" ? "archived" : "active";
         return html(response, getPortfolioHtml({ portfolio: portfolioSnapshot(null, { view, ...(parsePagination({ page: url.searchParams.get("page"), pageSize: url.searchParams.get("pageSize") }) ?? {}) }), destination, selectionRequired: url.searchParams.get("select") === "project" || Boolean(destination), archiveView: view === "archived" }));
       }
@@ -3383,10 +3423,11 @@ export function createHeroServer(options = {}) {
           if (!message) throw new CommandCenterError("MESSAGE_NOT_FOUND", "The cited message is not in this project's conversation.", 404);
           command = commandCenter.createIntentFromMessage({ actor, projectId, conversationId, message, ...fields });
         } else command = commandCenter.createIntent({ actor, projectId, ...fields, sourceRef: sourceRef ?? null, summary: summary ?? null });
-        await persistCommandCenter();
+        traceCommand({ actor, projectId, commandId: command.commandId, kind: "create", outcome: "draft" });
+        await persistCommandCenter(); await persistDomainRecords();
         return json(response, 201, { service: HERO_SERVICE, command, card: commandCenter.commandCard({ actor, commandId: command.commandId }) });
       }
-      const projectCommandActionMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/commands\/([A-Za-z][A-Za-z0-9._:-]{2,127})(?:\/(authorize|approve|revoke-approval|queue|priority|checkpoint|resume|complete|fail|recover))?$/);
+      const projectCommandActionMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/commands\/([A-Za-z][A-Za-z0-9._:-]{2,127})(?:\/(authorize|approve|reject|revoke-approval|queue|priority|checkpoint|resume|complete|fail|recover))?$/);
       if (projectCommandActionMatch) {
         const [, projectId, commandId, action] = projectCommandActionMatch; const actor = projectActor(projectId);
         commandCenter.assertInProject({ commandId, projectId });
@@ -3396,6 +3437,7 @@ export function createHeroServer(options = {}) {
           const handlers = {
             authorize: () => commandCenter.authorize({ actor, commandId, authorizationSnapshotId: input.authorizationSnapshotId }),
             approve: () => commandCenter.approve({ actor, commandId, templateId: input.templateId ?? null, reason: input.reason }),
+            reject: () => commandCenter.reject({ actor, commandId, reason: input.reason }),
             "revoke-approval": () => commandCenter.revokeApproval({ actor, commandId, reason: input.reason }),
             queue: () => commandCenter.queue({ actor, commandId, heavy: input.heavy, resourceClaim: input.resourceClaim ?? null, priority: input.priority ?? 0 }),
             priority: () => commandCenter.setPriority({ actor, commandId, priority: input.priority }),
@@ -3406,7 +3448,8 @@ export function createHeroServer(options = {}) {
             recover: () => commandCenter.recover({ actor, commandId, action: input.action, reason: input.reason })
           };
           const result = handlers[action]();
-          await persistCommandCenter();
+          traceCommand({ actor, projectId, commandId, kind: action, outcome: "ok" });
+          await persistCommandCenter(); await persistDomainRecords();
           return json(response, action === "queue" ? 202 : 200, { service: HERO_SERVICE, result, card: commandCenter.commandCard({ actor, commandId }) });
         }
       }
@@ -3497,6 +3540,7 @@ export function createHeroServer(options = {}) {
           const reads = {
             budget: () => ({ budget: performanceIntelligence.budgetStatus({ actor, projectId }) }),
             "budget/history": () => ({ history: performanceIntelligence.budgetHistory({ actor, projectId }) }),
+            feedback: () => ({ feedback: performanceIntelligence.feedbackList({ actor, projectId, subjectKind: q("subjectKind") }) }),
             ledger: () => ({ ledger: performanceIntelligence.ledger({ actor, projectId, groupBy: q("groupBy") ?? "project", from: q("from"), to: q("to") }) }),
             "ledger/reconcile": () => ({ reconciliation: performanceIntelligence.reconcile({ actor, projectId }) }),
             "evaluation-datasets/drift": () => ({ drift: performanceIntelligence.judgeDrift({ actor, projectId, datasetId: q("datasetId") }) }),
@@ -3528,13 +3572,53 @@ export function createHeroServer(options = {}) {
       const projectNotificationsMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/(notifications|incidents)$/);
       if (projectNotificationsMatch && request.method === "GET") {
         const [, projectId, resource] = projectNotificationsMatch; const actor = projectActor(projectId);
-        return json(response, 200, { service: HERO_SERVICE, ...(resource === "notifications" ? { notifications: notificationObservability.inbox({ actor, projectId, view: url.searchParams.get("view") ?? "all" }) } : { incidents: notificationObservability.incidents({ actor, projectId, state: url.searchParams.get("state") }) }) });
+        if (resource === "incidents") return json(response, 200, { service: HERO_SERVICE, incidents: notificationObservability.incidents({ actor, projectId, state: url.searchParams.get("state") }) });
+        const view = url.searchParams.get("view") ?? "all";
+        return json(response, 200, { service: HERO_SERVICE, notifications: notificationObservability.inbox({ actor, projectId, view }).map(item => ({ ...item, availableActions: notificationObservability.actionsFor(item) })), counts: notificationObservability.inboxCounts({ actor, projectId }) });
       }
-      if (projectNotificationsMatch && request.method === "POST" && projectNotificationsMatch[2] === "notifications") { const input = await readJson(request); const projectId = projectNotificationsMatch[1]; const notification = notificationObservability.createNotification({ actor: projectActor(projectId), projectId, category: input.category, severity: input.severity, title: input.title, ownerId: input.ownerId ?? null, deduplicationKey: input.deduplicationKey, correlationId: input.correlationId, groupKey: input.groupKey ?? null, action: input.action ?? null, sourceRef: input.sourceRef ?? null }); await persistDomainRecords(); return json(response, 201, { service: HERO_SERVICE, notification }); }
+      if (projectNotificationsMatch && request.method === "POST" && projectNotificationsMatch[2] === "notifications") { const input = await readJson(request); const projectId = projectNotificationsMatch[1]; const notification = notificationObservability.createNotification({ actor: projectActor(projectId), projectId, category: input.category, severity: input.severity, title: input.title, ownerId: input.ownerId ?? null, deduplicationKey: input.deduplicationKey, correlationId: input.correlationId, groupKey: input.groupKey ?? null, action: input.action ?? null, sourceRef: input.sourceRef ?? null, origin: input.origin ?? null }); await persistDomainRecords(); return json(response, 201, { service: HERO_SERVICE, notification }); }
       const projectNotificationActMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/notifications\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/act$/);
-      if (projectNotificationActMatch && request.method === "POST") { const input = await readJson(request); const [, projectId, notificationId] = projectNotificationActMatch; const notification = notificationObservability.act({ actor: projectActor(projectId), projectId, notificationId, action: input.action, reason: input.reason ?? "", ownerId: input.ownerId ?? null, minutes: input.minutes ?? 60 }); await persistDomainRecords(); return json(response, 200, { service: HERO_SERVICE, notification }); }
+      if (projectNotificationActMatch && request.method === "POST") {
+        const input = await readJson(request); const [, projectId, notificationId] = projectNotificationActMatch; const actor = projectActor(projectId);
+        // BO-114: approve / reject / run-fix perform the real Command Center operation first; the inbox only records the outcome.
+        let command = null; let link = null;
+        if (["approve", "reject", "run-fix", "chat"].includes(input.action)) {
+          const current = notificationObservability.read({ actor, projectId, notificationId });
+          if (!notificationObservability.actionsFor(current).includes(input.action)) throw new NotificationError("NOTIFICATION_ACTION_UNAVAILABLE", `${input.action} is not available for this notification.`, 409);
+          if (input.action === "approve" || input.action === "reject") {
+            const commandId = current.action.commandId; commandCenter.assertInProject({ commandId, projectId });
+            command = input.action === "approve" ? commandCenter.approve({ actor, commandId, reason: input.reason ?? "approved from the inbox" }) : commandCenter.reject({ actor, commandId, reason: input.reason ?? "rejected from the inbox" });
+            traceCommand({ actor, projectId, commandId, kind: input.action, outcome: "ok" });
+          } else if (input.action === "run-fix") {
+            const fix = current.action.fix; const suffix = notificationId.replace(/[^A-Za-z0-9]/g, "").slice(-40);
+            command = commandCenter.createIntent({ actor, projectId, commandId: `fix-${suffix}`, action: String(fix.action ?? "fix"), risk: fix.risk ?? "medium", payload: fix.payload ?? {}, correlationId: current.correlationId, idempotencyKey: `fix-${suffix}`, sourceRef: `hero://projects/${projectId}/notifications/${notificationId}`, summary: `Proposed fix for: ${current.title}` });
+            traceCommand({ actor, projectId, commandId: command.commandId, kind: "fix-proposed", outcome: "draft" });
+          } else link = `hero://projects/${projectId}/notifications/${notificationId}`;
+        }
+        const notification = notificationObservability.act({ actor, projectId, notificationId, action: input.action, reason: input.reason ?? "", ownerId: input.ownerId ?? null, minutes: input.minutes ?? 60 });
+        notificationObservability.recordAudit({ actor, projectId, kind: `notification.${input.action}`, outcome: "ok", correlationId: notification.correlationId, data: { notificationId, commandId: command?.commandId ?? null } });
+        await persistCommandCenter(); await persistDomainRecords();
+        return json(response, 200, { service: HERO_SERVICE, notification, command, link });
+      }
+      const projectCorrelationMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/correlations\/([A-Za-z][A-Za-z0-9._:-]{2,127})$/);
+      if (projectCorrelationMatch && request.method === "GET") {
+        const [, projectId, correlationId] = projectCorrelationMatch; const actor = projectActor(projectId);
+        const trail = notificationObservability.correlation({ actor, projectId, correlationId }); const commands = commandCenter.byCorrelation({ actor, projectId, correlationId });
+        const gaps = [...(commands.length && !trail.traces.length ? ["missing-trace"] : []), ...(!commands.length && !trail.notifications.length ? ["unknown-correlation"] : [])];
+        return json(response, 200, { service: HERO_SERVICE, correlation: { ...trail, commands, gaps } });
+      }
+      const projectTimelineMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/timeline$/);
+      if (projectTimelineMatch && request.method === "GET") { const projectId = projectTimelineMatch[1]; return json(response, 200, { service: HERO_SERVICE, timeline: notificationObservability.timeline({ actor: projectActor(projectId), projectId, correlationId: url.searchParams.get("correlationId"), limit: Number(url.searchParams.get("limit") ?? 50) }) }); }
+      const projectSloMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/slo$/);
+      if (projectSloMatch && request.method === "GET") { const projectId = projectSloMatch[1]; return json(response, 200, { service: HERO_SERVICE, slo: notificationObservability.sloReport({ actor: projectActor(projectId), projectId }) }); }
+      if (projectSloMatch && request.method === "POST") { const projectId = projectSloMatch[1]; const input = await readJson(request); const sli = notificationObservability.setSli({ actor: projectActor(projectId), projectId, projection: input.projection, lagSeconds: input.lagSeconds, freshnessSeconds: input.freshnessSeconds }); await persistDomainRecords(); return json(response, 200, { service: HERO_SERVICE, sli, slo: notificationObservability.sloReport({ actor: projectActor(projectId), projectId }) }); }
+      const projectAuditExportMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/audit-log\/export$/);
+      if (projectAuditExportMatch && request.method === "POST") { const projectId = projectAuditExportMatch[1]; const input = await readJson(request); const exported = notificationObservability.exportAudit({ actor: projectActor(projectId), projectId, stream: input.stream ?? "activity", format: input.format ?? "json", reason: input.reason, from: input.from ?? null, to: input.to ?? null, kind: input.kind ?? null, correlationId: input.correlationId ?? null }); await persistDomainRecords(); return json(response, 200, { service: HERO_SERVICE, export: exported }); }
+      const projectRetentionMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/retention$/);
+      if (projectRetentionMatch && request.method === "GET") { const projectId = projectRetentionMatch[1]; return json(response, 200, { service: HERO_SERVICE, retention: notificationObservability.retentionPlan({ actor: projectActor(projectId), projectId }) }); }
+      if (projectRetentionMatch && request.method === "POST") { const projectId = projectRetentionMatch[1]; const input = await readJson(request); const retention = notificationObservability.setRetention({ actor: projectActor(projectId), projectId, stream: input.stream, days: input.days, reason: input.reason }); await persistDomainRecords(); return json(response, 200, { service: HERO_SERVICE, retention }); }
       const projectAuditMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/audit-log$/);
-      if (projectAuditMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, audit: notificationObservability.audit({ actor: projectActor(projectAuditMatch[1]), projectId: projectAuditMatch[1], kind: url.searchParams.get("kind") }) });
+      if (projectAuditMatch && request.method === "GET") { const projectId = projectAuditMatch[1]; const q = url.searchParams; const param = name => q.get(name) || null; const result = notificationObservability.queryAudit({ actor: projectActor(projectId), projectId, stream: param("stream"), kind: param("kind"), outcome: param("outcome"), correlationId: param("correlationId"), from: param("from"), to: param("to"), limit: q.get("limit") ? Number(q.get("limit")) : 50, cursor: param("cursor") }); return json(response, 200, { service: HERO_SERVICE, audit: result.records, total: result.total, nextCursor: result.nextCursor }); }
       const projectObservabilityMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/observability$/);
       if (projectObservabilityMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, observability: notificationObservability.observability({ actor: projectActor(projectObservabilityMatch[1]), projectId: projectObservabilityMatch[1] }) });
 
