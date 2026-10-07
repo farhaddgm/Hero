@@ -82,3 +82,18 @@ Snapshotهای `BATCH-BACKOFFICE-20260910-010` تا `012`، گام‌های `BO-
 ### تأیید روی Runtime Test — ۲۰۲۶-۱۰-۰۶
 
 آزمون پذیرش نقش‌محور (run `20261006T201133Z-7321df`) روی `v1.1.5-rc.38` در host Test `PASS` شد. گام‌های `BO-093..095`، `BO-097..103` و `BO-105..112` `verified` شدند. `BO-096` (نمایش گراف وابستگی و blast radius) و `BO-104` (Feedback مالک) فقط API دارند و تا ساخت رابط کاربری `partial` می‌مانند.
+
+## به‌روزرسانی ۲۰۲۶-۱۰-۰۷ — BO-113 تا BO-120 (مجوز `BATCH-BACKOFFICE-20261007-025`)
+
+| گام | کار انجام‌شده در source | شواهد |
+| --- | --- | --- |
+| BO-113 | Inbox با پنج نما؛ شمارنده برابر فهرست؛ نمای «نیازمند تصمیم» فقط برای مالک/ادمین؛ مبدأ `person`/`automation` | `tests/wp10-inbox-bo113-120.test.mjs`، `tests/browser/inbox.browser.mjs` |
+| BO-114 | approve/reject روی فرمان واقعی؛ run-fix فقط پیش‌نویس؛ chat پیوند internal؛ اقدام ناموجود ۴۰۹ و فرمان جعلی ۴۰۴ | همان آزمون HTTP |
+| BO-115 | Correlation بین فرمان، اعلان، Trace و Audit؛ `gaps` برای Trace گمشده/ناشناخته | `GET /api/projects/:id/correlations/:correlationId` |
+| BO-116 | جریان Activity جدا از Security؛ Timeline بدون رکورد امنیتی؛ Execution trace به ترتیب علّی | آزمون دامنه |
+| BO-117 | طبقه‌بندی داده و فیلتر نقش؛ redaction مقدار شامل کلید، Bearer و توکن | آزمون «مقدار حساس» |
+| BO-118 | کوئری با فیلتر/صفحه‌بندی؛ Export مالک‌-فقط با دلیل و ثبت در Security و خنثی‌سازی فرمول CSV؛ Retention با حداقل و dry-run | آزمون BO-118 |
+| BO-119 | گزارش SLO پنج پروژکشن؛ `no-data` و `measurement-stale` هرگز سالم نیستند | آزمون BO-119 |
+| BO-120 | آزمون حمله: طوفان ۳۰۰ هشدار، تکراری، Trace گمشده، مقدار حساس، فیلتر نقش؛ بازیابی بعد از restart | آزمون BO-120 و ۳۰ چک پذیرش |
+
+وضعیت: هر هشت گام `partial` است تا Candidate `rc.39` روی Test آزمون پذیرش را PASS کند.

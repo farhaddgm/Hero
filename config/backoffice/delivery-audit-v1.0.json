@@ -192,8 +192,8 @@
       "count": 8,
       "work_package": "WP-10",
       "status": "partial",
-      "evidence": ["packages/domain/src/notification-observability.mjs", "tests/backoffice-catalog-performance-notification.test.mjs"],
-      "open_gate": "Not yet in an authorization batch: actionable Inbox UI, decision/approval/chat/run-fix surface routing, trace end to end, observability storage and alert-storm, retention and security runtime evidence."
+      "evidence": ["apps/control-plane/src/project-inbox-view.mjs", "apps/control-plane/src/server.mjs", "config/authorizations/backoffice-20261007-025.json", "packages/contracts/src/notification-observability.mjs", "packages/domain/src/command-center.mjs", "packages/domain/src/notification-observability.mjs", "tests/browser/inbox.browser.mjs", "tests/wp10-inbox-bo113-120.test.mjs", "tests/wp10-notifications-bo111.test.mjs", "tools/acceptance/run-test-acceptance.mjs"],
+      "open_gate": "Source completed 2026-10-07 under BATCH-BACKOFFICE-20261007-025: five-view Inbox page with real approve/reject/run-fix(draft only)/chat/snooze actions, correlation trail across command, notification, trace and audit, activity vs security streams with classification and value-level redaction, filtered and paged audit query, owner-only audited export, retention policy with dry-run plan, SLO report, and attack tests (alert storm, duplicates, missing trace, sensitive values, role filtering), a real-browser test and 30 new acceptance checks rehearsed locally against real PostgreSQL. Stays partial until a promoted candidate (rc.39) passes the acceptance on the Test host."
     },
     {
       "from": "BO-121",
