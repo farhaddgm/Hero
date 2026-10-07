@@ -6,7 +6,7 @@
 > Type: evidence
 > Scope: hero
 > Status: active
-> Version: 1.0.1
+> Version: 1.1.0
 > Owner: hero-architecture
 > Review cadence: none
 > Supersedes: none
@@ -44,3 +44,54 @@ Snapshotهای `BATCH-BACKOFFICE-20260910-013` تا `017` گام‌های `BO-12
 پس از مجوز صریح Owner برای همهٔ مجوزهای لازم، Secret PostgreSQL Test بدون نمایش مقدار همگام شد و migrationهای نسخه‌بند‌شده تا `014` با موفقیت اجرا شدند. سپس فقط `hero-test/control-plane` restart شد؛ PostgreSQL و Proxy تغییر نکردند. image مستقر `hero-control-plane:local@sha256:ae190c819389165d94d162c70da436e90d66f4658a909007dffcb56128025199` است.
 
 smoke-test واقعی محیط Test: `/health=200`، `/ready=200`، `/backoffice=401` بدون احراز هویت، و endpointهای `infrastructure-control-contract`، `delivery-control-contract`، `operational-hardening-contract` و `final-readiness-contract` همگی `200` هستند. Owner این نسخهٔ Test را با دستور صریح در همین Task پذیرفت. Pilot همچنان اجرا نشده و به Proposal و مجوز جداگانه نیاز دارد؛ Production نیز کاملاً خارج از Scope است.
+
+## به‌روزرسانی ۲۰۲۶-۱۰-۰۷ — BO-147 تا BO-166 (مجوز `BATCH-BACKOFFICE-20261007-026`)
+
+این بخش فقط `BO-147..BO-166` را پوشش می‌دهد. هیچ اتصال زندهٔ GitHub، سرور، Secret Store، Provider، Production یا نوشتن در Notion انجام نشد. همهٔ ابزارها داخل مخزن و روی نمونه‌های محلی اجرا می‌شوند و خروجی‌شان **شمارش‌شده** است، نه ادعای دستی.
+
+### آنچه ساخته شد
+
+| گام | کار انجام‌شده | شاهد اجرایی |
+| --- | --- | --- |
+| BO-147 | نگهداری per-project با حداقل غیرقابل‌تضعیف (۳۶۵/۳۶۵/۷۳۰ روز)، نسخه‌دار و پایدار | `tests/wp13-hardening-bo147-156.test.mjs` |
+| BO-148 | پاک‌سازی فقط dry-run: رکورد جوان یا دارای Hold هرگز واجد شرایط نیست؛ هر رکورد digest دارد؛ حذف همیشه رد و تلاش آن ثبت می‌شود | همان آزمون و آزمون HTTP |
+| BO-149 | فارسی/انگلیسی برای Inbox و راهنما با RTL/LTR و شناسه‌های پایدار | `tests/browser/locale-a11y.browser.mjs` |
+| BO-150 | ممیزی دسترس‌پذیری اجرایی روی هر صفحه، نقش و زبان؛ چهار نقض کنتراست پیدا و رفع شد | `tools/acceptance/audit-lib.mjs` |
+| BO-151 | همهٔ فهرست‌ها با یک بودجهٔ پرس‌وجو (حداکثر ۱۰۰) و cursor؛ Trace به‌صورت lazy | `tests/wp13-audits-bo150-156.test.mjs` |
+| BO-152 | بازبینی امنیتی اجرایی: احراز هویت، مجوز، دسترسی سطح-شیء، آپلود، ابزار AI و Node Agent | `tools/acceptance/security-review.mjs` |
+| BO-153 | بار، soak و تزریق خطا؛ یک **از دست رفتن داده هنگام قطع پایگاه داده** پیدا و رفع شد | `tools/audit/load-soak.mjs` |
+| BO-154 | پشتیبان منطقی با digest، بازیابی فقط در مقصد خالی، رد بستهٔ دست‌کاری‌شده | `tools/audit/backup-restore.mjs` |
+| BO-155 | اسکن Secret و وابستگی آفلاین و گزارش پوشش Audit | `tools/audit/secret-dependency-scan.mjs` |
+| BO-156 | رگرسیون سه نقش × دو زبان × دو اندازهٔ Desktop در مرورگر واقعی | `tests/browser/locale-a11y.browser.mjs` |
+| BO-157/158 | مسیرهای قدیمی تا ۲۰۲۷-۰۴-۰۵ با Deprecation/Sunset/Link کار می‌کنند و پس از آن ۴۱۰ می‌دهند | `tests/wp14-final-readiness-bo157-166.test.mjs` |
+| BO-159 | مقایسهٔ digest کانونی Read Modelها پیش و پس از restart و انتقال | `tools/audit/read-models.mjs` |
+| BO-160..163 | سناریوهای دو پروژه، adversarial، crash/resume و انتقال روی Server واقعی | `tools/audit/scenarios.mjs` |
+| BO-164 | ممیزی ردیابی: مسیر هر شاهد وجود دارد و هر نیازمندیِ implemented آزمون دارد | `tools/audit/traceability-audit.mjs` |
+| BO-165 | راهنما، واژه‌نامه و runbook برای سه نقش | صفحهٔ `surface=help` |
+| BO-166 | plan فقط‌خواندنی Notion با checksum، صفر نوشتن و صفر تماس شبکه | `tools/audit/notion-plan.mjs` |
+
+### خطاهای واقعی که این بازبینی پیدا و رفع کرد
+
+1. **ماژول‌های hardening و final-readiness فقط در حافظه بودند** و با هر restart همه‌چیز را از دست می‌دادند؛ اکنون append-only و replay‌پذیرند.
+2. **قطع پایگاه داده رکوردها را از بین می‌برد** (outbox پیش از ذخیره خالی می‌شد)؛ اکنون صف تکرار‌پذیر است، پاسخ `503` می‌دهد و پس از بازگشت دقیقاً یک‌بار ذخیره می‌کند.
+3. **ممیزی HTTP نداشت:** بیشتر مسیرهای نوشتن هیچ Audit نمی‌گذاشتند؛ اکنون هر نوشتن و هر ردِ مجوز ثبت می‌شود (ردها rate-limit شده‌اند).
+4. **Digestها کانونی نبودند** و ترتیب کلیدهای `jsonb` باعث اختلاف کاذب می‌شد.
+5. **عنوان اعلان redact نمی‌شد** (فقط action)؛ اکنون مقدار شبیه Secret حذف می‌شود.
+6. **Admin می‌توانست وجود کاربر و MFA او را حدس بزند** (پاسخ ۴۰۹ پیش از بررسی مجوز)؛ اکنون ابتدا ۴۰۳.
+7. **چهار جفت رنگ کنتراست ناکافی** (`#087f70`، `#a36208` و دو مورد دیگر) اصلاح شد.
+8. بدنهٔ بیش‌ازحد بزرگ ۴۰۹ می‌داد؛ اکنون ۴۱۳.
+9. مسیرهای hardening/readiness/infrastructure/delivery نقش اصلی کاربر را می‌خواندند؛ اکنون نقش همان پروژه.
+10. نیازمندی‌های `BO-GOV-001/003/005` و `BO-AI-003` بدون آزمون «implemented» بودند؛ آزمون واقعی به شاهدشان افزوده شد.
+
+### محدودیت‌های شناخته‌شده (پنهان نشده)
+
+- فقط Inbox و راهنما کاملاً دوزبانه‌اند؛ بقیهٔ صفحه‌ها هنوز فارسی ثابت هستند.
+- حذف واقعی داده عمداً فعال نیست.
+- جست‌وجوی آسیب‌پذیری آنلاین (`pnpm audit`) اجرا نشد؛ نیاز به تماس شبکه دارد.
+- اعداد بار از اجرای محلی‌اند، نه Host Test.
+- پشتیبان، نسخهٔ منطقی رکوردهای Back Office است، نه dump کامل پایگاه داده؛ اعتبارنامه‌ها، مقدار Secret و فایل‌های آپلودی خارج از آن‌اند.
+- `BO-163` بین دو پایگاه محلی تمرین شد، نه بین دو target تمیز Test.
+- `BO-158` هیچ مسیری را حذف نکرد؛ حذف پس از پایان پنجره و پس از تأیید جانشین انجام می‌شود.
+- بازبینی طبقه‌بندی Notion نسبت به digest جدید کاتالوگ کهنه است و پیش از هر Projection به بازبینی مالک نیاز دارد.
+
+وضعیت: هر ده گام `BO-147..156` و هر ده گام `BO-157..166` `partial` است تا Candidate `rc.40` آزمون پذیرش گسترش‌یافته را روی Test PASS کند.

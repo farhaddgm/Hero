@@ -25,7 +25,7 @@ export function getProjectInsightsHtml({ project, viewerRole, canWrite, budget, 
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Hero · هزینه و سلامت</title>
     <style>
-      :root { --ink:#162238; --muted:#607089; --line:#dbe3ef; --surface:#fff; --canvas:#f4f7fb; --primary:#285ea8; --teal:#087f70; --amber:#a36208; --rose:#b03d5d; }
+      :root { --ink:#162238; --muted:#607089; --line:#dbe3ef; --surface:#fff; --canvas:#f4f7fb; --primary:#285ea8; --teal:#066356; --amber:#855000; --rose:#b03d5d; }
       * { box-sizing:border-box; } body { margin:0; color:var(--ink); background:var(--canvas); font-family:Vazirmatn,sans-serif; line-height:1.7; }
       main { width:min(1280px,calc(100% - 30px)); margin:0 auto; padding:28px 0 50px; }
       .top,.section,.card { border:1px solid var(--line); border-radius:16px; background:var(--surface); box-shadow:0 10px 26px rgba(24,53,93,.05); } .top { padding:18px 20px; margin-bottom:16px; }
@@ -33,11 +33,11 @@ export function getProjectInsightsHtml({ project, viewerRole, canWrite, budget, 
       .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; } .section { padding:16px; min-width:0; } .section.full { grid-column:1 / -1; }
       h1 { margin:0 0 4px; font-size:clamp(1.3rem,3vw,1.9rem); } h2 { margin:0 0 10px; font-size:1.02rem; } .muted,.meta { color:var(--muted); font-size:.8rem; } .meta { overflow-wrap:anywhere; }
       .list { display:grid; gap:8px; } .row { padding:10px 12px; border:1px solid #e6ebf3; border-radius:10px; background:#fbfcfe; } .row p { margin:.3rem 0; white-space:pre-wrap; overflow-wrap:anywhere; } .head { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; }
-      .pill { padding:2px 8px; border-radius:999px; background:#edf2f8; color:#52647d; font-size:.72rem; font-weight:700; white-space:nowrap; } .pill.good { background:#e5f7f2; color:var(--teal); } .pill.warn { background:#fff3dc; color:var(--amber); } .pill.bad { background:#fff0f3; color:var(--rose); }
+      .pill { padding:2px 8px; border-radius:999px; background:#edf2f8; color:#52647d; font-size:.72rem; font-weight:700; white-space:nowrap; } .pill.good { background:var(--teal-soft); color:var(--teal); } .pill.warn { background:var(--amber-soft); color:var(--amber); } .pill.bad { background:var(--rose-soft); color:var(--rose); }
       .empty { padding:12px; border:1px dashed #cad4e2; border-radius:10px; color:var(--muted); text-align:center; font-size:.82rem; } code { direction:ltr; unicode-bidi:embed; font-family:ui-monospace,SFMono-Regular,Consolas,monospace; font-size:.74rem; }
       .scroll { overflow:auto; } table { width:100%; border-collapse:collapse; font-size:.82rem; } th,td { padding:6px 8px; text-align:start; border-bottom:1px solid #eef2f8; } td { direction:ltr; unicode-bidi:plaintext; } th { color:var(--muted); font-weight:700; }
-      form { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; align-items:end; } form label { display:grid; gap:4px; color:var(--muted); font-size:.78rem; } form .wide { grid-column:1 / -1; } input,select,textarea { padding:7px 9px; border:1px solid #cbd8e8; border-radius:8px; font:inherit; background:#fff; color:var(--ink); }
-      button { padding:8px 14px; border:1px solid var(--primary); border-radius:9px; background:var(--primary); color:#fff; cursor:pointer; font:inherit; font-size:.82rem; }
+      form { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; align-items:end; } form label { display:grid; gap:4px; color:var(--muted); font-size:.78rem; } form .wide { grid-column:1 / -1; } input,select,textarea { padding:7px 9px; border:1px solid #cbd8e8; border-radius:8px; font:inherit; background:var(--surface); color:var(--ink); }
+      button { padding:8px 14px; border:1px solid var(--primary); border-radius:9px; background:var(--primary); color:var(--hero-on-brand, #fff); cursor:pointer; font:inherit; font-size:.82rem; }
       nav.crumbs { font-size:.8rem; color:var(--muted); margin-bottom:6px; } nav.crumbs a, a { color:var(--primary); }
       @media(max-width:900px){ .cards { grid-template-columns:repeat(2,minmax(0,1fr)); } .grid { grid-template-columns:1fr; } .section.full { grid-column:auto; } form { grid-template-columns:1fr; } }
       ${getHeroShellStyles()}

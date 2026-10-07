@@ -54,6 +54,13 @@ export async function openRolePage(browser, cookieHeader) {
       await new Promise(resolve => setTimeout(resolve, 400)); // let the page script hydrate role-gated controls
     },
     evaluate,
+    async viewport(width, height) { await browser.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false }, sessionId); },
+    /** A real key press through the browser input pipeline (Tab, Enter, Space, Escape). */
+    async press(key, { shift = false } = {}) {
+      const codes = { Tab: 9, Enter: 13, Space: 32, Escape: 27 }; const text = key === "Enter" ? "\r" : key === "Space" ? " " : undefined; const modifiers = shift ? 8 : 0;
+      await browser.send("Input.dispatchKeyEvent", { type: "keyDown", key: key === "Space" ? " " : key, code: key, windowsVirtualKeyCode: codes[key], modifiers, ...(text ? { text } : {}) }, sessionId);
+      await browser.send("Input.dispatchKeyEvent", { type: "keyUp", key: key === "Space" ? " " : key, code: key, windowsVirtualKeyCode: codes[key], modifiers }, sessionId);
+    },
     /** A fresh profile auto-starts the first-run Guide, which navigates away; mark it stopped first. */
     async skipGuide(base) {
       await this.goto(`${base}/health`);

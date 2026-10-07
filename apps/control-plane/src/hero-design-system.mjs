@@ -12,7 +12,7 @@ export function getHeroDesignSystemStyles() {
       --hero-danger: #b02e44; --hero-danger-soft: #fff0f2;
       --hero-control-height: 44px; --hero-control-radius: 10px; --hero-surface-radius: 14px;
       --hero-shadow-sm: 0 1px 3px #173c2d06; --hero-shadow-lg: 0 20px 70px #102d2726;
-      --hero-sidebar-width: 232px;
+      --hero-sidebar-width: 232px; --hero-on-brand: #ffffff;
     }
     :root[data-hero-theme="dark"] {
       color-scheme: dark;
@@ -22,7 +22,7 @@ export function getHeroDesignSystemStyles() {
       --hero-brand: #69d7ad; --hero-brand-hover: #95e9c7; --hero-brand-soft: #203f32;
       --hero-success: #75d6a5; --hero-success-soft: #203b2e;
       --hero-warning: #efc278; --hero-warning-soft: #3b3020;
-      --hero-danger: #f49aaa; --hero-danger-soft: #40262d;
+      --hero-danger: #f49aaa; --hero-danger-soft: #40262d; --hero-on-brand: #0b1a14;
     }
     :root, :root[data-hero-theme="dark"] {
       --ink: var(--hero-ink); --muted: var(--hero-muted); --line: var(--hero-line);
@@ -88,9 +88,9 @@ export function getHeroDesignSystemStyles() {
     #hero-main :is(.meta, .muted, .helper-copy, .section-head p, .panel-head p, label small) { font-size: 12px; line-height: 1.9; }
     #hero-main :is(.actions, .page-actions, .guide-actions) { gap: 8px; flex-wrap: wrap; }
     #hero-main :is(button, .button) { min-height: 42px; padding: 9px 14px; font: 650 12px/1.5 Vazirmatn, sans-serif; border-radius: 9px; }
-    #hero-main :is(button, .button):not(.secondary, .dialog-close, .card-button, .hero-info-trigger, .hero-form-suggestion-trigger, .hero-smart-tester-trigger, .nav-item, .recall) { border-color: var(--hero-brand); background: var(--hero-brand); color: #fff; }
+    #hero-main :is(button, .button):not(.secondary, .dialog-close, .card-button, .hero-info-trigger, .hero-form-suggestion-trigger, .hero-smart-tester-trigger, .nav-item, .recall) { border-color: var(--hero-brand); background: var(--hero-brand); color: var(--hero-on-brand); }
     #hero-main :is(button, .button).secondary { border: 1px solid var(--hero-line); background: var(--hero-surface); color: var(--hero-ink); }
-    #hero-main :is(button, .button).danger { background: var(--hero-danger); border-color: var(--hero-danger); color: #fff; }
+    #hero-main :is(button, .button).danger { background: var(--hero-danger); border-color: var(--hero-danger); color: var(--hero-on-brand); }
     #hero-main :is(input, select, textarea), .create-dialog :is(input, select, textarea) { min-width: 0; max-width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid var(--hero-line-strong); border-radius: 9px; background: var(--hero-surface); color: var(--hero-ink); font-size: 13px; }
     #hero-main :is(input, select, textarea):focus { border-color: var(--hero-brand); }
     #hero-main :is(input[type="checkbox"], input[type="radio"]) { min-height: 18px; width: 18px; padding: 0; accent-color: var(--hero-brand); }

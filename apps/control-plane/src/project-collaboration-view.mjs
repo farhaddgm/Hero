@@ -44,7 +44,7 @@ export function getProjectCollaborationHtml({ project, viewerRole, teams = [], p
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Hero · همکاری و حافظه</title>
     <style>
-      :root { --ink:#162238; --muted:#607089; --line:#dbe3ef; --surface:#fff; --canvas:#f4f7fb; --primary:#285ea8; --amber:#a36208; }
+      :root { --ink:#162238; --muted:#607089; --line:#dbe3ef; --surface:#fff; --canvas:#f4f7fb; --primary:#285ea8; --amber:#855000; }
       * { box-sizing:border-box; } body { margin:0; color:var(--ink); background:var(--canvas); font-family:Vazirmatn,sans-serif; line-height:1.7; }
       main { width:min(1280px,calc(100% - 30px)); margin:0 auto; padding:28px 0 50px; }
       .top,.section { border:1px solid var(--line); border-radius:16px; background:var(--surface); box-shadow:0 10px 26px rgba(24,53,93,.05); }
@@ -53,8 +53,8 @@ export function getProjectCollaborationHtml({ project, viewerRole, teams = [], p
       .list { display:grid; gap:8px; } .row { padding:10px 12px; border:1px solid #e6ebf3; border-radius:10px; background:#fbfcfe; } .row p { margin:.3rem 0; white-space:pre-wrap; overflow-wrap:anywhere; }
       .head { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; } .pill { padding:2px 8px; border-radius:999px; background:#edf2f8; color:#52647d; font-size:.72rem; font-weight:700; white-space:nowrap; }
       .messages { margin:.5rem 0 0; padding-inline-start:1.1rem; display:grid; gap:6px; } .citations { display:flex; flex-wrap:wrap; gap:6px; margin-top:4px; }
-      .citation { display:inline-flex; gap:4px; align-items:center; padding:2px 8px; border:1px solid #c9d9ef; border-radius:8px; background:#edf5ff; color:var(--primary); font-size:.74rem; text-decoration:none; overflow-wrap:anywhere; }
-      .empty { padding:12px; border:1px dashed #cad4e2; border-radius:10px; color:var(--muted); text-align:center; font-size:.82rem; } .notice { padding:10px 12px; border-radius:10px; background:#edf5ff; color:#395d8d; font-size:.82rem; } .notice.warn { background:#fff3dc; color:var(--amber); }
+      .citation { display:inline-flex; gap:4px; align-items:center; padding:2px 8px; border:1px solid #c9d9ef; border-radius:8px; background:var(--primary-soft); color:var(--primary); font-size:.74rem; text-decoration:none; overflow-wrap:anywhere; }
+      .empty { padding:12px; border:1px dashed #cad4e2; border-radius:10px; color:var(--muted); text-align:center; font-size:.82rem; } .notice { padding:10px 12px; border-radius:10px; background:#edf5ff; color:#395d8d; font-size:.82rem; } .notice.warn { background:var(--amber-soft); color:var(--amber); }
       code { direction:ltr; unicode-bidi:embed; font-family:ui-monospace,SFMono-Regular,Consolas,monospace; font-size:.74rem; }
       nav.crumbs { font-size:.8rem; color:var(--muted); margin-bottom:6px; } nav.crumbs a { color:var(--primary); }
       @media(max-width:760px){ .grid { grid-template-columns:1fr; } .section.full { grid-column:auto; } }

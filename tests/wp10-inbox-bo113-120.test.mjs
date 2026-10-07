@@ -194,7 +194,7 @@ test("BO-114/BO-115/BO-120 HTTP: inbox decisions drive the real command, leave a
   const chat = await call("admin", "POST", `${root}/notifications/${fix.notificationId}/act`, { action: "chat" }); assert.equal(chat.body.link, `hero://projects/${P}/notifications/${fix.notificationId}`);
   // correlation trail
   const trail = (await call("viewer", "GET", `${root}/correlations/corr-inbox-1`)).body.correlation;
-  assert.equal(trail.commands.length, 1); assert.ok(trail.traces.length >= 3, "authorize, approve and the notification decision left traces"); assert.deepEqual(trail.gaps, []);
+  assert.equal(trail.commands.length, 1); assert.ok(trail.traceCount >= 3, "authorize, approve and the notification decision left traces"); assert.equal(trail.traces.length, 0, "trace bodies are lazy: not loaded unless asked"); assert.ok((await call("viewer", "GET", `${root}/correlations/corr-inbox-1?include=traces&limit=2`)).body.correlation.traces.length === 2, "asked for, they come back paged"); assert.deepEqual(trail.gaps, []);
   assert.equal(trail.notifications[0].notificationId, one.notificationId);
   assert.deepEqual((await call("viewer", "GET", `${root}/correlations/corr-unknown`)).body.correlation.gaps, ["unknown-correlation"]);
   assert.equal((await call("admin", "GET", `/api/projects/project-other/correlations/corr-inbox-1`)).status, 403);
