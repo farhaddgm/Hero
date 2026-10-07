@@ -5,6 +5,7 @@ import { validateEnvironmentParity } from "../tools/check-environment-parity.mjs
 const baseEnv = `
 HERO_HTTP_HOST=0.0.0.0
 HERO_HTTP_PORT=3100
+HERO_UI_ENVIRONMENT=ENVIRONMENT
 HERO_BIND_ADDRESS=127.0.0.1
 HERO_EXPOSE_PORT=PORT
 HERO_IMAGE=
@@ -59,6 +60,7 @@ const compose = [
   "      HERO_RELEASE_VERSION: ${HERO_RELEASE_VERSION:-}",
   "      HERO_SOURCE_COMMIT: ${HERO_SOURCE_COMMIT:-}",
   "      HERO_IMAGE_DIGEST: ${HERO_IMAGE_DIGEST:-}",
+  "      HERO_UI_ENVIRONMENT: ${HERO_UI_ENVIRONMENT:-}",
   "  hero-postgres:",
   "  hero-data:",
   "  hero-postgres-data:",
@@ -79,8 +81,8 @@ const compose = [
 
 test("environment parity accepts the shared contract and the two test ports", () => {
   const errors = validateEnvironmentParity({
-    testEnv: baseEnv.replace("HERO_EXPOSE_PORT=PORT", "HERO_EXPOSE_PORT=43101"),
-    productionEnv: baseEnv.replace("HERO_EXPOSE_PORT=PORT", "HERO_EXPOSE_PORT=43100"),
+    testEnv: baseEnv.replace("HERO_UI_ENVIRONMENT=ENVIRONMENT", "HERO_UI_ENVIRONMENT=test").replace("HERO_EXPOSE_PORT=PORT", "HERO_EXPOSE_PORT=43101"),
+    productionEnv: baseEnv.replace("HERO_UI_ENVIRONMENT=ENVIRONMENT", "HERO_UI_ENVIRONMENT=production").replace("HERO_EXPOSE_PORT=PORT", "HERO_EXPOSE_PORT=43100"),
     compose
   });
   assert.deepEqual(errors, []);
@@ -88,8 +90,8 @@ test("environment parity accepts the shared contract and the two test ports", ()
 
 test("environment parity rejects drift in a required key", () => {
   const errors = validateEnvironmentParity({
-    testEnv: baseEnv.replace("HERO_EXPOSE_PORT=PORT", "HERO_EXPOSE_PORT=43101").replace("HERO_ENABLE_REAL_PROVIDERS=false\n", ""),
-    productionEnv: baseEnv.replace("HERO_EXPOSE_PORT=PORT", "HERO_EXPOSE_PORT=43100"),
+    testEnv: baseEnv.replace("HERO_UI_ENVIRONMENT=ENVIRONMENT", "HERO_UI_ENVIRONMENT=test").replace("HERO_EXPOSE_PORT=PORT", "HERO_EXPOSE_PORT=43101").replace("HERO_ENABLE_REAL_PROVIDERS=false\n", ""),
+    productionEnv: baseEnv.replace("HERO_UI_ENVIRONMENT=ENVIRONMENT", "HERO_UI_ENVIRONMENT=production").replace("HERO_EXPOSE_PORT=PORT", "HERO_EXPOSE_PORT=43100"),
     compose
   });
   assert.ok(errors.some((error) => error.includes("HERO_ENABLE_REAL_PROVIDERS")));

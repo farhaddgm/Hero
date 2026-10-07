@@ -5,6 +5,9 @@ import { fileURLToPath } from "node:url";
 const ignoredDirectories = new Set([
   ".git",
   ".pnpm-store",
+  ".hero-ui",
+  "playwright-report",
+  "test-results",
   "coverage",
   "dist",
   "node_modules",

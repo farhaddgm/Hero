@@ -10,8 +10,7 @@ export function getDashboardHtml() {
     <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate">
     <title>Hero — اتاق کنترل</title>
     <style>
-      ${getHeroShellStyles()}
-      :root { color-scheme: light; font-family: Vazirmatn, sans-serif; background: #f5f5f9; color: #1f2233; }
+        :root { color-scheme: light; font-family: Vazirmatn, sans-serif; background: #f5f5f9; color: #1f2233; }
       * { box-sizing: border-box; }
       body { margin: 0; min-width: 320px; }
       main { max-width: 1160px; margin: auto; padding: 28px 18px 52px; }
@@ -56,7 +55,8 @@ export function getDashboardHtml() {
       .notice { min-height: 22px; margin: 14px 0 0; color: #4d45d7; font-weight: 700; font-size: .9rem; }
       .empty { color: #75788d; margin: 0; padding: 20px 0; text-align: center; }
       @media (max-width: 760px) { .hero { display: block; }.hero .badge { display: inline-block; margin-top: 12px; }.grid { grid-template-columns: 1fr; } .wide { grid-column: auto; } }
-    </style>
+      ${getHeroShellStyles()}
+  </style>
   </head>
   <body>
     ${getHeroGlobalNavigation({ active: "backoffice", environment: "Private · Safe Lab" })}

@@ -27,7 +27,6 @@ export function getProjectInboxHtml({ project, viewerRole, canAct, views, counts
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Hero · صندوق ورودی</title>
     <style>
-      ${getHeroShellStyles()}
       :root { --ink:#162238; --muted:#607089; --line:#dbe3ef; --surface:#fff; --canvas:#f4f7fb; --primary:#285ea8; --teal:#087f70; --amber:#a36208; --rose:#b03d5d; }
       * { box-sizing:border-box; } body { margin:0; color:var(--ink); background:var(--canvas); font-family:Vazirmatn,sans-serif; line-height:1.7; }
       main { width:min(1100px,calc(100% - 30px)); margin:0 auto; padding:28px 0 50px; }
@@ -40,6 +39,7 @@ export function getProjectInboxHtml({ project, viewerRole, canAct, views, counts
       button[data-act] { padding:5px 12px; border:1px solid var(--primary); border-radius:9px; background:#fff; color:var(--primary); cursor:pointer; font:inherit; font-size:.78rem; }
       table { width:100%; border-collapse:collapse; font-size:.82rem; } th,td { padding:6px 8px; text-align:start; border-bottom:1px solid #eef2f8; } th { color:var(--muted); } ul.timeline { list-style:none; margin:0; padding:0; display:grid; gap:4px; font-size:.82rem; }
       nav.crumbs { font-size:.8rem; color:var(--muted); margin-bottom:6px; } a { color:var(--primary); }
+      ${getHeroShellStyles()}
     </style>
   </head>
   <body>
@@ -49,7 +49,7 @@ export function getProjectInboxHtml({ project, viewerRole, canAct, views, counts
       <div class="tabs" role="tablist" aria-label="نمای صندوق">${tabs}</div>
       ${panels}
       <section class="section" id="timeline"><h2>خط زمانی</h2><ul class="timeline">${timelineRows}</ul></section>
-      <section class="section" id="slo"><h2>هدف‌های سرویس (SLO)</h2><div style="overflow:auto"><table><thead><tr><th>بخش</th><th>هدف</th><th>تأخیر اندازه‌گیری‌شده</th><th>وضعیت</th></tr></thead><tbody>${sloRows}</tbody></table></div><p class="muted">بخشی که اندازه‌گیری تازه ندارد سالم فرض نمی‌شود.</p></section>
+      <section class="section" id="slo"><h2>هدف‌های سرویس (SLO)</h2><div style="overflow:auto" tabindex="0"><table><thead><tr><th>بخش</th><th>هدف</th><th>تأخیر اندازه‌گیری‌شده</th><th>وضعیت</th></tr></thead><tbody>${sloRows}</tbody></table></div><p class="muted">بخشی که اندازه‌گیری تازه ندارد سالم فرض نمی‌شود.</p></section>
     </main>
     <script>
       const CONFIG = ${config};

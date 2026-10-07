@@ -267,7 +267,7 @@ test("Walk-Through routes have an on-page target on the exact surface they expla
   assert.match(shell, /در حال تحلیل پرسش در زمینهٔ همین گام/);
   assert.doesNotMatch(shell, /askAdvisor\(''\)/);
   assert.match(getHeroShellStyles(), /hero-walkthrough-advisor-messages/);
-  assert.match(shell, /localStorage\.setItem\(walkthroughStateKey/);
+  assert.match(shell, /heroStorage\.setItem\(walkthroughStateKey/);
   assert.match(shell, /dataset\.heroWalkthroughSide/);
   assert.match(shell, /گام بعد/);
   assert.match(shell, /گام قبل/);
@@ -503,8 +503,8 @@ test("Identity separates the three Test login gates with plain-language field gu
   assert.match(html, /Gate 3/);
   assert.match(html, /رمز مرحلهٔ اول اینجا کار نمی‌کند/);
   assert.match(html, /خود Secret کد ورود نیست/);
-  assert.match(html, /مرحلهٔ ۲: ادامه به MFA/);
-  assert.match(html, /مرحلهٔ ۳: تکمیل ورود/);
+  assert.match(html, /ادامه و تأیید هویت/);
+  assert.match(html, /ورود به Hero/);
 });
 
 test("the canonical identity portal tells an Owner not to use a legacy Basic prompt as a Human password", () => {

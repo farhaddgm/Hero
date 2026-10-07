@@ -36,7 +36,6 @@ export function getProjectCatalogHtml({ project, viewerRole, entities = [], grap
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Hero · کاتالوگ سیستم</title>
     <style>
-      ${getHeroShellStyles()}
       :root { --ink:#162238; --muted:#607089; --line:#dbe3ef; --surface:#fff; --canvas:#f4f7fb; --primary:#285ea8; --teal:#087f70; --amber:#a36208; --rose:#b03d5d; }
       * { box-sizing:border-box; } body { margin:0; color:var(--ink); background:var(--canvas); font-family:Vazirmatn,sans-serif; line-height:1.7; }
       main { width:min(1280px,calc(100% - 30px)); margin:0 auto; padding:28px 0 50px; }
@@ -50,6 +49,7 @@ export function getProjectCatalogHtml({ project, viewerRole, entities = [], grap
       .impact { margin:.4rem 0 0; padding-inline-start:1.1rem; display:grid; gap:4px; } details summary { cursor:pointer; color:var(--primary); font-size:.82rem; }
       nav.crumbs { font-size:.8rem; color:var(--muted); margin-bottom:6px; } nav.crumbs a { color:var(--primary); }
       @media(max-width:760px){ .grid { grid-template-columns:1fr; } .section.full { grid-column:auto; } }
+      ${getHeroShellStyles()}
     </style>
   </head>
   <body>
