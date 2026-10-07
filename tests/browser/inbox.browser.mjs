@@ -35,14 +35,14 @@ test("An admin approves a decision from the Inbox with a click; a viewer cannot 
   assert.equal(await admin.evaluate(post("commands/cmd-click-1/authorize", { authorizationSnapshotId: "BATCH-BACKOFFICE-20261007-025" })), 200);
   assert.equal(await admin.evaluate(post("notifications", { category: "approval", severity: "warning", title: "Approve the test deploy", deduplicationKey: "approve-click-1", correlationId: "corr-click-1", action: { type: "approve", commandId: "cmd-click-1" } })), 201);
   await admin.goto(url);
-  assert.equal(await admin.evaluate(`document.querySelector('[data-count="needs-decision"]').textContent.trim()`), "1");
+  assert.equal(await admin.evaluate(`document.querySelector('[data-count="needs-decision"]').dataset.countValue`), "1");
   await admin.evaluate(`document.querySelector('[data-tab="needs-decision"]').click()`);
   assert.equal(await admin.evaluate(`document.querySelector('[data-panel="needs-decision"]').hidden`), false);
   assert.equal(await admin.evaluate(`document.querySelector('[data-panel="critical"]').hidden`), true, "only the chosen tab is shown");
   assert.equal(await admin.evaluate(`Boolean(document.querySelector('[data-panel="needs-decision"] [data-act="approve"]'))`), true);
   await admin.evaluate(`document.querySelector('[data-panel="needs-decision"] [data-act="approve"]').click()`);
   let resolved = false;
-  for (let attempt = 0; attempt < 40 && !resolved; attempt += 1) { await wait(150); resolved = await admin.evaluate(`document.querySelector('[data-count="needs-decision"]')?.textContent.trim() === '0' && document.querySelector('[data-count="resolved"]')?.textContent.trim() === '1'`); }
+  for (let attempt = 0; attempt < 40 && !resolved; attempt += 1) { await wait(150); resolved = await admin.evaluate(`document.querySelector('[data-count="needs-decision"]')?.dataset.countValue === '0' && document.querySelector('[data-count="resolved"]')?.dataset.countValue === '1'`); }
   assert.equal(resolved, true, "after the click the page reloads: the decision moved to Resolved");
   assert.equal(await admin.evaluate(`fetch('/api/projects/project-inbox/commands/cmd-click-1', { credentials: 'include' }).then(response => response.json()).then(body => body.card.state)`), "approved", "the click really approved the command");
   assert.equal(await admin.evaluate(`document.querySelectorAll('[data-slo]').length`), 5, "the SLO table lists all five projections");
@@ -50,7 +50,7 @@ test("An admin approves a decision from the Inbox with a click; a viewer cannot 
 
   const viewer = await openRolePage(browser, cookie("viewer")); await viewer.skipGuide(base); await viewer.goto(url);
   assert.equal(await viewer.evaluate(`document.querySelectorAll('button[data-act]').length`), 0, "the viewer has no action buttons");
-  assert.equal(await viewer.evaluate(`document.querySelector('[data-count="resolved"]').textContent.trim()`), "1", "the viewer reads the same state");
+  assert.equal(await viewer.evaluate(`document.querySelector('[data-count="resolved"]').dataset.countValue`), "1", "the viewer reads the same state");
   const status = await viewer.evaluate(`fetch('/api/projects/project-inbox/notifications/anything-here/act', { method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'approve' }) }).then(response => response.status)`);
   assert.equal(status, 403, "even crafted from the viewer's browser, the server refuses the decision");
 });

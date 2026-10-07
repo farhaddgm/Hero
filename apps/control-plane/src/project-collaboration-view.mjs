@@ -45,7 +45,7 @@ export function getProjectCollaborationHtml({ project, viewerRole, teams = [], p
     <title>Hero · همکاری و حافظه</title>
     <style>
       ${getHeroShellStyles()}
-      :root { --ink:#162238; --muted:#607089; --line:#dbe3ef; --surface:#fff; --canvas:#f4f7fb; --primary:#285ea8; --amber:#a36208; }
+      :root { --ink:#162238; --muted:#607089; --line:#dbe3ef; --surface:#fff; --canvas:#f4f7fb; --primary:#285ea8; --amber:#855000; }
       * { box-sizing:border-box; } body { margin:0; color:var(--ink); background:var(--canvas); font-family:Vazirmatn,sans-serif; line-height:1.7; }
       main { width:min(1280px,calc(100% - 30px)); margin:0 auto; padding:28px 0 50px; }
       .top,.section { border:1px solid var(--line); border-radius:16px; background:var(--surface); box-shadow:0 10px 26px rgba(24,53,93,.05); }

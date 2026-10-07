@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { createCorrelationContext, childCorrelationContext } from "./observability.mjs";
 import { createNotificationObservability } from "./notification-observability.mjs";
 import { createOperationalHardening } from "./operational-hardening.mjs";
@@ -30,9 +31,11 @@ export function runPf6HardeningSimulation({ now = () => "2026-09-18T12:00:00.000
     notifications.setSli({ actor: ADMIN, projectId, projection: "quality", lagSeconds: 3, freshnessSeconds: 60 });
     const recovered = notifications.observability({ actor: VIEWER, projectId }).sli.find(item => item.projection === "quality")?.status;
     hardening.setRetention({ actor: ADMIN, projectId, retention: { auditDays: 365, evidenceDays: 365, securityDays: 730 } });
-    hardening.planCleanup({ actor: ADMIN, projectId, jobId: `cleanup-${projectId}`, candidates: [{ id: `candidate-${projectId}`, digest: `sha256:${"a".repeat(64)}` }], hold: true });
+    hardening.placeHold({ actor: ADMIN, projectId, targetId: `candidate-${projectId}`, reason: "PF-6 simulation hold" });
+    hardening.planCleanup({ actor: ADMIN, projectId, jobId: `cleanup-${projectId}`, candidates: [{ id: `candidate-${projectId}`, kind: "audit", digest: `sha256:${"a".repeat(64)}`, recordedAt: "2020-01-01T00:00:00.000Z" }] });
     hardening.locale({ actor: ADMIN, projectId, locale: "fa" });
-    for (const kind of AUDIT_KINDS) hardening.recordAudit({ actor: ADMIN, projectId, auditId: `audit-${projectId}-${kind}`, kind, passed: true, findings: [] });
+    // A simulation records simulated evidence and says so in its tool name; it never stands in for a real audit run.
+    for (const kind of AUDIT_KINDS) hardening.recordAudit({ actor: ADMIN, projectId, auditId: `audit-${projectId}-${kind}`, kind, tool: "packages/domain/pf6-hardening-harness.simulation", toolVersion: "1", evidenceDigest: `sha256:${createHash("sha256").update(`${projectId}:${kind}`).digest("hex")}`, checks: { total: 1, passed: 1 }, findings: [] });
     const inbox = notifications.inbox({ actor: VIEWER, projectId, view: "all" });
     const report = hardening.report({ actor: VIEWER, projectId });
     projectResults.push({
@@ -43,7 +46,7 @@ export function runPf6HardeningSimulation({ now = () => "2026-09-18T12:00:00.000
       staleDetected: stale === "stale",
       sliRecovered: recovered === "within-slo",
       hardeningMissing: report.coverage.missing,
-      cleanupDryRunHeld: report.cleanup[0]?.dryRun === true && report.cleanup[0]?.hold === true,
+      cleanupDryRunHeld: report.cleanup[0]?.dryRun === true && report.cleanup[0]?.held?.length === 1,
       localeDirection: "rtl"
     });
   }

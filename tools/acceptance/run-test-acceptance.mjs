@@ -1,4 +1,4 @@
-// Hero Test acceptance runner (WP-04..WP-10, BO-043..BO-120).
+// Hero Test acceptance runner (WP-04..WP-14, BO-043..BO-166).
 //
 // Runs INSIDE a container of the exact candidate image, against a disposable
 // Hero instance on an internal Docker network (see tools/run-test-acceptance.sh).
@@ -11,6 +11,9 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+
+import { auditPage, createRecorder, mergeResults, sha256 } from "./audit-lib.mjs";
+import { runSecurityReview } from "./security-review.mjs";
 
 const { createTotpCode } = await import(process.env.HERO_ACCEPTANCE_IDENTITY_MODULE ?? "/opt/hero/packages/domain/src/human-identity.mjs");
 
@@ -278,7 +281,7 @@ async function seed() {
   const fixNote = (await call(admin, "POST", `${root}/notifications/${decisionNote?.notificationId}/act`, { action: "run-fix" })).status;
   check("BO-114", "run-fix on a resolved decision is refused", fixNote === 409);
   const trail = (await call(viewer, "GET", `${root}/correlations/${inboxCorr}`)).body?.correlation;
-  check("BO-115", "one correlation id links the command, notification and traces", trail?.commands?.length === 1 && trail?.notifications?.length === 1 && trail?.traces?.length >= 3 && trail?.gaps?.length === 0, JSON.stringify(trail?.gaps));
+  check("BO-115", "one correlation id links the command, notification and traces", trail?.commands?.length === 1 && trail?.notifications?.length === 1 && trail?.traceCount >= 3 && trail?.gaps?.length === 0, JSON.stringify(trail?.gaps));
   check("BO-115", "an unknown correlation is reported, not invented", (await call(viewer, "GET", `${root}/correlations/corr-${run}-nothing`)).body?.correlation?.gaps?.[0] === "unknown-correlation");
   check("BO-116", "the human timeline carries the decision", ((await call(viewer, "GET", `${root}/timeline?correlationId=${inboxCorr}`)).body?.timeline ?? []).some(item => item.kind === "notification.approve"));
   check("BO-116", "a viewer cannot read the security audit", (await call(viewer, "GET", `${root}/audit-log?stream=security`)).status === 403);
@@ -300,7 +303,76 @@ async function seed() {
   check("BO-113", "a viewer's inbox page has no action buttons", !/data-act="/.test((await pageHtml(viewer, `/api/portal?surface=inbox&projectId=${P1}`)).html.split("<script>")[0]));
   check("BO-120", "another project's inbox is closed", (await pageHtml(viewer, `/api/portal?surface=inbox&projectId=${P2}`)).status === 403);
 
-  fs.writeFileSync(STATE_FILE, JSON.stringify({ run, P1, P2, users, chatId, prodId, driftProposalId: discovery.body?.proposal?.driftProposalId, repoId: `${run}-repo`, conversationId: conversation?.conversationId, svcId: `${run}-svc`, docId: `${run}-dec-1`, noteId: notificationId, inboxCmd, inboxCorr }), { mode: 0o600 });
+  // WP-13/WP-14 (BO-147..166): retention, cleanup, locale, accessibility, security review, paging, legacy routes, digests
+  const locked = { owner, admin, viewer }; const STABLE_VIEWS = [["notifications", "/notifications?view=all"], ["incidents", "/incidents"], ["audit-activity", "/audit-log?limit=200&stream=activity"], ["retention-policy", "/retention-policy"], ["ledger-team", "/ledger?groupBy=team"], ["ledger-model", "/ledger?groupBy=model"], ["budget", "/budget"], ["catalog", "/catalog"]];
+  check("BO-147", "retention below the Hero minimum is refused", (await call(admin, "POST", `${root}/hardening`, { action: "set-retention", retention: { auditDays: 100 } })).status === 400);
+  check("BO-147", "an admin lengthens the audit retention for this project only", (await call(admin, "POST", `${root}/hardening`, { action: "set-retention", retention: { auditDays: 400 } })).body?.result?.version === 1 && (await call(viewer, "GET", `/api/projects/${P1}/retention-policy`)).body?.retention?.auditDays === 400);
+  check("BO-147", "a viewer cannot change retention", (await call(viewer, "POST", `${root}/hardening`, { action: "set-retention", retention: { auditDays: 500 } })).status === 403);
+  const oldRecord = { id: `${run}-old-audit`, kind: "audit", digest: `sha256:${"2".repeat(64)}`, recordedAt: "2020-01-01T00:00:00.000Z" }; const youngRecord = { id: `${run}-young-audit`, kind: "audit", digest: `sha256:${"3".repeat(64)}`, recordedAt: new Date().toISOString() }; const heldRecord = { id: `${run}-held-audit`, kind: "audit", digest: `sha256:${"4".repeat(64)}`, recordedAt: "2020-01-01T00:00:00.000Z" };
+  check("BO-148", "an admin places a hold", (await call(admin, "POST", `${root}/hardening`, { action: "place-hold", targetId: heldRecord.id, reason: "acceptance hold" })).status === 201);
+  const cleanup = (await call(admin, "POST", `${root}/hardening`, { action: "plan-cleanup", jobId: `${run}-cleanup`, candidates: [oldRecord, youngRecord, heldRecord] })).body?.result;
+  check("BO-148", "cleanup is a dry-run: only the old, unheld record is eligible", cleanup?.dryRun === true && cleanup.eligible?.length === 1 && cleanup.eligible[0].id === oldRecord.id && cleanup.held?.length === 1 && cleanup.refusedTooYoung?.length === 1, JSON.stringify(cleanup));
+  check("BO-148", "a candidate without a digest is refused", (await call(admin, "POST", `${root}/hardening`, { action: "plan-cleanup", jobId: `${run}-cleanup-bad`, candidates: [{ id: `${run}-nodigest`, kind: "audit", recordedAt: "2020-01-01T00:00:00.000Z" }] })).status === 400);
+  check("BO-148", "an admin cannot run the deletion", (await call(admin, "POST", `${root}/hardening/cleanup/${run}-cleanup/execute`, { reason: "delete everything" })).status === 403);
+  const refusedDeletion = await call(owner, "POST", `${root}/hardening/cleanup/${run}-cleanup/execute`, { reason: "acceptance deletion attempt" });
+  check("BO-148", "even the owner's deletion is refused and recorded", refusedDeletion.status === 409 && refusedDeletion.body?.code === "CLEANUP_NOT_AUTHORIZED" && ((await call(viewer, "GET", `${root}/hardening`)).body?.cleanup?.deletionAttempts ?? []).length === 1);
+  check("BO-149", "an admin sets the project locale to English", (await call(admin, "POST", `${root}/hardening`, { action: "set-locale", locale: "en" })).body?.result?.direction === "ltr");
+  const inboxEn = await pageHtml(viewer, `/api/portal?surface=inbox&projectId=${P1}`); const inboxFa = await pageHtml(viewer, `/api/portal?surface=inbox&projectId=${P1}&lang=fa`);
+  const identifiers = html => [...html.matchAll(/data-(?:tab|panel|notification|slo|act|count)="([^"]+)"/g)].map(match => match[0]).sort().join("|");
+  check("BO-149", "the inbox follows the project locale and ?lang overrides it", /<html lang="en" dir="ltr">/.test(inboxEn.html) && /<html lang="fa" dir="rtl">/.test(inboxFa.html));
+  check("BO-149", "identifiers are identical in both languages", identifiers(inboxEn.html) === identifiers(inboxFa.html) && identifiers(inboxEn.html).length > 100);
+  for (const who of ["owner", "admin", "viewer"]) check("BO-165", `the help page opens for the ${who} and marks that role`, await (async () => { const helpPage = await pageHtml(locked[who], `/api/portal?surface=help&projectId=${P1}`); return helpPage.status === 200 && (helpPage.html.match(/data-own-role/g) ?? []).length === 1 && /data-runbook="rollback-test"/.test(helpPage.html) && /data-term="acceptance"/.test(helpPage.html); })());
+  check("BO-165", "the help page is closed without a grant", (await pageHtml(viewer, `/api/portal?surface=help&projectId=${P2}`)).status === 403);
+  // accessibility + role regression, measured on the real pages of this instance
+  const accessibilityParts = []; const regression = createRecorder("tools/acceptance/run-test-acceptance.role-regression");
+  for (const who of ["owner", "admin", "viewer"]) for (const locale of ["fa", "en"]) for (const surface of ["studio", "control", "collaboration", "catalog", "insights", "inbox", "help"]) {
+    const rendered = await pageHtml(locked[who], `/api/portal?surface=${surface}&projectId=${P1}&lang=${locale}`); regression.check(`${surface}/${who}/${locale} renders`, rendered.status === 200, rendered.status);
+    if (rendered.status === 200) accessibilityParts.push(auditPage(rendered.html, { name: `${surface}/${who}/${locale}`, ...(surface === "inbox" || surface === "help" ? { expectLocale: locale } : {}) }));
+  }
+  regression.check("a viewer has no action button on the inbox", !/data-act="/.test((await pageHtml(viewer, `/api/portal?surface=inbox&projectId=${P1}`)).html.split("<script>")[0]));
+  regression.check("a viewer cannot open another project's pages", (await pageHtml(viewer, `/api/portal?surface=inbox&projectId=${P2}`)).status === 403 && (await pageHtml(viewer, `/api/portal?surface=catalog&projectId=${P2}`)).status === 403);
+  const accessibility = mergeResults("tools/acceptance/audit-lib.accessibility", accessibilityParts); const roleRegression = regression.finish();
+  check("BO-150", `accessibility: ${accessibility.checks.passed}/${accessibility.checks.total} checks pass on every page, role and language`, accessibility.checks.passed === accessibility.checks.total, accessibility.findings.slice(0, 3).join(" | "));
+  check("BO-156", `role and locale regression: ${roleRegression.checks.passed}/${roleRegression.checks.total} checks pass`, roleRegression.checks.passed === roleRegression.checks.total, roleRegression.findings.slice(0, 3).join(" | "));
+  // security review against the live instance
+  const securityAdapter = { base: BASE, tokens: locked, call: async (who, method, route, body) => { const response = await call(locked[who], method, route, body); return { status: response.status, body: response.body ?? response.text }; } };
+  const securityReview = await runSecurityReview(securityAdapter, { project: P1, other: P2, commandId: chatId, correlationId: `corr-${run}-chat` });
+  check("BO-152", `security review: ${securityReview.checks.passed}/${securityReview.checks.total} checks pass against this instance`, securityReview.checks.passed === securityReview.checks.total, securityReview.findings.slice(0, 4).join(" | "));
+  // paging and lazy traces
+  for (let index = 0; index < 104; index += 1) await call(admin, "POST", `${root}/notifications`, { category: "health", severity: "info", title: `Acceptance bulk ${index}`, deduplicationKey: `${run}-bulk-${index}`, correlationId: `${run}-bulk` });
+  const bulkPage = (await call(viewer, "GET", `${root}/notifications?view=all`)).body; const bulkNext = (await call(viewer, "GET", `${root}/notifications?view=all&cursor=100`)).body;
+  check("BO-151", "a list is paged at 100 with a cursor", bulkPage?.notifications?.length === 100 && bulkPage.nextCursor === 100 && bulkPage.total > 100 && (bulkNext?.notifications?.length ?? 0) >= 1, JSON.stringify([bulkPage?.notifications?.length, bulkPage?.nextCursor, bulkPage?.total]));
+  check("BO-151", "a query over the budget is refused", (await call(viewer, "GET", `${root}/notifications?limit=101`)).status === 400 && (await call(viewer, "GET", `${root}/notifications?cursor=-1`)).status === 400);
+  const lazyTrail = (await call(viewer, "GET", `${root}/correlations/${inboxCorr}`)).body?.correlation; const fullTrail = (await call(viewer, "GET", `${root}/correlations/${inboxCorr}?include=traces&limit=2`)).body?.correlation;
+  check("BO-151", "trace bodies load lazily and in pages", lazyTrail?.traces?.length === 0 && lazyTrail.traceCount >= 3 && fullTrail?.traces?.length === 2 && fullTrail.nextTraceCursor === 2);
+  const heavyInbox = await pageHtml(viewer, `/api/portal?surface=inbox&projectId=${P1}`); check("BO-151", "the inbox page is bounded and says when it is truncated", heavyInbox.status === 200 && heavyInbox.html.length < 2_000_000);
+  // legacy routes: compatible, deprecated, with a successor
+  const legacy = await fetch(`${BASE}/workspace?projectId=${P1}`, { redirect: "manual", headers: { cookie: `__Host-hero-human-session=${encodeURIComponent(owner)}` } });
+  check("BO-157", "a legacy route still answers inside its window and announces its retirement", [200, 302, 303, 307, 308].includes(legacy.status) && legacy.headers.get("deprecation") === "true" && /successor-version/.test(legacy.headers.get("link") ?? "") && /2027/.test(legacy.headers.get("sunset") ?? ""), `${legacy.status}`);
+  check("BO-157", "an admin records the migration plan with a bounded window", (await call(admin, "POST", `${root}/final-readiness`, { action: "plan-migration", migrationId: `${run}-studio-migration`, oldRoute: "/product-studio", newRoute: "/api/portal?surface=studio", compatibilityUntil: new Date(Date.now() + 90 * 86400000).toISOString() })).status === 201 && (await call(admin, "POST", `${root}/final-readiness`, { action: "plan-migration", migrationId: `${run}-too-long`, oldRoute: "/workspace", newRoute: "/api/portal?surface=workspace", compatibilityUntil: new Date(Date.now() + 400 * 86400000).toISOString() })).status === 400);
+  // hardening audits recorded with tool evidence; pass is derived by the server
+  const record = async (kind, result) => (await call(admin, "POST", `${root}/hardening`, { action: "record-audit", auditId: `${run}-${kind}`, kind, tool: result.tool, toolVersion: result.toolVersion, evidenceDigest: result.evidenceDigest, checks: result.checks, findings: result.findings.slice(0, 20), passed: true })).body?.result;
+  const recordedAccessibility = await record("accessibility", accessibility); const recordedRegression = await record("role-regression", roleRegression); const recordedSecurity = await record("security", securityReview);
+  check("BO-150", "the accessibility audit is recorded and the server derives its result", recordedAccessibility?.passed === (accessibility.checks.passed === accessibility.checks.total) && recordedAccessibility?.evidenceDigest === accessibility.evidenceDigest);
+  check("BO-152", "the security review is recorded and the server derives its result", recordedSecurity?.passed === (securityReview.checks.passed === securityReview.checks.total));
+  check("BO-156", "the regression audit is recorded", recordedRegression?.checks?.total === roleRegression.checks.total);
+  check("BO-150", "a client cannot record an audit without a real digest", (await call(admin, "POST", `${root}/hardening`, { action: "record-audit", auditId: `${run}-forged-audit`, kind: "load", tool: "tools/audit/load-soak", toolVersion: "1", evidenceDigest: "trust-me", checks: { total: 1, passed: 1 } })).status === 400);
+  const hardeningReport = (await call(viewer, "GET", `${root}/hardening`)).body?.hardening; check("BO-155", "coverage lists what is still missing instead of calling it complete", hardeningReport?.coverage?.complete === false && ["load", "backup-restore", "secret-dependency"].every(kind => hardeningReport.coverage.missing.includes(kind)), JSON.stringify(hardeningReport?.coverage?.missing));
+  // read-model digests taken now; the same digests must come back after the SIGKILL restart
+  const seedDigests = {}; for (const [name, route] of STABLE_VIEWS) seedDigests[name] = sha256((await call(viewer, "GET", `${root}${route}`)).body);
+  check("BO-159", `${STABLE_VIEWS.length} read-model digests were taken before the restart`, Object.values(seedDigests).every(value => /^sha256:[a-f0-9]{64}$/.test(value)));
+  const scenarioDigest = sha256(checks.filter(item => ["BO-075", "BO-077", "BO-101", "BO-114", "BO-115"].includes(item.step)).map(item => [item.name, item.ok]));
+  const e2e = (await call(admin, "POST", `${root}/final-readiness`, { action: "record-scenario", scenarioId: `${run}-e2e`, kind: "e2e-multi-project", tool: "tools/acceptance/run-test-acceptance", toolVersion: "1.0", evidenceDigest: scenarioDigest, checks: { total: checks.filter(item => ["BO-075", "BO-077", "BO-101", "BO-114", "BO-115"].includes(item.step)).length, passed: checks.filter(item => ["BO-075", "BO-077", "BO-101", "BO-114", "BO-115"].includes(item.step) && item.ok).length }, projects: [P1, P2] })).body?.result;
+  check("BO-160", "the two-project scenario is recorded from counted checks with both projects named", Boolean(e2e) && e2e.projects.length === 2 && e2e.passed === true, JSON.stringify(e2e));
+  const adversarial = (await call(admin, "POST", `${root}/final-readiness`, { action: "record-scenario", scenarioId: `${run}-adversarial`, kind: "adversarial-access", tool: securityReview.tool, toolVersion: securityReview.toolVersion, evidenceDigest: securityReview.evidenceDigest, checks: securityReview.checks })).body?.result;
+  check("BO-161", "the adversarial scenario is recorded from the security review's own counts", adversarial?.checks?.total === securityReview.checks.total && adversarial.passed === (securityReview.checks.passed === securityReview.checks.total));
+  const trace = (await call(admin, "POST", `${root}/final-readiness`, { action: "set-traceability", requirementId: "BO-NTF-001", testRef: "hero://tests/wp10-inbox-bo113-120", evidenceRef: "hero://evidence/acceptance-seed" })).body?.result; check("BO-164", "a requirement is traced to a test and an evidence reference", trace?.version === 1);
+  const draftReview = (await call(admin, "POST", `${root}/final-readiness`, { action: "readiness-review", reviewId: `${run}-review`, gaps: ["a clean-target transfer was not performed on the Test host"], risks: ["MFA persistence (BO-IAM-001)"], limitations: ["no live GitHub, server or Secret Store connection"], rollbackRef: "hero://rollback/previous-test-image" })).body?.result;
+  check("BO-168", "with a crash-resume and a transfer scenario missing, the readiness review stays a draft", draftReview?.state === "draft" && draftReview.scenarioCoverage?.some(item => item.kind === "test-transfer" && !item.passed), JSON.stringify(draftReview?.state));
+  check("BO-169", "an admin cannot accept, and the owner cannot accept a draft", (await call(admin, "POST", `${root}/final-readiness`, { action: "accept", reviewId: `${run}-review`, artifactIdentity: "artifact-identity-acceptance" })).status === 403 && (await call(owner, "POST", `${root}/final-readiness`, { action: "accept", reviewId: `${run}-review`, artifactIdentity: "artifact-identity-acceptance" })).status === 409);
+  check("BO-170", "no pilot proposal exists without an owner acceptance", (await call(owner, "POST", `${root}/final-readiness`, { action: "pilot-proposal", proposalId: `${run}-pilot`, reviewId: `${run}-review`, scope: "narrow" })).status === 409);
+
+  fs.writeFileSync(STATE_FILE, JSON.stringify({ run, P1, P2, users, chatId, prodId, driftProposalId: discovery.body?.proposal?.driftProposalId, repoId: `${run}-repo`, conversationId: conversation?.conversationId, svcId: `${run}-svc`, docId: `${run}-dec-1`, noteId: notificationId, inboxCmd, inboxCorr, seedDigests, stableViews: STABLE_VIEWS }), { mode: 0o600 });
 }
 
 async function verify() {
@@ -309,6 +381,8 @@ async function verify() {
   const owner = await login(process.env.HERO_OWNER_EMAIL, process.env.HERO_OWNER_PASSWORD, process.env.HERO_OWNER_MFA_SECRET);
   const viewer = await login(users.viewer.email, users.viewer.password, users.viewer.mfaSecret);
   check("BO-021", "users and grants survive a restart", Boolean(viewer));
+  // First thing after the restart, before any verify write: take the read-model digests (BO-159).
+  const rebuilt = {}; for (const [name, route] of state.stableViews) rebuilt[name] = sha256((await call(viewer, "GET", `/api/projects/${P1}${route}`)).body);
   // Known WP-02 gap (BO-IAM-001): MFA secrets are deliberately not persisted, so an
   // MFA user cannot log in after a restart. Report it, then act as the owner for the
   // remaining write checks so the WP-04..WP-08 verdict is still measured.
@@ -356,13 +430,24 @@ async function verify() {
   check("BO-112", "deduplication survives a restart", alertsV.length === 1 && alertsV[0].reopenCount === 1 && alertsV[0].occurrences === 6, JSON.stringify(alertsV.map(item => [item.occurrences, item.reopenCount])));
   check("BO-112", "a repeat after a restart still folds", (await call(admin, "POST", `${rootV}/notifications`, { category: "health", severity: "warning", title: "Acceptance alert", deduplicationKey: "acc-alert", correlationId: `${state.run}-corr` })).body?.notification?.deduplicated === true);
   check("BO-112", "incidents survive a restart", ((await call(viewer, "GET", `${rootV}/incidents`)).body?.incidents ?? []).length >= 1);
+  // WP-13/WP-14 replay (BO-147..166): the read models must come back digest-identical after the SIGKILL restart
+  const differing = Object.keys(state.seedDigests).filter(name => rebuilt[name] !== state.seedDigests[name]);
+  check("BO-159", `all ${Object.keys(state.seedDigests).length} read models are digest-identical after the SIGKILL restart`, differing.length === 0, differing.join(","));
+  for (const [name] of state.stableViews) await call(admin, "POST", `${rootV}/final-readiness`, { action: "rebuild-read-model", modelId: `${state.run}-${name}`, beforeDigest: state.seedDigests[name], afterDigest: rebuilt[name] });
+  const digestView = (await call(viewer, "GET", `${rootV}/final-readiness`)).body?.readiness; check("BO-159", "every comparison is stored with equal=true derived by the server", (digestView?.readModels ?? []).filter(item => item.modelId.startsWith(state.run)).length === state.stableViews.length && digestView.readModels.filter(item => item.modelId.startsWith(state.run)).every(item => item.equal === true));
+  check("BO-147", "the project's retention extension survives a restart", (await call(viewer, "GET", `/api/projects/${P1}/retention-policy`)).body?.retention?.auditDays === 400);
+  const hardeningV = (await call(viewer, "GET", `${rootV}/hardening`)).body; check("BO-148", "the cleanup plan, the hold and the refused deletion survive a restart", hardeningV?.cleanup?.jobs?.length === 1 && hardeningV.cleanup.holds?.length === 1 && hardeningV.cleanup.deletionAttempts?.length === 1);
+  check("BO-150", "the recorded hardening audits survive a restart with their digests", ["accessibility", "security", "role-regression"].every(kind => hardeningV?.hardening?.audits?.some(item => item.kind === kind && /^sha256:[a-f0-9]{64}$/.test(item.evidenceDigest))));
+  const readinessV = (await call(viewer, "GET", `${rootV}/final-readiness`)).body?.readiness; check("BO-168", "the draft review, the scenarios and the migration plan survive a restart", readinessV?.reviews?.some(item => item.reviewId === `${state.run}-review` && item.state === "draft") && readinessV.scenarios?.length >= 2 && readinessV.migrations?.length >= 1 && readinessV.traceability?.length === 1);
+  const locale = await pageHtml(viewer, `/api/portal?surface=inbox&projectId=${P1}`); check("BO-149", "the project's locale survives a restart", /<html lang="en" dir="ltr">/.test(locale.html));
+  const legacyV = await fetch(`${BASE}/project-control?projectId=${P1}`, { redirect: "manual", headers: { cookie: `__Host-hero-human-session=${encodeURIComponent(owner)}` } }); check("BO-157", "a legacy route still announces its retirement after a restart", legacyV.headers.get("deprecation") === "true");
   const insightsV = await pageHtml(viewer, `/api/portal?surface=insights&projectId=${P1}`);
   check("BO-104", "feedback survives a restart and shows on the page", insightsV.status === 200 && insightsV.html.includes(`data-feedback-id="${state.run}-fb"`));
   check("BO-109", "the cost and health numbers on the page survive a restart", insightsV.html.includes('data-budget-decision="hard-cap-pause-required"') && insightsV.html.includes('data-health-status="critical"'));
   const catalogV = await pageHtml(viewer, `/api/portal?surface=catalog&projectId=${P1}`);
   check("BO-096", "the dependency graph page is rebuilt after a restart", catalogV.status === 200 && catalogV.html.includes(`data-graph-node="${state.svcId}"`));
   const trailV = (await call(viewer, "GET", `${rootV}/correlations/${state.inboxCorr}`)).body?.correlation;
-  check("BO-115", "the correlation trail survives a restart", trailV?.commands?.length === 1 && trailV?.notifications?.[0]?.state === "resolved" && trailV?.traces?.length >= 3 && trailV?.gaps?.length === 0, JSON.stringify(trailV?.gaps));
+  check("BO-115", "the correlation trail survives a restart", trailV?.commands?.length === 1 && trailV?.notifications?.[0]?.state === "resolved" && trailV?.traceCount >= 3 && trailV?.gaps?.length === 0, JSON.stringify(trailV?.gaps));
   check("BO-114", "the approved command is still approved after a restart", (await call(admin, "GET", `${rootV}/commands/${state.inboxCmd}`)).body?.card?.state === "approved");
   check("BO-118", "the export audit and retention policy survive a restart", ((await call(owner, "GET", `${rootV}/audit-log?stream=security&kind=audit.export`)).body?.audit ?? []).length === 1 && (await call(viewer, "GET", `${rootV}/retention`)).body?.retention?.policies?.activity?.days === 120);
   check("BO-116", "a viewer is still refused the security audit after a restart", (await call(viewer, "GET", `${rootV}/audit-log?stream=security`)).status === 403);
@@ -377,9 +462,9 @@ try { await (phase === "seed" ? seed() : verify()); } catch (error) { fatal = er
 const resultFile = path.join(STATE_DIR, `checks-${phase}.json`);
 fs.writeFileSync(resultFile, JSON.stringify(checks, null, 2));
 // The verdict covers BO-043..BO-092 (and the runner itself); other steps are reported as findings.
-const inScope = item => item.step === "runner" || (/^BO-\d{3}$/.test(item.step) && Number(item.step.slice(3)) >= 43 && Number(item.step.slice(3)) <= 120);
+const inScope = item => item.step === "runner" || (/^BO-\d{3}$/.test(item.step) && Number(item.step.slice(3)) >= 43 && Number(item.step.slice(3)) <= 170);
 const scoped = checks.filter(inScope); const failed = scoped.filter(item => !item.ok); const findings = checks.filter(item => !inScope(item) && !item.ok);
-console.log(`Hero acceptance ${phase}: ${scoped.length - failed.length}/${scoped.length} in-scope checks passed (BO-043..BO-120); ${checks.length - scoped.length} supporting checks`);
+console.log(`Hero acceptance ${phase}: ${scoped.length - failed.length}/${scoped.length} in-scope checks passed (BO-043..BO-170); ${checks.length - scoped.length} supporting checks`);
 for (const item of failed) console.log(`  FAIL ${item.step} — ${item.name}${item.detail ? ` (${item.detail})` : ""}`);
 for (const item of findings) console.log(`  FINDING ${item.step} — ${item.name}${item.detail ? ` (${item.detail})` : ""}`);
 process.exit(failed.length || fatal ? 1 : 0);

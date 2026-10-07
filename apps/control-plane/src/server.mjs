@@ -91,11 +91,14 @@ import { getProjectCollaborationHtml } from "./project-collaboration-view.mjs";
 import { getProjectCatalogHtml } from "./project-catalog-view.mjs";
 import { getProjectInsightsHtml } from "./project-insights-view.mjs";
 import { getProjectInboxHtml } from "./project-inbox-view.mjs";
+import { getProjectHelpHtml } from "./project-help-view.mjs";
 import { TEAM_CATALOG } from "../../../packages/contracts/src/team.mjs";
 import { createSystemCatalog, SystemCatalogError } from "../../../packages/domain/src/system-catalog.mjs";
 import { createPerformanceIntelligence, PerformanceError } from "../../../packages/domain/src/performance-intelligence.mjs";
 import { createNotificationObservability, NotificationError } from "../../../packages/domain/src/notification-observability.mjs";
 import { INBOX_VIEWS } from "../../../packages/contracts/src/notification-observability.mjs";
+import { resolveUiLocale } from "../../../packages/contracts/src/ui-locale.mjs";
+import { LEGACY_COMPATIBLE_UNTIL, legacyRouteFor, legacyStatus, successorUrl } from "../../../packages/contracts/src/route-migration.mjs";
 import { createInfrastructureControl, InfrastructureError } from "../../../packages/domain/src/infrastructure-control.mjs";
 import { createDeliveryControl, DeliveryError } from "../../../packages/domain/src/delivery-control.mjs";
 import { createOperationalHardening, HardeningError } from "../../../packages/domain/src/operational-hardening.mjs";
@@ -141,7 +144,7 @@ const IDENTITY_PATHS = new Set(["/identity"]);
 const BROWSER_PORTAL_PATH = "/api/portal";
 const BROWSER_PORTAL_DATA_PATH = "/api/portal-data";
 const BROWSER_PORTAL_DOCUMENT_PATH = "/api/portal-document";
-const BROWSER_PORTAL_SURFACES = new Set(["identity", "portfolio", "command", "studio", "workspace", "control", "collaboration", "catalog", "insights", "inbox", "walkthrough", "ai"]);
+const BROWSER_PORTAL_SURFACES = new Set(["identity", "portfolio", "command", "studio", "workspace", "control", "collaboration", "catalog", "insights", "inbox", "help", "walkthrough", "ai"]);
 const DEFAULT_BACKOFFICE_RESPONSE_LIMIT_BYTES = 512 * 1024;
 const OPENAI_TEST_ADVISOR = Object.freeze({
   providerId: "openai",
@@ -401,7 +404,7 @@ async function readJson(request, maxBytes = 16_384) {
   let size = 0;
   for await (const chunk of request) {
     size += chunk.length;
-    if (size > maxBytes) throw new DashboardCommandError("PAYLOAD_TOO_LARGE", "درخواست بیش از حد بزرگ است.");
+    if (size > maxBytes) throw new DashboardCommandError("PAYLOAD_TOO_LARGE", "درخواست بیش از حد بزرگ است.", 413);
     chunks.push(chunk);
   }
   if (chunks.length === 0) return {};
@@ -557,6 +560,7 @@ export function createHeroServer(options = {}) {
   const notificationObservability = options.notificationObservability ?? createNotificationObservability({ now: options.now });
   const infrastructureControl = options.infrastructureControl ?? createInfrastructureControl({ now: options.now });
   const deliveryControl = options.deliveryControl ?? createDeliveryControl({ now: options.now });
+  const serverNow = options.now ?? (() => new Date().toISOString());
   const operationalHardening = options.operationalHardening ?? createOperationalHardening({ now: options.now });
   const finalReadiness = options.finalReadiness ?? createFinalReadiness({ now: options.now });
   const backofficeCompletion = options.backofficeCompletion ?? createBackofficeCompletion({ now: options.now });
@@ -680,22 +684,53 @@ export function createHeroServer(options = {}) {
     notificationObservability.recordAudit({ actor, projectId, kind: `command.${kind}`, outcome, correlationId, data: { commandId } });
   }
 
+  /**
+   * BO-152/BO-155: every state-changing project request leaves an audit record, and
+   * every refused one (authenticated but not permitted) leaves a security record.
+   * Sensitive operations go to the security stream. Refusals are rate-limited per
+   * principal and project so a probe cannot flood the audit.
+   */
+  const SECURITY_ROUTE_PATTERN = /\/(audit-log\/export|retention|retention-policy|access|hardening|final-readiness|infrastructure|delivery|budget|budget\/resume|settings|policy|production-preauthorizations|purge|archive)(\/|$)/;
+  const denialWindow = new Map();
+  function maskRoute(pathname) { return pathname.split("/").map((segment, index) => index === 3 ? ":projectId" : (/\d/.test(segment) || segment.length > 28) && index > 3 ? ":id" : segment).join("/"); }
+  function auditHttpRequest({ request, pathname, principal, statusCode, correlationId }) {
+    const match = pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\//); if (!match || ["GET", "HEAD", "OPTIONS"].includes(request.method)) return;
+    const projectId = match[1]; const refused = statusCode === 401 || statusCode === 403; if (statusCode >= 400 && !refused) return;
+    if (refused) { const key = `${principal?.subject ?? "anonymous"}:${projectId}`; const bucket = Math.floor(Date.now() / 60_000); const state = denialWindow.get(key); if (state?.bucket === bucket && state.count >= 20) return; denialWindow.set(key, { bucket, count: state?.bucket === bucket ? state.count + 1 : 1 }); if (!principal) return; }
+    const sensitive = SECURITY_ROUTE_PATTERN.test(pathname) || refused;
+    try {
+      notificationObservability.recordAudit({ actor: SYSTEM_EDITOR, projectId, stream: sensitive ? "security" : "activity", kind: refused ? "authz.denied" : `http.${request.method.toLowerCase()}`, outcome: refused ? "denied" : "ok", correlationId, data: { route: maskRoute(pathname), method: request.method, status: statusCode, principal: principal?.subject ?? "unknown", role: principal ? projectActorFor(principal, projectId)?.role ?? principal.role : "none" } });
+      void persistDomainRecords().catch(error => console.error(JSON.stringify({ level: "error", event: "hero.audit-persist-failed", code: error?.code ?? "UNKNOWN" })));
+    } catch (error) { console.error(JSON.stringify({ level: "error", event: "hero.audit-record-failed", code: error?.code ?? "UNKNOWN" })); }
+  }
+
+  /**
+   * Durable hand-off from a domain outbox to PostgreSQL. A record is removed from
+   * its queue only after it was stored, so a failing database loses nothing: the
+   * next write retries the same records in order. A duplicate-key error means the
+   * record was already stored and counts as stored.
+   */
+  const pendingByStream = new Map();
+  async function flushRecords(stream, drained, appendOne) {
+    const queue = [...(pendingByStream.get(stream) ?? []), ...drained]; pendingByStream.set(stream, queue);
+    if (!appendOne) { pendingByStream.set(stream, []); return; }
+    while (queue.length) {
+      try { await appendOne(queue[0]); } catch (error) { if (error?.code !== "23505") { console.error(JSON.stringify({ level: "error", event: "hero.persistence-failed", stream, code: error?.code ?? "UNKNOWN" })); throw new DashboardCommandError("PERSISTENCE_UNAVAILABLE", "Back Office persistence is temporarily unavailable; the change is queued and will be stored on the next successful write.", 503); } }
+      queue.shift();
+    }
+  }
+
   async function persistDomainRecords() {
-    const batches = [["performance", performanceIntelligence.drainRecords?.() ?? []], ["notifications", notificationObservability.drainRecords?.() ?? []]];
-    if (!postgresRuntime?.domainRecords) return;
-    for (const [domain, records] of batches) for (const record of records) await postgresRuntime.domainRecords.appendRecord(domain, record);
+    const batches = [["performance", performanceIntelligence.drainRecords?.() ?? []], ["notifications", notificationObservability.drainRecords?.() ?? []], ["hardening", operationalHardening.drainRecords?.() ?? []], ["readiness", finalReadiness.drainRecords?.() ?? []]];
+    for (const [domain, records] of batches) await flushRecords(`domain:${domain}`, records, postgresRuntime?.domainRecords ? record => postgresRuntime.domainRecords.appendRecord(domain, record) : null);
   }
 
   async function persistCommandCenter() {
-    const records = commandCenter.drainRecords?.() ?? [];
-    if (!postgresRuntime?.commandCenter) return;
-    for (const record of records) await postgresRuntime.commandCenter.appendRecord(record);
+    await flushRecords("command-center", commandCenter.drainRecords?.() ?? [], postgresRuntime?.commandCenter ? record => postgresRuntime.commandCenter.appendRecord(record) : null);
   }
 
   async function persistSystemCatalog() {
-    const records = systemCatalog.drainRecords?.() ?? [];
-    if (!postgresRuntime?.systemCatalog) return;
-    for (const record of records) await postgresRuntime.systemCatalog.appendRecord(record);
+    await flushRecords("system-catalog", systemCatalog.drainRecords?.() ?? [], postgresRuntime?.systemCatalog ? record => postgresRuntime.systemCatalog.appendRecord(record) : null);
   }
 
   async function persistWorkspaceSettings(projectId) {
@@ -1615,10 +1650,10 @@ export function createHeroServer(options = {}) {
     return { project: { projectId: project.projectId, name: project.name }, viewerRole: actor.role, canWrite: ["project-owner", "admin"].includes(actor.role), budget: performanceIntelligence.budgetStatus({ actor, projectId }), health: performanceIntelligence.health({ actor, projectId }), reconciliation: performanceIntelligence.reconcile({ actor, projectId }), ledgerByTeam: performanceIntelligence.ledger({ actor, projectId, groupBy: "team" }), ledgerByModel: performanceIntelligence.ledger({ actor, projectId, groupBy: "model" }), feedback: performanceIntelligence.feedbackList({ actor, projectId }), scorecards: subjects.map(subjectId => performanceIntelligence.scorecard({ actor, projectId, subjectId })) };
   }
 
-  function projectInboxSnapshot(principal, projectId) {
+  function projectInboxSnapshot(principal, projectId, requestedLocale = null) {
     const actor = viewerFor(principal, projectId); const project = projectWorkspace.getProject(projectId);
-    const views = Object.fromEntries(INBOX_VIEWS.map(name => [name, notificationObservability.inbox({ actor, projectId, view: name }).map(item => ({ ...item, availableActions: notificationObservability.actionsFor(item) }))]));
-    return { project: { projectId: project.projectId, name: project.name }, viewerRole: actor.role, canAct: ["project-owner", "admin"].includes(actor.role), views, counts: notificationObservability.inboxCounts({ actor, projectId }), timeline: notificationObservability.timeline({ actor, projectId, limit: 20 }), slo: notificationObservability.sloReport({ actor, projectId }) };
+    const INBOX_PAGE_LIMIT = 100; const full = Object.fromEntries(INBOX_VIEWS.map(name => [name, notificationObservability.inbox({ actor, projectId, view: name })])); const views = Object.fromEntries(INBOX_VIEWS.map(name => [name, full[name].slice(0, INBOX_PAGE_LIMIT).map(item => ({ ...item, availableActions: notificationObservability.actionsFor(item) }))]));
+    return { project: { projectId: project.projectId, name: project.name }, viewerRole: actor.role, locale: resolveUiLocale(requestedLocale, operationalHardening.localeOf({ actor, projectId })), canAct: ["project-owner", "admin"].includes(actor.role), views, truncated: Object.fromEntries(INBOX_VIEWS.map(name => [name, full[name].length > INBOX_PAGE_LIMIT])), counts: notificationObservability.inboxCounts({ actor, projectId }), timeline: notificationObservability.timeline({ actor, projectId, limit: 20 }), slo: notificationObservability.sloReport({ actor, projectId }) };
   }
 
   function viewerFor(principal, projectId) {
@@ -1717,10 +1752,10 @@ export function createHeroServer(options = {}) {
       }),
       hardening: Object.freeze({
         items: Object.freeze([
-          row("Retention", hardening.retention ? "configured" : "not-configured", hardening.retention ? `version: ${hardening.retention.version}` : "minimum policy not recorded"),
-          ...hardening.cleanup.map(item => row(item.jobId, item.hold ? "hold" : "dry-run", `candidates: ${item.candidates.length}`)),
-          ...hardening.audits.map(item => row(item.kind, item.passed ? "passed" : "attention", `auditId: ${item.auditId}`)),
-          row("Coverage", hardening.coverage.missing.length ? "attention" : "complete", `missing: ${hardening.coverage.missing.join(", ") || "none"}`)
+          row("Retention", hardening.retention.custom ? "configured" : "minimum", `audit: ${hardening.retention.auditDays}d · evidence: ${hardening.retention.evidenceDays}d · security: ${hardening.retention.securityDays}d`),
+          ...hardening.cleanup.map(item => row(item.jobId, "dry-run", `eligible: ${item.eligible.length} · held: ${item.held.length} · too young: ${item.refusedTooYoung.length}`)),
+          ...hardening.audits.map(item => row(item.kind, item.passed ? "passed" : "attention", `auditId: ${item.auditId} · ${item.checks.passed}/${item.checks.total} checks · ${item.tool}`)),
+          row("Coverage", hardening.coverage.complete ? "complete" : "attention", `missing: ${hardening.coverage.missing.join(", ") || "none"} · failing: ${hardening.coverage.failing.join(", ") || "none"} · stale: ${hardening.coverage.stale.join(", ") || "none"}`)
         ])
       }),
       readiness: Object.freeze({
@@ -2373,6 +2408,12 @@ export function createHeroServer(options = {}) {
         return;
       }
 
+      // BO-157: a legacy page keeps working inside its compatibility window and says so; after the window it is gone (410) and names its successor.
+      if (["GET", "HEAD"].includes(request.method) && legacyRouteFor(url.pathname)) {
+        const migration = legacyRouteFor(url.pathname); const successor = successorUrl(migration, url.searchParams);
+        if (legacyStatus(url.pathname, serverNow()) === "window-ended") return json(response, 410, { service: HERO_SERVICE, status: "gone", code: "LEGACY_ROUTE_RETIRED", successor, message: "This legacy route was retired after its compatibility window; use the successor." }, { headers: { Link: `<${successor}>; rel="successor-version"` } });
+        response.setHeader("Deprecation", "true"); response.setHeader("Sunset", new Date(LEGACY_COMPATIBLE_UNTIL).toUTCString()); response.setHeader("Link", `<${successor}>; rel="successor-version"`);
+      }
       if (request.method === "GET" && url.pathname === "/robots.txt") {
         return plain(response, 200, "User-agent: *\nDisallow: /\n");
       }
@@ -2391,13 +2432,13 @@ export function createHeroServer(options = {}) {
         const principal = authenticateBrowserPortalPrincipal(request);
         if (!principal) return redirect(response, portalIdentityLocation(`${url.pathname}${url.search}`));
         const projectId = url.searchParams.get("projectId");
-        if (["command", "studio", "workspace", "control", "collaboration", "catalog", "insights", "inbox", "walkthrough"].includes(surface) && !projectId) {
+        if (["command", "studio", "workspace", "control", "collaboration", "catalog", "insights", "inbox", "help", "walkthrough"].includes(surface) && !projectId) {
           return redirect(response, "/api/portal?surface=portfolio&select=project&next=" + encodeURIComponent(surface));
         }
-        if (["command", "studio", "workspace", "control", "collaboration", "catalog", "insights", "inbox", "walkthrough"].includes(surface)) requirePortalProjectScope(principal, projectId);
+        if (["command", "studio", "workspace", "control", "collaboration", "catalog", "insights", "inbox", "help", "walkthrough"].includes(surface)) requirePortalProjectScope(principal, projectId);
         if (surface === "portfolio") {
           const destinationCandidate = url.searchParams.get("next") ?? url.searchParams.get("open");
-          const destination = ["command", "studio", "workspace", "control", "collaboration", "catalog", "insights", "inbox", "walkthrough"].includes(destinationCandidate) ? destinationCandidate : null;
+          const destination = ["command", "studio", "workspace", "control", "collaboration", "catalog", "insights", "inbox", "help", "walkthrough"].includes(destinationCandidate) ? destinationCandidate : null;
           const view = url.searchParams.get("view") === "archived" ? "archived" : "active";
           return html(response, getPortfolioHtml({ portfolio: portfolioSnapshot(principal, { view, ...(parsePagination({ page: url.searchParams.get("page"), pageSize: url.searchParams.get("pageSize") }) ?? {}) }), destination, selectionRequired: url.searchParams.get("select") === "project" || Boolean(destination), archiveView: view === "archived" }));
         }
@@ -2415,7 +2456,8 @@ export function createHeroServer(options = {}) {
         if (surface === "control") return html(response, getProjectControlRoomHtml({ initialData: { service: HERO_SERVICE, controlRoom: projectControlSnapshot(projectId) }, dataEndpoint: `${BROWSER_PORTAL_DATA_PATH}?surface=control` }));
         if (surface === "collaboration") return html(response, getProjectCollaborationHtml(projectCollaborationSnapshot(principal, projectId)));
         if (surface === "catalog") return html(response, getProjectCatalogHtml(projectCatalogSnapshot(principal, projectId)));
-        if (surface === "inbox") return html(response, getProjectInboxHtml(projectInboxSnapshot(principal, projectId)));
+        if (surface === "help") { const helpActor = viewerFor(principal, projectId); return html(response, getProjectHelpHtml({ project: { projectId, name: projectWorkspace.getProject(projectId).name }, viewerRole: helpActor.role, locale: resolveUiLocale(url.searchParams.get("lang"), operationalHardening.localeOf({ actor: helpActor, projectId })) })); }
+        if (surface === "inbox") return html(response, getProjectInboxHtml(projectInboxSnapshot(principal, projectId, url.searchParams.get("lang"))));
         if (surface === "insights") return html(response, getProjectInsightsHtml(projectInsightsSnapshot(principal, projectId)));
         if (surface === "walkthrough") return html(response, getProjectWalkthroughHtml({ projectId }));
         if (surface === "ai") {
@@ -2568,7 +2610,7 @@ export function createHeroServer(options = {}) {
           }));
         }
         const destinationCandidate = url.searchParams.get("next") ?? url.searchParams.get("open");
-        const destination = ["command", "studio", "workspace", "control", "collaboration", "catalog", "insights", "inbox", "walkthrough"].includes(destinationCandidate) ? destinationCandidate : null;
+        const destination = ["command", "studio", "workspace", "control", "collaboration", "catalog", "insights", "inbox", "help", "walkthrough"].includes(destinationCandidate) ? destinationCandidate : null;
         const view = url.searchParams.get("view") === "archived" ? "archived" : "active";
         return html(response, getPortfolioHtml({ portfolio: portfolioSnapshot(null, { view, ...(parsePagination({ page: url.searchParams.get("page"), pageSize: url.searchParams.get("pageSize") }) ?? {}) }), destination, selectionRequired: url.searchParams.get("select") === "project" || Boolean(destination), archiveView: view === "archived" }));
       }
@@ -2587,6 +2629,11 @@ export function createHeroServer(options = {}) {
         ? authenticateApiPrincipal(request.headers.authorization, request.headers.cookie)
         : null;
       const projectActor = projectId => projectActorFor(authenticatedOwner, projectId);
+      if (authenticatedOwner && url.pathname.startsWith("/api/projects/") && !["GET", "HEAD", "OPTIONS"].includes(request.method)) {
+        const correlationHeader = request.headers["x-hero-correlation-id"]; const correlationId = typeof correlationHeader === "string" && /^[A-Za-z][A-Za-z0-9._:-]{2,127}$/.test(correlationHeader) ? correlationHeader : `req-${crypto.randomUUID()}`;
+        const originalEnd = response.end.bind(response);
+        response.end = (...args) => { response.end = originalEnd; auditHttpRequest({ request, pathname: url.pathname, principal: authenticatedOwner, statusCode: response.statusCode, correlationId }); return originalEnd(...args); };
+      }
       if (authenticatedOwner) {
         assertCookieMutationOrigin(request, authenticatedOwner);
         assertApiPermission(request, url, authenticatedOwner);
@@ -3191,6 +3238,8 @@ export function createHeroServer(options = {}) {
         systemCatalog.purgeProject?.({ projectId: purge.projectId });
         performanceIntelligence.purgeProject?.({ projectId: purge.projectId });
         notificationObservability.purgeProject?.({ projectId: purge.projectId });
+        operationalHardening.purgeProject?.({ projectId: purge.projectId });
+        finalReadiness.purgeProject?.({ projectId: purge.projectId });
         const revokedGrants = projectAccessRegistry?.revokeProjectGrants?.({ actor: authenticatedOwner, projectId: purge.projectId }) ?? [];
         for (const grant of revokedGrants) {
           if (postgresRuntime?.projectIdentity?.appendGrant) await postgresRuntime.projectIdentity.appendGrant({ projectId: grant.projectId, userId: grant.userId, role: grant.role, status: "revoked", grantedBy: authenticatedOwner.subject });
@@ -3572,9 +3621,11 @@ export function createHeroServer(options = {}) {
       const projectNotificationsMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/(notifications|incidents)$/);
       if (projectNotificationsMatch && request.method === "GET") {
         const [, projectId, resource] = projectNotificationsMatch; const actor = projectActor(projectId);
-        if (resource === "incidents") return json(response, 200, { service: HERO_SERVICE, incidents: notificationObservability.incidents({ actor, projectId, state: url.searchParams.get("state") }) });
-        const view = url.searchParams.get("view") ?? "all";
-        return json(response, 200, { service: HERO_SERVICE, notifications: notificationObservability.inbox({ actor, projectId, view }).map(item => ({ ...item, availableActions: notificationObservability.actionsFor(item) })), counts: notificationObservability.inboxCounts({ actor, projectId }) });
+        // BO-151: every list is paged under one query budget (limit 1..100, default 100); the cursor is an offset.
+        const paging = rows => operationalHardening.page({ actor, projectId, records: rows, cursor: url.searchParams.get("cursor") === null ? 0 : Number(url.searchParams.get("cursor")), limit: url.searchParams.get("limit") === null ? 100 : Number(url.searchParams.get("limit")) });
+        if (resource === "incidents") { const all = notificationObservability.incidents({ actor, projectId, state: url.searchParams.get("state") }); const pageOf = paging(all); return json(response, 200, { service: HERO_SERVICE, incidents: pageOf.rows, total: all.length, nextCursor: pageOf.nextCursor }); }
+        const view = url.searchParams.get("view") ?? "all"; const all = notificationObservability.inbox({ actor, projectId, view }).map(item => ({ ...item, availableActions: notificationObservability.actionsFor(item) })); const pageOf = paging(all);
+        return json(response, 200, { service: HERO_SERVICE, notifications: pageOf.rows, total: all.length, nextCursor: pageOf.nextCursor, counts: notificationObservability.inboxCounts({ actor, projectId }) });
       }
       if (projectNotificationsMatch && request.method === "POST" && projectNotificationsMatch[2] === "notifications") { const input = await readJson(request); const projectId = projectNotificationsMatch[1]; const notification = notificationObservability.createNotification({ actor: projectActor(projectId), projectId, category: input.category, severity: input.severity, title: input.title, ownerId: input.ownerId ?? null, deduplicationKey: input.deduplicationKey, correlationId: input.correlationId, groupKey: input.groupKey ?? null, action: input.action ?? null, sourceRef: input.sourceRef ?? null, origin: input.origin ?? null }); await persistDomainRecords(); return json(response, 201, { service: HERO_SERVICE, notification }); }
       const projectNotificationActMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/notifications\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/act$/);
@@ -3605,7 +3656,10 @@ export function createHeroServer(options = {}) {
         const [, projectId, correlationId] = projectCorrelationMatch; const actor = projectActor(projectId);
         const trail = notificationObservability.correlation({ actor, projectId, correlationId }); const commands = commandCenter.byCorrelation({ actor, projectId, correlationId });
         const gaps = [...(commands.length && !trail.traces.length ? ["missing-trace"] : []), ...(!commands.length && !trail.notifications.length ? ["unknown-correlation"] : [])];
-        return json(response, 200, { service: HERO_SERVICE, correlation: { ...trail, commands, gaps } });
+        // BO-151: traces are loaded lazily. The summary always carries the count; the bodies only with ?include=traces, paged under the same budget.
+        const includeTraces = url.searchParams.get("include") === "traces";
+        const tracePage = includeTraces ? operationalHardening.page({ actor, projectId, records: trail.traces, cursor: url.searchParams.get("cursor") === null ? 0 : Number(url.searchParams.get("cursor")), limit: url.searchParams.get("limit") === null ? 100 : Number(url.searchParams.get("limit")) }) : null;
+        return json(response, 200, { service: HERO_SERVICE, correlation: { ...trail, traces: tracePage ? tracePage.rows : [], traceCount: trail.traces.length, tracesLoaded: includeTraces, nextTraceCursor: tracePage?.nextCursor ?? null, commands, gaps } });
       }
       const projectTimelineMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/timeline$/);
       if (projectTimelineMatch && request.method === "GET") { const projectId = projectTimelineMatch[1]; return json(response, 200, { service: HERO_SERVICE, timeline: notificationObservability.timeline({ actor: projectActor(projectId), projectId, correlationId: url.searchParams.get("correlationId"), limit: Number(url.searchParams.get("limit") ?? 50) }) }); }
@@ -3623,20 +3677,51 @@ export function createHeroServer(options = {}) {
       if (projectObservabilityMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, observability: notificationObservability.observability({ actor: projectActor(projectObservabilityMatch[1]), projectId: projectObservabilityMatch[1] }) });
 
       const projectInfrastructureMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/infrastructure$/);
-      if (projectInfrastructureMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, infrastructure: infrastructureControl.view({ actor: authenticatedOwner, projectId: projectInfrastructureMatch[1] }) });
-      if (projectInfrastructureMatch && request.method === "POST") { const input = await readJson(request); const projectId = projectInfrastructureMatch[1]; const actions = { "register-repository": () => infrastructureControl.registerRepository({ actor: authenticatedOwner, projectId, ...input }), "onboard-server": () => infrastructureControl.onboardServer({ actor: authenticatedOwner, projectId, ...input }), "select-target": () => infrastructureControl.selectTarget({ actor: authenticatedOwner, projectId, ...input }), "connectivity-plan": () => infrastructureControl.connectivityPlan({ actor: authenticatedOwner, projectId, ...input }), "create-enrollment": () => infrastructureControl.createEnrollment({ actor: authenticatedOwner, projectId, ...input }), "rotate-node": () => infrastructureControl.rotateNodeIdentity({ actor: authenticatedOwner, projectId, ...input }), "revoke-node": () => infrastructureControl.revokeNode({ actor: authenticatedOwner, projectId, ...input }), "set-state": () => infrastructureControl.setState({ actor: authenticatedOwner, projectId, ...input }), "reconcile": () => infrastructureControl.reconcile({ actor: authenticatedOwner, projectId, ...input }), "register-secret-metadata": () => infrastructureControl.registerSecret({ actor: authenticatedOwner, projectId, ...input }), "request-secret-reveal": () => infrastructureControl.requestReveal({ actor: authenticatedOwner, projectId, ...input }), "set-egress-policy": () => infrastructureControl.setEgressPolicy({ actor: authenticatedOwner, projectId, ...input }) }; if (!actions[input.action]) throw new InfrastructureError("INFRASTRUCTURE_ACTION_INVALID", "Infrastructure action is invalid.", 400); return json(response, 201, { service: HERO_SERVICE, result: actions[input.action]() }); }
+      if (projectInfrastructureMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, infrastructure: infrastructureControl.view({ actor: projectActor(projectInfrastructureMatch[1]), projectId: projectInfrastructureMatch[1] }) });
+      if (projectInfrastructureMatch && request.method === "POST") { const input = await readJson(request); const projectId = projectInfrastructureMatch[1]; const actions = { "register-repository": () => infrastructureControl.registerRepository({ actor: projectActor(projectId), projectId, ...input }), "onboard-server": () => infrastructureControl.onboardServer({ actor: projectActor(projectId), projectId, ...input }), "select-target": () => infrastructureControl.selectTarget({ actor: projectActor(projectId), projectId, ...input }), "connectivity-plan": () => infrastructureControl.connectivityPlan({ actor: projectActor(projectId), projectId, ...input }), "create-enrollment": () => infrastructureControl.createEnrollment({ actor: projectActor(projectId), projectId, ...input }), "rotate-node": () => infrastructureControl.rotateNodeIdentity({ actor: projectActor(projectId), projectId, ...input }), "revoke-node": () => infrastructureControl.revokeNode({ actor: projectActor(projectId), projectId, ...input }), "set-state": () => infrastructureControl.setState({ actor: projectActor(projectId), projectId, ...input }), "reconcile": () => infrastructureControl.reconcile({ actor: projectActor(projectId), projectId, ...input }), "register-secret-metadata": () => infrastructureControl.registerSecret({ actor: projectActor(projectId), projectId, ...input }), "request-secret-reveal": () => infrastructureControl.requestReveal({ actor: projectActor(projectId), projectId, ...input }), "set-egress-policy": () => infrastructureControl.setEgressPolicy({ actor: projectActor(projectId), projectId, ...input }) }; if (!actions[input.action]) throw new InfrastructureError("INFRASTRUCTURE_ACTION_INVALID", "Infrastructure action is invalid.", 400); return json(response, 201, { service: HERO_SERVICE, result: actions[input.action]() }); }
 
       const projectDeliveryMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/delivery$/);
-      if (projectDeliveryMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, delivery: deliveryControl.view({ actor: authenticatedOwner, projectId: projectDeliveryMatch[1] }) });
-      if (projectDeliveryMatch && request.method === "POST") { const input = await readJson(request); const projectId = projectDeliveryMatch[1]; const actions = { "ingest-telemetry": () => deliveryControl.ingestTelemetry({ actor: authenticatedOwner, projectId, ...input }), "request-break-glass": () => deliveryControl.requestBreakGlass({ actor: authenticatedOwner, projectId, ...input }), "create-release": () => deliveryControl.createRelease({ actor: authenticatedOwner, projectId, ...input }), "transition-release": () => deliveryControl.transitionRelease({ actor: authenticatedOwner, projectId, ...input }), "register-artifact": () => deliveryControl.registerArtifact({ actor: authenticatedOwner, projectId, ...input }), "delivery-matrix": () => deliveryControl.deliveryMatrix({ actor: authenticatedOwner, projectId, ...input }), "create-bundle": () => deliveryControl.createBundle({ actor: authenticatedOwner, projectId, ...input }), "verify-portability": () => deliveryControl.verifyPortability({ actor: authenticatedOwner, projectId, ...input }), "rehearse-recovery": () => deliveryControl.rehearseRecovery({ actor: authenticatedOwner, projectId, ...input }), accept: () => deliveryControl.accept({ actor: authenticatedOwner, projectId, ...input }) }; if (!actions[input.action]) throw new DeliveryError("DELIVERY_ACTION_INVALID", "Delivery action is invalid.", 400); return json(response, 201, { service: HERO_SERVICE, result: actions[input.action]() }); }
+      if (projectDeliveryMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, delivery: deliveryControl.view({ actor: projectActor(projectDeliveryMatch[1]), projectId: projectDeliveryMatch[1] }) });
+      if (projectDeliveryMatch && request.method === "POST") { const input = await readJson(request); const projectId = projectDeliveryMatch[1]; const actions = { "ingest-telemetry": () => deliveryControl.ingestTelemetry({ actor: projectActor(projectId), projectId, ...input }), "request-break-glass": () => deliveryControl.requestBreakGlass({ actor: projectActor(projectId), projectId, ...input }), "create-release": () => deliveryControl.createRelease({ actor: projectActor(projectId), projectId, ...input }), "transition-release": () => deliveryControl.transitionRelease({ actor: projectActor(projectId), projectId, ...input }), "register-artifact": () => deliveryControl.registerArtifact({ actor: projectActor(projectId), projectId, ...input }), "delivery-matrix": () => deliveryControl.deliveryMatrix({ actor: projectActor(projectId), projectId, ...input }), "create-bundle": () => deliveryControl.createBundle({ actor: projectActor(projectId), projectId, ...input }), "verify-portability": () => deliveryControl.verifyPortability({ actor: projectActor(projectId), projectId, ...input }), "rehearse-recovery": () => deliveryControl.rehearseRecovery({ actor: projectActor(projectId), projectId, ...input }), accept: () => deliveryControl.accept({ actor: projectActor(projectId), projectId, ...input }) }; if (!actions[input.action]) throw new DeliveryError("DELIVERY_ACTION_INVALID", "Delivery action is invalid.", 400); return json(response, 201, { service: HERO_SERVICE, result: actions[input.action]() }); }
 
       const projectHardeningMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/hardening$/);
-      if (projectHardeningMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, hardening: operationalHardening.report({ actor: authenticatedOwner, projectId: projectHardeningMatch[1] }) });
-      if (projectHardeningMatch && request.method === "POST") { const input = await readJson(request); const projectId = projectHardeningMatch[1]; const actions = { "set-retention": () => operationalHardening.setRetention({ actor: authenticatedOwner, projectId, ...input }), "plan-cleanup": () => operationalHardening.planCleanup({ actor: authenticatedOwner, projectId, ...input }), "set-locale": () => operationalHardening.locale({ actor: authenticatedOwner, projectId, ...input }), "record-audit": () => operationalHardening.recordAudit({ actor: authenticatedOwner, projectId, ...input }) }; if (!actions[input.action]) throw new HardeningError("HARDENING_ACTION_INVALID", "Hardening action is invalid.", 400); return json(response, 201, { service: HERO_SERVICE, result: actions[input.action]() }); }
+      if (projectHardeningMatch && request.method === "GET") { const projectId = projectHardeningMatch[1]; return json(response, 200, { service: HERO_SERVICE, hardening: operationalHardening.report({ actor: projectActor(projectId), projectId }), cleanup: operationalHardening.cleanupReport({ actor: projectActor(projectId), projectId }) }); }
+      if (projectHardeningMatch && request.method === "POST") {
+        const input = await readJson(request); const projectId = projectHardeningMatch[1]; const { action, ...fields } = input; const actor = projectActor(projectId);
+        const actions = {
+          "set-retention": () => operationalHardening.setRetention({ actor, projectId, ...fields }),
+          "plan-cleanup": () => operationalHardening.planCleanup({ actor, projectId, ...fields }),
+          "place-hold": () => operationalHardening.placeHold({ actor, projectId, ...fields }),
+          "release-hold": () => operationalHardening.releaseHold({ actor, projectId, ...fields }),
+          "set-locale": () => operationalHardening.locale({ actor, projectId, ...fields }),
+          "record-audit": () => operationalHardening.recordAudit({ actor, projectId, ...fields })
+        };
+        if (!actions[action]) throw new HardeningError("HARDENING_ACTION_INVALID", "Hardening action is invalid.", 400);
+        if (action === "execute-cleanup") throw new HardeningError("HARDENING_ACTION_INVALID", "Hardening action is invalid.", 400);
+        const result = actions[action](); await persistDomainRecords(); return json(response, 201, { service: HERO_SERVICE, result });
+      }
+      const projectCleanupExecuteMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/hardening\/cleanup\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/execute$/);
+      if (projectCleanupExecuteMatch && request.method === "POST") {
+        const input = await readJson(request); const [, projectId, jobId] = projectCleanupExecuteMatch;
+        try { operationalHardening.executeCleanup({ actor: projectActor(projectId), projectId, jobId, reason: input.reason }); }
+        finally { await persistDomainRecords(); }
+      }
+      const projectRetentionPolicyMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/retention-policy$/);
+      if (projectRetentionPolicyMatch && request.method === "GET") { const projectId = projectRetentionPolicyMatch[1]; return json(response, 200, { service: HERO_SERVICE, retention: operationalHardening.retention({ actor: projectActor(projectId), projectId }) }); }
 
       const projectReadinessMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/final-readiness$/);
-      if (projectReadinessMatch && request.method === "GET") return json(response, 200, { service: HERO_SERVICE, readiness: finalReadiness.view({ actor: authenticatedOwner, projectId: projectReadinessMatch[1] }) });
-      if (projectReadinessMatch && request.method === "POST") { const input = await readJson(request); const projectId = projectReadinessMatch[1]; const actions = { "plan-migration": () => finalReadiness.planMigration({ actor: authenticatedOwner, projectId, ...input }), "rebuild-read-model": () => finalReadiness.rebuildReadModel({ actor: authenticatedOwner, projectId, ...input }), "record-scenario": () => finalReadiness.recordScenario({ actor: authenticatedOwner, projectId, ...input }), "set-traceability": () => finalReadiness.setTraceability({ actor: authenticatedOwner, projectId, ...input }), "prepare-notion-projection": () => finalReadiness.prepareNotionProjection({ actor: authenticatedOwner, projectId, ...input }), "readiness-review": () => finalReadiness.readinessReview({ actor: authenticatedOwner, projectId, ...input }), accept: () => finalReadiness.accept({ actor: authenticatedOwner, projectId, ...input }), "pilot-proposal": () => finalReadiness.pilotProposal({ actor: authenticatedOwner, projectId, ...input }) }; if (!actions[input.action]) throw new FinalReadinessError("READINESS_ACTION_INVALID", "Readiness action is invalid.", 400); return json(response, 201, { service: HERO_SERVICE, result: actions[input.action]() }); }
+      if (projectReadinessMatch && request.method === "GET") { const projectId = projectReadinessMatch[1]; return json(response, 200, { service: HERO_SERVICE, readiness: finalReadiness.view({ actor: projectActor(projectId), projectId }) }); }
+      if (projectReadinessMatch && request.method === "POST") {
+        const input = await readJson(request); const projectId = projectReadinessMatch[1]; const { action, ...fields } = input; const actor = projectActor(projectId);
+        const actions = {
+          "plan-migration": () => finalReadiness.planMigration({ actor, projectId, ...fields }), "rebuild-read-model": () => finalReadiness.rebuildReadModel({ actor, projectId, ...fields }),
+          "record-scenario": () => finalReadiness.recordScenario({ actor, projectId, ...fields }), "set-traceability": () => finalReadiness.setTraceability({ actor, projectId, ...fields }),
+          "prepare-notion-projection": () => finalReadiness.prepareNotionProjection({ actor, projectId, ...fields }), "readiness-review": () => finalReadiness.readinessReview({ actor, projectId, ...fields }),
+          accept: () => finalReadiness.accept({ actor, projectId, ...fields }), "pilot-proposal": () => finalReadiness.pilotProposal({ actor, projectId, ...fields })
+        };
+        if (!actions[action]) throw new FinalReadinessError("READINESS_ACTION_INVALID", "Readiness action is invalid.", 400);
+        const result = actions[action](); await persistDomainRecords(); return json(response, 201, { service: HERO_SERVICE, result });
+      }
 
       const projectAccessMatch = url.pathname.match(/^\/api\/projects\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/access$/);
       if (projectAccessMatch && request.method === "GET") {
@@ -3647,6 +3732,8 @@ export function createHeroServer(options = {}) {
 
       if (projectAccessMatch && request.method === "POST") {
         if (!projectAccessRegistry) throw new HumanIdentityError("IDENTITY_NOT_CONFIGURED", "Project identity is not configured.", 503);
+        // Authority first: a non-owner must learn nothing about whether the target user exists or has MFA.
+        if (projectActor(projectAccessMatch[1])?.role !== "project-owner") throw new ProjectAccessError("OWNER_REQUIRED", "Only the project owner may manage users or grants.", 403);
         const input = await readJson(request);
         if (input.role === "admin" && humanIdentity) {
           const user = humanIdentity.getUser(input.userId);
@@ -3665,6 +3752,7 @@ export function createHeroServer(options = {}) {
       const projectAccessRevokeMatch = url.pathname.match(/^\/api\/projects\/([A-Za-z][A-Za-z0-9._:-]{2,127})\/access\/revoke$/);
       if (projectAccessRevokeMatch && request.method === "POST") {
         if (!projectAccessRegistry) throw new HumanIdentityError("IDENTITY_NOT_CONFIGURED", "Project identity is not configured.", 503);
+        if (projectActor(projectAccessRevokeMatch[1])?.role !== "project-owner") throw new ProjectAccessError("OWNER_REQUIRED", "Only the project owner may manage users or grants.", 403);
         const input = await readJson(request);
         const grant = projectAccessRegistry.revokeGrant({ actor: authenticatedOwner, projectId: projectAccessRevokeMatch[1], userId: input.userId });
         if (postgresRuntime?.projectIdentity?.appendGrant) await postgresRuntime.projectIdentity.appendGrant({ projectId: grant.projectId, userId: grant.userId, role: grant.role, status: "revoked", grantedBy: authenticatedOwner.subject });
@@ -4442,7 +4530,7 @@ export function createHeroServer(options = {}) {
           commandCenter.drainRecords?.();
         }
         if (postgresRuntime.domainRecords?.listRecords) {
-          for (const [domain, target] of [["performance", performanceIntelligence], ["notifications", notificationObservability]]) {
+          for (const [domain, target] of [["performance", performanceIntelligence], ["notifications", notificationObservability], ["hardening", operationalHardening], ["readiness", finalReadiness]]) {
             if (!target.hydrate) continue;
             for (const record of await postgresRuntime.domainRecords.listRecords(domain)) { if (!purgedProjectIds.has(record.projectId)) target.hydrate(record); }
             target.drainRecords?.();

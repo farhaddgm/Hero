@@ -72,7 +72,7 @@ export function createNotificationObservability({ now = () => new Date().toISOSt
         return copy({ ...view(next), deduplicated: true, reopened });
       }
       if (notifications.has(notificationId)) throw new NotificationError("NOTIFICATION_ID_REUSED", "notificationId already exists.", 409);
-      const value = save({ notificationId, projectId, category, severity, title: title.trim().slice(0, 240), ownerId, state: "open", deduplicationKey, correlationId, groupKey: groupKey ?? correlationId, action: action ? redact(action) : null, sourceRef, origin: resolvedOrigin, occurrences: 1, reopenCount: 0, createdAt: now(), lastOpenedAt: now(), lastSeenAt: now(), createdBy: actor.subject, history: [] }, actor.subject);
+      const value = save({ notificationId, projectId, category, severity, title: redact(title.trim().slice(0, 240)), ownerId, state: "open", deduplicationKey, correlationId, groupKey: groupKey ?? correlationId, action: action ? redact(action) : null, sourceRef, origin: resolvedOrigin, occurrences: 1, reopenCount: 0, createdAt: now(), lastOpenedAt: now(), lastSeenAt: now(), createdBy: actor.subject, history: [] }, actor.subject);
       dedup.set(key, notificationId);
       joinIncident(value, actor.subject);
       return view(value);
