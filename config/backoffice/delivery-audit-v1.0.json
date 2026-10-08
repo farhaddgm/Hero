@@ -6,9 +6,9 @@
   "roadmap": "HERO-ROADMAP-BACKOFFICE-COMMAND-CENTER-V1@1.1.0",
   "source": {
     "branch": "codex/hero-001-project-charter",
-    "branch_head": "a17cbc9f8536597330e8eb37989259c0b4695aac",
-    "release_candidate": "v1.1.5-rc.38",
-    "test_deployment": "ghcr.io/farhaddgm/hero@sha256:072a6ae0c7b2a8717ae1519701a4aaaf69a69a51a3839175783b86aabae0173a",
+    "branch_head": "cd902d8e28edb3c6dcfbeb54f321a806e5cc90e1",
+    "release_candidate": "v1.1.5-rc.44",
+    "test_deployment": "ghcr.io/farhaddgm/hero@sha256:8162376c52da819536af236fb435405af04fb2d1b7f73db59956bdce6d7f6af3",
     "production_change": "none"
   },
   "status_definitions": {
@@ -20,12 +20,12 @@
   },
   "summary": {
     "total": 170,
-    "verified": 118,
-    "partial": 24,
+    "verified": 142,
+    "partial": 0,
     "gated": 26,
     "owner_pending": 1,
     "deferred": 1,
-    "remaining_to_verified": 52
+    "remaining_to_verified": 28
   },
   "requirement_current": {
     "registry": "config/backoffice/requirement-trace-v1.0.json",
@@ -65,18 +65,18 @@
       "to": "BO-030",
       "count": 10,
       "work_package": "WP-02",
-      "status": "partial",
+      "status": "verified",
       "evidence": ["docs/roadmap/BACKOFFICE-IDENTITY-CONTENT-SAFETY-BO-021-042.md", "packages/domain/src/human-identity.mjs", "packages/domain/src/mfa-vault.mjs", "packages/domain/src/project-access.mjs", "packages/adapters/migrations/024_human_user_mfa_cipher.sql", "packages/adapters/src/postgresql-project-identity-store.mjs", "tests/project-identity.test.mjs", "tests/wp02-identity-http-hardening.test.mjs", "tests/wp02-mfa-key-rotation.test.mjs", "tests/wp02-mfa-persistence-postgres.test.mjs", "tests/wp02-route-authorization-sweep.test.mjs", "tools/acceptance/run-test-acceptance.mjs"],
-      "open_gate": "Source complete under BATCH-BACKOFFICE-20261008-027 (encrypted MFA persistence and rotation, enrollment, session lifecycle, brute-force and replay controls, route sweep) and rehearsed locally with PostgreSQL and a SIGKILL restart (seed 194/194, verify 47/47). Stays partial until the owner runs the Test-host acceptance on a promoted candidate with HERO_MFA_ENCRYPTION_KEY set. Real recovery email delivery remains separately gated."
+      "open_gate": "Verified 2026-10-08 on Test runtime: owner-run role-based acceptance (tools/run-test-acceptance.sh, run 20261008T131038Z-163016) on the exact candidate ghcr.io/farhaddgm/hero@sha256:8162376c52da819536af236fb435405af04fb2d1b7f73db59956bdce6d7f6af3 (v1.1.5-rc.44) passed every in-scope check (241 seed + 61 after a SIGKILL restart, BO-021..BO-170) with PostgreSQL persistence, including MFA login after a restart with the secret stored encrypted. Known limits: real recovery e-mail delivery is not configured, and a complete Viewer UI for every surface is follow-up work."
     },
     {
       "from": "BO-031",
       "to": "BO-042",
       "count": 12,
       "work_package": "WP-03",
-      "status": "partial",
+      "status": "verified",
       "evidence": ["docs/roadmap/BACKOFFICE-IDENTITY-CONTENT-SAFETY-BO-021-042.md", "packages/domain/src/content-safety.mjs", "packages/domain/src/project-workspace.mjs", "packages/adapters/src/postgresql-project-workspace-store.mjs", "tests/helpers/zip-builder.mjs", "tests/project-workspace-and-settings.test.mjs", "tests/wp03-content-safety.test.mjs", "tests/wp03-upload-http.test.mjs", "tools/acceptance/run-test-acceptance.mjs"],
-      "open_gate": "Source complete under BATCH-BACKOFFICE-20261008-027 (allowlist, signature and real ZIP-structure checks, SSRF with DNS verification, prompt-injection review, restricted parsers, quota) and rehearsed locally. Stays partial until the owner runs the Test-host acceptance. Simple-PDF text extraction is bounded and in source. An external antivirus engine, OCR/custom-font PDF text and live read-only GitHub import remain separately gated."
+      "open_gate": "Verified 2026-10-08 on Test runtime: owner-run role-based acceptance (tools/run-test-acceptance.sh, run 20261008T131038Z-163016) on the exact candidate ghcr.io/farhaddgm/hero@sha256:8162376c52da819536af236fb435405af04fb2d1b7f73db59956bdce6d7f6af3 (v1.1.5-rc.44) passed every in-scope check (241 seed + 61 after a SIGKILL restart, BO-021..BO-170) with PostgreSQL persistence, including MFA login after a restart with the secret stored encrypted. Known limits: no external antivirus engine is connected (the scan result says so), PDF text is read only for simple PDFs, and live read-only GitHub import stays gated."
     },
     {
       "from": "BO-043",
@@ -202,7 +202,7 @@
       "work_package": "WP-11",
       "status": "gated",
       "evidence": ["apps/control-plane/src/project-environments-view.mjs", "apps/control-plane/src/server.mjs", "config/authorizations/backoffice-20261008-028.json", "docs/roadmap/BACKOFFICE-ENVIRONMENT-DELIVERY-HARDENING-FINAL-BO-121-170.md", "docs/roadmap/BACKOFFICE-ENVIRONMENTS-DELIVERY-SOURCE-BO-121-146.md", "packages/contracts/src/infrastructure-control.mjs", "packages/domain/src/github-metadata-adapter.mjs", "packages/domain/src/infrastructure-control.mjs", "tests/wp11-infrastructure-bo121-134.test.mjs", "tests/wp11-wp12-http.test.mjs", "tools/acceptance/run-test-acceptance.mjs"],
-      "open_gate": "Source complete under BATCH-BACKOFFICE-20261008-028 and rehearsed locally with PostgreSQL and a SIGKILL restart: durable servers, nodes, runner policies, secret references and egress; the Node Agent protocol (off by default) with token, replay and rotation; session-proven secret reveal; GitHub read-only metadata through an injected adapter; the Environments page. Stays gated: no live GitHub, server, Node Agent or Secret Store connection was made, so the adversarial runtime evidence against real systems and any live Secret Store need separate credentials and authorization."
+      "open_gate": "Rehearsed on the exact rc.44 image (run 20261008T131038Z-163016, 241 seed + 61 after SIGKILL restart, disposable instance with PostgreSQL). Source complete under BATCH-BACKOFFICE-20261008-028 and rehearsed locally with PostgreSQL and a SIGKILL restart: durable servers, nodes, runner policies, secret references and egress; the Node Agent protocol (off by default) with token, replay and rotation; session-proven secret reveal; GitHub read-only metadata through an injected adapter; the Environments page. Stays gated: no live GitHub, server, Node Agent or Secret Store connection was made, so the adversarial runtime evidence against real systems and any live Secret Store need separate credentials and authorization."
     },
     {
       "from": "BO-135",
@@ -211,7 +211,7 @@
       "work_package": "WP-12",
       "status": "gated",
       "evidence": ["config/authorizations/backoffice-20261008-028.json", "docs/roadmap/BACKOFFICE-ENVIRONMENTS-DELIVERY-SOURCE-BO-121-146.md", "packages/contracts/src/delivery-control.mjs", "packages/domain/src/delivery-control.mjs", "packages/domain/src/production-data-guard.mjs", "packages/domain/src/release-promotion.mjs", "tests/wp12-delivery-bo135-146.test.mjs", "tests/wp11-wp12-http.test.mjs", "tools/acceptance/run-test-acceptance.mjs"],
-      "open_gate": "Source complete under BATCH-BACKOFFICE-20261008-028 and rehearsed locally: exact-schema redacted telemetry, break-glass needing a second person and fresh MFA, Production payload barred from Memory and Evaluation, a guarded release machine, immutable artifacts, digest-compared portability, ordered rehearsals and identity-bound acceptance. Stays gated: real Production telemetry, a real clean target for portability and backup/restore/upgrade/rollback rehearsal evidence, and final artifact acceptance on real systems require separate operational authorization."
+      "open_gate": "Rehearsed on the exact rc.44 image (run 20261008T131038Z-163016, 241 seed + 61 after SIGKILL restart, disposable instance with PostgreSQL). Source complete under BATCH-BACKOFFICE-20261008-028 and rehearsed locally: exact-schema redacted telemetry, break-glass needing a second person and fresh MFA, Production payload barred from Memory and Evaluation, a guarded release machine, immutable artifacts, digest-compared portability, ordered rehearsals and identity-bound acceptance. Stays gated: real Production telemetry, a real clean target for portability and backup/restore/upgrade/rollback rehearsal evidence, and final artifact acceptance on real systems require separate operational authorization."
     },
     {
       "from": "BO-147",
@@ -236,9 +236,9 @@
       "to": "BO-168",
       "count": 2,
       "work_package": "WP-14",
-      "status": "partial",
+      "status": "verified",
       "evidence": ["docs/roadmap/BACKOFFICE-FINAL-READINESS-REVIEW-BO-167-168.md", "packages/domain/src/final-readiness.mjs", "tests/backoffice-remaining-controls.test.mjs"],
-      "open_gate": "Run and review recorded under BATCH-BACKOFFICE-20261008-027: host pnpm check exit 0 (611 pass, 0 fail, 1 skipped); Linux container run 608 pass with 1 environment failure (no git in the minimal image); PostgreSQL-backed suites 9/9. Repository CI on the PR (run 37726817574), the rc.42 release verification (run 37726985253) and the Test environment workflow (run 37727170163) all passed. Stays partial until the owner's Test-host acceptance is recorded."
+      "open_gate": "Verified 2026-10-08 on Test runtime: owner-run role-based acceptance (tools/run-test-acceptance.sh, run 20261008T131038Z-163016) on the exact candidate ghcr.io/farhaddgm/hero@sha256:8162376c52da819536af236fb435405af04fb2d1b7f73db59956bdce6d7f6af3 (v1.1.5-rc.44) passed every in-scope check (241 seed + 61 after a SIGKILL restart, BO-021..BO-170) with PostgreSQL persistence, including MFA login after a restart with the secret stored encrypted. The reference run is recorded in docs/roadmap/BACKOFFICE-FINAL-READINESS-REVIEW-BO-167-168.md (host pnpm check, repository CI, Linux container run with its one environment-only failure explained) and the Final Readiness Review is written."
     },
     {
       "from": "BO-169",

@@ -41,6 +41,10 @@
 
 وجود فایل یا عبور یک unit test به‌تنهایی `verified` محسوب نشده است. قابلیت دارای UI در صورتی کامل است که UI به API واقعی وصل باشد، مجوز و scope را رعایت کند و در Test قابل استفاده باشد. قابلیت عملیاتی نیز بدون runtime evidence واقعی کامل محسوب نمی‌شود.
 
+### به‌روزرسانی ۲۰۲۶-۱۰-۰۸ — ۲۴ گام دیگر verified روی rc.44 (جمع: ۱۴۲ از ۱۷۰)
+
+مالک آزمون پذیرش را روی host Test با `v1.1.5-rc.44` (`sha256:8162376c…`) اجرا کرد (run `20261008T131038Z-163016`): seed `241/241`، `SIGKILL`، verify `61/61`؛ `HERO ACCEPTANCE: PASS — BO-021..BO-170`. گام‌های `BO-021..042` و `BO-167..168` verified شدند. `BO-121..146` با وجود پاس‌شدن بررسی‌های runtime، چون اتصال زنده انجام نشده `gated` می‌مانند. منبع مرجع شمارش فایل `config/backoffice/delivery-audit-v1.0.json` است؛ ردیف‌های قدیمی‌تر این جدول ممکن است عقب‌تر از آن باشند.
+
 ### به‌روزرسانی ۲۰۲۶-۱۰-۰۶ — ۱۸ گام دیگر verified روی rc.38
 
 مالک آزمون پذیرش گسترش‌یافته را روی host Test با `v1.1.5-rc.38` (`sha256:072a6ae0…`) اجرا کرد (run `20261006T201133Z-7321df`): seed `103/103`، کشتن با `SIGKILL` و راه‌اندازی دوباره، verify `27/27`؛ خروجی `HERO ACCEPTANCE: PASS — BO-043..BO-112`. بر این اساس `BO-093..095`، `BO-097..103`، `BO-105..112` به `verified` رسیدند (`88/170`). دو گام عمداً `partial` ماندند چون خودِ گام یک نمایش یا قابلیت کاربرپسند می‌خواهد که هنوز فقط API دارد: `BO-096` (نمایش گراف وابستگی و blast radius) و `BO-104` (Feedback اختیاری مالک). یافتهٔ بیرون از دامنه (ورود کاربر MFA‌دار پس از restart، `BO-IAM-001`) همچنان باز است.
@@ -55,8 +59,8 @@
 |---|---:|---|---|---|
 | WP-00 | BO-001..010 | verified | baseline، trace اولیه، threat model و batch control | بسته است |
 | WP-01 | BO-011..020 | verified | مرزها، contract، event envelope، read model و migration foundation | بسته است |
-| WP-02 | BO-021..030 | partial | Human Identity، Role، ProjectGrant، login/MFA/recovery API، persistence hydration و صفحهٔ `/identity` برای user/grant | enrollment/rotation واقعی MFA، recovery delivery، rate-limit runtime و ماتریس کامل Test |
-| WP-03 | BO-031..042 | partial | Project workspace، create/archive/clone/intake/foundation و storage metadata | object storage خصوصی، scan/parser sandbox، import واقعی و UI |
+| WP-02 | BO-021..030 | verified | verified در ۲۰۲۶-۱۰-۰۸ با آزمون پذیرش روی Runtime Test (`v1.1.5-rc.44`): MFA رمزنگاری‌شده و ماندگار، enroll، نشست و قفل، جاروی مجوز مسیرها | پیگیری: تحویل واقعی ایمیل بازیابی |
+| WP-03 | BO-031..042 | verified | verified در ۲۰۲۶-۱۰-۰۸ با آزمون پذیرش روی Runtime Test (`v1.1.5-rc.44`): allowlist و امضا، ZIP bomb/traversal، SSRF، prompt injection، parserهای محدود، سهمیه | پیگیری: آنتی‌ویروس بیرونی و import زندهٔ GitHub (gated) |
 | WP-04 | BO-043..052 | verified | verified در ۲۰۲۶-۱۰-۰۶ با آزمون پذیرش نقش‌محور روی Runtime Test (`v1.1.5-rc.37`): schema تایپ‌دار، کف Policy، explain/readiness، override پایدار پس از restart | پیگیری بیرون از این گام‌ها: پوشش همهٔ زیرسیستم‌ها و تأیید دوبارهٔ Policy Pack هنگام تغییر ریسک |
 | WP-05 | BO-053..062 | verified | verified در ۲۰۲۶-۱۰-۰۶ با آزمون پذیرش نقش‌محور روی Runtime Test (`v1.1.5-rc.37`): Portfolio نقش‌محور، KPI برابر drill-down، ایزولهٔ سه نقش، breadcrumb و جست‌وجو | پیگیری: shell واحد برای همهٔ surfaceها |
 | WP-06 | BO-063..074 | verified | verified در ۲۰۲۶-۱۰-۰۶ با آزمون پذیرش نقش‌محور روی Runtime Test (`v1.1.5-rc.37`): گفتگو و memory پایدار پس از SIGKILL، redaction، کنار گذاشتن memory دستورمانند، صفحهٔ همکاری با citation | پیگیری WP-02: ورود کاربر MFA‌دار پس از restart (BO-IAM-001) |
