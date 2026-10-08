@@ -36,6 +36,16 @@ function validateOwnerIdentifier(env, errors) {
   }
 }
 
+function validateMfaEncryptionKey(env, errors) {
+  for (const name of ["HERO_MFA_ENCRYPTION_KEY"]) {
+    const value = env[name];
+    if (isPlaceholder(value)) continue;
+    const text = value.trim();
+    const bytes = /^[a-f0-9]{64}$/i.test(text) ? 32 : Buffer.from(text, "base64url").length;
+    if (bytes !== 32) errors.push(`${name} باید ۳۲ بایت (۶۴ نویسهٔ هگز یا base64url) باشد.`);
+  }
+}
+
 function validateMfaSecret(env, errors) {
   const value = env.HERO_OWNER_MFA_SECRET;
   if (isPlaceholder(value)) return;
@@ -92,6 +102,7 @@ export function validateTestEnvironment(env = process.env) {
   validateOwnerEmail(env, errors);
   validateOwnerIdentifier(env, errors);
   validateMfaSecret(env, errors);
+  validateMfaEncryptionKey(env, errors);
   validateSecretStore(env, errors);
 
   if (!isPlaceholder(env.HERO_POSTGRES_URL)) {

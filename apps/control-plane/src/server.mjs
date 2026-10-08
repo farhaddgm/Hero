@@ -80,6 +80,7 @@ import { createRepositoryReadContext, HERO_REPOSITORY_READ_CONTEXT_VERSION } fro
 import { OwnerAuthError, createOwnerAuth } from "../../../packages/domain/src/owner-auth.mjs";
 import { AdminAuthError, createAdminAuth } from "../../../packages/domain/src/admin-auth.mjs";
 import { createHumanIdentity, HumanIdentityError, HUMAN_IDENTITY_SESSION_TTL_SECONDS } from "../../../packages/domain/src/human-identity.mjs";
+import { createMfaVault } from "../../../packages/domain/src/mfa-vault.mjs";
 import { createProjectAccessMiddleware } from "../../../packages/domain/src/project-access-middleware.mjs";
 import { createProjectAccessRegistry, ProjectAccessError } from "../../../packages/domain/src/project-access.mjs";
 import { createProjectSettingsRegistry, ProjectSettingsError } from "../../../packages/domain/src/project-settings.mjs";
@@ -257,6 +258,13 @@ function humanSessionCookie(token) {
 
 function clearHumanSessionCookie() {
   return `${HUMAN_SESSION_COOKIE_NAME}=; Max-Age=0; Expires=${EXPIRED_COOKIE_DATE}; Path=/; Secure; HttpOnly; SameSite=Strict`;
+}
+
+/** Binary uploads (PDF, Office, image, ZIP) arrive as base64 so no byte is altered by UTF-8; text stays a plain string. */
+function decodeUploadContent(input) {
+  if (input?.encoding === undefined || input.encoding === "utf8") return input?.content;
+  if (input.encoding !== "base64" || typeof input.content !== "string" || input.content.length === 0 || input.content.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(input.content)) throw new ProjectWorkspaceError("UPLOAD_ENCODING_INVALID", "Upload content must be valid base64 when encoding is base64.", 400);
+  return Buffer.from(input.content, "base64");
 }
 
 function json(response, statusCode, body, { maxBytes, headers = {} } = {}) {
@@ -532,8 +540,12 @@ export function createHeroServer(options = {}) {
   const projectAccessRegistry = options.projectAccessRegistry ?? (identityConfiguredFromEnvironment
     ? createProjectAccessRegistry({ ownerUserId: identityOwner.userId, ownerUser: identityOwner, now: options.now })
     : null);
+  const mfaVault = options.mfaVault ?? createMfaVault({
+    key: process.env.HERO_MFA_ENCRYPTION_KEY,
+    previousKeys: String(process.env.HERO_MFA_ENCRYPTION_KEY_PREVIOUS ?? "").split(",").map(item => item.trim()).filter(Boolean)
+  });
   const humanIdentity = options.humanIdentity ?? (identityConfiguredFromEnvironment
-    ? createHumanIdentity({ accessRegistry: projectAccessRegistry, sessionSecret: process.env.HERO_IDENTITY_SESSION_SECRET, owner: identityOwner, now: options.now })
+    ? createHumanIdentity({ accessRegistry: projectAccessRegistry, sessionSecret: process.env.HERO_IDENTITY_SESSION_SECRET, owner: identityOwner, mfaVault, now: options.now })
     : null);
   const projectAccessMiddleware = options.projectAccessMiddleware ?? (projectAccessRegistry && humanIdentity
     ? createProjectAccessMiddleware({ accessRegistry: projectAccessRegistry, identity: humanIdentity })
@@ -2280,6 +2292,11 @@ export function createHeroServer(options = {}) {
     }
   }
 
+  function requestDevice(request) {
+    const userAgent = String(request.headers?.["user-agent"] ?? "").slice(0, 200);
+    return { userAgent, source: request.socket?.remoteAddress ?? "unknown" };
+  }
+
   async function persistIdentityUser(userId) {
     if (!postgresRuntime?.projectIdentity || !humanIdentity?.persistenceRecord) return;
     await postgresRuntime.projectIdentity.saveUser(humanIdentity.persistenceRecord({ userId }));
@@ -2304,6 +2321,7 @@ export function createHeroServer(options = {}) {
       ownerMfaRequired: true,
       totp: "rfc6238-base32-with-legacy-verification",
       persistence: postgresRuntime?.projectIdentity ? "postgresql" : "not-connected",
+      mfaPersistence: humanIdentity?.mfaPersistence?.() ?? "unavailable-no-key",
       recoveryDelivery: "not-configured",
       sessionTtlSeconds: HUMAN_IDENTITY_SESSION_TTL_SECONDS
     });
@@ -2697,7 +2715,7 @@ export function createHeroServer(options = {}) {
       if (request.method === "POST" && url.pathname === "/api/identity/login") {
         if (!humanIdentity?.configured) throw new HumanIdentityError("IDENTITY_NOT_CONFIGURED", "Human identity is not configured.", 503);
         const input = await readJson(request);
-        const login = humanIdentity.beginLogin(input);
+        const login = humanIdentity.beginLogin({ ...input, device: requestDevice(request) });
         await persistIdentityAudit({ eventType: "identity.login-challenged", data: { mfaRequired: login.mfaRequired } });
         return json(response, 200, { service: HERO_SERVICE, login });
       }
@@ -2705,7 +2723,7 @@ export function createHeroServer(options = {}) {
       if (request.method === "POST" && url.pathname === "/api/identity/login/mfa") {
         if (!humanIdentity?.configured) throw new HumanIdentityError("IDENTITY_NOT_CONFIGURED", "Human identity is not configured.", 503);
         const input = await readJson(request);
-        const session = humanIdentity.completeLogin(input);
+        const session = humanIdentity.completeLogin({ ...input, device: requestDevice(request) });
         await persistIdentityAudit({ userId: session.principal.subject, eventType: "identity.session-issued", data: { sessionId: session.principal.sessionId } });
         return json(response, 200, { service: HERO_SERVICE, session }, { headers: { "set-cookie": humanSessionCookie(session.token) } });
       }
@@ -3158,6 +3176,41 @@ export function createHeroServer(options = {}) {
         return json(response, 200, { service: HERO_SERVICE, revocation }, { headers: { "set-cookie": clearHumanSessionCookie() } });
       }
 
+      if (request.method === "GET" && url.pathname === "/api/identity/sessions") {
+        if (!humanIdentity?.configured || !authenticatedOwner?.source) throw new HumanIdentityError("IDENTITY_AUTH_REQUIRED", "Human authentication is required.", 401);
+        const requested = url.searchParams.get("userId") || authenticatedOwner.subject;
+        return json(response, 200, { service: HERO_SERVICE, sessions: humanIdentity.listSessions({ actor: authenticatedOwner, userId: requested }) });
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/identity/sessions/revoke-all") {
+        if (!humanIdentity?.configured || !authenticatedOwner?.source) throw new HumanIdentityError("IDENTITY_AUTH_REQUIRED", "Human authentication is required.", 401);
+        const input = await readJson(request);
+        const targetUserId = typeof input.userId === "string" && input.userId ? input.userId : authenticatedOwner.subject;
+        const active = humanIdentity.listSessions({ actor: authenticatedOwner, userId: targetUserId }).filter(item => item.state === "active" && !(input.exceptCurrent === true && item.current));
+        const result = humanIdentity.revokeAllSessions({ actor: authenticatedOwner, userId: targetUserId, exceptCurrent: input.exceptCurrent === true });
+        if (postgresRuntime?.projectIdentity?.revokeSession) for (const item of active) await postgresRuntime.projectIdentity.revokeSession({ sessionId: item.sessionId, userId: targetUserId, reason: "revoke-all" });
+        await persistIdentityAudit({ userId: targetUserId, eventType: "identity.sessions-revoked-all", data: { revoked: result.revoked, by: authenticatedOwner.subject } });
+        const own = targetUserId === authenticatedOwner.subject && input.exceptCurrent !== true;
+        return json(response, 200, { service: HERO_SERVICE, revocation: result }, own ? { headers: { "set-cookie": clearHumanSessionCookie() } } : undefined);
+      }
+
+      const identityUserActionMatch = url.pathname.match(/^\/api\/identity\/users\/([a-z][a-z0-9-]{2,63})\/(mfa\/enroll|disable)$/);
+      if (request.method === "POST" && identityUserActionMatch) {
+        if (!humanIdentity?.configured || !authenticatedOwner?.source) throw new HumanIdentityError("IDENTITY_AUTH_REQUIRED", "Human authentication is required.", 401);
+        const [, targetUserId, action] = identityUserActionMatch;
+        if (action === "disable") {
+          const input = await readJson(request);
+          const user = humanIdentity.disableUser({ actor: authenticatedOwner, userId: targetUserId, reason: input.reason });
+          await persistIdentityUser(targetUserId);
+          await persistIdentityAudit({ userId: targetUserId, eventType: "identity.user-disabled", data: { by: authenticatedOwner.subject } });
+          return json(response, 200, { service: HERO_SERVICE, user });
+        }
+        const enrollment = humanIdentity.enrollMfa({ actor: authenticatedOwner, userId: targetUserId });
+        await persistIdentityUser(targetUserId);
+        await persistIdentityAudit({ userId: targetUserId, eventType: "identity.mfa-enrolled", data: { by: authenticatedOwner.subject, persistence: enrollment.persistence } });
+        return json(response, 201, { service: HERO_SERVICE, enrollment }, { headers: { "cache-control": "no-store" } });
+      }
+
       if (request.method === "GET" && url.pathname === "/api/identity/users") {
         if (!humanIdentity?.configured || !authenticatedOwner) throw new HumanIdentityError("IDENTITY_NOT_CONFIGURED", "Human identity is not configured.", 503);
         return json(response, 200, { service: HERO_SERVICE, users: humanIdentity.listUsers({ actor: authenticatedOwner }) });
@@ -3274,7 +3327,7 @@ export function createHeroServer(options = {}) {
       const projectUploadMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/inputs\/upload$/);
       if (projectUploadMatch && request.method === "POST") {
         const input = await readJson(request, 5 * 1024 * 1024);
-        const storedInput = projectWorkspace.upload({ actor: authenticatedOwner, projectId: projectUploadMatch[1], type: input.type, filename: input.filename, content: input.content, mimeType: input.mimeType, zipExpandedBytes: input.zipExpandedBytes });
+        const storedInput = projectWorkspace.upload({ actor: authenticatedOwner, projectId: projectUploadMatch[1], type: input.type, filename: input.filename, content: decodeUploadContent(input), mimeType: input.mimeType });
         await persistWorkspaceInput(storedInput);
         return json(response, 201, { service: HERO_SERVICE, input: storedInput });
       }
@@ -4459,6 +4512,10 @@ export function createHeroServer(options = {}) {
           for (const user of users) {
             projectAccessRegistry?.hydrateUser({ user: { userId: user.userId, email: user.email, displayName: user.displayName, role: "viewer", status: user.status, createdAt: user.createdAt } });
             humanIdentity?.hydrateUser({ user });
+            // Key rotation: a secret sealed with a previous key is sealed again with the current one.
+            if (user.mfaSecretCipher && mfaVault.needsRotation(user.mfaSecretCipher) && identityStore.saveUser) {
+              try { await identityStore.saveUser(humanIdentity.persistenceRecord({ userId: user.userId })); } catch { console.error(JSON.stringify({ level: "error", event: "hero.mfa-rotation-failed", hasUserId: true })); }
+            }
           }
         }
         if (identityStore.listCurrentGrants && projectAccessRegistry) {

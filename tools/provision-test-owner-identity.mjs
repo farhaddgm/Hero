@@ -167,6 +167,7 @@ function buildUpdates(current) {
     ["HERO_SECRET_STORE_DIR", current.get("HERO_SECRET_STORE_DIR") || "/var/lib/hero/secret-store"],
     ["HERO_SECRET_STORE_MASTER_KEY", current.get("HERO_SECRET_STORE_MASTER_KEY") || ""],
     ["HERO_IDENTITY_SESSION_SECRET", current.get("HERO_IDENTITY_SESSION_SECRET") || crypto.randomBytes(48).toString("base64url")],
+    ["HERO_MFA_ENCRYPTION_KEY", current.get("HERO_MFA_ENCRYPTION_KEY") || crypto.randomBytes(32).toString("hex")],
     ["HERO_IDENTITY_OWNER_USER_ID", current.get("HERO_IDENTITY_OWNER_USER_ID") || "hero-owner"],
     ["HERO_OWNER_EMAIL", ownerEmail],
     ["HERO_OWNER_DISPLAY_NAME", current.get("HERO_OWNER_DISPLAY_NAME") || "Hero Test Owner"],

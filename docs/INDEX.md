@@ -156,6 +156,8 @@ Product ابتدا با owner و Evidence در Product registry ثبت می‌ش
 | `HERO-EVIDENCE-BACKOFFICE-COLLABORATION-COMMAND-CATALOG-BO-061-090` | `active` | [Evidence Collaboration، Command Center و System Catalog — BO-061 تا BO-090](roadmap/BACKOFFICE-COLLABORATION-COMMAND-CATALOG-BO-061-090.md) |
 | `HERO-EVIDENCE-BACKOFFICE-CATALOG-INTELLIGENCE-INBOX-BO-091-120` | `active` | [Evidence Catalog، Intelligence و Inbox — BO-091 تا BO-120](roadmap/BACKOFFICE-CATALOG-INTELLIGENCE-INBOX-BO-091-120.md) |
 | `HERO-EVIDENCE-BACKOFFICE-ENVIRONMENT-DELIVERY-HARDENING-FINAL-BO-121-170` | `active` | [Evidence Environment تا Final Readiness — BO-121 تا BO-170](roadmap/BACKOFFICE-ENVIRONMENT-DELIVERY-HARDENING-FINAL-BO-121-170.md) |
+| `HERO-EVIDENCE-BACKOFFICE-IDENTITY-CONTENT-SAFETY-BO-021-042` | `active` | [Evidence هویت و ورودی امن — BO-021 تا BO-042](roadmap/BACKOFFICE-IDENTITY-CONTENT-SAFETY-BO-021-042.md) |
+| `HERO-EVIDENCE-BACKOFFICE-FINAL-READINESS-REVIEW-BO-167-168` | `active` | [بازبینی نهایی آمادگی و اجرای مرجع — BO-167 و BO-168](roadmap/BACKOFFICE-FINAL-READINESS-REVIEW-BO-167-168.md) |
 | `HERO-EVIDENCE-BACKOFFICE-DELIVERY-AUDIT-20260911` | `active` | [ممیزی واقعی تحویل Back Office — ۲۰۲۶-۰۹-۱۱](roadmap/BACKOFFICE-DELIVERY-AUDIT-20260911.md) |
 | `HERO-EVIDENCE-PRODUCT-FACTORY-PF1-20260917` | `active` | [Evidence برش اول کارخانهٔ کنترل‌شدهٔ محصول — PF-1](evidence/PRODUCT-FACTORY-PF1-IMPLEMENTATION-20260917.md) |
 | `HERO-EVIDENCE-PRODUCT-FACTORY-PF2-RUNNER-CONTRACT-20260918` | `active` | [Evidence قرارداد و admission ایزولهٔ Product Runner — PF-2](evidence/PRODUCT-FACTORY-PF2-RUNNER-CONTRACT-20260918.md) |

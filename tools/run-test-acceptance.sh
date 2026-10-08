@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Hero Test acceptance (WP-04..WP-14, BO-043..BO-170) on the Test host.
+# Hero Test acceptance (WP-02..WP-14, BO-021..BO-170) on the Test host.
 #
 # Runs the EXACT immutable candidate image as a disposable instance with its own
 # throwaway PostgreSQL, on an internal Docker network with no internet access.
@@ -43,11 +43,13 @@ PG_PASSWORD="$(random_hex 24)"
 OWNER_PASSWORD="$(random_hex 18)"
 OWNER_MFA="$(random_base32 32)"
 SESSION_SECRET="$(random_hex 32)"
+MFA_KEY="$(random_hex 32)"
 umask 077
 cat > "$WORK/app.env" <<EOF
 HERO_POSTGRES_URL=postgresql://hero:${PG_PASSWORD}@${PG}:5432/hero
 HERO_REQUIRE_POSTGRES=true
 HERO_IDENTITY_SESSION_SECRET=${SESSION_SECRET}
+HERO_MFA_ENCRYPTION_KEY=${MFA_KEY}
 HERO_OWNER_EMAIL=owner@acceptance.invalid
 HERO_OWNER_PASSWORD=${OWNER_PASSWORD}
 HERO_OWNER_MFA_SECRET=${OWNER_MFA}
@@ -116,5 +118,5 @@ evidence="$EVIDENCE_DIR/acceptance-$RUN_ID.json"
 } > "$evidence"
 chmod 644 "$evidence"
 echo "Hero acceptance evidence (no credentials): $evidence"
-if [[ $status -eq 0 ]]; then echo "HERO ACCEPTANCE: PASS — BO-043..BO-170 on $IMAGE"; else echo "HERO ACCEPTANCE: FAIL — see FAIL lines above"; fi
+if [[ $status -eq 0 ]]; then echo "HERO ACCEPTANCE: PASS — BO-021..BO-170 on $IMAGE"; else echo "HERO ACCEPTANCE: FAIL — see FAIL lines above"; fi
 exit $status

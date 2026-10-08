@@ -1,0 +1,155 @@
+{
+  "schema": "hero.authorization-snapshot/v1",
+  "authorizationId": "BATCH-BACKOFFICE-20261008-027",
+  "status": "active",
+  "grantedBy": "project-owner",
+  "grantedAt": "2026-10-08",
+  "grantSource": "owner-chat-instruction-2026-10-08",
+  "ownerStatement": "مجوز می‌دهم گام‌های BO-021 تا BO-042 و BO-167 تا BO-168 طبق HERO-ROADMAP-BACKOFFICE-COMMAND-CENTER-V1 نسخهٔ 1.2.0 و HERO-SPEC-022 نسخهٔ 1.0.0 طراحی، توسعه، مستندسازی، تست و بازبینی شوند. تغییر Secret فقط برای ماندگار کردن رمزهای MFA کاربران در پایگاه داده Hero (به‌صورت رمزنگاری‌شده، با کلید از متغیر محیطی) مجاز است. Production، هزینهٔ بیرونی، Provider زنده، فراخوانی زندهٔ GitHub و نوشتن در Notion مجاز نیست.",
+  "validUntil": "owner-revocation",
+  "globalStop": false,
+  "operations": [
+    "design",
+    "develop",
+    "document",
+    "test",
+    "review"
+  ],
+  "excludedOperations": [
+    "production-deploy",
+    "external-spend",
+    "provider-live-call",
+    "github-live-call",
+    "notion-write",
+    "destructive-data-operation",
+    "external-message",
+    "irreversible-operation",
+    "pilot-execution",
+    "secret-change-outside-mfa-persistence"
+  ],
+  "documents": [
+    {
+      "documentId": "HERO-SPEC-022",
+      "documentVersion": "1.0.0"
+    },
+    {
+      "documentId": "HERO-ROADMAP-BACKOFFICE-COMMAND-CENTER-V1",
+      "documentVersion": "1.2.0"
+    }
+  ],
+  "steps": [
+    {
+      "stepId": "BO-021",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-022",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-023",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-024",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-025",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-026",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-027",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-028",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-029",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-030",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-031",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-032",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-033",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-034",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-035",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-036",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-037",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-038",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-039",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-040",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-041",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-042",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-167",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-168",
+      "documentVersion": "1.2.0"
+    }
+  ],
+  "scope": {
+    "environment": "development-and-test",
+    "service": "hero-control-plane",
+    "workPackages": [
+      "WP-02",
+      "WP-03",
+      "WP-14"
+    ],
+    "action": "identity-mfa-persistence-secure-intake-and-final-reference-run-source-completion",
+    "production": false,
+    "secrets": false,
+    "providers": false,
+    "githubLiveCalls": false,
+    "notionWrite": false,
+    "secretChangeScope": "persist-user-mfa-secrets-encrypted-in-hero-database-key-from-environment"
+  },
+  "note": "Covers BO-021..BO-042 (WP-02 identity and WP-03 intake/storage) and BO-167..BO-168 (WP-14 reference run and readiness review). The only Secret change allowed is persisting user MFA secrets encrypted in the Hero database with a key taken from an environment variable. Production, external spend, live Provider and GitHub calls and Notion writes remain excluded. BO-169 (owner acceptance) and BO-170 (pilot) are not in this batch."
+}

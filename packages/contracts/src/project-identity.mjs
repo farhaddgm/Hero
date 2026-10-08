@@ -30,6 +30,13 @@ export const HUMAN_IDENTITY_EVENTS = Object.freeze([
   "identity.step-up-verified"
 ]);
 
+/** Recorded in their own append-only table so the original audit CHECK (re-created by migration 016 on every start) never changes. */
+export const HUMAN_IDENTITY_LIFECYCLE_EVENTS = Object.freeze([
+  "identity.mfa-enrolled",
+  "identity.user-disabled",
+  "identity.sessions-revoked-all"
+]);
+
 export const OWNER_ONLY_ACTIONS = Object.freeze([
   "project.grant.manage",
   "user.invite",

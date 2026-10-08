@@ -188,3 +188,17 @@ test("PostgreSQL migration runner rolls back when a migration fails", async () =
   await assert.rejects(() => createPostgresMigrationRunner({ client }).migrate(), /database unavailable/);
   assert.deepEqual(queries, ["BEGIN", readPostgresMigration("001"), "ROLLBACK"]);
 });
+
+test("every Human Identity audit event is allowed by exactly one append-only table, and migration 016 is left unwidened for safe rollback", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { HUMAN_IDENTITY_EVENTS, HUMAN_IDENTITY_LIFECYCLE_EVENTS } = await import("../packages/contracts/src/project-identity.mjs");
+  const read = name => readFileSync(new URL(`../packages/adapters/migrations/${name}`, import.meta.url), "utf8");
+  const original = read("016_ai_credential_audit_events.sql");
+  const lifecycle = read("024_human_user_mfa_cipher.sql");
+  for (const event of HUMAN_IDENTITY_EVENTS) assert.equal(original.includes(`'${event}'`), true, `${event} stays in the original audit CHECK`);
+  for (const event of HUMAN_IDENTITY_LIFECYCLE_EVENTS) {
+    assert.equal(original.includes(`'${event}'`), false, `${event} must not widen the CHECK that migration 016 re-creates on every start`);
+    assert.equal(lifecycle.includes(`'${event}'`), true, `${event} is allowed by the lifecycle table`);
+  }
+  assert.match(lifecycle, /human_identity_lifecycle_events_append_only_guard/);
+});

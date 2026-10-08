@@ -1,15 +1,13 @@
 import { createHash, randomUUID } from "node:crypto";
 import { FOUNDATION_PROPOSAL_STATES, PROJECT_INPUT_TYPES, PROJECT_LIFECYCLES } from "../../contracts/src/project-workspace.mjs";
+import { assertWithinQuota, assessUpload, assessUrlSyntax, ContentSafetyError } from "./content-safety.mjs";
 import { createProductRuntimePlan, normalizeProductIntake } from "./product-factory.mjs";
 
 const ID = /^[A-Za-z][A-Za-z0-9._:-]{2,127}$/;
 const PROJECT_SLUG = /^[a-z][a-z0-9-]{2,62}$/;
 const URL = /^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+(?:\.git)?\/?$/;
 const DANGEROUS = /(?:ignore (?:all|previous) instructions|system prompt|jailbreak|exfiltrat(?:e|ion)|reveal (?:secret|credential|password))/i;
-const PRIVATE_HOST = /(?:localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]|10\.|192\.168\.|169\.254\.|172\.(?:1[6-9]|2\d|3[01])\.)/i;
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
-const MAX_TEXT_BYTES = 512 * 1024;
-const MAX_ZIP_EXPANDED_BYTES = 50 * 1024 * 1024;
 const IDEMPOTENCY_KEY = /^[A-Za-z][A-Za-z0-9._:-]{2,127}$/;
 const FINGERPRINT = /^[a-f0-9]{64}$/;
 
@@ -28,13 +26,6 @@ function noSensitive(value, path = "data") {
   }
 }
 function asBuffer(content) { if (Buffer.isBuffer(content)) return Buffer.from(content); if (typeof content === "string") return Buffer.from(content, "utf8"); throw new ProjectWorkspaceError("UPLOAD_CONTENT_REQUIRED", "Upload content must be text or binary.", 400); }
-function signatureValid(type, value) {
-  if (type === "text" || type === "link" || type === "github-repository") return true;
-  if (type === "pdf") return value.subarray(0, 5).toString("ascii") === "%PDF-";
-  if (["word", "excel", "zip"].includes(type)) return value.length >= 4 && value.subarray(0, 2).toString("ascii") === "PK";
-  if (type === "image") return value.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) || value.subarray(0, 3).toString("ascii") === "\xff\xd8\xff";
-  return false;
-}
 function previewText(type, data) { return type === "text" ? data.toString("utf8").slice(0, 4096) : null; }
 function canonical(value) {
   if (Array.isArray(value)) return value.map(canonical);
@@ -50,11 +41,16 @@ export class ProjectWorkspaceError extends Error {
 /** A private, no-network project workspace. Adapters for real AV, document
  * parsing, object storage and GitHub are injected later; missing adapters fail
  * closed rather than silently carrying out external work. */
-export function createProjectWorkspace({ ownerUserId = "hero-owner", now = () => new Date().toISOString(), settings = null, scanner = ({ bytes }) => ({ state: "clean", engine: "deterministic-static", bytes }), parser = null, objectStoreAdapter = null, uploadQuotaBytes = MAX_UPLOAD_BYTES } = {}) {
+export function createProjectWorkspace({ ownerUserId = "hero-owner", now = () => new Date().toISOString(), settings = null, scanner = null, parser = null, objectStoreAdapter = null, uploadQuotaBytes = MAX_UPLOAD_BYTES, projectQuotaBytes = 100 * 1024 * 1024 } = {}) {
   assertId("ownerUserId", ownerUserId);
   if (!Number.isInteger(uploadQuotaBytes) || uploadQuotaBytes < 1024 || uploadQuotaBytes > 100 * 1024 * 1024) throw new Error("uploadQuotaBytes must be a safe integer quota.");
   if (objectStoreAdapter !== null && typeof objectStoreAdapter?.put !== "function") throw new ProjectWorkspaceError("OBJECT_STORE_INVALID", "Object store adapter must provide put().", 500);
   const projects = new Map(); const uploads = new Map(); const proposals = new Map(); const imports = new Map(); const deletionRequests = new Map(); const objectStore = new Map(); const productRequests = new Map(); const purgedProjectIds = new Set();
+  function assertWithinQuota2(projectId, incomingBytes) {
+    const stored = [...uploads.values()].filter(item => item.projectId === projectId && item.type !== "link" && item.type !== "github-repository");
+    try { assertWithinQuota({ storedBytes: stored.reduce((sum, item) => sum + (item.byteLength ?? 0), 0), storedFiles: stored.length, incomingBytes, projectQuotaBytes }); }
+    catch (error) { if (error instanceof ContentSafetyError) throw new ProjectWorkspaceError(error.code, error.message, error.statusCode); throw error; }
+  }
   function project(projectId) { const id = assertProjectId(projectId); const row = projects.get(id); if (!row || purgedProjectIds.has(id)) throw new ProjectWorkspaceError("PROJECT_NOT_FOUND", "Project was not found.", 404); return row; }
   function assertVersion(row, expectedVersion) { if (expectedVersion !== undefined && expectedVersion !== row.version) throw new ProjectWorkspaceError("STALE_PROJECT_VERSION", "Project changed before this command was applied.", 409); }
   function update(row, patch) { const next = copy({ ...row, ...patch, version: row.version + 1, updatedAt: now() }); projects.set(row.projectId, next); return next; }
@@ -174,20 +170,22 @@ export function createProjectWorkspace({ ownerUserId = "hero-owner", now = () =>
       return copy({ project: next, foundationProposal: makeFoundationProposal(next, actor) });
     },
     submitIntake({ actor, projectId, expectedVersion, intake }) { assertProjectEditor(actor); const row = project(projectId); assertVersion(row, expectedVersion); noSensitive(intake); let normalizedIntake; try { normalizedIntake = normalizeProductIntake({ name: row.name, intake: { ...row.intake, ...intake } }); } catch (error) { throw new ProjectWorkspaceError("INVALID_INTAKE", error.message, 400); } const next = update(row, { intake: normalizedIntake, riskAssessment: normalizedIntake.riskAssessment, lifecycle: "foundation-review" }); return copy({ project: next, foundationProposal: makeFoundationProposal(next, actor) }); },
-    upload({ actor, projectId, type, filename, content, mimeType = "application/octet-stream", zipExpandedBytes = null }) {
+    upload({ actor, projectId, type, filename, content, mimeType = "application/octet-stream" }) {
       assertProjectEditor(actor); const row = project(projectId); if (!PROJECT_INPUT_TYPES.includes(type) || type === "link" || type === "github-repository") throw new ProjectWorkspaceError("INVALID_UPLOAD_TYPE", "This input type cannot use binary upload.", 400);
       const bytes = asBuffer(content); if (bytes.length === 0 || bytes.length > uploadQuotaBytes) throw new ProjectWorkspaceError("UPLOAD_QUOTA_EXCEEDED", "Upload exceeds the private project quota.", 413);
-      if (type === "text" && bytes.length > MAX_TEXT_BYTES) throw new ProjectWorkspaceError("TEXT_UPLOAD_TOO_LARGE", "Text input exceeds the safe parser limit.", 413);
-      if (!signatureValid(type, bytes)) throw new ProjectWorkspaceError("FILE_SIGNATURE_INVALID", "File signature does not match its declared type.", 415);
-      if (type === "zip" && (!Number.isInteger(zipExpandedBytes) || zipExpandedBytes < 0 || zipExpandedBytes > MAX_ZIP_EXPANDED_BYTES || zipExpandedBytes > bytes.length * 100)) throw new ProjectWorkspaceError("ZIP_BOMB_REJECTED", "ZIP declared expansion exceeds the sandbox limit.", 413);
-      const scan = scanner({ projectId: row.projectId, type, bytes, filename, mimeType }); if (!scan || scan.state !== "clean") throw new ProjectWorkspaceError("MALWARE_SCAN_REJECTED", "Upload was not confirmed clean by the scanner.", 422);
-      const text = previewText(type, bytes); const suspicious = Boolean(text && DANGEROUS.test(text)); const uploadId = `upload-${randomUUID()}`; const checksum = createHash("sha256").update(bytes).digest("hex"); const objectKey = `hero/uploads/${row.projectId}/${uploadId}/${checksum}`;
+      assertWithinQuota2(row.projectId, bytes.length);
+      let assessment;
+      try { assessment = assessUpload({ type, filename, mimeType, bytes }); }
+      catch (error) { if (error instanceof ContentSafetyError) throw new ProjectWorkspaceError(error.code, error.message, error.statusCode); throw error; }
+      const extraScan = scanner ? scanner({ projectId: row.projectId, type, bytes, filename, mimeType }) : null; if (extraScan && extraScan.state !== "clean") throw new ProjectWorkspaceError("MALWARE_SCAN_REJECTED", "Upload was not confirmed clean by the scanner.", 422);
+      const scan = { state: "clean", engine: extraScan ? `${assessment.scan.engine}+${String(extraScan.engine ?? "configured").slice(0, 60)}` : assessment.scan.engine, externalAntivirus: extraScan ? "connected" : assessment.scan.externalAntivirus };
+      const text = previewText(type, bytes); const suspicious = Boolean((text && DANGEROUS.test(text)) || assessment.injection.reviewRequired); const uploadId = `upload-${randomUUID()}`; const checksum = createHash("sha256").update(bytes).digest("hex"); const objectKey = `hero/uploads/${row.projectId}/${uploadId}/${checksum}`;
       const stored = objectStoreAdapter ? objectStoreAdapter.put({ objectKey, bytes: Buffer.from(bytes) }) : null;
-      objectStore.set(objectKey, Buffer.from(bytes)); const parse = parser ? parser({ type, bytes: Buffer.from(bytes), mimeType }) : { state: type === "text" ? "parsed" : "deferred-adapter-required", text: type === "text" ? text : null };
-      const entry = copy({ uploadId, projectId: row.projectId, type, filename: string(filename, "filename", 240), mimeType: string(mimeType, "mimeType", 160), byteLength: bytes.length, checksum, objectKey, storage: stored?.storage ?? "ephemeral-private-memory", scan: { state: "clean", engine: String(scan.engine ?? "configured").slice(0, 80) }, parse: { state: parse?.state ?? "deferred-adapter-required", text: suspicious ? null : (parse?.text ?? null), reviewRequired: suspicious, reason: suspicious ? "untrusted-instruction-pattern" : null }, createdAt: now(), createdBy: actor.subject }); uploads.set(uploadId, entry); return entry;
+      objectStore.set(objectKey, Buffer.from(bytes)); const parse = parser ? parser({ type, bytes: Buffer.from(bytes), mimeType }) : assessment.parse;
+      const entry = copy({ uploadId, projectId: row.projectId, type, filename: string(filename, "filename", 240), mimeType: string(mimeType, "mimeType", 160), byteLength: bytes.length, checksum, objectKey, storage: stored?.storage ?? "ephemeral-private-memory", scan: { state: "clean", engine: String(scan.engine).slice(0, 120), externalAntivirus: scan.externalAntivirus }, parse: { state: parse?.state ?? "deferred-adapter-required", text: suspicious ? null : (parse?.text ?? null), facts: parse?.facts ?? {}, reviewRequired: suspicious, reason: suspicious ? "untrusted-instruction-pattern" : null, injectionRisk: assessment.injection.risk }, createdAt: now(), createdBy: actor.subject }); uploads.set(uploadId, entry); return entry;
     },
     registerLink({ actor, projectId, url, label }) {
-      assertProjectEditor(actor); project(projectId); if (typeof url !== "string" || !/^https:\/\//.test(url) || PRIVATE_HOST.test(url) || /@/.test(new globalThis.URL(url).host)) throw new ProjectWorkspaceError("SSRF_URL_REJECTED", "Only public HTTPS links without embedded credentials are accepted.", 400);
+      assertProjectEditor(actor); project(projectId); const linkCheck = assessUrlSyntax(url); if (!linkCheck.ok) throw new ProjectWorkspaceError("SSRF_URL_REJECTED", "Only public HTTPS links without embedded credentials are accepted.", 400);
       const uploadId = `link-${randomUUID()}`; const entry = copy({ uploadId, projectId, type: "link", label: string(label ?? url, "label", 240), url, fetchState: "pending-separate-authorization", createdAt: now(), createdBy: actor.subject }); uploads.set(uploadId, entry); return entry;
     },
     listInputs({ projectId }) { project(projectId); return Object.freeze(projectUploads(projectId).map(copy)); },

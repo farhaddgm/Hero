@@ -17,7 +17,7 @@ test("acceptance runner seed phase passes against a fresh server", { timeout: 12
   const port = 43000 + crypto.randomInt(900);
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
   const owner = { HERO_OWNER_EMAIL: "owner@acceptance.invalid", HERO_OWNER_PASSWORD: crypto.randomBytes(16).toString("hex"), HERO_OWNER_MFA_SECRET: [...crypto.randomBytes(32)].map(byte => alphabet[byte % 32]).join("") };
-  const env = { ...process.env, ...owner, HERO_IDENTITY_SESSION_SECRET: crypto.randomBytes(32).toString("hex"), HERO_HTTP_HOST: "127.0.0.1", HERO_HTTP_PORT: String(port), HERO_DATA_DIR: state, HERO_POSTGRES_URL: "", HERO_REQUIRE_POSTGRES: "false" };
+  const env = { ...process.env, ...owner, HERO_IDENTITY_SESSION_SECRET: crypto.randomBytes(32).toString("hex"), HERO_MFA_ENCRYPTION_KEY: crypto.randomBytes(32).toString("hex"), HERO_HTTP_HOST: "127.0.0.1", HERO_HTTP_PORT: String(port), HERO_DATA_DIR: state, HERO_POSTGRES_URL: "", HERO_REQUIRE_POSTGRES: "false" };
   const server = spawn(process.execPath, ["apps/control-plane/src/server.mjs"], { cwd: root, env, stdio: "ignore" });
   t.after(() => server.kill("SIGKILL"));
   const base = `http://127.0.0.1:${port}`;

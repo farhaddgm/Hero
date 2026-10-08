@@ -57,6 +57,7 @@ test("Test owner provisioning proves the Test target, uses secure files and reco
     const result = provisionTestOwnerIdentity({ root, authorizationFile });
     const values = parseEnvironment(fs.readFileSync(environmentFile, "utf8"));
     assert.match(values.get("HERO_IDENTITY_SESSION_SECRET"), /^.{32,}$/);
+    assert.match(values.get("HERO_MFA_ENCRYPTION_KEY"), /^[a-f0-9]{64}$/);
     assert.equal(values.get("HERO_OWNER_EMAIL"), "owner@hero.test");
     assert.match(values.get("HERO_OWNER_PASSWORD"), /^.{12,}$/);
     assert.match(values.get("HERO_OWNER_MFA_SECRET"), /^base32:[A-Z2-7]{16,}$/);

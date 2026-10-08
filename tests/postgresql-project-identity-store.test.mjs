@@ -35,7 +35,7 @@ test("PostgreSQL project identity store restores users, grants and session revoc
   const users = await store.listUsers();
   const grants = await store.listCurrentGrants();
   const revocations = await store.listSessionRevocations();
-  assert.deepEqual(users[0], { userId: "project-admin", email: "admin@example.test", displayName: "Admin", status: "active", passwordHash: "hash", passwordSalt: "salt", mfaSecretRef: "env:HERO_ADMIN_MFA_SECRET", mfaRequired: true, createdAt: "2026-09-10T12:00:00.000Z" });
+  assert.deepEqual(users[0], { userId: "project-admin", email: "admin@example.test", displayName: "Admin", status: "active", passwordHash: "hash", passwordSalt: "salt", mfaSecretRef: "env:HERO_ADMIN_MFA_SECRET", mfaSecretCipher: null, recoveryCodeHashes: [], mfaRequired: true, createdAt: "2026-09-10T12:00:00.000Z" });
   assert.deepEqual(grants[0], { projectId: "project-vpn", userId: "project-admin", role: "admin", status: "active", version: 2, grantedBy: "hero-owner", recordedAt: "2026-09-10T12:00:00.000Z" });
   assert.deepEqual(revocations[0], { sessionId: "human-session-001", userId: "project-admin", reason: "security-review", revokedAt: "2026-09-10T12:00:00.000Z" });
 });

@@ -234,6 +234,13 @@ export const POSTGRES_MIGRATIONS = Object.freeze([
     name: "backoffice-domain-records",
     file: "023_backoffice_domain_records.sql",
     tables: BACKOFFICE_DOMAIN_RECORD_TABLES
+  }),
+  Object.freeze({
+    id: "024",
+    name: "human-user-mfa-cipher",
+    file: "024_human_user_mfa_cipher.sql",
+    tables: Object.freeze(["human_identity_lifecycle_events"]),
+    alters: Object.freeze(["human_users"])
   })
 ]);
 
@@ -268,7 +275,7 @@ export function validatePostgresSchemaContract() {
     if (!/^\d{3}_[a-z][a-z0-9_-]+\.sql$/.test(migration.file)) errors.push(`${migration.name} has an invalid migration file.`);
     try {
       const sql = readPostgresMigration(migration.id);
-      if (!sql.includes("CREATE TABLE")) errors.push(`${migration.name} must create tables.`);
+      if (!sql.includes("CREATE TABLE") && !(migration.alters && sql.includes("ALTER TABLE"))) errors.push(`${migration.name} must create tables.`);
       for (const table of migration.tables ?? []) {
         declaredTables.add(table);
         if (!sql.includes(`CREATE TABLE IF NOT EXISTS ${table}`)) {

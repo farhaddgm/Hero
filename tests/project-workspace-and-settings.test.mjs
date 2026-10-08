@@ -1,3 +1,4 @@
+import { buildZip } from "./helpers/zip-builder.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -201,7 +202,9 @@ test("private input pipeline validates signatures, scan, zip safety, instruction
   assert.equal(suspicious.parse.text, null);
   assert.throws(() => workspace.recallTextInput({ actor: admin, projectId: "project-vpn", uploadId: suspicious.uploadId }), error => error.code === "TEXT_INPUT_RECALL_REVIEW_REQUIRED");
   assert.throws(() => workspace.upload({ actor: admin, projectId: "project-vpn", type: "pdf", filename: "wrong.pdf", content: "not a pdf" }), error => error.code === "FILE_SIGNATURE_INVALID");
-  assert.throws(() => workspace.upload({ actor: admin, projectId: "project-vpn", type: "zip", filename: "bomb.zip", content: Buffer.from("PKxx"), zipExpandedBytes: 99_000_000 }), error => error.code === "ZIP_BOMB_REJECTED");
+  assert.throws(() => workspace.upload({ actor: admin, projectId: "project-vpn", type: "zip", filename: "bomb.zip", content: buildZip([{ name: "a.txt", data: Buffer.alloc(30 * 1024 * 1024) }]) }), error => error.code === "ZIP_BOMB_REJECTED");
+  assert.throws(() => workspace.upload({ actor: admin, projectId: "project-vpn", type: "zip", filename: "fake.zip", content: Buffer.from("PKxx") }), error => error.code === "UPLOAD_CONTENT_REJECTED");
+  assert.equal(workspace.upload({ actor: admin, projectId: "project-vpn", type: "zip", filename: "ok.zip", content: buildZip([{ name: "docs/readme.txt", data: "hello" }]) }).parse.state, "listed");
   assert.throws(() => workspace.registerLink({ actor: admin, projectId: "project-vpn", url: "https://127.0.0.1/private", label: "bad" }), error => error.code === "SSRF_URL_REJECTED");
   assert.equal(workspace.registerLink({ actor: admin, projectId: "project-vpn", url: "https://example.com/brief", label: "brief" }).fetchState, "pending-separate-authorization");
 });

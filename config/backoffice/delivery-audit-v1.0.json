@@ -20,12 +20,12 @@
   },
   "summary": {
     "total": 170,
-    "verified": 98,
-    "partial": 44,
+    "verified": 118,
+    "partial": 24,
     "gated": 26,
     "owner_pending": 1,
     "deferred": 1,
-    "remaining_to_verified": 72
+    "remaining_to_verified": 52
   },
   "requirement_current": {
     "registry": "config/backoffice/requirement-trace-v1.0.json",
@@ -66,8 +66,8 @@
       "count": 10,
       "work_package": "WP-02",
       "status": "partial",
-      "evidence": ["packages/domain/src/human-identity.mjs", "packages/domain/src/project-access.mjs", "packages/adapters/src/postgresql-project-identity-store.mjs", "tests/project-identity.test.mjs"],
-      "open_gate": "Complete usable Owner/Admin/Viewer UI, end-to-end recovery delivery, rate-limit evidence and exhaustive runtime ProjectGrant enforcement."
+      "evidence": ["docs/roadmap/BACKOFFICE-IDENTITY-CONTENT-SAFETY-BO-021-042.md", "packages/domain/src/human-identity.mjs", "packages/domain/src/mfa-vault.mjs", "packages/domain/src/project-access.mjs", "packages/adapters/migrations/024_human_user_mfa_cipher.sql", "packages/adapters/src/postgresql-project-identity-store.mjs", "tests/project-identity.test.mjs", "tests/wp02-identity-http-hardening.test.mjs", "tests/wp02-mfa-key-rotation.test.mjs", "tests/wp02-mfa-persistence-postgres.test.mjs", "tests/wp02-route-authorization-sweep.test.mjs", "tools/acceptance/run-test-acceptance.mjs"],
+      "open_gate": "Source complete under BATCH-BACKOFFICE-20261008-027 (encrypted MFA persistence and rotation, enrollment, session lifecycle, brute-force and replay controls, route sweep) and rehearsed locally with PostgreSQL and a SIGKILL restart (seed 194/194, verify 47/47). Stays partial until the owner runs the Test-host acceptance on a promoted candidate with HERO_MFA_ENCRYPTION_KEY set. Real recovery email delivery remains separately gated."
     },
     {
       "from": "BO-031",
@@ -75,8 +75,8 @@
       "count": 12,
       "work_package": "WP-03",
       "status": "partial",
-      "evidence": ["packages/domain/src/project-workspace.mjs", "packages/adapters/src/postgresql-project-workspace-store.mjs", "tests/project-workspace-and-settings.test.mjs"],
-      "open_gate": "Complete private object storage, malware scanning, sandboxed parsers, SSRF/ZIP-bomb controls, live read-only import and usable project-management UI."
+      "evidence": ["docs/roadmap/BACKOFFICE-IDENTITY-CONTENT-SAFETY-BO-021-042.md", "packages/domain/src/content-safety.mjs", "packages/domain/src/project-workspace.mjs", "packages/adapters/src/postgresql-project-workspace-store.mjs", "tests/helpers/zip-builder.mjs", "tests/project-workspace-and-settings.test.mjs", "tests/wp03-content-safety.test.mjs", "tests/wp03-upload-http.test.mjs", "tools/acceptance/run-test-acceptance.mjs"],
+      "open_gate": "Source complete under BATCH-BACKOFFICE-20261008-027 (allowlist, signature and real ZIP-structure checks, SSRF with DNS verification, prompt-injection review, restricted parsers, quota) and rehearsed locally. Stays partial until the owner runs the Test-host acceptance. An external antivirus engine, PDF text extraction and live read-only GitHub import remain separately gated."
     },
     {
       "from": "BO-043",
@@ -218,18 +218,18 @@
       "to": "BO-156",
       "count": 10,
       "work_package": "WP-13",
-      "status": "partial",
+      "status": "verified",
       "evidence": ["apps/control-plane/src/project-help-view.mjs", "apps/control-plane/src/project-inbox-view.mjs", "apps/control-plane/src/server.mjs", "config/audit/secret-scan-allowlist.json", "config/authorizations/backoffice-20261007-026.json", "packages/contracts/src/help-content.mjs", "packages/contracts/src/operational-hardening.mjs", "packages/contracts/src/ui-locale.mjs", "packages/domain/src/operational-hardening.mjs", "tests/backoffice-remaining-controls.test.mjs", "tests/browser/locale-a11y.browser.mjs", "tests/wp13-audits-bo150-156.test.mjs", "tests/wp13-hardening-bo147-156.test.mjs", "tools/acceptance/audit-lib.mjs", "tools/acceptance/run-test-acceptance.mjs", "tools/acceptance/security-review.mjs", "tools/audit/backup-restore.mjs", "tools/audit/load-soak.mjs", "tools/audit/run-local-audit.mjs", "tools/audit/secret-dependency-scan.mjs"],
-      "open_gate": "Source completed 2026-10-07 under BATCH-BACKOFFICE-20261007-026: per-project retention with unweakenable minimums, dry-run cleanup with holds, digest manifests and audited refused deletions (BO-147/148); fa/en Inbox and Help with stable identifiers (BO-149); executable accessibility audit that found and fixed four contrast failures (BO-150); lists paged under one query budget with lazy traces (BO-151); executable security review of authentication, authorization, object-level access, upload, AI tool and Node Agent boundaries (BO-152); load, soak and failure injection that found and fixed a persistence loss on database outage (BO-153); verified logical backup and restore (BO-154); offline secret and dependency scan plus audit-coverage report (BO-155); three-role by two-language regression in a real browser (BO-156). Stays partial until a promoted candidate (rc.40) passes the extended acceptance on the Test host. Known gaps: only the Inbox and Help are bilingual; real data deletion is intentionally not enabled; the online advisory lookup was not run; load figures come from local runs, not from the Test host; backup is a logical copy of Back Office records, not a database-level dump."
+      "open_gate": "Verified 2026-10-08 on Test runtime: owner-run role-based acceptance (tools/run-test-acceptance.sh, run 20261008T033228Z-30e372) on the exact candidate ghcr.io/farhaddgm/hero@sha256:6df22aa1919c14497470100ae4ec33214ee0feb90e20831d2fc1b30c75563b29 (v1.1.5-rc.41) passed every in-scope check (171 seed + 44 after a SIGKILL restart, BO-043..BO-170) with PostgreSQL persistence, including digest-identical read models across the restart. Known limits stay recorded in the evidence document: only the Inbox and Help are bilingual, data deletion is intentionally off, the online advisory lookup was not run, and the clean-target transfer was rehearsed locally. MFA users still cannot log in after a restart (BO-IAM-001)."
     },
     {
       "from": "BO-157",
       "to": "BO-166",
       "count": 10,
       "work_package": "WP-14",
-      "status": "partial",
+      "status": "verified",
       "evidence": ["apps/control-plane/src/server.mjs", "config/authorizations/backoffice-20261007-026.json", "config/backoffice/requirement-trace-v1.0.json", "packages/contracts/src/final-readiness.mjs", "packages/contracts/src/route-migration.mjs", "packages/domain/src/final-readiness.mjs", "tests/backoffice-remaining-controls.test.mjs", "tests/wp14-final-readiness-bo157-166.test.mjs", "tools/acceptance/run-test-acceptance.mjs", "tools/audit/backup-restore.mjs", "tools/audit/notion-plan.mjs", "tools/audit/read-models.mjs", "tools/audit/scenarios.mjs", "tools/audit/traceability-audit.mjs"],
-      "open_gate": "Source completed 2026-10-07 under BATCH-BACKOFFICE-20261007-026: legacy routes keep working with Deprecation, Sunset and Link headers until 2027-04-05 and then answer 410 with their successor (BO-157/158); read models are compared by canonical digest before and after a rebuild, restart and transfer, which exposed and fixed a non-canonical digest (BO-159); two-project, adversarial (cross-project, privilege escalation, prompt injection), crash-resume and transfer scenarios run against real servers and are recorded with a tool, a digest and counted checks (BO-160..163); the traceability audit checks every requirement and range against the repository and added real test evidence where it was missing (BO-164); bilingual help, glossary and runbook for the three roles (BO-165); a plan-only Notion projection with checksums, zero writes and zero network calls (BO-166). Stays partial until a promoted candidate (rc.40) passes the extended acceptance on the Test host. Known gaps: BO-163 is rehearsed between local databases, not between two clean Test targets; BO-158 removed no route (replacement is verified first, removal waits for the window); the Notion classification review is stale against the new catalog digest and needs an owner re-review before any projection."
+      "open_gate": "Verified 2026-10-08 on Test runtime: owner-run role-based acceptance (tools/run-test-acceptance.sh, run 20261008T033228Z-30e372) on the exact candidate ghcr.io/farhaddgm/hero@sha256:6df22aa1919c14497470100ae4ec33214ee0feb90e20831d2fc1b30c75563b29 (v1.1.5-rc.41) passed every in-scope check (171 seed + 44 after a SIGKILL restart, BO-043..BO-170) with PostgreSQL persistence, including digest-identical read models across the restart. Known limits stay recorded in the evidence document: only the Inbox and Help are bilingual, data deletion is intentionally off, the online advisory lookup was not run, and the clean-target transfer was rehearsed locally. MFA users still cannot log in after a restart (BO-IAM-001)."
     },
     {
       "from": "BO-167",
@@ -237,8 +237,8 @@
       "count": 2,
       "work_package": "WP-14",
       "status": "partial",
-      "evidence": ["packages/domain/src/final-readiness.mjs", "tests/backoffice-remaining-controls.test.mjs"],
-      "open_gate": "Not in an authorization batch: the full reference-environment run and the Final Readiness Review are outside BATCH-BACKOFFICE-20261007-026."
+      "evidence": ["docs/roadmap/BACKOFFICE-FINAL-READINESS-REVIEW-BO-167-168.md", "packages/domain/src/final-readiness.mjs", "tests/backoffice-remaining-controls.test.mjs"],
+      "open_gate": "Run and review recorded under BATCH-BACKOFFICE-20261008-027: host pnpm check exit 0 (611 pass, 0 fail, 1 skipped); Linux container run 608 pass with 1 environment failure (no git in the minimal image); PostgreSQL-backed suites 9/9. Stays partial until the repository CI run on the PR and the owner's Test-host acceptance are recorded."
     },
     {
       "from": "BO-169",
