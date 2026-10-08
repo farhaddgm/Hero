@@ -39,7 +39,7 @@ BO-021..BO-024 (ماتریس مجوز، User/Role/ProjectGrant، middleware مش
 |---|---|---|
 | BO-035 | سهمیهٔ هر فایل و کل سهمیهٔ پروژه (۱۰۰ مگابایت، ۵۰۰ فایل)؛ بایت دودویی از مسیر HTTP با `encoding: "base64"` (رمزگشایی سخت‌گیرانه) می‌رسد تا هیچ بایتی با UTF-8 تغییر نکند. | `tests/wp03-upload-http.test.mjs` |
 | BO-036 | allowlist نوع/پسوند/MIME، امضای فایل، نام فایل (مسیر، کاراکتر جهت‌دهنده، پسوند اجرایی یا دوگانه)، اسکن امضایی داخلی (امضای آزمایشی EICAR، اجرایی بومی، Office قدیمی، محتوای فعال PDF، polyglot تصویر). نتیجه همیشه `externalAntivirus: "not-connected"` می‌گوید؛ «clean» به‌معنای پاک بودن از نظر آنتی‌ویروس کامل نیست. | `tests/wp03-content-safety.test.mjs` |
-| BO-037 | parser محدود و درون‌فرایندی: متن (UTF-8 سخت‌گیر)، Word/Excel (استخراج با سقف خروجی)، تصویر (ابعاد و سقف پیکسل)، PDF (فقط metadata، بدون استخراج متن)، ZIP (فهرست). لینک فقط ثبت می‌شود، هرگز fetch نمی‌شود (`pending-separate-authorization`). | همان آزمون و `tests/wp03-upload-http.test.mjs` |
+| BO-037 | parser محدود و درون‌فرایندی: متن (UTF-8 سخت‌گیر)، Word/Excel (استخراج با سقف خروجی)، تصویر (ابعاد و سقف پیکسل)، PDF (متن ساده از content streamهای Flate با سقف خروجی؛ رمزدار، فقط‌تصویر یا فونت‌های سفارشی متن نمی‌دهند و حدس زده نمی‌شود)، ZIP (فهرست). لینک فقط ثبت می‌شود، هرگز fetch نمی‌شود (`pending-separate-authorization`). | همان آزمون و `tests/wp03-upload-http.test.mjs` |
 | BO-038 | ZIP: بازرسی فقط از central directory (traversal، symlink، رمزدار، آرشیو تودرتو، اجرایی، macro، عمق، تعداد، نسبت و مجموع انبساط)؛ ادعای اندازهٔ کلاینت دیگر پذیرفته نمی‌شود؛ استخراج با سقف سخت `maxOutputLength` حتی اگر header دروغ بگوید. SSRF: فقط HTTPS و پورت پیش‌فرض، بدون credential، شکل‌های اعشاری/هگز/اکتال IP، IPv6 (از جمله mapped)، `169.254.169.254`، نام‌های داخلی؛ بررسی DNS با resolver تزریقی (rebinding رد می‌شود؛ بدون resolver ثابت نمی‌شود که host عمومی است). Prompt injection: الگوهای انگلیسی و فارسی، نویسهٔ نامرئی، blob رمزشده؛ متن مشکوک نگه‌داشته می‌شود اما `reviewRequired` است و هرگز به‌عنوان context بازخوانی نمی‌شود؛ پوشش `untrusted-content` محتوا را داده می‌داند. | `tests/wp03-content-safety.test.mjs` |
 | BO-039..BO-042 | پیشنهاد بنیان، نسخه‌دهی، Import فقط‌خواندنی و Clone با حذف اجباری Secret (از قبل) بدون تغییر. | `tests/project-workspace-and-settings.test.mjs` |
 
@@ -50,7 +50,7 @@ BO-021..BO-024 (ماتریس مجوز، User/Role/ProjectGrant، middleware مش
 ## محدودیت‌های شناخته‌شده
 
 - اسکن داخلی آنتی‌ویروس واقعی نیست؛ اتصال به موتور خارجی جداگانه مجوز می‌خواهد.
-- PDF متن استخراج نمی‌شود. تحویل ایمیل بازیابی پیکربندی نشده است.
+- متن PDF فقط برای PDFهای ساده خوانده می‌شود (فونت‌های CID/ToUnicode و اسکن تصویری متن نمی‌دهند). تحویل ایمیل بازیابی پیکربندی نشده است.
 - بدون `HERO_MFA_ENCRYPTION_KEY` کاربران MFA پس از restart نمی‌توانند وارد شوند (به‌صورت ایمن شکست می‌خورد). مالک باید کلید را در `/etc/hero/hero-test.env` بگذارد.
 - بررسی DNS برای لینک آماده است اما تا مجوز fetch جداگانه، هیچ لینکی fetch نمی‌شود.
 - چرخش کلید MFA: کلید جدید را در `HERO_MFA_ENCRYPTION_KEY` و کلید قبلی را در `HERO_MFA_ENCRYPTION_KEY_PREVIOUS` بگذارید؛ در راه‌اندازی بعدی سرور، مقدارهای قدیمی با کلید جدید دوباره رمز می‌شوند (آزمون: `tests/wp02-mfa-key-rotation.test.mjs`); پس از آن کلید قبلی را بردارید.
