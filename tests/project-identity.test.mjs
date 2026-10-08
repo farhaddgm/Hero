@@ -148,6 +148,7 @@ test("identity page is network-protected and exposes the real identity workflow"
   assert.deepEqual((await status.json()).identity, {
     configured: true,
     humanLoginAvailable: true,
+    mfaPersistence: "unavailable-no-key",
     networkBoundary: "human-session-portal-with-legacy-basic",
     ownerMfaRequired: true,
     totp: "rfc6238-base32-with-legacy-verification",
