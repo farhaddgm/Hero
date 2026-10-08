@@ -25,7 +25,7 @@
 | آزمون‌های وابسته به PostgreSQL | همان container، `--network host`، PostgreSQL 16.13 محلی | ۹ از ۹ pass (از جمله ماندگاری و رمزنگاری MFA، migrationهای ۰۱۶ و ۰۲۴ و تطابق رویدادهای ممیزی). |
 | تمرین پذیرش seed → SIGKILL → verify | سرور واقعی + PostgreSQL محلی تازه (`tools/acceptance/run-test-acceptance.mjs`) | seed: ۱۹۴/۱۹۴ بررسی در حکم (`BO-021..BO-170`)؛ verify: ۴۷/۴۷؛ ۰ شکست؛ روی PostgreSQL تازه با SIGKILL میانی. |
 
-اجرای مرجع با git: CI ریپو (Ubuntu با git و Node 22) روی PR #16 (run `37726817574`، commit `f5ebe09`) و گام «Run Hero verification» ساخت rc.42 (run `37726985253`، commit `b622745`) هر دو **موفق** بودند؛ یعنی شکست محیطی بالا (نبود git در container حداقلی) در محیط دارای git تکرار نشد. آزمون Test environment همان candidate هم موفق بود (run `37727170163`). `BO-167` تا ثبت آزمون پذیرش مالک روی host Test در وضعیت `partial` می‌ماند.
+اجرای مرجع با git: CI ریپو (Ubuntu با git و Node 22) روی PR #16 (run `37726817574`، commit `f5ebe09`) و گام «Run Hero verification» ساخت rc.42 (run `37726985253`، commit `b622745`) هر دو **موفق** بودند؛ یعنی شکست محیطی بالا (نبود git در container حداقلی) در محیط دارای git تکرار نشد. آزمون Test environment همان candidate هم موفق بود (run `37727170163`). آزمون پذیرش مالک روی host Test نیز در ۲۰۲۶-۱۰-۰۸ با `v1.1.5-rc.44` PASS شد (run `20261008T131038Z-163016`، seed `241/241`، verify `61/61`، `BO-021..BO-170`)؛ بنابراین `BO-167` و `BO-168` در وضعیت `verified` هستند.
 
 ## ۲. BO-168 — Final Readiness Review
 
