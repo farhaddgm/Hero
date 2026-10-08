@@ -1,4 +1,4 @@
-// Hero Test acceptance runner (WP-04..WP-14, BO-043..BO-166).
+// Hero Test acceptance runner (WP-02..WP-14, BO-021..BO-170).
 //
 // Runs INSIDE a container of the exact candidate image, against a disposable
 // Hero instance on an internal Docker network (see tools/run-test-acceptance.sh).
@@ -534,10 +534,10 @@ let fatal = null;
 try { await (phase === "seed" ? seed() : verify()); } catch (error) { fatal = error.message; check("runner", "phase completed without a fatal error", false, error.message); }
 const resultFile = path.join(STATE_DIR, `checks-${phase}.json`);
 fs.writeFileSync(resultFile, JSON.stringify(checks, null, 2));
-// The verdict covers BO-043..BO-092 (and the runner itself); other steps are reported as findings.
-const inScope = item => item.step === "runner" || (/^BO-\d{3}$/.test(item.step) && Number(item.step.slice(3)) >= 43 && Number(item.step.slice(3)) <= 170);
+// The verdict covers BO-021..BO-170 (and the runner itself); other steps are reported as findings.
+const inScope = item => item.step === "runner" || (/^BO-\d{3}$/.test(item.step) && Number(item.step.slice(3)) >= 21 && Number(item.step.slice(3)) <= 170);
 const scoped = checks.filter(inScope); const failed = scoped.filter(item => !item.ok); const findings = checks.filter(item => !inScope(item) && !item.ok);
-console.log(`Hero acceptance ${phase}: ${scoped.length - failed.length}/${scoped.length} in-scope checks passed (BO-043..BO-170); ${checks.length - scoped.length} supporting checks`);
+console.log(`Hero acceptance ${phase}: ${scoped.length - failed.length}/${scoped.length} in-scope checks passed (BO-021..BO-170); ${checks.length - scoped.length} supporting checks`);
 for (const item of failed) console.log(`  FAIL ${item.step} — ${item.name}${item.detail ? ` (${item.detail})` : ""}`);
 for (const item of findings) console.log(`  FINDING ${item.step} — ${item.name}${item.detail ? ` (${item.detail})` : ""}`);
 process.exit(failed.length || fatal ? 1 : 0);
