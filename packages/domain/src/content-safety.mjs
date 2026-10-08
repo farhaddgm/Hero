@@ -261,6 +261,47 @@ function imageSize(bytes) {
   return null;
 }
 
+/** Text from simple PDFs only: content streams are inflated under a hard ceiling and only literal/hex strings inside BT..ET are read. Fonts with custom encodings (CID/ToUnicode) yield nothing, never a guess. */
+export function extractPdfText(bytes, limits = CONTENT_LIMITS) {
+  const source = bytes.toString("latin1");
+  if (/\/Encrypt\b/.test(source)) return Object.freeze({ text: null, reason: "encrypted", streams: 0, truncated: false });
+  const parts = []; let streams = 0; let total = 0; let truncated = false; let inflatedTotal = 0;
+  const decodeString = raw => (raw.length >= 2 && raw.charCodeAt(0) === 0xfe && raw.charCodeAt(1) === 0xff ? Buffer.from(raw.slice(2), "latin1").swap16().toString("utf16le") : raw);
+  const unescape = body => body.replace(/\\([nrtbf()\\]|[0-7]{1,3}|\r?\n)/g, (_, code) => ({ n: "\n", r: "\r", t: "\t", b: "\b", f: "\f", "(": "(", ")": ")", "\\": "\\" }[code] ?? (/^[0-7]+$/.test(code) ? String.fromCharCode(parseInt(code, 8) & 255) : "")));
+  let cursor = 0;
+  while (streams < 500) {
+    const at = source.indexOf("stream", cursor); if (at < 0) break;
+    cursor = at + 6;
+    if (source.slice(at - 3, at) === "end") continue;
+    const dictStart = source.lastIndexOf("<<", at); const dict = dictStart >= 0 ? source.slice(dictStart, at) : "";
+    if (/\/Subtype\s*\/Image|\/Type\s*\/XObject|\/ObjStm|\/XRef|\/EmbeddedFile|\/FontFile/.test(dict)) continue;
+    let begin = at + 6; if (source[begin] === "\r") begin += 1; if (source[begin] === "\n") begin += 1;
+    const end = source.indexOf("endstream", begin); if (end < 0) break;
+    cursor = end + 9; streams += 1;
+    let data = bytes.subarray(begin, end);
+    if (/\/FlateDecode/.test(dict)) {
+      try { data = zlib.inflateSync(data, { maxOutputLength: limits.maxExtractedTextBytes * 2 }); inflatedTotal += data.length; }
+      catch { truncated = true; continue; }
+      if (inflatedTotal > limits.maxZipExpandedBytes / 4) { truncated = true; break; }
+    } else if (/\/Filter/.test(dict)) continue;
+    const content = data.toString("latin1");
+    for (const block of content.matchAll(/BT([\s\S]*?)ET/g)) {
+      let line = "";
+      for (const token of block[1].matchAll(/\(((?:\\.|[^\\()])*)\)|<([0-9A-Fa-f\s]+)>|(T\*|Td|TD|')/g)) {
+        if (token[1] !== undefined) line += decodeString(unescape(token[1]));
+        else if (token[2] !== undefined) { const hex = token[2].replace(/\s+/g, ""); if (hex.length % 2 === 0 && hex.length <= 8192) line += decodeString(Buffer.from(hex, "hex").toString("latin1")); }
+        else if (line && !line.endsWith("\n")) line += "\n";
+      }
+      const clean = line.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "").trim();
+      if (clean) { parts.push(clean); total += clean.length; }
+      if (total >= limits.maxExtractedTextBytes) { truncated = true; break; }
+    }
+    if (total >= limits.maxExtractedTextBytes) break;
+  }
+  const text = parts.join("\n").slice(0, limits.maxExtractedTextBytes);
+  return Object.freeze({ text: text.length > 0 ? text : null, reason: text.length > 0 ? null : "no-simple-text", streams, truncated });
+}
+
 /** Restricted parsers: bounded, in-process, no external binaries and no network. PDF text is not extracted (metadata only). */
 export function parseContent({ type, bytes, limits = CONTENT_LIMITS }) {
   if (type === "text") {
@@ -270,7 +311,8 @@ export function parseContent({ type, bytes, limits = CONTENT_LIMITS }) {
   }
   if (type === "pdf") {
     const pages = bytes.toString("latin1").match(/\/Type\s*\/Page(?![a-z])/g)?.length ?? 0;
-    return Object.freeze({ state: "metadata-only", text: null, facts: { pages, version: bytes.subarray(5, 8).toString("ascii") } });
+    const extracted = extractPdfText(bytes, limits);
+    return Object.freeze({ state: extracted.text ? "parsed" : "metadata-only", text: extracted.text, facts: { pages, version: bytes.subarray(5, 8).toString("ascii"), textExtraction: extracted.text ? "simple-text" : extracted.reason, truncated: extracted.truncated } });
   }
   if (type === "image") {
     const size = imageSize(bytes);
