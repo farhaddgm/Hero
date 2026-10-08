@@ -87,10 +87,10 @@ test("BO-074 collaboration page: teams, roles, conversations and memory with int
   const { createHeroServer } = await import("../apps/control-plane/src/server.mjs");
   const { createHumanIdentity, createTotpCode } = await import("../packages/domain/src/human-identity.mjs");
   const { createProjectAccessRegistry } = await import("../packages/domain/src/project-access.mjs");
-  const fixed = () => "2026-10-06T10:00:00.000Z";
+  let skew = 0; const fixed = () => new Date(Date.parse("2026-10-06T10:00:00.000Z") + skew * 1000).toISOString();
   const access = createProjectAccessRegistry({ ownerUserId: "hero-owner", ownerUser: { email: "owner@example.test", displayName: "Owner" }, now: fixed });
   const identity = createHumanIdentity({ accessRegistry: access, sessionSecret: "collaboration-page-session-secret-12345", now: fixed, owner: { userId: "hero-owner", email: "owner@example.test", password: "Owner password 123", mfaSecret: "owner-mfa-secret-bo074" } });
-  const login = (email, password, secret) => { const challenge = identity.beginLogin({ email, password }); return identity.completeLogin({ challengeId: challenge.challengeId, mfaCode: createTotpCode(secret, Math.floor(Date.parse(fixed()) / 1000)) }).token; };
+  const login = (email, password, secret) => { skew += 31; const challenge = identity.beginLogin({ email, password }); return identity.completeLogin({ challengeId: challenge.challengeId, mfaCode: createTotpCode(secret, Math.floor(Date.parse(fixed()) / 1000)) }).token; };
   const projectSettings = createProjectSettingsRegistry({ now: fixed });
   const projectWorkspace = createProjectWorkspace({ ownerUserId: "hero-owner", now: fixed, settings: projectSettings });
   for (const projectId of ["project-alpha", "project-beta"]) projectWorkspace.createProject({ actor: owner, projectId, name: `Name ${projectId}` });

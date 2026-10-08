@@ -260,6 +260,13 @@ function clearHumanSessionCookie() {
   return `${HUMAN_SESSION_COOKIE_NAME}=; Max-Age=0; Expires=${EXPIRED_COOKIE_DATE}; Path=/; Secure; HttpOnly; SameSite=Strict`;
 }
 
+/** Binary uploads (PDF, Office, image, ZIP) arrive as base64 so no byte is altered by UTF-8; text stays a plain string. */
+function decodeUploadContent(input) {
+  if (input?.encoding === undefined || input.encoding === "utf8") return input?.content;
+  if (input.encoding !== "base64" || typeof input.content !== "string" || input.content.length === 0 || input.content.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(input.content)) throw new ProjectWorkspaceError("UPLOAD_ENCODING_INVALID", "Upload content must be valid base64 when encoding is base64.", 400);
+  return Buffer.from(input.content, "base64");
+}
+
 function json(response, statusCode, body, { maxBytes, headers = {} } = {}) {
   const payload = JSON.stringify(body);
   const payloadBytes = Buffer.byteLength(payload);
@@ -3320,7 +3327,7 @@ export function createHeroServer(options = {}) {
       const projectUploadMatch = url.pathname.match(/^\/api\/projects\/([a-z][a-z0-9-]{2,62})\/inputs\/upload$/);
       if (projectUploadMatch && request.method === "POST") {
         const input = await readJson(request, 5 * 1024 * 1024);
-        const storedInput = projectWorkspace.upload({ actor: authenticatedOwner, projectId: projectUploadMatch[1], type: input.type, filename: input.filename, content: input.content, mimeType: input.mimeType, zipExpandedBytes: input.zipExpandedBytes });
+        const storedInput = projectWorkspace.upload({ actor: authenticatedOwner, projectId: projectUploadMatch[1], type: input.type, filename: input.filename, content: decodeUploadContent(input), mimeType: input.mimeType });
         await persistWorkspaceInput(storedInput);
         return json(response, 201, { service: HERO_SERVICE, input: storedInput });
       }
