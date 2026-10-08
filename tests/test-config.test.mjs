@@ -114,3 +114,11 @@ test("Test configuration preflight validates the embedded Secret Store boundary 
   const configured = validateTestEnvironment({ ...valid, HERO_SECRET_STORE_MASTER_KEY: "a".repeat(64) });
   assert.equal(configured.ok, true);
 });
+
+test("Test configuration preflight accepts a 32-byte MFA encryption key and rejects a weak one without echoing it", () => {
+  assert.deepEqual(validateTestEnvironment({ ...valid, HERO_MFA_ENCRYPTION_KEY: "a".repeat(64) }), { ok: true, errors: [] });
+  const weak = validateTestEnvironment({ ...valid, HERO_MFA_ENCRYPTION_KEY: "too-short-key" });
+  assert.equal(weak.ok, false);
+  assert.match(weak.errors.join("\n"), /HERO_MFA_ENCRYPTION_KEY/);
+  assert.doesNotMatch(weak.errors.join("\n"), /too-short-key/);
+});

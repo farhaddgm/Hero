@@ -188,3 +188,12 @@ test("PostgreSQL migration runner rolls back when a migration fails", async () =
   await assert.rejects(() => createPostgresMigrationRunner({ client }).migrate(), /database unavailable/);
   assert.deepEqual(queries, ["BEGIN", readPostgresMigration("001"), "ROLLBACK"]);
 });
+
+test("every Human Identity audit event in the contract is allowed by the replayed migration 016 and by 024", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { HUMAN_IDENTITY_EVENTS } = await import("../packages/contracts/src/project-identity.mjs");
+  const read = name => readFileSync(new URL(`../packages/adapters/migrations/${name}`, import.meta.url), "utf8");
+  for (const sql of [read("016_ai_credential_audit_events.sql"), read("024_human_user_mfa_cipher.sql")]) {
+    for (const event of HUMAN_IDENTITY_EVENTS) assert.equal(sql.includes(`'${event}'`), true, `${event} must be allowed`);
+  }
+});

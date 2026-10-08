@@ -80,6 +80,7 @@ import { createRepositoryReadContext, HERO_REPOSITORY_READ_CONTEXT_VERSION } fro
 import { OwnerAuthError, createOwnerAuth } from "../../../packages/domain/src/owner-auth.mjs";
 import { AdminAuthError, createAdminAuth } from "../../../packages/domain/src/admin-auth.mjs";
 import { createHumanIdentity, HumanIdentityError, HUMAN_IDENTITY_SESSION_TTL_SECONDS } from "../../../packages/domain/src/human-identity.mjs";
+import { createMfaVault } from "../../../packages/domain/src/mfa-vault.mjs";
 import { createProjectAccessMiddleware } from "../../../packages/domain/src/project-access-middleware.mjs";
 import { createProjectAccessRegistry, ProjectAccessError } from "../../../packages/domain/src/project-access.mjs";
 import { createProjectSettingsRegistry, ProjectSettingsError } from "../../../packages/domain/src/project-settings.mjs";
@@ -532,8 +533,12 @@ export function createHeroServer(options = {}) {
   const projectAccessRegistry = options.projectAccessRegistry ?? (identityConfiguredFromEnvironment
     ? createProjectAccessRegistry({ ownerUserId: identityOwner.userId, ownerUser: identityOwner, now: options.now })
     : null);
+  const mfaVault = options.mfaVault ?? createMfaVault({
+    key: process.env.HERO_MFA_ENCRYPTION_KEY,
+    previousKeys: String(process.env.HERO_MFA_ENCRYPTION_KEY_PREVIOUS ?? "").split(",").map(item => item.trim()).filter(Boolean)
+  });
   const humanIdentity = options.humanIdentity ?? (identityConfiguredFromEnvironment
-    ? createHumanIdentity({ accessRegistry: projectAccessRegistry, sessionSecret: process.env.HERO_IDENTITY_SESSION_SECRET, owner: identityOwner, now: options.now })
+    ? createHumanIdentity({ accessRegistry: projectAccessRegistry, sessionSecret: process.env.HERO_IDENTITY_SESSION_SECRET, owner: identityOwner, mfaVault, now: options.now })
     : null);
   const projectAccessMiddleware = options.projectAccessMiddleware ?? (projectAccessRegistry && humanIdentity
     ? createProjectAccessMiddleware({ accessRegistry: projectAccessRegistry, identity: humanIdentity })
@@ -2280,6 +2285,11 @@ export function createHeroServer(options = {}) {
     }
   }
 
+  function requestDevice(request) {
+    const userAgent = String(request.headers?.["user-agent"] ?? "").slice(0, 200);
+    return { userAgent, source: request.socket?.remoteAddress ?? "unknown" };
+  }
+
   async function persistIdentityUser(userId) {
     if (!postgresRuntime?.projectIdentity || !humanIdentity?.persistenceRecord) return;
     await postgresRuntime.projectIdentity.saveUser(humanIdentity.persistenceRecord({ userId }));
@@ -2304,6 +2314,7 @@ export function createHeroServer(options = {}) {
       ownerMfaRequired: true,
       totp: "rfc6238-base32-with-legacy-verification",
       persistence: postgresRuntime?.projectIdentity ? "postgresql" : "not-connected",
+      mfaPersistence: humanIdentity?.mfaPersistence?.() ?? "unavailable-no-key",
       recoveryDelivery: "not-configured",
       sessionTtlSeconds: HUMAN_IDENTITY_SESSION_TTL_SECONDS
     });
@@ -2697,7 +2708,7 @@ export function createHeroServer(options = {}) {
       if (request.method === "POST" && url.pathname === "/api/identity/login") {
         if (!humanIdentity?.configured) throw new HumanIdentityError("IDENTITY_NOT_CONFIGURED", "Human identity is not configured.", 503);
         const input = await readJson(request);
-        const login = humanIdentity.beginLogin(input);
+        const login = humanIdentity.beginLogin({ ...input, device: requestDevice(request) });
         await persistIdentityAudit({ eventType: "identity.login-challenged", data: { mfaRequired: login.mfaRequired } });
         return json(response, 200, { service: HERO_SERVICE, login });
       }
@@ -2705,7 +2716,7 @@ export function createHeroServer(options = {}) {
       if (request.method === "POST" && url.pathname === "/api/identity/login/mfa") {
         if (!humanIdentity?.configured) throw new HumanIdentityError("IDENTITY_NOT_CONFIGURED", "Human identity is not configured.", 503);
         const input = await readJson(request);
-        const session = humanIdentity.completeLogin(input);
+        const session = humanIdentity.completeLogin({ ...input, device: requestDevice(request) });
         await persistIdentityAudit({ userId: session.principal.subject, eventType: "identity.session-issued", data: { sessionId: session.principal.sessionId } });
         return json(response, 200, { service: HERO_SERVICE, session }, { headers: { "set-cookie": humanSessionCookie(session.token) } });
       }
@@ -3156,6 +3167,41 @@ export function createHeroServer(options = {}) {
         if (postgresRuntime?.projectIdentity?.revokeSession) await postgresRuntime.projectIdentity.revokeSession({ sessionId: revocation.sessionId, userId: authenticatedOwner.subject, reason: revocation.reason });
         await persistIdentityAudit({ userId: authenticatedOwner.subject, eventType: "identity.session-revoked", data: { sessionId: revocation.sessionId, reason: revocation.reason } });
         return json(response, 200, { service: HERO_SERVICE, revocation }, { headers: { "set-cookie": clearHumanSessionCookie() } });
+      }
+
+      if (request.method === "GET" && url.pathname === "/api/identity/sessions") {
+        if (!humanIdentity?.configured || !authenticatedOwner?.source) throw new HumanIdentityError("IDENTITY_AUTH_REQUIRED", "Human authentication is required.", 401);
+        const requested = url.searchParams.get("userId") || authenticatedOwner.subject;
+        return json(response, 200, { service: HERO_SERVICE, sessions: humanIdentity.listSessions({ actor: authenticatedOwner, userId: requested }) });
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/identity/sessions/revoke-all") {
+        if (!humanIdentity?.configured || !authenticatedOwner?.source) throw new HumanIdentityError("IDENTITY_AUTH_REQUIRED", "Human authentication is required.", 401);
+        const input = await readJson(request);
+        const targetUserId = typeof input.userId === "string" && input.userId ? input.userId : authenticatedOwner.subject;
+        const active = humanIdentity.listSessions({ actor: authenticatedOwner, userId: targetUserId }).filter(item => item.state === "active" && !(input.exceptCurrent === true && item.current));
+        const result = humanIdentity.revokeAllSessions({ actor: authenticatedOwner, userId: targetUserId, exceptCurrent: input.exceptCurrent === true });
+        if (postgresRuntime?.projectIdentity?.revokeSession) for (const item of active) await postgresRuntime.projectIdentity.revokeSession({ sessionId: item.sessionId, userId: targetUserId, reason: "revoke-all" });
+        await persistIdentityAudit({ userId: targetUserId, eventType: "identity.sessions-revoked-all", data: { revoked: result.revoked, by: authenticatedOwner.subject } });
+        const own = targetUserId === authenticatedOwner.subject && input.exceptCurrent !== true;
+        return json(response, 200, { service: HERO_SERVICE, revocation: result }, own ? { headers: { "set-cookie": clearHumanSessionCookie() } } : undefined);
+      }
+
+      const identityUserActionMatch = url.pathname.match(/^\/api\/identity\/users\/([a-z][a-z0-9-]{2,63})\/(mfa\/enroll|disable)$/);
+      if (request.method === "POST" && identityUserActionMatch) {
+        if (!humanIdentity?.configured || !authenticatedOwner?.source) throw new HumanIdentityError("IDENTITY_AUTH_REQUIRED", "Human authentication is required.", 401);
+        const [, targetUserId, action] = identityUserActionMatch;
+        if (action === "disable") {
+          const input = await readJson(request);
+          const user = humanIdentity.disableUser({ actor: authenticatedOwner, userId: targetUserId, reason: input.reason });
+          await persistIdentityUser(targetUserId);
+          await persistIdentityAudit({ userId: targetUserId, eventType: "identity.user-disabled", data: { by: authenticatedOwner.subject } });
+          return json(response, 200, { service: HERO_SERVICE, user });
+        }
+        const enrollment = humanIdentity.enrollMfa({ actor: authenticatedOwner, userId: targetUserId });
+        await persistIdentityUser(targetUserId);
+        await persistIdentityAudit({ userId: targetUserId, eventType: "identity.mfa-enrolled", data: { by: authenticatedOwner.subject, persistence: enrollment.persistence } });
+        return json(response, 201, { service: HERO_SERVICE, enrollment }, { headers: { "cache-control": "no-store" } });
       }
 
       if (request.method === "GET" && url.pathname === "/api/identity/users") {

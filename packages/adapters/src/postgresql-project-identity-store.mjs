@@ -42,12 +42,12 @@ export function createPostgresProjectIdentityStore({ client, pool } = {}) {
   const target = client ?? pool;
 
   return Object.freeze({
-    async saveUser({ userId, email, displayName, passwordHash, passwordSalt, mfaSecretRef = null, mfaRequired = false, status = "active" }) {
+    async saveUser({ userId, email, displayName, passwordHash, passwordSalt, mfaSecretRef = null, mfaSecretCipher = null, recoveryCodeHashes = [], mfaRequired = false, status = "active" }) {
       assertIdentifier("userId", userId);
       if (typeof email !== "string" || email.length < 3 || typeof passwordHash !== "string" || typeof passwordSalt !== "string" || !["active", "disabled"].includes(status)) throw new ProjectIdentityStoreError("INVALID_USER", "User persistence fields are invalid.");
       const result = await target.query(
-        `INSERT INTO human_users (user_id, email, display_name, status, password_hash, password_salt, mfa_secret_ref, mfa_required)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `INSERT INTO human_users (user_id, email, display_name, status, password_hash, password_salt, mfa_secret_ref, mfa_required, mfa_secret_cipher, recovery_code_hashes)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
          ON CONFLICT (user_id) DO UPDATE SET
            email = EXCLUDED.email,
            display_name = EXCLUDED.display_name,
@@ -56,16 +56,18 @@ export function createPostgresProjectIdentityStore({ client, pool } = {}) {
            password_salt = EXCLUDED.password_salt,
            mfa_secret_ref = EXCLUDED.mfa_secret_ref,
            mfa_required = EXCLUDED.mfa_required,
+           mfa_secret_cipher = EXCLUDED.mfa_secret_cipher,
+           recovery_code_hashes = EXCLUDED.recovery_code_hashes,
            updated_at = now()
          RETURNING user_id, email, display_name, status, mfa_required, created_at`,
-        [userId, email.toLowerCase(), String(displayName ?? userId).slice(0, 160), status, passwordHash, passwordSalt, mfaSecretRef, Boolean(mfaRequired)]
+        [userId, email.toLowerCase(), String(displayName ?? userId).slice(0, 160), status, passwordHash, passwordSalt, mfaSecretRef, Boolean(mfaRequired), mfaSecretCipher, JSON.stringify(Array.isArray(recoveryCodeHashes) ? recoveryCodeHashes.filter(item => /^[a-f0-9]{64}$/.test(String(item))) : [])]
       );
       return result.rows?.[0] ? copy({ userId: result.rows[0].user_id, email: result.rows[0].email, displayName: result.rows[0].display_name, status: result.rows[0].status, mfaRequired: result.rows[0].mfa_required }) : null;
     },
 
     async listUsers() {
       const result = await target.query(
-        `SELECT user_id, email, display_name, status, password_hash, password_salt, mfa_secret_ref, mfa_required, created_at
+        `SELECT user_id, email, display_name, status, password_hash, password_salt, mfa_secret_ref, mfa_required, mfa_secret_cipher, recovery_code_hashes, created_at
            FROM human_users
           WHERE status IN ('active', 'disabled')
           ORDER BY user_id`
@@ -78,6 +80,8 @@ export function createPostgresProjectIdentityStore({ client, pool } = {}) {
         passwordHash: row.password_hash,
         passwordSalt: row.password_salt,
         mfaSecretRef: row.mfa_secret_ref,
+        mfaSecretCipher: row.mfa_secret_cipher ?? null,
+        recoveryCodeHashes: Array.isArray(row.recovery_code_hashes) ? row.recovery_code_hashes : [],
         mfaRequired: Boolean(row.mfa_required),
         createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at
       })));

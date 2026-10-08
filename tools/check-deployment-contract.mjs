@@ -45,6 +45,7 @@ requireMatch(compose, /HERO_ENABLE_REAL_PROVIDERS:\s*\$\{HERO_ENABLE_REAL_PROVID
 requireMatch(compose, /HERO_SECRET_STORE_ENABLED:\s*\$\{HERO_SECRET_STORE_ENABLED:-false\}/, "Embedded Secret Store must be an explicit runtime switch.");
 requireMatch(compose, /HERO_SECRET_STORE_DIR:\s*\$\{HERO_SECRET_STORE_DIR:-\/var\/lib\/hero\/secret-store\}/, "Embedded Secret Store path must stay inside the Hero data volume.");
 requireMatch(compose, /HERO_SECRET_STORE_MASTER_KEY:\s*\$\{HERO_SECRET_STORE_MASTER_KEY:-\}/, "Secret Store master key must be runtime-only.");
+requireMatch(compose, /HERO_MFA_ENCRYPTION_KEY:\s*\$\{HERO_MFA_ENCRYPTION_KEY:-\}/, "The MFA encryption key must be forwarded only from the runtime environment.");
 requireMatch(compose, /HERO_OPENAI_API_KEY:\s*\$\{HERO_OPENAI_API_KEY:-\}/, "OpenAI credentials must only be forwarded from runtime environment variables.");
 for (const key of ["HERO_IDENTITY_SESSION_SECRET", "HERO_OWNER_EMAIL", "HERO_OWNER_PASSWORD", "HERO_OWNER_MFA_SECRET"]) {
   requireMatch(compose, new RegExp(`${key}:\\s*\\$\\{${key}:-\\}`), `${key} must be forwarded only from the runtime environment.`);

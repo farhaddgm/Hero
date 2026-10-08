@@ -101,38 +101,27 @@ test("owner recovery revokes prior sessions and enforces a sensitive-action cool
   assert.equal(recovery.recovered, true);
   assert.throws(() => identity.authenticate(`Bearer ${prior.token}`), error => error.code === "IDENTITY_AUTH_REVOKED");
   const oldChallenge = identity.beginLogin({ email: "owner@example.test", password: "Replacement owner password 123" });
-  const recovered = identity.completeLogin({ challengeId: oldChallenge.challengeId, mfaCode: createTotpCode(ownerSecret, epoch) }).principal;
+  const recovered = identity.completeLogin({ challengeId: oldChallenge.challengeId, mfaCode: createTotpCode(ownerSecret, epoch + 30) }).principal;
   assert.throws(() => identity.assertSensitiveActionAllowed({ principal: recovered, action: "secret.reveal" }), error => error.code === "RECOVERY_COOLDOWN_ACTIVE");
   assert.equal(prior.principal.role, "project-owner");
 });
 
-test("identity hydration restores persisted users without persisting MFA secrets", () => {
+test("without an encryption key an MFA secret is never stored and the restored account refuses MFA login instead of passing", () => {
   const first = setup();
   const owner = ownerPrincipal(first.identity);
-  first.identity.createUser({ actor: owner, user: {
-    userId: "project-admin",
-    email: "admin@example.test",
-    displayName: "Admin",
-    password: "Admin password 123",
-    mfaSecret: "admin-mfa-secret-123",
-    mfaSecretRef: "env:HERO_ADMIN_MFA_SECRET",
-    mfaRequired: true
-  } });
+  first.identity.createUser({ actor: owner, user: { userId: "project-admin", email: "admin@example.test", displayName: "Admin", password: "Admin password 123", mfaSecret: "admin-mfa-secret-123", mfaSecretRef: "env:HERO_ADMIN_MFA_SECRET", mfaRequired: true } });
   const persisted = first.identity.persistenceRecord({ userId: "project-admin" });
-  assert.equal("mfaSecret" in persisted, false);
+  assert.equal("mfaSecret" in persisted, false); assert.equal(persisted.mfaSecretCipher, null); assert.equal(persisted.mfaPersistence, "not-stored-no-key");
+  assert.equal(first.identity.mfaPersistence(), "unavailable-no-key");
 
   const access = createProjectAccessRegistry({ ownerUserId: "hero-owner", ownerUser: { email: "owner@example.test", displayName: "Owner" }, now });
-  const identity = createHumanIdentity({
-    accessRegistry: access,
-    sessionSecret,
-    now,
-    owner: { userId: "hero-owner", email: "owner@example.test", displayName: "Owner", password: "Owner password 123", mfaSecret: ownerSecret }
-  });
+  const identity = createHumanIdentity({ accessRegistry: access, sessionSecret, now, owner: { userId: "hero-owner", email: "owner@example.test", displayName: "Owner", password: "Owner password 123", mfaSecret: ownerSecret } });
   access.hydrateUser({ user: { userId: persisted.userId, email: persisted.email, displayName: persisted.displayName, role: "viewer" } });
   identity.hydrateUser({ user: persisted });
   const challenge = identity.beginLogin({ email: "admin@example.test", password: "Admin password 123" });
   assert.equal(challenge.mfaRequired, true);
-  assert.throws(() => identity.completeLogin({ challengeId: challenge.challengeId, mfaCode: "000000" }), error => error.code === "MFA_INVALID");
+  assert.throws(() => identity.completeLogin({ challengeId: challenge.challengeId, mfaCode: "000000" }), error => error.code === "MFA_UNAVAILABLE" && error.statusCode === 503, "fail closed with a clear code");
+  assert.equal(identity.getUser("project-admin").mfaState, "secret-not-stored");
 });
 
 test("identity page is network-protected and exposes the real identity workflow", async t => {

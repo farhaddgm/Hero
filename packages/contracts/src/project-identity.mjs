@@ -27,7 +27,10 @@ export const HUMAN_IDENTITY_EVENTS = Object.freeze([
   "identity.session-revoked",
   "identity.recovery-requested",
   "identity.recovery-completed",
-  "identity.step-up-verified"
+  "identity.step-up-verified",
+  "identity.mfa-enrolled",
+  "identity.user-disabled",
+  "identity.sessions-revoked-all"
 ]);
 
 export const OWNER_ONLY_ACTIONS = Object.freeze([
