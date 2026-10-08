@@ -1,3 +1,4 @@
+import { assertNoProductionPayload } from "./production-data-guard.mjs";
 import { randomUUID } from "node:crypto";
 import { COLLABORATION_RECORD_TYPES, CONVERSATION_CONTEXTS, MEMORY_LEVELS, MEMORY_SENSITIVITIES, settingsKeyFor } from "../../contracts/src/backoffice-collaboration.mjs";
 import { AI_ROLES } from "../../contracts/src/ai-orchestration.mjs";
@@ -20,6 +21,7 @@ function reader(actor) { if (!actor || !["project-owner", "admin", "viewer"].inc
 function reason(value) { if (typeof value !== "string" || value.trim().length < 3) throw new CollaborationError("REASON_REQUIRED", "Reason is required.", 400); return value.trim().slice(0, 500); }
 /** An internal source may be global (hero://evidence/…) or belong to exactly this project. */
 function source(value, projectId) {
+  assertNoProductionPayload(value, "source");
   if (!value || typeof value !== "object" || typeof value.reference !== "string" || !value.reference.startsWith("hero://")) throw new CollaborationError("SOURCE_REQUIRED", "An internal hero:// source reference is required.", 400);
   const owner = value.reference.match(PROJECT_REFERENCE)?.[1];
   if (owner && owner !== projectId) throw new CollaborationError("CROSS_PROJECT_SOURCE_REJECTED", "A source from another project cannot be cited; use a knowledge proposal.", 403);

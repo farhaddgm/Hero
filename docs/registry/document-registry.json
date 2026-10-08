@@ -1135,7 +1135,7 @@
       "type": "evidence",
       "scope": "hero",
       "status": "active",
-      "version": "4.18.0",
+      "version": "4.19.0",
       "owner": "hero-operations",
       "canonical": true,
       "supersedes": [
@@ -2018,6 +2018,20 @@
       "supersedes": [],
       "superseded_by": null,
       "review_cadence": "per-change"
+    },
+    {
+      "id": "HERO-EVIDENCE-BACKOFFICE-ENVIRONMENTS-DELIVERY-SOURCE-BO-121-146",
+      "path": "docs/roadmap/BACKOFFICE-ENVIRONMENTS-DELIVERY-SOURCE-BO-121-146.md",
+      "title": "Evidence محیط‌ها، سرورها و تحویل (سطح source) — BO-121 تا BO-146",
+      "type": "evidence",
+      "scope": "hero",
+      "status": "active",
+      "version": "1.0.0",
+      "owner": "hero-architecture",
+      "canonical": true,
+      "supersedes": [],
+      "superseded_by": null,
+      "review_cadence": "none"
     },
     {
       "id": "HERO-EVIDENCE-BACKOFFICE-DELIVERY-AUDIT-20260911",

@@ -201,8 +201,8 @@
       "count": 14,
       "work_package": "WP-11",
       "status": "gated",
-      "evidence": ["packages/domain/src/infrastructure-control.mjs", "tests/backoffice-remaining-controls.test.mjs", "docs/roadmap/BACKOFFICE-ENVIRONMENT-DELIVERY-HARDENING-FINAL-BO-121-170.md"],
-      "open_gate": "Real GitHub/server/Node Agent/Secret Store operations and their adversarial runtime evidence require separate credentials and authorization."
+      "evidence": ["apps/control-plane/src/project-environments-view.mjs", "apps/control-plane/src/server.mjs", "config/authorizations/backoffice-20261008-028.json", "docs/roadmap/BACKOFFICE-ENVIRONMENT-DELIVERY-HARDENING-FINAL-BO-121-170.md", "docs/roadmap/BACKOFFICE-ENVIRONMENTS-DELIVERY-SOURCE-BO-121-146.md", "packages/contracts/src/infrastructure-control.mjs", "packages/domain/src/github-metadata-adapter.mjs", "packages/domain/src/infrastructure-control.mjs", "tests/wp11-infrastructure-bo121-134.test.mjs", "tests/wp11-wp12-http.test.mjs", "tools/acceptance/run-test-acceptance.mjs"],
+      "open_gate": "Source complete under BATCH-BACKOFFICE-20261008-028 and rehearsed locally with PostgreSQL and a SIGKILL restart: durable servers, nodes, runner policies, secret references and egress; the Node Agent protocol (off by default) with token, replay and rotation; session-proven secret reveal; GitHub read-only metadata through an injected adapter; the Environments page. Stays gated: no live GitHub, server, Node Agent or Secret Store connection was made, so the adversarial runtime evidence against real systems and any live Secret Store need separate credentials and authorization."
     },
     {
       "from": "BO-135",
@@ -210,8 +210,8 @@
       "count": 12,
       "work_package": "WP-12",
       "status": "gated",
-      "evidence": ["packages/domain/src/delivery-control.mjs", "packages/domain/src/release-promotion.mjs", "tests/backoffice-remaining-controls.test.mjs"],
-      "open_gate": "Production telemetry/break-glass evidence, clean-target portability, backup/restore rehearsal and final artifact acceptance require separate operational authorization."
+      "evidence": ["config/authorizations/backoffice-20261008-028.json", "docs/roadmap/BACKOFFICE-ENVIRONMENTS-DELIVERY-SOURCE-BO-121-146.md", "packages/contracts/src/delivery-control.mjs", "packages/domain/src/delivery-control.mjs", "packages/domain/src/production-data-guard.mjs", "packages/domain/src/release-promotion.mjs", "tests/wp12-delivery-bo135-146.test.mjs", "tests/wp11-wp12-http.test.mjs", "tools/acceptance/run-test-acceptance.mjs"],
+      "open_gate": "Source complete under BATCH-BACKOFFICE-20261008-028 and rehearsed locally: exact-schema redacted telemetry, break-glass needing a second person and fresh MFA, Production payload barred from Memory and Evaluation, a guarded release machine, immutable artifacts, digest-compared portability, ordered rehearsals and identity-bound acceptance. Stays gated: real Production telemetry, a real clean target for portability and backup/restore/upgrade/rollback rehearsal evidence, and final artifact acceptance on real systems require separate operational authorization."
     },
     {
       "from": "BO-147",
