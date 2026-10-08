@@ -124,6 +124,116 @@ async function identityAndContentChecks({ owner, run, P1 }) {
   return { enrolled };
 }
 
+async function stepUp(token, mfaSecret) {
+  // A TOTP code is single-use per window: on rejection wait for the next window and retry.
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const result = await call(token, "POST", "/api/identity/step-up", { mfaCode: createTotpCode(mfaSecret, Math.floor(Date.now() / 1000)) });
+    if (result.status === 200) return result.body.session.token;
+    if (attempt < 2) await sleep(31000);
+  }
+  throw new Error("step-up failed");
+}
+
+/** WP-11 / WP-12 (BO-121..BO-146): environments, nodes, runners, secret metadata, telemetry, break-glass, releases and delivery. Everything is metadata; nothing connects or deploys. */
+async function environmentsAndDeliveryChecks({ owner, admin, viewer, run, P1, users }) {
+  const infra = (token, body) => call(token, "POST", `/api/projects/${P1}/infrastructure`, body);
+  const delivery = (token, body) => call(token, "POST", `/api/projects/${P1}/delivery`, body);
+  const ids = { server: `${run}-srv`, prod: `${run}-prod`, node: `${run}-node`, node2: `${run}-nodeb` };
+  const soon = hours => new Date(Date.now() + hours * 3600_000).toISOString();
+
+  // BO-121 / BO-125 / BO-126
+  check("BO-121", "a custom environment is refused", (await infra(owner, { action: "onboard-server", serverId: `${run}-bad`, address: "10.0.0.9", credentialReference: "secret-ref:acc-bad", environment: "staging" })).body?.code === "SERVER_INVALID");
+  check("BO-125", "an admin registers a Test server by address and secret reference", (await infra(admin, { action: "onboard-server", serverId: ids.server, address: "10.0.0.4", credentialReference: "secret-ref:acc-ssh", environment: "test" })).status === 201);
+  await infra(admin, { action: "onboard-server", serverId: ids.prod, address: "prod.acceptance.invalid", credentialReference: "secret-ref:acc-prod", environment: "production" });
+  check("BO-125", "a viewer cannot register a server", (await infra(viewer, { action: "onboard-server", serverId: `${run}-v`, address: "10.0.0.8", credentialReference: "secret-ref:acc-v", environment: "test" })).status === 403);
+  const plan = await infra(admin, { action: "connectivity-plan", serverId: ids.server });
+  check("BO-126", "the bootstrap artifact is generated and pinned by SHA-256", /^[a-f0-9]{64}$/.test(plan.body?.result?.bootstrapDigest ?? "") && plan.body?.result?.state === "plan-only-no-bootstrap-executed");
+  check("BO-126", "a different bootstrap digest is refused", (await infra(admin, { action: "connectivity-plan", serverId: ids.server, bootstrapDigest: "a".repeat(64) })).body?.code === "BOOTSTRAP_DIGEST_MISMATCH");
+
+  // BO-123 / BO-127 / BO-134 through the Node Agent endpoints
+  const enrollment = (await infra(admin, { action: "create-enrollment", nodeId: ids.node, serverId: ids.server, expiresAt: soon(1) })).body?.result;
+  const agent = (path, body) => call(null, "POST", `/api/node-agent/${path}`, { projectId: P1, ...body });
+  const fingerprint = `fingerprint-${run}-0001`;
+  check("BO-127", "a wrong enrollment nonce is refused", (await agent("register", { nodeId: ids.node, enrollmentNonce: "wrong", identityFingerprint: fingerprint, capabilities: ["runner"] })).status === 403);
+  const registered = await agent("register", { nodeId: ids.node, enrollmentNonce: enrollment?.enrollmentNonce, identityFingerprint: fingerprint, capabilities: ["runner", "telemetry"] });
+  const token = registered.body?.node?.nodeToken;
+  check("BO-127", "a node registers once and receives its token once", registered.status === 201 && typeof token === "string" && !("tokenHash" in (registered.body?.node ?? {})));
+  check("BO-127", "the enrollment nonce cannot be used twice", (await agent("register", { nodeId: ids.node, enrollmentNonce: enrollment?.enrollmentNonce, identityFingerprint: fingerprint })).status === 403);
+  const beat = (sequence, overrides = {}) => agent("heartbeat", { nodeId: ids.node, nodeToken: token, identityFingerprint: fingerprint, sequence, ...overrides });
+  check("BO-123", "a heartbeat reports the node online", (await beat(1)).body?.node?.liveState === "online");
+  check("BO-134", "a replayed heartbeat is refused", (await beat(1)).status === 409);
+  check("BO-134", "a wrong token is refused", (await beat(2, { nodeToken: "x".repeat(43) })).status === 403);
+  check("BO-134", "a wrong identity fingerprint is refused", (await beat(2, { identityFingerprint: "attacker-fingerprint-01" })).status === 403);
+  check("BO-123", "an unknown capability is refused", (await beat(2, { capabilities: ["root-shell"] })).status === 400);
+  const view = (await call(owner, "GET", `/api/projects/${P1}/infrastructure`)).text;
+  check("BO-127", "the node token is never shown again", !view.includes(token) && !view.includes("tokenHash"));
+
+  // BO-128 / BO-129
+  await infra(admin, { action: "set-state", environment: "test", desiredState: { version: "one" }, observedState: { version: "two" } });
+  const reconcile = await infra(admin, { action: "reconcile", environment: "test" });
+  check("BO-128", "reconcile only proposes and never executes", reconcile.body?.result?.decision === "proposal-required" && reconcile.body?.result?.automaticExecution === "forbidden-without-separate-dispatch");
+  check("BO-129", "a runner policy cannot mix environments", (await infra(admin, { action: "set-runner-policy", environment: "production", maxConcurrent: 1, nodeIds: [ids.node] })).body?.code === "RUNNER_ENVIRONMENT_MISMATCH");
+  check("BO-129", "an admin sets a runner policy with a concurrency cap", (await infra(admin, { action: "set-runner-policy", environment: "test", maxConcurrent: 1, nodeIds: [ids.node] })).status === 201);
+  const lease = await infra(admin, { action: "acquire-runner", environment: "test", runId: `${run}-r1` });
+  check("BO-129", "a run gets an isolated runner on an online node", lease.status === 201 && lease.body?.result?.nodeId === ids.node && lease.body?.result?.isolation === "container-per-run");
+  check("BO-129", "the cap refuses a second concurrent run", (await infra(admin, { action: "acquire-runner", environment: "test", runId: `${run}-r2` })).body?.code === "RUNNER_CONCURRENCY_EXCEEDED");
+
+  // BO-130 / BO-131 / BO-132
+  check("BO-130", "a secret is stored as a reference only", (await infra(admin, { action: "register-secret-metadata", secretId: `${run}-sec`, reference: "secret-ref:acc-api" })).body?.result?.value === "never-stored-or-revealed");
+  check("BO-130", "a plain value is refused as a secret reference", (await infra(admin, { action: "register-secret-metadata", secretId: `${run}-sec2`, reference: "hunter2-password" })).status === 400);
+  check("BO-131", "an admin cannot request a reveal", (await infra(admin, { action: "request-secret-reveal", secretId: `${run}-sec`, reason: "Investigating an incident" })).status === 403);
+  const ownerFresh = await stepUp(owner, process.env.HERO_OWNER_MFA_SECRET);
+  const reveal = await infra(ownerFresh, { action: "request-secret-reveal", secretId: `${run}-sec`, reason: "Investigating an incident", mfaFresh: false });
+  check("BO-131", "the owner's reveal is proven by the session and the value is not returned", reveal.status === 201 && reveal.body?.result?.value === "not-returned-by-control-plane");
+  check("BO-132", "egress is default deny until a policy exists", (await infra(owner, { action: "check-egress", tool: "git", domain: "github.com" })).body?.result?.allowed === false);
+  await infra(admin, { action: "set-egress-policy", tools: ["git"], domains: ["github.com"] });
+  check("BO-132", "an allowlisted tool and domain pass and anything else is denied", (await infra(owner, { action: "check-egress", tool: "git", domain: "github.com" })).body?.result?.allowed === true && (await infra(owner, { action: "check-egress", tool: "git", domain: "evil.example" })).body?.result?.allowed === false);
+  check("BO-122", "GitHub metadata is not fetched without a connection", (await (async () => { await infra(admin, { action: "register-repository", repositoryId: `${run}-repo`, name: "owner/repo" }); return infra(admin, { action: "sync-repository-metadata", repositoryId: `${run}-repo` }); })()).body?.code === "GITHUB_NOT_CONNECTED");
+
+  // BO-135 / BO-136 / BO-137 / BO-138
+  check("BO-136", "schema-valid telemetry is accepted and an unknown field is refused", (await delivery(admin, { action: "ingest-telemetry", telemetryId: `${run}-t1`, kind: "metric", metadata: { name: "http.latency", value: 12, unit: "ms" } })).status === 201 && (await delivery(admin, { action: "ingest-telemetry", telemetryId: `${run}-t2`, kind: "metric", metadata: { name: "http.latency", value: 12, unit: "ms", payload: "row" } })).status === 400);
+  const log = await delivery(admin, { action: "ingest-telemetry", telemetryId: `${run}-t3`, kind: "sanitized-log", metadata: { level: "error", code: "LOGIN_FAILED", message: "jane.doe@example.com from 203.0.113.9" } });
+  check("BO-135", "a log line is redacted before it is stored", log.status === 201 && !JSON.stringify(log.body).includes("jane.doe") && !JSON.stringify(log.body).includes("203.0.113.9"));
+  const ownerBg = await delivery(ownerFresh, { action: "request-break-glass", requestId: `${run}-bg`, scope: "orders table", reason: "Investigating failed orders", expiresAt: soon(1) });
+  check("BO-137", "the owner requests break-glass and Hero grants no data", ownerBg.status === 201 && ownerBg.body?.result?.dataAccess === "not-granted-by-hero");
+  const adminFresh = await stepUp(admin, users.admin.mfaSecret);
+  check("BO-137", "the requester cannot approve their own request", (await delivery(ownerFresh, { action: "decide-break-glass", requestId: `${run}-bg`, decision: "approve" })).body?.code === "BREAK_GLASS_SELF_APPROVAL");
+  check("BO-137", "a different person approves for a limited time", (await delivery(adminFresh, { action: "decide-break-glass", requestId: `${run}-bg`, decision: "approve", durationSeconds: 600 })).body?.result?.state === "approved");
+  const prodMemory = await call(admin, "POST", `/api/projects/${P1}/memory`, { level: "project", memoryId: `memory-${run}-prod`, key: "orders", content: "Order volume", provenance: { reference: "hero://production/orders", kind: "evidence" } });
+  check("BO-138", "Production data is refused as Memory", prodMemory.status === 403 && prodMemory.body?.code === "PRODUCTION_PAYLOAD_FORBIDDEN", `${prodMemory.status} ${prodMemory.body?.code ?? ""}`);
+
+  // BO-139..BO-146
+  const digest = `sha256:${crypto.randomBytes(32).toString("hex")}`;
+  const refs = { provenance: "hero://prov/acc", attestationRef: "hero://att/acc", sbomRef: "hero://sbom/acc" };
+  check("BO-140", "an artifact is registered with digest, provenance, attestation and SBOM", (await delivery(admin, { action: "register-artifact", artifactId: `${run}-art`, digest, ...refs })).status === 201);
+  check("BO-140", "an artifact digest cannot be swapped", (await delivery(admin, { action: "register-artifact", artifactId: `${run}-art`, digest: `sha256:${"0".repeat(64)}`, ...refs })).body?.code === "ARTIFACT_IMMUTABLE");
+  await delivery(admin, { action: "create-release", releaseId: `${run}-rel`, testedCommit: "abc1234" });
+  const step = body => delivery(admin, { action: "transition-release", releaseId: `${run}-rel`, ...body });
+  check("BO-139", "a release cannot skip a state", (await step({ state: "deployed", evidenceRef: "hero://e/x" })).body?.code === "RELEASE_TRANSITION_INVALID");
+  await step({ state: "approved" });
+  check("BO-139", "a release cannot be ready without an artifact", (await step({ state: "ready" })).body?.code === "RELEASE_ARTIFACT_REQUIRED");
+  await step({ state: "ready", artifactId: `${run}-art` });
+  const deployed = await step({ state: "deployed", evidenceRef: "hero://evidence/acc-deploy" });
+  check("BO-139", "a deployment is recorded and never executed", deployed.body?.result?.deploy === "record-only-separate-dispatch-required");
+  check("BO-141", "the delivery matrix needs registered artifacts", (await delivery(admin, { action: "delivery-matrix", targets: { web: `${run}-art` } })).status === 201 && (await delivery(admin, { action: "delivery-matrix", targets: { web: "ghost" } })).status === 400);
+  const bundle = await delivery(admin, { action: "create-bundle", bundleId: `${run}-bundle`, artifactIds: [`${run}-art`], sourceRef: "hero://source", configRef: "hero://config", migrationRef: "hero://migration", deployRef: "hero://deploy", docsRef: "hero://docs", reportsRef: "hero://reports" });
+  const manifestDigest = bundle.body?.result?.manifestDigest;
+  check("BO-142", "a bundle is a secret-free manifest with its own digest and is never exported", bundle.status === 201 && /^sha256:[a-f0-9]{64}$/.test(manifestDigest ?? "") && bundle.body?.result?.state === "manifest-only-no-export");
+  check("BO-143", "a bare 'passed' is not portability evidence", (await delivery(admin, { action: "verify-portability", bundleId: `${run}-bundle`, targetId: "target-one", result: "passed" })).body?.code === "PORTABILITY_EVIDENCE_REQUIRED");
+  check("BO-146", "a tampered artifact fails portability even if the caller claims success", (await delivery(admin, { action: "verify-portability", bundleId: `${run}-bundle`, targetId: "target-one", observedManifestDigest: `sha256:${"f".repeat(64)}`, result: "passed" })).body?.result?.result === "failed");
+  check("BO-146", "acceptance is refused while portability has not passed", (await delivery(admin, { action: "accept", acceptanceId: `${run}-acc`, bundleId: `${run}-bundle`, artifactIdentity: manifestDigest })).body?.code === "PORTABILITY_REQUIRED");
+  check("BO-143", "a matching target digest passes portability", (await delivery(admin, { action: "verify-portability", bundleId: `${run}-bundle`, targetId: "target-two", observedManifestDigest: manifestDigest })).body?.result?.result === "passed");
+  const rehearse = (kind, result = "passed") => delivery(admin, { action: "rehearse-recovery", bundleId: `${run}-bundle`, kind, result, evidenceRef: `hero://evidence/acc-${kind}` });
+  check("BO-144", "rehearsals follow backup, restore, upgrade, rollback", (await rehearse("restore")).body?.code === "REHEARSAL_ORDER" && (await rehearse("backup")).status === 201);
+  check("BO-146", "acceptance is refused for the wrong artifact identity", (await delivery(admin, { action: "accept", acceptanceId: `${run}-acc`, bundleId: `${run}-bundle`, artifactIdentity: `sha256:${"1".repeat(64)}` })).body?.code === "ARTIFACT_IDENTITY_MISMATCH");
+  check("BO-145", "acceptance names the artifact identity and lists what was not rehearsed", (await delivery(admin, { action: "accept", acceptanceId: `${run}-acc`, bundleId: `${run}-bundle`, artifactIdentity: manifestDigest, exceptions: ["rehearsal:restore", "rehearsal:upgrade", "rehearsal:rollback"] })).body?.result?.delivery === "accepted-not-deployed");
+  check("BO-137", "the Environments page renders for the owner and is read-only for a viewer", await (async () => {
+    const ownerPage = await pageHtml(owner, `/api/portal?surface=environments&projectId=${P1}`); const viewerPage = await pageHtml(viewer, `/api/portal?surface=environments&projectId=${P1}`);
+    return ownerPage.status === 200 && ownerPage.html.includes(`data-server="${ids.server}"`) && ownerPage.html.includes('data-action="onboard-server"') && viewerPage.status === 200 && !viewerPage.html.includes('data-action="onboard-server"') && !ownerPage.html.includes(token);
+  })());
+  return { node: { nodeId: ids.node, token, fingerprint, lastSequence: 1 }, serverId: ids.server, secretId: `${run}-sec`, bundleId: `${run}-bundle`, releaseId: `${run}-rel`, artifactId: `${run}-art`, manifestDigest, digest };
+}
+
 async function seed() {
   const run = `acc${Date.now().toString(36)}`;
   const P1 = `hero-${run}-a`; const P2 = `hero-${run}-b`;
@@ -153,6 +263,7 @@ async function seed() {
   const admin = await login(users.admin.email, users.admin.password, users.admin.mfaSecret);
   const viewer = await login(users.viewer.email, users.viewer.password, users.viewer.mfaSecret);
   const extra = await identityAndContentChecks({ owner, run, P1 });
+  const environments = await environmentsAndDeliveryChecks({ owner, admin, viewer, run, P1, users });
 
   // WP-05: role-aware portfolio, KPIs and isolation
   const ownerPortfolio = (await call(owner, "GET", "/api/portfolio?pageSize=50")).body?.portfolio;
@@ -395,7 +506,7 @@ async function seed() {
   check("BO-165", "the help page is closed without a grant", (await pageHtml(viewer, `/api/portal?surface=help&projectId=${P2}`)).status === 403);
   // accessibility + role regression, measured on the real pages of this instance
   const accessibilityParts = []; const regression = createRecorder("tools/acceptance/run-test-acceptance.role-regression");
-  for (const who of ["owner", "admin", "viewer"]) for (const locale of ["fa", "en"]) for (const surface of ["studio", "control", "collaboration", "catalog", "insights", "inbox", "help"]) {
+  for (const who of ["owner", "admin", "viewer"]) for (const locale of ["fa", "en"]) for (const surface of ["studio", "control", "collaboration", "catalog", "insights", "inbox", "help", "environments"]) {
     const rendered = await pageHtml(locked[who], `/api/portal?surface=${surface}&projectId=${P1}&lang=${locale}`); regression.check(`${surface}/${who}/${locale} renders`, rendered.status === 200, rendered.status);
     if (rendered.status === 200) accessibilityParts.push(auditPage(rendered.html, { name: `${surface}/${who}/${locale}`, ...(surface === "inbox" || surface === "help" ? { expectLocale: locale } : {}) }));
   }
@@ -442,7 +553,7 @@ async function seed() {
   check("BO-169", "an admin cannot accept, and the owner cannot accept a draft", (await call(admin, "POST", `${root}/final-readiness`, { action: "accept", reviewId: `${run}-review`, artifactIdentity: "artifact-identity-acceptance" })).status === 403 && (await call(owner, "POST", `${root}/final-readiness`, { action: "accept", reviewId: `${run}-review`, artifactIdentity: "artifact-identity-acceptance" })).status === 409);
   check("BO-170", "no pilot proposal exists without an owner acceptance", (await call(owner, "POST", `${root}/final-readiness`, { action: "pilot-proposal", proposalId: `${run}-pilot`, reviewId: `${run}-review`, scope: "narrow" })).status === 409);
 
-  fs.writeFileSync(STATE_FILE, JSON.stringify({ run, P1, P2, users, enrolled: extra.enrolled, chatId, prodId, driftProposalId: discovery.body?.proposal?.driftProposalId, repoId: `${run}-repo`, conversationId: conversation?.conversationId, svcId: `${run}-svc`, docId: `${run}-dec-1`, noteId: notificationId, inboxCmd, inboxCorr, seedDigests, stableViews: STABLE_VIEWS }), { mode: 0o600 });
+  fs.writeFileSync(STATE_FILE, JSON.stringify({ run, P1, P2, users, enrolled: extra.enrolled, environments, chatId, prodId, driftProposalId: discovery.body?.proposal?.driftProposalId, repoId: `${run}-repo`, conversationId: conversation?.conversationId, svcId: `${run}-svc`, docId: `${run}-dec-1`, noteId: notificationId, inboxCmd, inboxCorr, seedDigests, stableViews: STABLE_VIEWS }), { mode: 0o600 });
 }
 
 async function verify() {
@@ -462,6 +573,25 @@ async function verify() {
   let enrolledAgain = null; let enrolledFailure = "";
   try { enrolledAgain = state.enrolled?.mfaSecret ? await login(state.enrolled.email, state.enrolled.password, state.enrolled.mfaSecret) : null; } catch (error) { enrolledFailure = error.message; }
   check("BO-025", "a freshly enrolled MFA secret also survives the restart", Boolean(enrolledAgain), enrolledFailure);
+  // WP-11 / WP-12: the environment and delivery records are durable and the node's replay floor survives.
+  const env = state.environments;
+  const infraView = (await call(owner, "GET", `/api/projects/${P1}/infrastructure`)).body?.infrastructure;
+  const deliveryView = (await call(owner, "GET", `/api/projects/${P1}/delivery`)).body?.delivery;
+  check("BO-125", "servers and secret references survive a restart", infraView?.servers?.some(item => item.serverId === env.serverId) && infraView?.secrets?.some(item => item.secretId === env.secretId));
+  check("BO-127", "the node survives a restart", infraView?.nodes?.some(item => item.nodeId === env.node.nodeId && item.state === "registered"));
+  check("BO-129", "the runner policy and the active run survive a restart", infraView?.runnerPolicies?.length === 1 && infraView?.leases?.some(item => item.state === "active"));
+  check("BO-132", "the egress policy survives a restart", infraView?.egress?.domains?.includes("github.com"));
+  check("BO-131", "the reveal request is on record after a restart", (infraView?.reveals ?? []).length === 1);
+  const agentBeat = (sequence, overrides = {}) => call(null, "POST", "/api/node-agent/heartbeat", { projectId: P1, nodeId: env.node.nodeId, nodeToken: env.node.token, identityFingerprint: env.node.fingerprint, sequence, ...overrides });
+  check("BO-134", "a heartbeat from before the restart is still refused as a replay", (await agentBeat(1)).status === 409);
+  check("BO-127", "the node token still works after a restart", (await agentBeat(20)).status === 200);
+  check("BO-134", "the same sequence is refused again", (await agentBeat(20)).status === 409);
+  check("BO-139", "the release history survives a restart", deliveryView?.releases?.find(item => item.releaseId === env.releaseId)?.state === "deployed");
+  check("BO-140", "an artifact digest stays immutable after a restart", (await call(admin ?? owner, "POST", `/api/projects/${P1}/delivery`, { action: "register-artifact", artifactId: env.artifactId, digest: `sha256:${"9".repeat(64)}`, provenance: "hero://prov/acc", attestationRef: "hero://att/acc", sbomRef: "hero://sbom/acc" })).body?.code === "ARTIFACT_IMMUTABLE");
+  check("BO-142", "the bundle manifest digest is unchanged after a restart", deliveryView?.bundles?.find(item => item.bundleId === env.bundleId)?.manifestDigest === env.manifestDigest);
+  check("BO-145", "the acceptance and the portability evidence survive a restart", (deliveryView?.acceptance ?? []).length === 1 && (deliveryView?.portability ?? []).length >= 2);
+  check("BO-137", "the approved break-glass request is on record", (deliveryView?.breakGlass ?? []).some(item => item.state === "approved"));
+  check("BO-136", "telemetry survives a restart", (deliveryView?.telemetry ?? []).length >= 2);
   admin = admin ?? owner;
   const explain = (await call(owner, "GET", `/api/projects/${P1}/settings/explain?path=ai.roleModels.developer`)).body?.explanation;
   check("BO-052", "settings override survives a restart", explain?.effective?.value === "terra", JSON.stringify(explain?.effective ?? null));
