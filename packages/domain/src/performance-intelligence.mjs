@@ -1,3 +1,4 @@
+import { assertNoProductionPayload } from "./production-data-guard.mjs";
 import { AI_JUDGE_DRIFT_THRESHOLD, AI_JUDGE_MIN_PAIRS, CRITICAL_OVERRIDE_KINDS, EFFICIENCY_REFERENCE_TOKENS, EVALUATION_METHODS, FEEDBACK_SUBJECTS, HEALTH_FORMULA, RESERVATION_TTL_MINUTES, RISK_QUALITY_MULTIPLIER, USAGE_EVENT_FIELDS, USAGE_SCOPES, USAGE_SOURCES, WORK_TYPE_WEIGHTS } from "../../contracts/src/performance-intelligence.mjs";
 
 const ID = /^[A-Za-z][A-Za-z0-9._:-]{2,127}$/;
@@ -130,6 +131,7 @@ export function createPerformanceIntelligence({ now = () => new Date().toISOStri
     /** BO-103: an evaluation dataset of cases with expected outcomes. */
     registerDataset({ actor, projectId, datasetId, workType = "general", cases }) {
       editor(actor); id("projectId", projectId); id("datasetId", datasetId);
+      assertNoProductionPayload(cases, "dataset cases");
       if (!WORK_TYPE_WEIGHTS[workType]) throw new PerformanceError("WORK_TYPE_INVALID", "Work type is invalid.", 400);
       if (!Array.isArray(cases) || !cases.length || cases.length > 500) throw new PerformanceError("DATASET_INVALID", "A dataset needs 1..500 cases.", 400);
       const ids = new Set(); for (const item of cases) { id("caseId", item?.caseId); if (ids.has(item.caseId)) throw new PerformanceError("DATASET_INVALID", "Case ids must be unique.", 400); ids.add(item.caseId); }
@@ -141,6 +143,7 @@ export function createPerformanceIntelligence({ now = () => new Date().toISOStri
     /** BO-103: deterministic, human and AI evaluations; an AI judge must name its model and version. */
     recordEvaluation({ actor, projectId, evaluationId, subjectType, subjectId, method, goalFit, errorCount = 0, reworkCount = 0, evidenceRefs = [], datasetId = null, caseId = null, judge = null, runId = null, workType = "general", riskLevel = "standard", cycleTimeMinutes = null }) {
       editor(actor); id("projectId", projectId); id("evaluationId", evaluationId); id("subjectId", subjectId);
+      assertNoProductionPayload((Array.isArray(evidenceRefs) ? evidenceRefs : []).map(reference => ({ reference })), "evidence");
       if (!EVALUATION_METHODS.includes(method) || typeof goalFit !== "number" || goalFit < 0 || goalFit > 1 || !Number.isInteger(errorCount) || errorCount < 0 || !Number.isInteger(reworkCount) || reworkCount < 0 || !Array.isArray(evidenceRefs) || evidenceRefs.some(ref => typeof ref !== "string" || !ref.startsWith("hero://"))) throw new PerformanceError("EVALUATION_INVALID", "Evaluation is invalid.", 400);
       if (!WORK_TYPE_WEIGHTS[workType] || !RISK_QUALITY_MULTIPLIER[riskLevel]) throw new PerformanceError("EVALUATION_INVALID", "Work type or risk level is invalid.", 400);
       if (method === "ai" && (!judge || typeof judge.model !== "string" || typeof judge.version !== "string")) throw new PerformanceError("AI_JUDGE_REQUIRED", "An AI evaluation must name its judge model and version.", 400);

@@ -1,0 +1,163 @@
+{
+  "schema": "hero.authorization-snapshot/v1",
+  "authorizationId": "BATCH-BACKOFFICE-20261008-028",
+  "status": "active",
+  "grantedBy": "project-owner",
+  "grantedAt": "2026-10-08",
+  "grantSource": "owner-chat-instruction-2026-10-08",
+  "ownerStatement": "مجوز می‌دهم گام‌های BO-121 تا BO-146 طبق HERO-ROADMAP-BACKOFFICE-COMMAND-CENTER-V1 نسخهٔ 1.2.0 و HERO-SPEC-022 نسخهٔ 1.0.0 طراحی، توسعه، مستندسازی، تست و بازبینی شوند. Production، تغییر Secret، هزینهٔ بیرونی، Provider زنده، فراخوانی زندهٔ GitHub، اتصال زنده به سرور و نوشتن در Notion مجاز نیست.",
+  "validUntil": "owner-revocation",
+  "globalStop": false,
+  "operations": [
+    "design",
+    "develop",
+    "document",
+    "test",
+    "review"
+  ],
+  "excludedOperations": [
+    "production-deploy",
+    "secret-change",
+    "external-spend",
+    "provider-live-call",
+    "github-live-call",
+    "server-live-connection",
+    "notion-write",
+    "destructive-data-operation",
+    "external-message",
+    "irreversible-operation",
+    "pilot-execution"
+  ],
+  "documents": [
+    {
+      "documentId": "HERO-SPEC-022",
+      "documentVersion": "1.0.0"
+    },
+    {
+      "documentId": "HERO-ROADMAP-BACKOFFICE-COMMAND-CENTER-V1",
+      "documentVersion": "1.2.0"
+    }
+  ],
+  "steps": [
+    {
+      "stepId": "BO-121",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-122",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-123",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-124",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-125",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-126",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-127",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-128",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-129",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-130",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-131",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-132",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-133",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-134",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-135",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-136",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-137",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-138",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-139",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-140",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-141",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-142",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-143",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-144",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-145",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "BO-146",
+      "documentVersion": "1.2.0"
+    }
+  ],
+  "scope": {
+    "environment": "development-and-test",
+    "service": "hero-control-plane",
+    "workPackages": [
+      "WP-11",
+      "WP-12"
+    ],
+    "action": "environment-infrastructure-and-delivery-source-completion-without-live-connections",
+    "production": false,
+    "secrets": false,
+    "providers": false,
+    "githubLiveCalls": false,
+    "serverLiveConnections": false,
+    "notionWrite": false
+  },
+  "note": "Covers BO-121..BO-146 (WP-11 environments, servers, secrets and agents; WP-12 telemetry, release and delivery) at source level only. No live GitHub, server, Secret Store, Provider, Production or Notion connection and no Secret change. Steps that need a live connection stay gated after this batch."
+}

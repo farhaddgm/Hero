@@ -393,7 +393,7 @@ export function createHumanIdentity({
       return copy({ token, principal: this.authenticate(`Bearer ${token}`) });
     },
     assertSensitiveActionAllowed({ principal, action }) {
-      if (!["secret.reveal", "secret.write", "project.production.request"].includes(action)) return true;
+      if (!["secret.reveal", "secret.write", "project.production.request", "break-glass.request", "break-glass.decide"].includes(action)) return true;
       const account = accounts.get(principal?.subject);
       if (!account) throw new HumanIdentityError("IDENTITY_AUTH_INVALID", "Human authentication is invalid.", 401);
       if (!Number.isInteger(principal.mfaAt) || epoch() - principal.mfaAt > STEP_UP_TTL_SECONDS) throw new HumanIdentityError("STEP_UP_REQUIRED", "Recent MFA verification is required.", 403);
