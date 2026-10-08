@@ -20,12 +20,12 @@
   },
   "summary": {
     "total": 170,
-    "verified": 98,
-    "partial": 44,
+    "verified": 118,
+    "partial": 24,
     "gated": 26,
     "owner_pending": 1,
     "deferred": 1,
-    "remaining_to_verified": 72
+    "remaining_to_verified": 52
   },
   "requirement_current": {
     "registry": "config/backoffice/requirement-trace-v1.0.json",
@@ -218,18 +218,18 @@
       "to": "BO-156",
       "count": 10,
       "work_package": "WP-13",
-      "status": "partial",
+      "status": "verified",
       "evidence": ["apps/control-plane/src/project-help-view.mjs", "apps/control-plane/src/project-inbox-view.mjs", "apps/control-plane/src/server.mjs", "config/audit/secret-scan-allowlist.json", "config/authorizations/backoffice-20261007-026.json", "packages/contracts/src/help-content.mjs", "packages/contracts/src/operational-hardening.mjs", "packages/contracts/src/ui-locale.mjs", "packages/domain/src/operational-hardening.mjs", "tests/backoffice-remaining-controls.test.mjs", "tests/browser/locale-a11y.browser.mjs", "tests/wp13-audits-bo150-156.test.mjs", "tests/wp13-hardening-bo147-156.test.mjs", "tools/acceptance/audit-lib.mjs", "tools/acceptance/run-test-acceptance.mjs", "tools/acceptance/security-review.mjs", "tools/audit/backup-restore.mjs", "tools/audit/load-soak.mjs", "tools/audit/run-local-audit.mjs", "tools/audit/secret-dependency-scan.mjs"],
-      "open_gate": "Source completed 2026-10-07 under BATCH-BACKOFFICE-20261007-026: per-project retention with unweakenable minimums, dry-run cleanup with holds, digest manifests and audited refused deletions (BO-147/148); fa/en Inbox and Help with stable identifiers (BO-149); executable accessibility audit that found and fixed four contrast failures (BO-150); lists paged under one query budget with lazy traces (BO-151); executable security review of authentication, authorization, object-level access, upload, AI tool and Node Agent boundaries (BO-152); load, soak and failure injection that found and fixed a persistence loss on database outage (BO-153); verified logical backup and restore (BO-154); offline secret and dependency scan plus audit-coverage report (BO-155); three-role by two-language regression in a real browser (BO-156). Stays partial until a promoted candidate (rc.40) passes the extended acceptance on the Test host. Known gaps: only the Inbox and Help are bilingual; real data deletion is intentionally not enabled; the online advisory lookup was not run; load figures come from local runs, not from the Test host; backup is a logical copy of Back Office records, not a database-level dump."
+      "open_gate": "Verified 2026-10-08 on Test runtime: owner-run role-based acceptance (tools/run-test-acceptance.sh, run 20261008T033228Z-30e372) on the exact candidate ghcr.io/farhaddgm/hero@sha256:6df22aa1919c14497470100ae4ec33214ee0feb90e20831d2fc1b30c75563b29 (v1.1.5-rc.41) passed every in-scope check (171 seed + 44 after a SIGKILL restart, BO-043..BO-170) with PostgreSQL persistence, including digest-identical read models across the restart. Known limits stay recorded in the evidence document: only the Inbox and Help are bilingual, data deletion is intentionally off, the online advisory lookup was not run, and the clean-target transfer was rehearsed locally. MFA users still cannot log in after a restart (BO-IAM-001)."
     },
     {
       "from": "BO-157",
       "to": "BO-166",
       "count": 10,
       "work_package": "WP-14",
-      "status": "partial",
+      "status": "verified",
       "evidence": ["apps/control-plane/src/server.mjs", "config/authorizations/backoffice-20261007-026.json", "config/backoffice/requirement-trace-v1.0.json", "packages/contracts/src/final-readiness.mjs", "packages/contracts/src/route-migration.mjs", "packages/domain/src/final-readiness.mjs", "tests/backoffice-remaining-controls.test.mjs", "tests/wp14-final-readiness-bo157-166.test.mjs", "tools/acceptance/run-test-acceptance.mjs", "tools/audit/backup-restore.mjs", "tools/audit/notion-plan.mjs", "tools/audit/read-models.mjs", "tools/audit/scenarios.mjs", "tools/audit/traceability-audit.mjs"],
-      "open_gate": "Source completed 2026-10-07 under BATCH-BACKOFFICE-20261007-026: legacy routes keep working with Deprecation, Sunset and Link headers until 2027-04-05 and then answer 410 with their successor (BO-157/158); read models are compared by canonical digest before and after a rebuild, restart and transfer, which exposed and fixed a non-canonical digest (BO-159); two-project, adversarial (cross-project, privilege escalation, prompt injection), crash-resume and transfer scenarios run against real servers and are recorded with a tool, a digest and counted checks (BO-160..163); the traceability audit checks every requirement and range against the repository and added real test evidence where it was missing (BO-164); bilingual help, glossary and runbook for the three roles (BO-165); a plan-only Notion projection with checksums, zero writes and zero network calls (BO-166). Stays partial until a promoted candidate (rc.40) passes the extended acceptance on the Test host. Known gaps: BO-163 is rehearsed between local databases, not between two clean Test targets; BO-158 removed no route (replacement is verified first, removal waits for the window); the Notion classification review is stale against the new catalog digest and needs an owner re-review before any projection."
+      "open_gate": "Verified 2026-10-08 on Test runtime: owner-run role-based acceptance (tools/run-test-acceptance.sh, run 20261008T033228Z-30e372) on the exact candidate ghcr.io/farhaddgm/hero@sha256:6df22aa1919c14497470100ae4ec33214ee0feb90e20831d2fc1b30c75563b29 (v1.1.5-rc.41) passed every in-scope check (171 seed + 44 after a SIGKILL restart, BO-043..BO-170) with PostgreSQL persistence, including digest-identical read models across the restart. Known limits stay recorded in the evidence document: only the Inbox and Help are bilingual, data deletion is intentionally off, the online advisory lookup was not run, and the clean-target transfer was rehearsed locally. MFA users still cannot log in after a restart (BO-IAM-001)."
     },
     {
       "from": "BO-167",
