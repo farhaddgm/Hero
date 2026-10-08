@@ -239,8 +239,8 @@ export const POSTGRES_MIGRATIONS = Object.freeze([
     id: "024",
     name: "human-user-mfa-cipher",
     file: "024_human_user_mfa_cipher.sql",
-    tables: Object.freeze([]),
-    alters: Object.freeze(["human_users", "human_identity_audit"])
+    tables: Object.freeze(["human_identity_lifecycle_events"]),
+    alters: Object.freeze(["human_users"])
   })
 ]);
 

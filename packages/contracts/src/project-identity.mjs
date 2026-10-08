@@ -27,7 +27,11 @@ export const HUMAN_IDENTITY_EVENTS = Object.freeze([
   "identity.session-revoked",
   "identity.recovery-requested",
   "identity.recovery-completed",
-  "identity.step-up-verified",
+  "identity.step-up-verified"
+]);
+
+/** Recorded in their own append-only table so the original audit CHECK (re-created by migration 016 on every start) never changes. */
+export const HUMAN_IDENTITY_LIFECYCLE_EVENTS = Object.freeze([
   "identity.mfa-enrolled",
   "identity.user-disabled",
   "identity.sessions-revoked-all"

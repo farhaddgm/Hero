@@ -62,6 +62,10 @@ test("a user's MFA secret survives a restart only when it is stored encrypted, a
     const everything = JSON.stringify((await client.query("SELECT * FROM human_users WHERE user_id = $1", [userId])).rows);
     assert.equal(everything.includes(enrolled.secret), false);
     assert.equal(everything.includes("persisted-mfa-secret-123"), false);
+    const events = await client.query("SELECT event_type, data FROM human_identity_lifecycle_events WHERE user_id = $1", [userId]);
+    assert.deepEqual(events.rows.map(row => row.event_type), ["identity.mfa-enrolled"]);
+    assert.equal(JSON.stringify(events.rows).includes(enrolled.secret), false, "the audit never carries the secret");
+    await assert.rejects(() => client.query("UPDATE human_identity_lifecycle_events SET outcome = 'rejected' WHERE user_id = $1", [userId]), /append-only|immutable|not allowed|reject/i);
   } finally { await client.end(); }
 
   // Same key after a restart: the user logs in with MFA.

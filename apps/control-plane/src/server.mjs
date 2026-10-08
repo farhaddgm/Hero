@@ -4512,6 +4512,10 @@ export function createHeroServer(options = {}) {
           for (const user of users) {
             projectAccessRegistry?.hydrateUser({ user: { userId: user.userId, email: user.email, displayName: user.displayName, role: "viewer", status: user.status, createdAt: user.createdAt } });
             humanIdentity?.hydrateUser({ user });
+            // Key rotation: a secret sealed with a previous key is sealed again with the current one.
+            if (user.mfaSecretCipher && mfaVault.needsRotation(user.mfaSecretCipher) && identityStore.saveUser) {
+              try { await identityStore.saveUser(humanIdentity.persistenceRecord({ userId: user.userId })); } catch { console.error(JSON.stringify({ level: "error", event: "hero.mfa-rotation-failed", hasUserId: true })); }
+            }
           }
         }
         if (identityStore.listCurrentGrants && projectAccessRegistry) {

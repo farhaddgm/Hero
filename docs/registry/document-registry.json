@@ -1135,7 +1135,7 @@
       "type": "evidence",
       "scope": "hero",
       "status": "active",
-      "version": "4.17.0",
+      "version": "4.18.0",
       "owner": "hero-operations",
       "canonical": true,
       "supersedes": [
@@ -1990,6 +1990,34 @@
       "supersedes": [],
       "superseded_by": null,
       "review_cadence": "none"
+    },
+    {
+      "id": "HERO-EVIDENCE-BACKOFFICE-IDENTITY-CONTENT-SAFETY-BO-021-042",
+      "path": "docs/roadmap/BACKOFFICE-IDENTITY-CONTENT-SAFETY-BO-021-042.md",
+      "title": "Evidence هویت و ورودی امن — BO-021 تا BO-042",
+      "type": "evidence",
+      "scope": "hero",
+      "status": "active",
+      "version": "1.0.0",
+      "owner": "hero-architecture",
+      "canonical": true,
+      "supersedes": [],
+      "superseded_by": null,
+      "review_cadence": "none"
+    },
+    {
+      "id": "HERO-EVIDENCE-BACKOFFICE-FINAL-READINESS-REVIEW-BO-167-168",
+      "path": "docs/roadmap/BACKOFFICE-FINAL-READINESS-REVIEW-BO-167-168.md",
+      "title": "بازبینی نهایی آمادگی و اجرای مرجع — BO-167 و BO-168",
+      "type": "evidence",
+      "scope": "hero",
+      "status": "active",
+      "version": "1.0.0",
+      "owner": "hero-architecture",
+      "canonical": true,
+      "supersedes": [],
+      "superseded_by": null,
+      "review_cadence": "per-change"
     },
     {
       "id": "HERO-EVIDENCE-BACKOFFICE-DELIVERY-AUDIT-20260911",

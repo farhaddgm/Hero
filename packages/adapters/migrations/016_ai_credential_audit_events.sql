@@ -1,8 +1,6 @@
 -- Extend the Human Identity audit contract for the Test-only AI credential
 -- boundary.  This is intentionally idempotent because the migration runner
--- replays the complete schema contract during each Control Plane start. Later
--- migrations that widen this list (024) must be mirrored here, otherwise the
--- replay would narrow it again and reject rows that already exist.
+-- replays the complete schema contract during each Control Plane start.
 
 CREATE TABLE IF NOT EXISTS human_identity_audit (
   sequence bigint GENERATED ALWAYS AS IDENTITY UNIQUE NOT NULL,
@@ -22,7 +20,6 @@ ALTER TABLE human_identity_audit
     'identity.user-created', 'identity.project-grant-upserted', 'identity.project-grant-revoked',
     'identity.login-challenged', 'identity.session-issued', 'identity.session-revoked',
     'identity.recovery-requested', 'identity.recovery-completed', 'identity.step-up-verified',
-    'identity.mfa-enrolled', 'identity.user-disabled', 'identity.sessions-revoked-all',
     'ai.credential-stored', 'ai.credential-health-checked'
   ));
 

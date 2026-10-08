@@ -1,4 +1,5 @@
 const IDENTIFIER = /^[A-Za-z][A-Za-z0-9._:-]{2,127}$/;
+const LIFECYCLE_EVENTS = new Set(["identity.mfa-enrolled", "identity.user-disabled", "identity.sessions-revoked-all"]);
 const SECRET_FIELD = /(?:api[_-]?key|access[_-]?token|refresh[_-]?token|secret|password|credential|authorization)/i;
 
 function copy(value) {
@@ -154,8 +155,9 @@ export function createPostgresProjectIdentityStore({ client, pool } = {}) {
       if (userId !== null) assertIdentifier("userId", userId);
       if (typeof eventType !== "string" || typeof outcome !== "string") throw new ProjectIdentityStoreError("INVALID_AUDIT", "Identity audit event is invalid.");
       assertSafeAudit(data);
+      const table = LIFECYCLE_EVENTS.has(eventType) ? "human_identity_lifecycle_events" : "human_identity_audit";
       await target.query(
-        `INSERT INTO human_identity_audit (audit_id, user_id, event_type, outcome, data)
+        `INSERT INTO ${table} (audit_id, user_id, event_type, outcome, data)
          VALUES ($1, $2, $3, $4, $5)`,
         [auditId, userId, eventType, outcome, data]
       );
