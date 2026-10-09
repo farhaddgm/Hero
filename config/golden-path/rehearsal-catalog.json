@@ -1,0 +1,10 @@
+{
+  "catalogVersion": "synthetic-rehearsal-001",
+  "sourceUrl": "https://hero.invalid/synthetic-pricing",
+  "fetchedAt": "2026-10-01T00:00:00.000Z",
+  "validUntil": "2027-10-01T00:00:00.000Z",
+  "entries": [
+    { "providerId": "rehearsal-provider", "modelId": "rehearsal-implementer", "pricingMode": "tokens", "inputPricePer1mTokens": 2, "outputPricePer1mTokens": 8, "currency": "USD" },
+    { "providerId": "rehearsal-provider", "modelId": "rehearsal-reviewer", "pricingMode": "tokens", "inputPricePer1mTokens": 3, "outputPricePer1mTokens": 15, "currency": "USD" }
+  ]
+}
