@@ -6,7 +6,7 @@
 > Type: roadmap
 > Scope: hero
 > Status: active
-> Version: 1.0.0
+> Version: 1.1.0
 > Owner: hero-product
 > Review cadence: per-change
 > Supersedes: none
@@ -67,13 +67,23 @@
 6. تمرین توقف اضطراری انجام و تاریخش ثبت شده باشد.
 7. اجرا فقط در Product Runner ایزوله و با خروجی redacted؛ پایان کار با پذیرش مالک و پرونده‌ی `config/golden-path/live-evidence.json` (فقط پس از اجرای واقعی).
 
-## ۷. کارهای باقی‌مانده
+## ۷. فهرست کارهای باز
 
-- اتصال Gateway به مسیر Dispatch و Provider Adapterها، همراه با آزمون پذیرش روی Test.
-- نمایش Delivery Truth در Back Office (فعلاً فقط API است).
-- endpoint برآورد پیش از اجرا و نگه‌داری تاریخچهٔ مصرف برای دقیق‌ترشدن برآورد.
-- تقسیم بیشتر `server.mjs` (بدنهٔ `createHeroServer` هنوز یک closure بزرگ است).
-- تحویل واقعی ایمیل بازیابی، آنتی‌ویروس بیرونی و import زندهٔ GitHub (هنوز `gated`).
+وضعیت در ۲۰۲۶-۱۰-۰۹ پس از ادغام PR 20 (commit `81a69b3`). هیچ ردیف این جدول مجوز اجرا نیست؛ ستون «پیش‌نیاز» می‌گوید هر کار چه چیزی از مالک یا محیط لازم دارد. شناسه‌ها ثابت‌اند تا در گفتگوها و PRهای بعدی به آن‌ها ارجاع شود.
+
+| شناسه | کار | پیش‌نیاز و مرز | معیار پذیرش | اولویت |
+|---|---|---|---|---|
+| AR-01 | به‌روزرسانی سرور Test با Candidate `1.1.5-rc.45` که شامل PR 20 است | ثبت Snapshot مجوز Test برای rc.45 (الگو: `config/authorizations/test-release-20261008-014.json`)، ادغام آن، اجرای workflow `Hero Release Candidate` و تحویل digest manifest به مالک. promote روی هاست فقط با مالک است. Production خارج از دامنه است. | manifest با digest، `/health` و `/ready` سالم روی Test، `pnpm check` سبز در workflow | P0 |
+| AR-02 | اتصال Agent Tool Gateway به مسیر Dispatch و Provider Adapterها | گام جدید با Step ID و نسخهٔ سند و مجوز خودش؛ بدون Provider زنده و بدون هزینه | هر فراخوانی ابزار عامل از Gateway می‌گذرد؛ audit زنجیره‌ای در PostgreSQL؛ آزمون پذیرش روی Test | P0 |
+| AR-03 | اجرای زندهٔ Golden Path روی محیط Test | `golden.readiness()` باید همهٔ پیش‌نیازها را بدهد: Global Stop خاموش، مجوز هزینهٔ نسخه‌دار با سقف بزرگ‌تر یا برابر بدترین برآورد، مرجع کلید Provider در Secret Store، خط پایهٔ Hero-Bench با digest، معیارهای پذیرش تأییدشدهٔ مالک، تمرین توقف اضطراری | `config/golden-path/live-evidence.json` پس از اجرای واقعی؛ مراحل `requires-live` با شواهد واقعی بسته شوند | P0 |
+| AR-04 | سنجش واقعی Providerها با Hero-Bench و ثبت خط پایه | همان مجوز هزینهٔ AR-03 و یک adapter زندهٔ متصل به بنچ | اجرای مقایسه‌ای با `compareRuns` و ثبت digest نتیجه به‌عنوان Evidence | P1 |
+| AR-05 | نمایش Delivery Truth در Back Office | فقط UI روی `GET /api/delivery-truth`؛ بدون تغییر مجوز | کارت وضعیت با شکاف گام/نیازمندی؛ آزمون مرورگر و ممیزی ایستای RTL | P1 |
+| AR-06 | endpoint برآورد پیش از اجرا و ثبت تاریخچهٔ مصرف | دادهٔ واقعی مصرف از دفتر هزینه؛ endpoint فقط پیش‌بینی بدهد و سقف اعمال نکند | `estimateRun` با `basis: history` برای نقش‌هایی که حداقل ۳ نمونه دارند | P1 |
+| AR-07 | اتصال OTLP exporter به Control Plane (پیش‌فرض خاموش) | مجوز جداگانه برای خروج داده؛ allowlist میزبان collector؛ آزمون پذیرش | export فقط با `HERO_OTEL_EXPORT_ENABLED=true` و میزبان allowlist؛ هیچ prompt یا کلیدی در payload نیست | P2 |
+| AR-08 | تقسیم بیشتر `server.mjs` | بدنهٔ `createHeroServer` یک closure بزرگ است؛ تقسیم باید پشت آزمون‌های route sweep انجام شود | هر گروه مسیر در ماژول جدا؛ بدون تغییر رفتار؛ همهٔ آزمون‌ها سبز | P2 |
+| AR-09 | تطبیق نام ۱۰ دستهٔ OWASP Agentic با متن رسمی | دسترسی مستقیم به سایت رسمی OWASP | نام‌ها در `OWASP_AGENTIC_CONTROLS` با نسخهٔ رسمی تطبیق و منبع ثبت شود | P2 |
+| AR-10 | تحویل واقعی ایمیل بازیابی، آنتی‌ویروس بیرونی و import زندهٔ GitHub | هر سه `gated`: اتصال بیرونی، Secret و مجوز جداگانه | آزمون پذیرش روی Test با شواهد اجرای واقعی | P2 |
+| AR-11 | بستن گام‌های `gated` گروه BO-121..146 و پذیرش مالک BO-169 | مجوز عملیاتی جدا؛ BO-169 فقط با ثبت صریح مالک | رجیستری `delivery-audit` با Evidence واقعی به‌روز شود | P2 |
 
 ## ۸. نتیجهٔ راستی‌آزمایی
 
