@@ -71,7 +71,7 @@ test("arguments are typed and bounded: unknown names, wrong types, traversal and
 
 test("credentials and host paths in arguments are refused with a distinct code", () => {
   const f = createFixture({ circuitThreshold: 100 });
-  for (const text of ["use sk-abcdefghijklmnopqrstuvwx for this", "password: hunter2hunter2", "Bearer abcdefghijklmnop1234", `open /${"home"}/user/.ssh/id_rsa`, "رمز عبور: abc12345"]) {
+  for (const text of [`use ${"sk-"}${"abcdefghijklmnopqrstuvwx"} for this`, "password: hunter2hunter2", "Bearer abcdefghijklmnop1234", `open /${"home"}/user/.ssh/id_rsa`, "رمز عبور: abc12345"]) {
     assert.equal(f.call({ toolId: "notes.add", args: { text } }).code, "SECRET_IN_ARGUMENT", text);
   }
 });

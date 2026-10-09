@@ -96,7 +96,7 @@ test("invalid runners, run ids and datasets are rejected before anything runs", 
 });
 
 test("dataset validation catches leaked credentials, duplicate ids, unknown checks and unsolvable references", () => {
-  const withKey = structuredClone(dataset); withKey.tasks[0].prompt += " sk-abcdefghijklmnopqrstuv";
+  const withKey = structuredClone(dataset); withKey.tasks[0].prompt += ` ${"sk-"}${"abcdefghijklmnopqrstuv"}`;
   assert.ok(validateDataset(withKey).some(item => /credential/.test(item)));
   const duplicate = structuredClone(dataset); duplicate.tasks[1].id = duplicate.tasks[0].id;
   assert.ok(validateDataset(duplicate).some(item => /duplicate/.test(item)));
