@@ -1,0 +1,482 @@
+{
+  "schema": "hero.product-template-registry/v1",
+  "version": "1.0.0",
+  "templates": [
+    {
+      "schema": "hero.product-template/v1",
+      "templateId": "static-site",
+      "version": "1.0.0",
+      "kind": "web",
+      "title": "وب‌سایت ایستا (معرفی یا رزومه)",
+      "summary": "چند صفحهٔ ثابت بدون فرم، بدون ثبت‌نام و بدون پایگاه داده؛ مناسب معرفی شخصی یا کسب‌وکار کوچک.",
+      "defaultRiskAnswers": {
+        "internetFacing": "unknown",
+        "personalData": "no",
+        "regulatedData": "unknown",
+        "securitySensitive": "unknown",
+        "externalIntegrations": "no",
+        "requiresPrivilegedAccess": "unknown"
+      },
+      "riskRationale": {
+        "externalIntegrations": "قالب هیچ فراخوانی به سرویس بیرونی و هیچ اسکریپت شخص ثالث ندارد.",
+        "personalData": "قالب فرم، ثبت‌نام، کوکی ردیابی و ذخیرهٔ هیچ دادهٔ شخصی ندارد."
+      },
+      "policyPack": {
+        "autonomy": "approval-each-stage",
+        "egress": "closed",
+        "reviewerIndependent": true,
+        "requiredGates": [
+          "quality-gate",
+          "independent-review",
+          "assurance-gate"
+        ],
+        "forbidden": [
+          "host-network",
+          "privileged-container",
+          "docker-socket",
+          "host-bind-mount",
+          "mutable-image-tag",
+          "secret-in-image",
+          "production-deploy-without-separate-authorization"
+        ]
+      },
+      "taskSkeleton": [
+        {
+          "key": "analysis",
+          "role": "analyst",
+          "title": "تحلیل نیاز و معیار پذیرش",
+          "dependsOn": []
+        },
+        {
+          "key": "design",
+          "role": "designer",
+          "title": "طراحی صفحه‌ها و محتوای فارسی راست‌به‌چپ",
+          "dependsOn": [
+            "analysis"
+          ]
+        },
+        {
+          "key": "build",
+          "role": "implementer",
+          "title": "پیاده‌سازی در worktree ایزوله",
+          "dependsOn": [
+            "analysis",
+            "design"
+          ]
+        },
+        {
+          "key": "test",
+          "role": "tester",
+          "title": "اجرای آزمون‌ها و ثبت شواهد",
+          "dependsOn": [
+            "build"
+          ]
+        },
+        {
+          "key": "review",
+          "role": "reviewer",
+          "title": "بازبینی مستقل توسط عامل دیگر",
+          "dependsOn": [
+            "build",
+            "test"
+          ]
+        }
+      ],
+      "acceptanceCriteria": [
+        "همهٔ صفحه‌ها با زبان fa و جهت rtl بارگذاری می‌شوند.",
+        "هیچ درخواست شبکه‌ای به دامنهٔ بیرونی در بارگذاری صفحه‌ها دیده نمی‌شود.",
+        "مسیرهای /health و /ready پاسخ سالم می‌دهند.",
+        "تصویرها متن جایگزین دارند و کنتراست متن کافی است."
+      ],
+      "outOfScope": [
+        "فرم تماس یا هر ورودی کاربر",
+        "پایگاه داده",
+        "انتشار عمومی بدون مجوز جداگانهٔ مالک"
+      ],
+      "productTestPlan": {
+        "healthPath": "/health",
+        "readyPath": "/ready"
+      }
+    },
+    {
+      "schema": "hero.product-template/v1",
+      "templateId": "contact-form-site",
+      "version": "1.0.0",
+      "kind": "web",
+      "title": "وب‌سایت با فرم تماس",
+      "summary": "وب‌سایت ثابت به‌علاوهٔ یک فرم تماس که پیام را در پایگاه دادهٔ همان محصول ذخیره می‌کند.",
+      "defaultRiskAnswers": {
+        "internetFacing": "unknown",
+        "personalData": "yes",
+        "regulatedData": "unknown",
+        "securitySensitive": "unknown",
+        "externalIntegrations": "unknown",
+        "requiresPrivilegedAccess": "unknown"
+      },
+      "riskRationale": {},
+      "policyPack": {
+        "autonomy": "approval-each-stage",
+        "egress": "closed",
+        "reviewerIndependent": true,
+        "requiredGates": [
+          "quality-gate",
+          "independent-review",
+          "assurance-gate"
+        ],
+        "forbidden": [
+          "host-network",
+          "privileged-container",
+          "docker-socket",
+          "host-bind-mount",
+          "mutable-image-tag",
+          "secret-in-image",
+          "production-deploy-without-separate-authorization"
+        ]
+      },
+      "taskSkeleton": [
+        {
+          "key": "analysis",
+          "role": "analyst",
+          "title": "تحلیل نیاز و معیار پذیرش",
+          "dependsOn": []
+        },
+        {
+          "key": "design",
+          "role": "designer",
+          "title": "طراحی فرم، پیام‌های خطا و صفحهٔ تأیید",
+          "dependsOn": [
+            "analysis"
+          ]
+        },
+        {
+          "key": "privacy",
+          "role": "writer",
+          "title": "متن سیاست نگهداری داده",
+          "dependsOn": [
+            "analysis"
+          ]
+        },
+        {
+          "key": "build",
+          "role": "implementer",
+          "title": "پیاده‌سازی در worktree ایزوله",
+          "dependsOn": [
+            "analysis",
+            "design",
+            "privacy"
+          ]
+        },
+        {
+          "key": "test",
+          "role": "tester",
+          "title": "اجرای آزمون‌ها و ثبت شواهد",
+          "dependsOn": [
+            "build"
+          ]
+        },
+        {
+          "key": "review",
+          "role": "reviewer",
+          "title": "بازبینی مستقل توسط عامل دیگر",
+          "dependsOn": [
+            "build",
+            "test"
+          ]
+        }
+      ],
+      "acceptanceCriteria": [
+        "فرم ورودی را طول‌دار، پاک‌سازی‌شده و دارای محدودیت نرخ می‌پذیرد.",
+        "ایمیل یا نام کاربر در لاگ‌ها دیده نمی‌شود.",
+        "ارسال ایمیل به بیرون فقط پس از مجوز جداگانه فعال می‌شود.",
+        "پیام‌ها فقط در پایگاه دادهٔ اختصاصی همین محصول ذخیره می‌شوند."
+      ],
+      "outOfScope": [
+        "ارسال ایمیل خودکار به بیرون",
+        "پرداخت",
+        "ورود کاربران"
+      ],
+      "productTestPlan": {
+        "healthPath": "/health",
+        "readyPath": "/ready"
+      }
+    },
+    {
+      "schema": "hero.product-template/v1",
+      "templateId": "crud-admin-panel",
+      "version": "1.0.0",
+      "kind": "web",
+      "title": "پنل مدیریت ساده (CRUD)",
+      "summary": "پنل داخلی برای ثبت، ویرایش و فهرست رکوردها با ورود کاربر و نقش‌های مدیر و بیننده.",
+      "defaultRiskAnswers": {
+        "internetFacing": "unknown",
+        "personalData": "unknown",
+        "regulatedData": "unknown",
+        "securitySensitive": "yes",
+        "externalIntegrations": "unknown",
+        "requiresPrivilegedAccess": "unknown"
+      },
+      "riskRationale": {},
+      "policyPack": {
+        "autonomy": "approval-each-stage",
+        "egress": "closed",
+        "reviewerIndependent": true,
+        "requiredGates": [
+          "quality-gate",
+          "independent-review",
+          "assurance-gate"
+        ],
+        "forbidden": [
+          "host-network",
+          "privileged-container",
+          "docker-socket",
+          "host-bind-mount",
+          "mutable-image-tag",
+          "secret-in-image",
+          "production-deploy-without-separate-authorization"
+        ]
+      },
+      "taskSkeleton": [
+        {
+          "key": "analysis",
+          "role": "analyst",
+          "title": "تحلیل نیاز و معیار پذیرش",
+          "dependsOn": []
+        },
+        {
+          "key": "model",
+          "role": "designer",
+          "title": "طراحی مدل داده و نقش‌ها",
+          "dependsOn": [
+            "analysis"
+          ]
+        },
+        {
+          "key": "build",
+          "role": "implementer",
+          "title": "پیاده‌سازی در worktree ایزوله",
+          "dependsOn": [
+            "analysis",
+            "model"
+          ]
+        },
+        {
+          "key": "test",
+          "role": "tester",
+          "title": "اجرای آزمون‌ها و ثبت شواهد",
+          "dependsOn": [
+            "build"
+          ]
+        },
+        {
+          "key": "review",
+          "role": "reviewer",
+          "title": "بازبینی مستقل توسط عامل دیگر",
+          "dependsOn": [
+            "build",
+            "test"
+          ]
+        }
+      ],
+      "acceptanceCriteria": [
+        "هر مسیر تغییر دهنده بدون ورود و بدون نقش مدیر رد می‌شود.",
+        "بیننده هیچ تغییری نمی‌تواند ثبت کند.",
+        "رکوردهای حذف‌شده قابل بازیابی یا ثبت‌شده در تاریخچه‌اند.",
+        "مهاجرت پایگاه داده افزایشی و دارای مسیر بازگشت است."
+      ],
+      "outOfScope": [
+        "ورود با سرویس بیرونی",
+        "چندمستاجری",
+        "حذف دائمی بدون تأیید جداگانه"
+      ],
+      "productTestPlan": {
+        "healthPath": "/health",
+        "readyPath": "/ready"
+      }
+    },
+    {
+      "schema": "hero.product-template/v1",
+      "templateId": "rest-api",
+      "version": "1.0.0",
+      "kind": "api",
+      "title": "سرویس REST ساده",
+      "summary": "یک API با چند منبع، اعتبارسنجی ورودی، نسخه‌گذاری و مستندات OpenAPI.",
+      "defaultRiskAnswers": {
+        "internetFacing": "unknown",
+        "personalData": "unknown",
+        "regulatedData": "unknown",
+        "securitySensitive": "unknown",
+        "externalIntegrations": "unknown",
+        "requiresPrivilegedAccess": "unknown"
+      },
+      "riskRationale": {},
+      "policyPack": {
+        "autonomy": "approval-each-stage",
+        "egress": "closed",
+        "reviewerIndependent": true,
+        "requiredGates": [
+          "quality-gate",
+          "independent-review",
+          "assurance-gate"
+        ],
+        "forbidden": [
+          "host-network",
+          "privileged-container",
+          "docker-socket",
+          "host-bind-mount",
+          "mutable-image-tag",
+          "secret-in-image",
+          "production-deploy-without-separate-authorization"
+        ]
+      },
+      "taskSkeleton": [
+        {
+          "key": "analysis",
+          "role": "analyst",
+          "title": "تحلیل نیاز و معیار پذیرش",
+          "dependsOn": []
+        },
+        {
+          "key": "contract",
+          "role": "designer",
+          "title": "طراحی قرارداد API و کدهای خطا",
+          "dependsOn": [
+            "analysis"
+          ]
+        },
+        {
+          "key": "build",
+          "role": "implementer",
+          "title": "پیاده‌سازی در worktree ایزوله",
+          "dependsOn": [
+            "analysis",
+            "contract"
+          ]
+        },
+        {
+          "key": "test",
+          "role": "tester",
+          "title": "اجرای آزمون‌ها و ثبت شواهد",
+          "dependsOn": [
+            "build"
+          ]
+        },
+        {
+          "key": "review",
+          "role": "reviewer",
+          "title": "بازبینی مستقل توسط عامل دیگر",
+          "dependsOn": [
+            "build",
+            "test"
+          ]
+        }
+      ],
+      "acceptanceCriteria": [
+        "هر مسیر ورودی را با schema اعتبارسنجی می‌کند و خطای ساخت‌یافته می‌دهد.",
+        "تست قرارداد با مستند OpenAPI هم‌خوان است.",
+        "پاسخ خطا هیچ stack trace یا مسیر میزبان را نشان نمی‌دهد.",
+        "محدودیت نرخ و اندازهٔ بدنه اعمال شده است."
+      ],
+      "outOfScope": [
+        "احراز هویت شخص ثالث",
+        "صف پیام",
+        "انتشار عمومی بدون مجوز"
+      ],
+      "productTestPlan": {
+        "healthPath": "/health",
+        "readyPath": "/ready"
+      }
+    },
+    {
+      "schema": "hero.product-template/v1",
+      "templateId": "mobile-reminder-app",
+      "version": "1.0.0",
+      "kind": "mobile",
+      "title": "اپلیکیشن موبایل یادآور",
+      "summary": "اپ Expo برای ثبت یادآور محلی؛ داده روی دستگاه می‌ماند و هیچ سرور بیرونی لازم نیست.",
+      "defaultRiskAnswers": {
+        "internetFacing": "unknown",
+        "personalData": "unknown",
+        "regulatedData": "unknown",
+        "securitySensitive": "unknown",
+        "externalIntegrations": "no",
+        "requiresPrivilegedAccess": "unknown"
+      },
+      "riskRationale": {
+        "externalIntegrations": "قالب هیچ API بیرونی و هیچ SDK تحلیل داده ندارد و فقط ذخیرهٔ محلی دارد."
+      },
+      "policyPack": {
+        "autonomy": "approval-each-stage",
+        "egress": "closed",
+        "reviewerIndependent": true,
+        "requiredGates": [
+          "quality-gate",
+          "independent-review",
+          "assurance-gate"
+        ],
+        "forbidden": [
+          "host-network",
+          "privileged-container",
+          "docker-socket",
+          "host-bind-mount",
+          "mutable-image-tag",
+          "secret-in-image",
+          "production-deploy-without-separate-authorization"
+        ]
+      },
+      "taskSkeleton": [
+        {
+          "key": "analysis",
+          "role": "analyst",
+          "title": "تحلیل نیاز و معیار پذیرش",
+          "dependsOn": []
+        },
+        {
+          "key": "design",
+          "role": "designer",
+          "title": "طراحی صفحه‌های بومی و حالت تاریک",
+          "dependsOn": [
+            "analysis"
+          ]
+        },
+        {
+          "key": "build",
+          "role": "implementer",
+          "title": "پیاده‌سازی در worktree ایزوله",
+          "dependsOn": [
+            "analysis",
+            "design"
+          ]
+        },
+        {
+          "key": "test",
+          "role": "tester",
+          "title": "اجرای آزمون‌ها و ثبت شواهد",
+          "dependsOn": [
+            "build"
+          ]
+        },
+        {
+          "key": "review",
+          "role": "reviewer",
+          "title": "بازبینی مستقل توسط عامل دیگر",
+          "dependsOn": [
+            "build",
+            "test"
+          ]
+        }
+      ],
+      "acceptanceCriteria": [
+        "همهٔ متن‌ها فارسی و چیدمان راست‌به‌چپ درست است.",
+        "داده فقط روی دستگاه ذخیره می‌شود و هیچ درخواست شبکه‌ای ثبت نمی‌شود.",
+        "ساخت iOS در ابر فقط پس از مجوز هزینهٔ جداگانه انجام می‌شود.",
+        "اندازهٔ لمس هدف‌ها حداقل ۴۴ نقطه است."
+      ],
+      "outOfScope": [
+        "ساخت ابری iOS بدون مجوز هزینه",
+        "اعلان‌های سرور",
+        "همگام‌سازی چنددستگاهی"
+      ],
+      "productTestPlan": {}
+    }
+  ]
+}

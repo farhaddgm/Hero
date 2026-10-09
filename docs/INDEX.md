@@ -167,6 +167,7 @@ Product ابتدا با owner و Evidence در Product registry ثبت می‌ش
 | `HERO-EVIDENCE-BACKOFFICE-UI-UX-20260911` | `active` | [Evidence طراحی، پیاده‌سازی و استقرار Test رابط Back Office](roadmap/BACKOFFICE-UI-UX-EVIDENCE-20260911.md) |
 | `HERO-EVIDENCE-BACKOFFICE-IDENTITY-INFOTIP-TEST-20260911` | `active` | [Evidence رفع ورود انسانی و راهنمای قابلیت‌های Back Office در Test](roadmap/BACKOFFICE-IDENTITY-INFOTIP-TEST-EVIDENCE-20260911.md) |
 | `HERO-ADR-0016` | `active` | [ADR-0016 — Infrastructure، Delivery، Hardening و Final Readiness](decisions/ADR-0016-infrastructure-delivery-hardening-and-final-readiness.md) |
+| `HERO-ADR-0017` | `active` | [ADR-0017 — Agent Tool Gateway، Hero-Bench و Delivery Truth](decisions/ADR-0017-agent-tool-gateway-bench-and-delivery-truth.md) |
 | `HERO-OPS-BACKOFFICE-RUNBOOK` | `active` | [Runbook بک‌آفیس](operations/BACKOFFICE-RUNBOOK.md) |
 | `HERO-REF-BACKOFFICE-GLOSSARY` | `active` | [واژه‌نامهٔ Back Office](reference/BACKOFFICE-GLOSSARY.md) |
 | `HERO-ROADMAP-BASELINE-20260904` | `active` | [Baseline ممیزی Hero — ۲۰۲۶-۰۹-۰۴](roadmap/BASELINE-20260904.md) |
@@ -195,6 +196,7 @@ Product ابتدا با owner و Evidence در Product registry ثبت می‌ش
 | `HERO-ROADMAP-BACKOFFICE-COMMAND-CENTER-V1` | `active` | [برنامهٔ جامع توسعهٔ Back Office Command Center — v1.2](roadmap/BACKOFFICE-COMMAND-CENTER-IMPLEMENTATION-v1.0.md) |
 | `HERO-ROADMAP-BACKOFFICE-UI-UX-V1` | `active` | [برنامهٔ توسعهٔ UI/UX جامع Back Office — v1.0](roadmap/BACKOFFICE-UI-UX-IMPLEMENTATION-v1.0.md) |
 | `HERO-ROADMAP-INTAKE-ADVISOR-AND-UNKNOWN-RISK-20260921` | `active` | [تحلیل و اجرای Intake Advisor و پاسخ «نمی‌دانم» برای ریسک پروژه — ۲۰۲۶-۰۹-۲۱](roadmap/INTAKE-ADVISOR-AND-UNKNOWN-RISK-ANALYSIS-20260921.md) |
+| `HERO-ROADMAP-AGENT-READINESS-20261009` | `active` | [آمادگی عامل‌ها و مسیر طلایی — ۲۰۲۶-۱۰-۰۹](roadmap/AGENT-READINESS-GOLDEN-PATH-20261009.md) |
 
 ## Templateها
 

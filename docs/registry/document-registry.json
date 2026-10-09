@@ -2254,6 +2254,34 @@
       "canonical": true,
       "supersedes": [],
       "review_cadence": "per-release"
+    },
+    {
+      "id": "HERO-ADR-0017",
+      "path": "docs/decisions/ADR-0017-agent-tool-gateway-bench-and-delivery-truth.md",
+      "title": "ADR-0017 — Agent Tool Gateway، Hero-Bench و Delivery Truth",
+      "type": "decision",
+      "scope": "hero",
+      "status": "active",
+      "version": "1.0.0",
+      "owner": "hero-architecture",
+      "canonical": true,
+      "supersedes": [],
+      "superseded_by": null,
+      "review_cadence": "event-driven"
+    },
+    {
+      "id": "HERO-ROADMAP-AGENT-READINESS-20261009",
+      "path": "docs/roadmap/AGENT-READINESS-GOLDEN-PATH-20261009.md",
+      "title": "آمادگی عامل‌ها و مسیر طلایی — ۲۰۲۶-۱۰-۰۹",
+      "type": "roadmap",
+      "scope": "hero",
+      "status": "active",
+      "version": "1.0.0",
+      "owner": "hero-product",
+      "canonical": true,
+      "supersedes": [],
+      "superseded_by": null,
+      "review_cadence": "per-change"
     }
   ]
 }
