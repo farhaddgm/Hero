@@ -1,7 +1,7 @@
 # فهرست مرکزی مستندات Hero
 
 - Document ID: `HERO-DOC-INDEX`
-- Version: `1.8.0`
+- Version: `1.12.0`
 - Status: `active`
 - Owner: `hero-documentation`
 - Scope: `hero`
@@ -142,6 +142,11 @@ Product ابتدا با owner و Evidence در Product registry ثبت می‌ش
 | `HERO-SPEC-021` | `active` | [HERO-021 v1.0 — پایلوت انتهابه‌انتها](specs/HERO-021-v1.0.md) |
 | `HERO-SPEC-022` | `active` | [HERO-022 v1.0 — Back Office Command Center و Control Plane جامع Hero](specs/HERO-022-v1.0.md) |
 | `HERO-SPEC-023` | `active` | [HERO-023 v1.0 — Design Contract رابط Back Office و Product Studio](specs/HERO-023-v1.0.md) |
+| `HERO-SPEC-NX-TRACK-A` | `proposed` | [مسیر A — اعتماد به اجرای عامل‌ها (NX-001 تا NX-010)](specs/NX-TRACK-A-AGENT-EXECUTION-TRUST-v1.0.md) |
+| `HERO-SPEC-NX-TRACK-B` | `proposed` | [مسیر B — کارخانهٔ محصول و کیفیت (NX-011 تا NX-020)](specs/NX-TRACK-B-PRODUCT-FACTORY-QUALITY-v1.0.md) |
+| `HERO-SPEC-NX-TRACK-C` | `proposed` | [مسیر C — اقتصاد و هوشمندی مدل (NX-021 تا NX-030)](specs/NX-TRACK-C-COST-MODEL-INTELLIGENCE-v1.0.md) |
+| `HERO-SPEC-NX-TRACK-D` | `proposed` | [مسیر D — تجربهٔ فارسی‌محور و همکاری (NX-031 تا NX-040)](specs/NX-TRACK-D-EXPERIENCE-COLLABORATION-v1.0.md) |
+| `HERO-SPEC-NX-TRACK-E` | `proposed` | [مسیر E — پلتفرم، قابلیت اتکا و زنجیرهٔ تأمین (NX-041 تا NX-050)](specs/NX-TRACK-E-PLATFORM-RELIABILITY-SUPPLY-CHAIN-v1.0.md) |
 
 ## Evidence
 
@@ -197,6 +202,7 @@ Product ابتدا با owner و Evidence در Product registry ثبت می‌ش
 | `HERO-ROADMAP-BACKOFFICE-UI-UX-V1` | `active` | [برنامهٔ توسعهٔ UI/UX جامع Back Office — v1.0](roadmap/BACKOFFICE-UI-UX-IMPLEMENTATION-v1.0.md) |
 | `HERO-ROADMAP-INTAKE-ADVISOR-AND-UNKNOWN-RISK-20260921` | `active` | [تحلیل و اجرای Intake Advisor و پاسخ «نمی‌دانم» برای ریسک پروژه — ۲۰۲۶-۰۹-۲۱](roadmap/INTAKE-ADVISOR-AND-UNKNOWN-RISK-ANALYSIS-20260921.md) |
 | `HERO-ROADMAP-AGENT-READINESS-20261009` | `active` | [آمادگی عامل‌ها و مسیر طلایی — ۲۰۲۶-۱۰-۰۹](roadmap/AGENT-READINESS-GOLDEN-PATH-20261009.md) |
+| `HERO-ROADMAP-NEXT-50-STEPS-20261013` | `proposed` | [پنجاه گام جدید توسعهٔ Hero — NX-001 تا NX-050](roadmap/NEXT-50-STEPS-20261013.md) |
 
 ## Templateها
 
@@ -210,3 +216,5 @@ Product ابتدا با owner و Evidence در Product registry ثبت می‌ش
 ## کنترل خودکار
 
 `pnpm check:docs` رجیستری‌ها، یکتایی شناسه‌ها، وجود مسیرها، ثبت همهٔ Markdownها، لینک‌های داخلی، نسخه‌ها، supersession و الگوهای high-confidence Secret را بررسی می‌کند. این کنترل قبل از build و test در `pnpm check` اجرا می‌شود.
+
+`pnpm check:next-steps` رجیستری ماشینی `config/product-development/next-50-steps-v1.json` را با پنج کارت مسیر و جدول گام‌ها در [NEXT-50-STEPS-20261013](roadmap/NEXT-50-STEPS-20261013.md) مقایسه می‌کند (شناسه‌های پیوسته، وابستگی بدون چرخه، ترتیب موج، وضعیت بدون Evidence، ارجاع‌های موجود) و در `pnpm check` اجرا می‌شود.
