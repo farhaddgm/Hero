@@ -161,10 +161,10 @@ const OPENAI_TEST_ADVISOR = Object.freeze({
   modelId: "gpt-5.6-luna",
   profileId: "openai-gpt-5.6-luna-analyst-v1",
   role: "analyst",
-  catalogVersion: "openai-gpt-5.6-luna-20260916-v1",
+  catalogVersion: "openai-gpt-5.6-luna-20261021-v1",
   catalogSourceUrl: "https://developers.openai.com/api/docs/models/gpt-5.6-luna",
-  catalogFetchedAt: "2026-09-16T00:00:00.000Z",
-  catalogValidUntil: "2026-10-16T00:00:00.000Z",
+  catalogFetchedAt: "2026-10-21T00:00:00.000Z",
+  catalogValidUntil: "2026-11-20T00:00:00.000Z",
   maxOutputTokens: 512,
   // The request includes a bounded, read-only repository context.  A 100-unit
   // ceiling was lower than the adapter's conservative preflight estimate for
