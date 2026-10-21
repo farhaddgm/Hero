@@ -1,0 +1,31 @@
+{
+  "schema": "hero.model-capabilities/v1",
+  "version": "1.0.0",
+  "note": "ماتریس قابلیت مدل‌ها. هر مقدار باید توسط انسان از مستندات رسمی Provider راستی‌آزمایی شود و با منبع، تاریخ و نام راستی‌آزما ثبت شود. عامل مقدار را حدس نمی‌زند؛ تا آن زمان همهٔ مقدارها unknown هستند و unknown هرگز «پشتیبانی می‌شود» خوانده نمی‌شود.",
+  "entries": [
+    {
+      "providerId": "openai",
+      "modelId": "chatgpt",
+      "alias": true,
+      "note": "نام خانوادهٔ نقش‌های خواندنی در طرح پایلوت؛ نه شناسهٔ رسمی مدل API. پیش از استفاده باید به مدل واقعی نگاشت و راستی‌آزمایی شود.",
+      "capabilities": {
+        "contextWindowTokens": { "value": "unknown" },
+        "toolUse": { "value": "unknown" },
+        "structuredOutput": { "value": "unknown" },
+        "dataResidency": { "value": "unknown" }
+      }
+    },
+    {
+      "providerId": "openai",
+      "modelId": "codex",
+      "alias": true,
+      "note": "نام خانوادهٔ نقش Executor در طرح پایلوت؛ نه شناسهٔ رسمی مدل API. پیش از استفاده باید به مدل واقعی نگاشت و راستی‌آزمایی شود.",
+      "capabilities": {
+        "contextWindowTokens": { "value": "unknown" },
+        "toolUse": { "value": "unknown" },
+        "structuredOutput": { "value": "unknown" },
+        "dataResidency": { "value": "unknown" }
+      }
+    }
+  ]
+}

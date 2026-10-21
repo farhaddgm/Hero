@@ -136,6 +136,11 @@ function stringValues(args) {
   return Object.values(args ?? {}).filter(value => typeof value === "string");
 }
 
+/** The digest of one audit entry body, shared with the independent chain verifier so the rule has one definition. */
+export function auditEntryDigest(body) {
+  return digest(body);
+}
+
 /** Recomputes the hash chain of gateway audit entries; any edit, removal or reordering is detected. */
 export function verifyAuditChain(entries) {
   let previous = "genesis";

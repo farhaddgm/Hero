@@ -1,0 +1,447 @@
+{
+  "schema": "hero.wcag-conformance-matrix/v1",
+  "version": "1.0.0",
+  "standard": "WCAG 2.2",
+  "note": "نقشهٔ پوشش، نه گواهی انطباق. معیارهای needs-human هرگز pass حساب نمی‌شوند.",
+  "criteria": {
+    "1.1.1": {
+      "status": "automated",
+      "evidence": [
+        {
+          "kind": "static-check",
+          "ref": "img-alt",
+          "strength": "substantial"
+        }
+      ]
+    },
+    "1.2.1": {
+      "status": "not-applicable",
+      "justification": "صفحه‌های Hero صوت یا ویدئوی ضبط‌شده ندارند.",
+      "applicability": {
+        "kind": "static-check",
+        "ref": "no-media"
+      }
+    },
+    "1.2.2": {
+      "status": "not-applicable",
+      "justification": "صفحه‌های Hero ویدئوی ضبط‌شده ندارند.",
+      "applicability": {
+        "kind": "static-check",
+        "ref": "no-media"
+      }
+    },
+    "1.2.3": {
+      "status": "not-applicable",
+      "justification": "صفحه‌های Hero ویدئوی ضبط‌شده ندارند.",
+      "applicability": {
+        "kind": "static-check",
+        "ref": "no-media"
+      }
+    },
+    "1.3.1": {
+      "status": "automated",
+      "evidence": [
+        {
+          "kind": "static-check",
+          "ref": "single-main",
+          "strength": "partial"
+        },
+        {
+          "kind": "static-check",
+          "ref": "control-names",
+          "strength": "partial"
+        },
+        {
+          "kind": "static-check",
+          "ref": "aria-references",
+          "strength": "partial"
+        },
+        {
+          "kind": "static-check",
+          "ref": "heading-structure",
+          "strength": "partial"
+        }
+      ]
+    },
+    "1.3.2": {
+      "status": "needs-human",
+      "humanReview": "ترتیب خواندن (DOM) را با ترتیب دیداری در حالت راست‌به‌چپ مقایسه کنید."
+    },
+    "1.3.3": {
+      "status": "needs-human",
+      "humanReview": "بررسی کنید دستورالعمل‌ها فقط به شکل، رنگ یا جای عنصر تکیه نکنند."
+    },
+    "1.4.1": {
+      "status": "needs-human",
+      "humanReview": "بررسی کنید رنگ تنها حامل معنا نباشد (مثلاً وضعیت‌ها برچسب متنی هم دارند)."
+    },
+    "1.4.2": {
+      "status": "not-applicable",
+      "justification": "صفحه‌های Hero صوت خودکار پخش نمی‌کنند.",
+      "applicability": {
+        "kind": "static-check",
+        "ref": "no-media"
+      }
+    },
+    "2.1.1": {
+      "status": "browser-only",
+      "evidence": [
+        {
+          "kind": "browser-test",
+          "ref": "tests/browser/locale-a11y.browser.mjs",
+          "contains": "keyboard",
+          "strength": "partial",
+          "scope": "فقط صفحه‌های Inbox و Help"
+        }
+      ]
+    },
+    "2.1.2": {
+      "status": "needs-human",
+      "humanReview": "با صفحه‌کلید در همهٔ صفحه‌ها و دیالوگ‌ها بررسی کنید فوکوس گیر نمی‌کند."
+    },
+    "2.1.4": {
+      "status": "needs-human",
+      "humanReview": "میان‌برهای تک‌کاراکتری را فهرست و بررسی کنید قابل خاموش‌کردن یا نیازمند کلید کمکی باشند."
+    },
+    "2.2.1": {
+      "status": "needs-human",
+      "humanReview": "مهلت‌های زمانی (نشست ۶ ساعته، چالش ورود) را بررسی کنید."
+    },
+    "2.2.2": {
+      "status": "needs-human",
+      "humanReview": "محتوای خودتازه‌شونده مثل صفحهٔ Project Control را از نظر امکان توقف بررسی کنید."
+    },
+    "2.3.1": {
+      "status": "needs-human",
+      "humanReview": "بررسی کنید هیچ انیمیشنی بیش از سه بار در ثانیه چشمک نمی‌زند."
+    },
+    "2.4.1": {
+      "status": "automated",
+      "evidence": [
+        {
+          "kind": "static-check",
+          "ref": "skip-link",
+          "strength": "substantial"
+        },
+        {
+          "kind": "static-check",
+          "ref": "single-main",
+          "strength": "partial"
+        }
+      ]
+    },
+    "2.4.2": {
+      "status": "automated",
+      "evidence": [
+        {
+          "kind": "static-check",
+          "ref": "page-title",
+          "strength": "substantial"
+        }
+      ]
+    },
+    "2.4.3": {
+      "status": "automated",
+      "evidence": [
+        {
+          "kind": "static-check",
+          "ref": "no-positive-tabindex",
+          "strength": "partial"
+        },
+        {
+          "kind": "browser-test",
+          "ref": "tests/browser/locale-a11y.browser.mjs",
+          "contains": "keyboard",
+          "strength": "partial",
+          "scope": "فقط صفحه‌های Inbox و Help"
+        }
+      ]
+    },
+    "2.4.4": {
+      "status": "automated",
+      "evidence": [
+        {
+          "kind": "static-check",
+          "ref": "link-names",
+          "strength": "partial"
+        }
+      ]
+    },
+    "2.5.1": {
+      "status": "needs-human",
+      "humanReview": "بررسی کنید هیچ عمل مبتنی بر ژست چندنقطه‌ای یا مسیر لازم نیست."
+    },
+    "2.5.2": {
+      "status": "needs-human",
+      "humanReview": "بررسی کنید اعمال مهم با رها کردن اشاره‌گر فعال می‌شوند و قابل لغو هستند."
+    },
+    "2.5.3": {
+      "status": "needs-human",
+      "humanReview": "نام قابل‌دیدن دکمه‌ها را با نام دسترس‌پذیرشان مقایسه کنید."
+    },
+    "2.5.4": {
+      "status": "automated",
+      "evidence": [
+        {
+          "kind": "static-check",
+          "ref": "no-motion-listeners",
+          "strength": "partial"
+        }
+      ]
+    },
+    "3.1.1": {
+      "status": "automated",
+      "evidence": [
+        {
+          "kind": "static-check",
+          "ref": "html-lang",
+          "strength": "substantial"
+        }
+      ]
+    },
+    "3.2.1": {
+      "status": "needs-human",
+      "humanReview": "بررسی کنید دریافت فوکوس باعث تغییر زمینه نمی‌شود."
+    },
+    "3.2.2": {
+      "status": "needs-human",
+      "humanReview": "بررسی کنید تغییر مقدار فیلد فرم بدون هشدار فرم را ارسال نمی‌کند."
+    },
+    "3.2.6": {
+      "status": "needs-human",
+      "humanReview": "بررسی کنید راهنما در همهٔ صفحه‌ها در جای یکسان است."
+    },
+    "3.3.1": {
+      "status": "needs-human",
+      "humanReview": "پیام‌های خطای فرم‌ها را با صفحه‌خوان بررسی کنید."
+    },
+    "3.3.2": {
+      "status": "automated",
+      "evidence": [
+        {
+          "kind": "static-check",
+          "ref": "control-names",
+          "strength": "partial"
+        }
+      ]
+    },
+    "3.3.7": {
+      "status": "needs-human",
+      "humanReview": "بررسی کنید اطلاعاتی که کاربر قبلاً داده دوباره خواسته نمی‌شود."
+    },
+    "4.1.2": {
+      "status": "automated",
+      "evidence": [
+        {
+          "kind": "static-check",
+          "ref": "control-names",
+          "strength": "substantial"
+        },
+        {
+          "kind": "static-check",
+          "ref": "button-names",
+          "strength": "substantial"
+        },
+        {
+          "kind": "static-check",
+          "ref": "unique-ids",
+          "strength": "partial"
+        },
+        {
+          "kind": "static-check",
+          "ref": "aria-references",
+          "strength": "partial"
+        }
+      ]
+    },
+    "1.2.4": {
+      "status": "not-applicable",
+      "justification": "صفحه‌های Hero پخش زنده ندارند.",
+      "applicability": {
+        "kind": "static-check",
+        "ref": "no-media"
+      }
+    },
+    "1.2.5": {
+      "status": "not-applicable",
+      "justification": "صفحه‌های Hero ویدئوی ضبط‌شده ندارند.",
+      "applicability": {
+        "kind": "static-check",
+        "ref": "no-media"
+      }
+    },
+    "1.3.4": {
+      "status": "automated",
+      "evidence": [
+        {
+          "kind": "static-check",
+          "ref": "orientation-lock",
+          "strength": "partial"
+        }
+      ]
+    },
+    "1.3.5": {
+      "status": "automated",
+      "evidence": [
+        {
+          "kind": "static-check",
+          "ref": "input-autocomplete",
+          "strength": "partial"
+        }
+      ]
+    },
+    "1.4.3": {
+      "status": "automated",
+      "evidence": [
+        {
+          "kind": "token-contrast",
+          "ref": "1.4.3",
+          "strength": "partial",
+          "scope": "رنگ‌های طراحی؛ نه ترکیب‌های واقعی هر صفحه"
+        }
+      ]
+    },
+    "1.4.4": {
+      "status": "automated",
+      "evidence": [
+        {
+          "kind": "static-check",
+          "ref": "zoom-allowed",
+          "strength": "substantial"
+        }
+      ]
+    },
+    "1.4.5": {
+      "status": "needs-human",
+      "humanReview": "بررسی کنید متن به‌صورت تصویر نمایش داده نمی‌شود."
+    },
+    "1.4.10": {
+      "status": "automated",
+      "evidence": [
+        {
+          "kind": "static-check",
+          "ref": "viewport",
+          "strength": "partial"
+        }
+      ]
+    },
+    "1.4.11": {
+      "status": "automated",
+      "evidence": [
+        {
+          "kind": "token-contrast",
+          "ref": "1.4.11",
+          "strength": "partial",
+          "scope": "حلقهٔ فوکوس و حاشیهٔ کنترل؛ نه همهٔ اجزا"
+        }
+      ],
+      "knownFindings": [
+        {
+          "ref": "control-border-on-surface",
+          "scope": "light",
+          "note": "حاشیهٔ کنترل‌ها (--hero-line-strong) روی زمینهٔ روشن حدود ۱٫۶۸ به ۱ است و کمتر از ۳ به ۱ است؛ اصلاح رنگ گام جداگانه با مجوز خودش است."
+        },
+        {
+          "ref": "control-border-on-surface",
+          "scope": "dark",
+          "note": "حاشیهٔ کنترل‌ها (--hero-line-strong) روی زمینهٔ تیره حدود ۲٫۸۸ به ۱ است و کمتر از ۳ به ۱ است؛ اصلاح رنگ گام جداگانه با مجوز خودش است."
+        }
+      ]
+    },
+    "1.4.12": {
+      "status": "needs-human",
+      "humanReview": "با تغییر فاصلهٔ خط، حرف و کلمه محتوا را بررسی کنید."
+    },
+    "1.4.13": {
+      "status": "needs-human",
+      "humanReview": "بررسی کنید راهنماهای شناور قابل بستن و قابل نگه‌داشتن هستند."
+    },
+    "2.4.5": {
+      "status": "needs-human",
+      "humanReview": "بررسی کنید بیش از یک راه برای رسیدن به صفحه‌ها هست (ناوبری، جست‌وجو)."
+    },
+    "2.4.6": {
+      "status": "automated",
+      "evidence": [
+        {
+          "kind": "static-check",
+          "ref": "heading-structure",
+          "strength": "partial"
+        }
+      ]
+    },
+    "2.4.7": {
+      "status": "automated",
+      "evidence": [
+        {
+          "kind": "design-css",
+          "ref": "focus-style-css",
+          "strength": "partial",
+          "scope": "قاعدهٔ CSS اعلام‌شده"
+        },
+        {
+          "kind": "browser-test",
+          "ref": "tests/browser/locale-a11y.browser.mjs",
+          "contains": "keyboard",
+          "strength": "partial",
+          "scope": "فقط صفحه‌های Inbox و Help"
+        }
+      ]
+    },
+    "2.4.11": {
+      "status": "needs-human",
+      "humanReview": "با صفحه‌کلید بررسی کنید فوکوس زیر سرصفحه‌ها یا دیالوگ‌ها پنهان نمی‌ماند."
+    },
+    "2.5.7": {
+      "status": "needs-human",
+      "humanReview": "بررسی کنید هر کار کشیدنی راه جایگزین بدون کشیدن دارد."
+    },
+    "2.5.8": {
+      "status": "automated",
+      "evidence": [
+        {
+          "kind": "design-css",
+          "ref": "target-size-css",
+          "strength": "partial",
+          "scope": "قاعدهٔ CSS اعلام‌شده"
+        }
+      ]
+    },
+    "3.1.2": {
+      "status": "needs-human",
+      "humanReview": "بررسی کنید بخش‌های انگلیسی داخل متن فارسی با lang مشخص شده‌اند."
+    },
+    "3.2.3": {
+      "status": "automated",
+      "evidence": [
+        {
+          "kind": "unit-test",
+          "ref": "tests/ui-static-audit.test.mjs",
+          "contains": "every page shares the same Persian shell",
+          "strength": "partial",
+          "scope": "پوستهٔ مشترک؛ ناوبری کامل بررسی نمی‌شود"
+        }
+      ]
+    },
+    "3.2.4": {
+      "status": "needs-human",
+      "humanReview": "بررسی کنید اجزای هم‌کارکرد در همهٔ صفحه‌ها نام یکسان دارند."
+    },
+    "3.3.3": {
+      "status": "needs-human",
+      "humanReview": "بررسی کنید پیام خطا راه‌حل پیشنهاد می‌دهد."
+    },
+    "3.3.4": {
+      "status": "needs-human",
+      "humanReview": "بررسی کنید اقدام‌های حقوقی، مالی و حذف داده قابل برگشت یا تأیید هستند."
+    },
+    "3.3.8": {
+      "status": "needs-human",
+      "humanReview": "بررسی کنید ورود با مدیر گذرواژه و چسباندن کد ممکن است و آزمون شناختی لازم نیست."
+    },
+    "4.1.3": {
+      "status": "needs-human",
+      "humanReview": "پیام‌های وضعیت را با صفحه‌خوان بررسی کنید (aria-live)."
+    }
+  }
+}

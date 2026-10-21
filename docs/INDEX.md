@@ -1,7 +1,7 @@
 # فهرست مرکزی مستندات Hero
 
 - Document ID: `HERO-DOC-INDEX`
-- Version: `1.12.0`
+- Version: `1.13.0`
 - Status: `active`
 - Owner: `hero-documentation`
 - Scope: `hero`
@@ -171,6 +171,7 @@ Product ابتدا با owner و Evidence در Product registry ثبت می‌ش
 | `HERO-EVIDENCE-BACKOFFICE-PARTIAL-COMPLETION-20260911` | `active` | [بستهٔ تکمیل محلی الزامات Partial بک‌آفیس — ۲۰۲۶-۰۹-۱۱](roadmap/BACKOFFICE-PARTIAL-COMPLETION-20260911.md) |
 | `HERO-EVIDENCE-BACKOFFICE-UI-UX-20260911` | `active` | [Evidence طراحی، پیاده‌سازی و استقرار Test رابط Back Office](roadmap/BACKOFFICE-UI-UX-EVIDENCE-20260911.md) |
 | `HERO-EVIDENCE-BACKOFFICE-IDENTITY-INFOTIP-TEST-20260911` | `active` | [Evidence رفع ورود انسانی و راهنمای قابلیت‌های Back Office در Test](roadmap/BACKOFFICE-IDENTITY-INFOTIP-TEST-EVIDENCE-20260911.md) |
+| `HERO-EVIDENCE-NX-WAVE1-OFFLINE-20261021` | `active` | [شواهد اجرای ۱۲ گام آفلاین موج ۱ برنامهٔ NX — ۲۰۲۶-۱۰-۲۱](evidence/NX-WAVE1-OFFLINE-20261021.md) |
 | `HERO-ADR-0016` | `active` | [ADR-0016 — Infrastructure، Delivery، Hardening و Final Readiness](decisions/ADR-0016-infrastructure-delivery-hardening-and-final-readiness.md) |
 | `HERO-ADR-0017` | `active` | [ADR-0017 — Agent Tool Gateway، Hero-Bench و Delivery Truth](decisions/ADR-0017-agent-tool-gateway-bench-and-delivery-truth.md) |
 | `HERO-OPS-BACKOFFICE-RUNBOOK` | `active` | [Runbook بک‌آفیس](operations/BACKOFFICE-RUNBOOK.md) |

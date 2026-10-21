@@ -1,5 +1,6 @@
 import { normalizePricingCatalog } from "../../contracts/src/pricing-catalog.mjs";
 import { toPersianDigits } from "./delivery-truth.mjs";
+import { assessPriceReliance } from "./price-freshness.mjs";
 
 /**
  * Estimate-before-run: cost (Hero cost units), duration and risk for a task graph, computed
@@ -77,12 +78,14 @@ export function estimateRun({ tasks, assignments, catalog, history = [], budgetC
 
   const warnings = [];
   const unpriced = new Set();
+  const usedEntries = [];
   const nowMs = Date.parse(now());
   const priceOf = role => {
     const assignment = assignments[role];
     const entry = assignment && normalizedCatalog.entries.find(item => item.providerId === assignment.providerId && item.modelId === assignment.modelId);
     if (!entry || entry.pricingMode !== "tokens") { unpriced.add(role); return null; }
-    if (Date.parse(entry.validUntil) < nowMs) warnings.push(`قیمت ${assignment.providerId}/${assignment.modelId} منقضی شده است.`);
+    if (Date.parse(entry.validUntil) <= nowMs) warnings.push(`قیمت ${assignment.providerId}/${assignment.modelId} منقضی شده است.`);
+    usedEntries.push(entry);
     return { entry, perInputToken: entry.inputPricePer1mTokens / 1_000_000, perOutputToken: entry.outputPricePer1mTokens / 1_000_000 };
   };
   const prices = new Map([...new Set(tasks.map(task => task.role))].map(role => [role, priceOf(role)]));
@@ -109,11 +112,16 @@ export function estimateRun({ tasks, assignments, catalog, history = [], budgetC
   const complete = unpriced.size === 0;
   if (!complete) warnings.push(`برای نقش‌های ${[...unpriced].join("، ")} قیمت مدل در کاتالوگ نیست؛ برآورد ناقص است و حدس زده نشده است.`);
   if (basis !== "history") warnings.push("این برآورد بر پایهٔ فرض‌های پیش‌فرض است، نه اندازه‌گیری واقعی؛ پس از چند اجرای ثبت‌شده دقیق‌تر می‌شود.");
-  const withinBudget = budgetCostUnits === null || !complete ? null : scenarios.high.costUnits <= budgetCostUnits;
-  const budgetStatus = budgetCostUnits === null || !complete ? "unknown" : scenarios.high.costUnits <= budgetCostUnits ? "within-budget" : scenarios.expected.costUnits <= budgetCostUnits ? "at-risk" : "exceeds-budget";
+  // NX-021: a cap compared with an estimate built on an expired price can call an insufficient cap
+  // "sufficient". The comparison is refused (PRICE_STALE) instead of being made.
+  const priceReliance = assessPriceReliance({ entries: usedEntries, now: nowMs });
+  for (const notice of priceReliance.notices) if (!warnings.includes(notice) && !/منقضی شده/.test(notice)) warnings.push(notice);
+  const priceBlocksComparison = !priceReliance.reliable;
+  const withinBudget = budgetCostUnits === null || !complete || priceBlocksComparison ? null : scenarios.high.costUnits <= budgetCostUnits;
+  const budgetStatus = budgetCostUnits === null || !complete ? "unknown" : priceBlocksComparison ? "price-stale" : scenarios.high.costUnits <= budgetCostUnits ? "within-budget" : scenarios.expected.costUnits <= budgetCostUnits ? "at-risk" : "exceeds-budget";
 
   const summaryFa = complete
-    ? `هزینهٔ محتمل حدود ${toPersianDigits(scenarios.expected.costUnits)} واحد (از ${toPersianDigits(scenarios.low.costUnits)} تا ${toPersianDigits(scenarios.high.costUnits)}) و زمان محتمل حدود ${toPersianDigits(scenarios.expected.minutes)} دقیقه است. ${budgetStatus === "exceeds-budget" ? "حتی حالت محتمل از سقف بودجه بیشتر است." : budgetStatus === "at-risk" ? "در بدترین حالت از سقف بودجه عبور می‌کند." : budgetStatus === "within-budget" ? "در همهٔ حالت‌ها در سقف بودجه می‌ماند." : "سقف بودجه ثبت نشده است."} این فقط پیش‌بینی است و سقف واقعی را دفتر هزینه اعمال می‌کند.`
+    ? `هزینهٔ محتمل حدود ${toPersianDigits(scenarios.expected.costUnits)} واحد (از ${toPersianDigits(scenarios.low.costUnits)} تا ${toPersianDigits(scenarios.high.costUnits)}) و زمان محتمل حدود ${toPersianDigits(scenarios.expected.minutes)} دقیقه است. ${budgetStatus === "price-stale" ? "قیمت‌های به‌کاررفته منقضی‌اند و مقایسه با سقف بودجه انجام نشد." : budgetStatus === "exceeds-budget" ? "حتی حالت محتمل از سقف بودجه بیشتر است." : budgetStatus === "at-risk" ? "در بدترین حالت از سقف بودجه عبور می‌کند." : budgetStatus === "within-budget" ? "در همهٔ حالت‌ها در سقف بودجه می‌ماند." : "سقف بودجه ثبت نشده است."} این فقط پیش‌بینی است و سقف واقعی را دفتر هزینه اعمال می‌کند.`
     : "برآورد کامل نیست چون قیمت بعضی مدل‌ها در کاتالوگ وجود ندارد.";
 
   return Object.freeze({
@@ -124,7 +132,8 @@ export function estimateRun({ tasks, assignments, catalog, history = [], budgetC
     taskCount: tasks.length,
     catalogVersion: normalizedCatalog.catalogVersion,
     scenarios: Object.freeze(scenarios),
-    budget: Object.freeze({ budgetCostUnits, status: budgetStatus, withinBudget }),
+    budget: Object.freeze({ budgetCostUnits, status: budgetStatus, withinBudget, code: priceBlocksComparison && budgetCostUnits !== null && complete ? priceReliance.code : null }),
+    priceReliance,
     unpricedRoles: Object.freeze([...unpriced]),
     warnings: Object.freeze(warnings),
     summaryFa,

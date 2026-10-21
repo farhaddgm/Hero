@@ -9,6 +9,7 @@ import { getProductStudioHtml } from "../apps/control-plane/src/product-studio-v
 import { getProjectControlRoomHtml } from "../apps/control-plane/src/project-control-room-view.mjs";
 import { getProjectWalkthroughHtml } from "../apps/control-plane/src/project-walkthrough-view.mjs";
 import { getProjectWorkspaceHtml } from "../apps/control-plane/src/project-workspace-view.mjs";
+import { auditPage } from "../tools/ui-static-audit.mjs";
 
 /**
  * Static accessibility and right-to-left audit of every full-page view. It needs no browser, so it
@@ -25,56 +26,6 @@ const pages = {
   walkthrough: getProjectWalkthroughHtml({ projectId: "demo-project" }),
   workspace: getProjectWorkspaceHtml({ projectId: "demo-project" })
 };
-
-const withoutScripts = html => html.replace(/<script\b[\s\S]*?<\/script>/gi, "").replace(/<style\b[\s\S]*?<\/style>/gi, "");
-const tags = (html, name) => [...html.matchAll(new RegExp(`<${name}\\b([^>]*)>`, "gi"))].map(match => match[1]);
-const attr = (attrs, name) => new RegExp(`(?:^|\\s)${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`, "i").exec(attrs)?.slice(1).find(value => value !== undefined);
-
-/** Returns a list of structural problems; an empty list means the page passes. */
-function auditPage(source) {
-  const html = withoutScripts(source);
-  const problems = [];
-  const root = tags(html, "html")[0] ?? "";
-  if (attr(root, "lang") !== "fa") problems.push("lang must be fa");
-  if (attr(root, "dir") !== "rtl") problems.push("dir must be rtl");
-  if (!/<meta[^>]+name="viewport"[^>]+width=device-width/.test(html)) problems.push("responsive viewport is missing");
-  if (/user-scalable\s*=\s*no|maximum-scale\s*=\s*1(?:\.0)?\b/.test(html)) problems.push("zoom is disabled");
-  if (!/<title>[^<]{2,}<\/title>/.test(html)) problems.push("title is missing");
-  if (tags(html, "main").length !== 1) problems.push("exactly one main landmark is required");
-  if (!/class="hero-skip-link"[^>]*href="#hero-main"/.test(html) || !/id="hero-main"/.test(html)) problems.push("skip link or its target is missing");
-  for (const attrs of tags(html, "[a-z]+")) {
-    const tabindex = Number(attr(attrs, "tabindex"));
-    if (Number.isFinite(tabindex) && tabindex > 0) problems.push(`positive tabindex: ${attrs.slice(0, 60)}`);
-  }
-  const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map(match => match[1]);
-  for (const id of new Set(ids.filter((value, index) => ids.indexOf(value) !== index))) problems.push(`duplicate id: ${id}`);
-  const known = new Set(ids);
-  // Dynamic regions are filled by the page script; only references no script could define are errors.
-  const scriptsCreateIds = (source.match(/\.id\s*=|setAttribute\(["']id["']/g) ?? []).length > 0;
-  if (!scriptsCreateIds) {
-    for (const match of html.matchAll(/\saria-(?:labelledby|describedby|controls)="([^"]+)"/g)) {
-      for (const ref of match[1].split(/\s+/)) if (!known.has(ref)) problems.push(`aria reference to missing id: ${ref}`);
-    }
-  }
-  for (const attrs of tags(html, "img")) if (attr(attrs, "alt") === undefined) problems.push(`img without alt: ${attrs.slice(0, 60)}`);
-  const labelFor = new Set([...html.matchAll(/<label\b[^>]*\sfor="([^"]+)"/g)].map(match => match[1]));
-  const wrapped = [...html.matchAll(/<label\b[^>]*>([\s\S]*?)<\/label>/g)].map(match => match[1]);
-  for (const element of ["input", "select", "textarea"]) {
-    for (const match of html.matchAll(new RegExp(`<${element}\\b([^>]*)>`, "gi"))) {
-      const attrs = match[1];
-      const type = (attr(attrs, "type") ?? "text").toLowerCase();
-      if (["hidden", "submit", "button", "reset", "image"].includes(type)) continue;
-      const id = attr(attrs, "id");
-      const named = attr(attrs, "aria-label") || attr(attrs, "aria-labelledby") || attr(attrs, "title") || (id && labelFor.has(id));
-      if (!named && !wrapped.some(body => body.includes(match[0]))) problems.push(`${element}${id ? `#${id}` : ""} has no accessible name`);
-    }
-  }
-  for (const match of html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/gi)) {
-    const text = match[2].replace(/<[^>]+>/g, "").trim();
-    if (!text && !attr(match[1], "aria-label") && !attr(match[1], "aria-labelledby") && !attr(match[1], "title")) problems.push(`button has no accessible name: ${match[1].slice(0, 60)}`);
-  }
-  return problems;
-}
 
 test("the audit itself detects the defects it claims to detect", () => {
   const bad = `<html lang="en"><head><meta name="viewport" content="width=device-width, user-scalable=no"></head><body>

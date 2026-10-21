@@ -177,6 +177,46 @@ function validateSummary(registry, steps, errors) {
   }
 }
 
+const AUTHORIZATION_DIRECTORY = "config/authorizations";
+const SENSITIVE_OPERATIONS = ["production-deploy", "destructive-data-operation", "external-spend", "secret-change", "external-message", "irreversible-operation"];
+const STARTED_STATUSES = new Set(["authorized", "in_progress", "source_complete", "verified"]);
+
+function readAuthorizationSnapshots(root, errors) {
+  const directory = path.join(root, AUTHORIZATION_DIRECTORY);
+  if (!fs.existsSync(directory)) return [];
+  const snapshots = [];
+  for (const name of fs.readdirSync(directory).filter(file => file.endsWith(".json")).sort()) {
+    try {
+      const snapshot = JSON.parse(fs.readFileSync(path.join(directory, name), "utf8"));
+      if (snapshot?.schema === "hero.authorization-snapshot/v1") snapshots.push({ ...snapshot, __file: name });
+    } catch (error) {
+      add(errors, "INVALID_JSON", `${AUTHORIZATION_DIRECTORY}/${name}`, error.message);
+    }
+  }
+  return snapshots;
+}
+
+/**
+ * AGENTS.md rule 11: a step that has started needs an active, version-bound authorization snapshot that names
+ * its Step ID with the exact version of its track document, with Global Stop off and no sensitive operation.
+ */
+function validateAuthorization(registry, steps, documentRegistry, snapshots, errors) {
+  const documents = new Map((documentRegistry?.documents ?? []).map(document => [document.id, document]));
+  const trackDocument = new Map((registry.tracks ?? []).map(track => [track.key, track.document_id]));
+  for (const step of steps) {
+    if (!STARTED_STATUSES.has(step.status)) continue;
+    const documentId = trackDocument.get(step.track);
+    const version = documents.get(documentId)?.version;
+    const covering = snapshots.filter(snapshot => (snapshot.steps ?? []).some(entry => entry?.stepId === step.id));
+    if (covering.length === 0) { add(errors, "STEP_NOT_AUTHORIZED", step.id, `${step.status} but no authorization snapshot names ${step.id}`); continue; }
+    const matching = covering.filter(snapshot => (snapshot.steps ?? []).some(entry => entry.stepId === step.id && entry.documentVersion === version) && (snapshot.documents ?? []).some(entry => entry?.documentId === documentId && entry.documentVersion === version));
+    if (matching.length === 0) { add(errors, "AUTHORIZATION_VERSION_MISMATCH", step.id, `no snapshot authorizes ${step.id} for ${documentId} version ${version}`); continue; }
+    const valid = matching.filter(snapshot => snapshot.status === "active" && snapshot.globalStop === false
+      && SENSITIVE_OPERATIONS.every(operation => (snapshot.excludedOperations ?? []).includes(operation) && !(snapshot.operations ?? []).includes(operation)));
+    if (valid.length === 0) add(errors, "AUTHORIZATION_SCOPE_INVALID", step.id, `the snapshot for ${step.id} is not active, has Global Stop on, or enables a sensitive operation`);
+  }
+}
+
 function expectedDocumentStatus(registry) {
   return registry.status === "approved" ? "active" : "proposed";
 }
@@ -289,7 +329,7 @@ function validateRoadmapDocument(root, registry, steps, documentRegistry, errors
   }
 }
 
-export function validateNextSteps({ root = REPO_ROOT, registry: override } = {}) {
+export function validateNextSteps({ root = REPO_ROOT, registry: override, authorizations } = {}) {
   const errors = [];
   const registry = override ?? readJson(root, REGISTRY, errors);
   if (!registry) return { steps: 0, tracks: 0, errors };
@@ -313,6 +353,7 @@ export function validateNextSteps({ root = REPO_ROOT, registry: override } = {})
   const documentRegistry = readJson(root, DOCUMENT_REGISTRY, errors);
   validateTrackDocuments(root, registry, steps, documentRegistry, errors);
   validateRoadmapDocument(root, registry, steps, documentRegistry, errors);
+  validateAuthorization(registry, steps, documentRegistry, authorizations ?? readAuthorizationSnapshots(root, errors), errors);
 
   errors.sort((a, b) => `${a.code}:${a.subject}`.localeCompare(`${b.code}:${b.subject}`));
   return { steps: steps.length, tracks: registry.tracks.length, errors };

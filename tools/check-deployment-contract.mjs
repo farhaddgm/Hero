@@ -2,6 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { validateRunnerProfileRegistry } from "../packages/contracts/src/runner-resource-profiles.mjs";
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const files = Object.freeze({
   compose: path.join(root, "compose.yaml"),
@@ -92,6 +94,16 @@ requireMatch(caddyTestSidecar, /@hero_test_api path \/api\/\*/, "The Test sideca
 requireMatch(caddyTestSidecar, /handle @hero_test_api[\s\S]*reverse_proxy control-plane:3100/, "The Test sidecar must bind API requests to the Hero control-plane.");
 requireMatch(caddyTestSidecar, /Cache-Control\s+"no-store"/, "The Test sidecar must prevent CDN caching of protected responses.");
 rejectMatch(caddyTestSidecar, /:5432\b/, "The Test sidecar must not expose PostgreSQL.");
+
+// NX-007: every Runner task class needs a resource profile and no profile may weaken the hard ceilings.
+const profileRegistryFile = path.join(root, "config", "runner-profiles", "runner-resource-profiles-v1.json");
+if (!fs.existsSync(profileRegistryFile)) {
+  errors.push("The Runner resource profile registry is missing: config/runner-profiles/runner-resource-profiles-v1.json.");
+} else {
+  let profileRegistry = null;
+  try { profileRegistry = JSON.parse(fs.readFileSync(profileRegistryFile, "utf8")); } catch { errors.push("The Runner resource profile registry is not valid JSON."); }
+  if (profileRegistry) for (const problem of validateRunnerProfileRegistry(profileRegistry)) errors.push(`Runner resource profiles: ${problem}.`);
+}
 
 const opaqueOverride = path.join(root, "compose.test.yaml");
 if (fs.existsSync(opaqueOverride)) {

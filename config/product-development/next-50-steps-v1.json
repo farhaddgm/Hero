@@ -71,7 +71,8 @@
       "gated-live": 3
     },
     "by_status": {
-      "proposed": 50
+      "proposed": 38,
+      "in_progress": 12
     }
   },
   "steps": [
@@ -99,12 +100,17 @@
       "priority": "P1",
       "size": "S",
       "gate": "offline",
-      "status": "proposed",
+      "status": "in_progress",
       "depends_on": [
         "ADR-0017"
       ],
       "needs_owner_input": false,
-      "evidence": []
+      "evidence": [
+        "packages/domain/src/audit-chain-verifier.mjs",
+        "tools/audit-chain.mjs",
+        "tests/audit-chain-verifier.test.mjs",
+        "docs/evidence/NX-WAVE1-OFFLINE-20261021.md"
+      ]
     },
     {
       "id": "NX-003",
@@ -114,12 +120,16 @@
       "priority": "P0",
       "size": "M",
       "gate": "offline",
-      "status": "proposed",
+      "status": "in_progress",
       "depends_on": [
         "ADR-0017"
       ],
       "needs_owner_input": false,
-      "evidence": []
+      "evidence": [
+        "config/bench/hero-bench-indirect-injection-v1.json",
+        "tests/indirect-injection-pack.test.mjs",
+        "docs/evidence/NX-WAVE1-OFFLINE-20261021.md"
+      ]
     },
     {
       "id": "NX-004",
@@ -175,12 +185,17 @@
       "priority": "P1",
       "size": "M",
       "gate": "offline",
-      "status": "proposed",
+      "status": "in_progress",
       "depends_on": [
         "ADR-0006"
       ],
       "needs_owner_input": false,
-      "evidence": []
+      "evidence": [
+        "config/runner-profiles/runner-resource-profiles-v1.json",
+        "packages/domain/src/runner-resource-profiles.mjs",
+        "tests/runner-resource-profiles.test.mjs",
+        "docs/evidence/NX-WAVE1-OFFLINE-20261021.md"
+      ]
     },
     {
       "id": "NX-008",
@@ -206,12 +221,16 @@
       "priority": "P1",
       "size": "S",
       "gate": "offline",
-      "status": "proposed",
+      "status": "in_progress",
       "depends_on": [
         "ADR-0006"
       ],
       "needs_owner_input": false,
-      "evidence": []
+      "evidence": [
+        "packages/domain/src/checkpoint-integrity.mjs",
+        "tests/checkpoint-integrity.test.mjs",
+        "docs/evidence/NX-WAVE1-OFFLINE-20261021.md"
+      ]
     },
     {
       "id": "NX-010",
@@ -237,10 +256,15 @@
       "priority": "P0",
       "size": "M",
       "gate": "offline",
-      "status": "proposed",
+      "status": "in_progress",
       "depends_on": [],
       "needs_owner_input": false,
-      "evidence": []
+      "evidence": [
+        "config/product-templates/acceptance-v1.json",
+        "packages/domain/src/acceptance-compiler.mjs",
+        "tests/acceptance-compiler.test.mjs",
+        "docs/evidence/NX-WAVE1-OFFLINE-20261021.md"
+      ]
     },
     {
       "id": "NX-012",
@@ -311,10 +335,14 @@
       "priority": "P1",
       "size": "S",
       "gate": "offline",
-      "status": "proposed",
+      "status": "in_progress",
       "depends_on": [],
       "needs_owner_input": false,
-      "evidence": []
+      "evidence": [
+        "packages/contracts/src/persian-locale.mjs",
+        "tests/persian-locale.test.mjs",
+        "docs/evidence/NX-WAVE1-OFFLINE-20261021.md"
+      ]
     },
     {
       "id": "NX-017",
@@ -384,10 +412,14 @@
       "priority": "P0",
       "size": "S",
       "gate": "offline",
-      "status": "proposed",
+      "status": "in_progress",
       "depends_on": [],
       "needs_owner_input": false,
-      "evidence": []
+      "evidence": [
+        "packages/domain/src/price-freshness.mjs",
+        "tests/price-freshness.test.mjs",
+        "docs/evidence/NX-WAVE1-OFFLINE-20261021.md"
+      ]
     },
     {
       "id": "NX-022",
@@ -445,10 +477,14 @@
       "priority": "P1",
       "size": "M",
       "gate": "offline",
-      "status": "proposed",
+      "status": "in_progress",
       "depends_on": [],
       "needs_owner_input": false,
-      "evidence": []
+      "evidence": [
+        "packages/domain/src/context-budget.mjs",
+        "tests/context-budget.test.mjs",
+        "docs/evidence/NX-WAVE1-OFFLINE-20261021.md"
+      ]
     },
     {
       "id": "NX-026",
@@ -521,10 +557,15 @@
       "priority": "P2",
       "size": "S",
       "gate": "offline",
-      "status": "proposed",
+      "status": "in_progress",
       "depends_on": [],
       "needs_owner_input": false,
-      "evidence": []
+      "evidence": [
+        "config/model-capabilities/model-capabilities-v1.json",
+        "packages/domain/src/model-capability-matrix.mjs",
+        "tests/model-capability-matrix.test.mjs",
+        "docs/evidence/NX-WAVE1-OFFLINE-20261021.md"
+      ]
     },
     {
       "id": "NX-031",
@@ -629,10 +670,15 @@
       "priority": "P1",
       "size": "M",
       "gate": "offline",
-      "status": "proposed",
+      "status": "in_progress",
       "depends_on": [],
       "needs_owner_input": false,
-      "evidence": []
+      "evidence": [
+        "config/accessibility/wcag-22-aa-matrix-v1.json",
+        "tools/a11y-conformance.mjs",
+        "tests/a11y-conformance.test.mjs",
+        "docs/evidence/NX-WAVE1-OFFLINE-20261021.md"
+      ]
     },
     {
       "id": "NX-038",
@@ -714,10 +760,14 @@
       "priority": "P1",
       "size": "S",
       "gate": "offline",
-      "status": "proposed",
+      "status": "in_progress",
       "depends_on": [],
       "needs_owner_input": false,
-      "evidence": []
+      "evidence": [
+        "tools/migration-lint.mjs",
+        "tests/migration-lint.test.mjs",
+        "docs/evidence/NX-WAVE1-OFFLINE-20261021.md"
+      ]
     },
     {
       "id": "NX-044",
@@ -803,12 +853,17 @@
       "priority": "P0",
       "size": "L",
       "gate": "offline",
-      "status": "proposed",
+      "status": "in_progress",
       "depends_on": [
         "BO-IAM-005"
       ],
       "needs_owner_input": false,
-      "evidence": []
+      "evidence": [
+        "tools/isolation-property.mjs",
+        "tests/project-isolation-property.test.mjs",
+        "tests/fixtures/project-scoped-routes.json",
+        "docs/evidence/NX-WAVE1-OFFLINE-20261021.md"
+      ]
     },
     {
       "id": "NX-050",

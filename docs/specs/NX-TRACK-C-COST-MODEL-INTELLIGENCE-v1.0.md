@@ -6,7 +6,7 @@
 > Type: specification
 > Scope: hero
 > Status: proposed
-> Version: 1.0.0
+> Version: 1.1.0
 > Owner: hero-product
 > Review cadence: per-change
 > Supersedes: none
@@ -36,7 +36,7 @@
 | اندازه | S |
 | گیت تأیید | `offline` |
 | وابستگی | — |
-| وضعیت | `proposed` |
+| وضعیت | `in_progress` |
 
 **مسئله.** `estimateRun` برای قیمت منقضی فقط «هشدار» می‌دهد و catalog فقط هنگام normalize اعتبار `validUntil` را می‌سنجد؛ مقایسهٔ سقف هزینه با برآورد کهنه می‌تواند سقف ناکافی را «کافی» نشان دهد.
 
@@ -137,7 +137,7 @@
 | اندازه | M |
 | گیت تأیید | `offline` |
 | وابستگی | — |
-| وضعیت | `proposed` |
+| وضعیت | `in_progress` |
 
 **مسئله.** `assembleContext` در `ai-orchestration.mjs` از Project Memory فقط با سقف تعداد آیتم (`maxItems`، پیش‌فرض ۱۲) می‌خواند؛ سقف مبتنی بر توکن، اولویت‌بندی منابع و گزارش «چه چیزی حذف شد» دیده نمی‌شود، پس با رشد حافظه حذف خاموش ارجاع‌ها ممکن است.
 
@@ -265,7 +265,7 @@
 | اندازه | S |
 | گیت تأیید | `offline` |
 | وابستگی | — |
-| وضعیت | `proposed` |
+| وضعیت | `in_progress` |
 
 **مسئله.** ویژگی‌های مدل‌ها (پنجرهٔ context، tool use، خروجی ساخت‌یافته، اقامت داده) میان تنظیمات و قیمت‌ها پراکنده است؛ Planner و قالب‌ها ماتریس واحدی برای تطبیق ندارند.
 

@@ -15,10 +15,5 @@ export function heroStatusLabel(value) {
   return labels[text.toLowerCase()] ?? text;
 }
 
-export function normalizeHeroSearch(value) {
-  return String(value ?? "").normalize("NFKC").toLocaleLowerCase()
-    .replace(/[يى]/g, "ی").replace(/ك/g, "ک")
-    .replace(/[۰-۹]/g, digit => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)))
-    .replace(/[٠-٩]/g, digit => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)))
-    .replace(/[\s\u200c\u200d\u064b-\u065f]/g, "");
-}
+// NX-016: the search normaliser lives in the shared Persian locale toolbox; it is re-exported here unchanged.
+export { normalizeHeroSearch } from "../../../packages/contracts/src/persian-locale.mjs";

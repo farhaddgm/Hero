@@ -6,7 +6,7 @@
 > Type: specification
 > Scope: hero
 > Status: proposed
-> Version: 1.0.0
+> Version: 1.1.0
 > Owner: hero-product
 > Review cadence: per-change
 > Supersedes: none
@@ -62,7 +62,7 @@ Agent Tool Gateway، Hero-Bench و Golden Path در PR 20 ساخته شدند، 
 | اندازه | S |
 | گیت تأیید | `offline` |
 | وابستگی | `ADR-0017` |
-| وضعیت | `proposed` |
+| وضعیت | `in_progress` |
 
 **مسئله.** Gateway رویدادها را hash-chain می‌کند و Event Log append-only است، اما تأییدکنندهٔ مستقلی که یکپارچگی زنجیره را بسنجد و اولین حلقهٔ شکسته را گزارش کند وجود ندارد؛ دستکاری تا بررسی دستی دیده نمی‌شود.
 
@@ -87,7 +87,7 @@ Agent Tool Gateway، Hero-Bench و Golden Path در PR 20 ساخته شدند، 
 | اندازه | M |
 | گیت تأیید | `offline` |
 | وابستگی | `ADR-0017` |
-| وضعیت | `proposed` |
+| وضعیت | `in_progress` |
 
 **مسئله.** Hero-Bench v1 سی تکلیف در هفت دسته دارد و red-team ده دستهٔ OWASP Agentic را پوشش می‌دهد، اما حمله‌ای که دستور را درون محتوای خوانده‌شده (README مخزن، فایل آپلودی، خروجی ابزار، صفحهٔ وب) پنهان می‌کند — از جمله با نیم‌فاصله، homoglyph و جهت‌نمای bidi — پیکرهٔ اختصاصی ندارد؛ در حالی‌که عامل‌های Hero دقیقاً چنین محتوایی را می‌خوانند.
 
@@ -192,7 +192,7 @@ Agent Tool Gateway، Hero-Bench و Golden Path در PR 20 ساخته شدند، 
 | اندازه | M |
 | گیت تأیید | `offline` |
 | وابستگی | `ADR-0006` |
-| وضعیت | `proposed` |
+| وضعیت | `in_progress` |
 
 **مسئله.** Runner ایزوله timeout و محدودیت هم‌زمانی دارد، اما سقف CPU، حافظه، دیسک و تعداد پردازه برای هر کلاس تکلیف در قرارداد تعریف نشده؛ یک تکلیف گریزان می‌تواند منابع میزبان Test را ببلعد.
 
@@ -242,7 +242,7 @@ Agent Tool Gateway، Hero-Bench و Golden Path در PR 20 ساخته شدند، 
 | اندازه | S |
 | گیت تأیید | `offline` |
 | وابستگی | `ADR-0006` |
-| وضعیت | `proposed` |
+| وضعیت | `in_progress` |
 
 **مسئله.** ADR-0006 چک‌پوینت پیش از پاک‌سازی را الزام می‌کند، ولی Resume فقط وجود چک‌پوینت را می‌سنجد، نه این‌که محتوای آن بین توقف و ادامه دست‌نخورده مانده باشد.
 

@@ -80,8 +80,8 @@ export function createGoldenPath({ templates, catalog, assignments, benchDataset
 
       if (proposal.ready) {
         const estimate = estimateRun({ tasks: proposal.taskGraph.map(task => ({ taskId: task.taskId, role: task.role, dependsOn: task.dependsOn })), assignments, catalog, budgetCostUnits, now });
-        const estimateOk = estimate.complete && estimate.budget.status !== "exceeds-budget";
-        stages.push(stage("estimate", "برآورد هزینه و زمان پیش از اجرا", estimateOk ? "passed" : "blocked", estimate.summaryFa, { basis: estimate.basis, expectedCostUnits: estimate.scenarios.expected.costUnits, highCostUnits: estimate.scenarios.high.costUnits, budgetStatus: estimate.budget.status }));
+        const estimateOk = estimate.complete && estimate.priceReliance.reliable && estimate.budget.status !== "exceeds-budget";
+        stages.push(stage("estimate", "برآورد هزینه و زمان پیش از اجرا", estimateOk ? "passed" : "blocked", estimate.summaryFa, { basis: estimate.basis, expectedCostUnits: estimate.scenarios.expected.costUnits, highCostUnits: estimate.scenarios.high.costUnits, budgetStatus: estimate.budget.status, priceReliable: estimate.priceReliance.reliable }));
 
         const policy = toolPolicyProbe({ proposal, now });
         const failed = policy.probes.filter(item => !item.ok);
@@ -117,7 +117,7 @@ export function createGoldenPath({ templates, catalog, assignments, benchDataset
     },
 
     /** Lists what is still missing before a live run may be requested. Never authorizes anything. */
-    readiness({ externalSpend = null, credentialProviders = [], globalStopActive = true, targetEnvironment = null, benchBaselineDigest = null, ownerAcceptanceApproved = false, killSwitchDrillAt = null, estimateHighCostUnits = null, expectedProviderId = null } = {}) {
+    readiness({ externalSpend = null, credentialProviders = [], globalStopActive = true, targetEnvironment = null, benchBaselineDigest = null, ownerAcceptanceApproved = false, killSwitchDrillAt = null, estimateHighCostUnits = null, estimatePriceReliance = null, expectedProviderId = null } = {}) {
       const blockers = [];
       const add = (code, textFa) => blockers.push(Object.freeze({ code, textFa }));
       if (globalStopActive !== false) add("GLOBAL_STOP_ACTIVE", "توقف اضطراری روشن است یا وضعیتش معلوم نیست.");
@@ -127,6 +127,12 @@ export function createGoldenPath({ templates, catalog, assignments, benchDataset
         if (!Array.isArray(externalSpend.modelIds) || externalSpend.modelIds.length === 0) add("SPEND_AUTHORIZATION_INCOMPLETE", "مجوز هزینه مدل‌های مجاز را مشخص نکرده است.");
         if (!Number.isSafeInteger(externalSpend.maxCostUnits) || externalSpend.maxCostUnits <= 0) add("SPEND_CAP_MISSING", "سقف هزینه تعریف نشده است.");
         else if (estimateHighCostUnits !== null && externalSpend.maxCostUnits < estimateHighCostUnits) add("SPEND_CAP_BELOW_ESTIMATE", "سقف هزینه از بدترین برآورد کمتر است.");
+        // NX-021: comparing a cap with an estimate is only meaningful when the prices behind the
+        // estimate are provably fresh; unknown freshness is treated as stale, never as healthy.
+        if (estimateHighCostUnits !== null && estimatePriceReliance?.reliable !== true) {
+          if (estimatePriceReliance?.code === "PRICE_STALE") add("ESTIMATE_PRICE_STALE", "قیمت‌های پشت برآورد منقضی شده‌اند؛ مقایسهٔ سقف هزینه با برآورد قابل‌اتکا نیست.");
+          else add("ESTIMATE_PRICE_FRESHNESS_UNKNOWN", "تازگی قیمت‌های پشت برآورد معلوم نیست؛ مقایسهٔ سقف هزینه با برآورد قابل‌اتکا نیست.");
+        }
         if (Date.parse(externalSpend.expiresAt) <= Date.parse(now())) add("SPEND_AUTHORIZATION_EXPIRED", "مجوز هزینه منقضی شده است.");
         if (expectedProviderId && externalSpend.providerId !== expectedProviderId) add("SPEND_PROVIDER_MISMATCH", "Provider مجوز با Provider اجرا یکی نیست.");
       }

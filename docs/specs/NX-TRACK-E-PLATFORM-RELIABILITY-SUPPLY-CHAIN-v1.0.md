@@ -6,7 +6,7 @@
 > Type: specification
 > Scope: hero
 > Status: proposed
-> Version: 1.0.0
+> Version: 1.1.0
 > Owner: hero-product
 > Review cadence: per-change
 > Supersedes: none
@@ -86,7 +86,7 @@
 | اندازه | S |
 | گیت تأیید | `offline` |
 | وابستگی | — |
-| وضعیت | `proposed` |
+| وضعیت | `in_progress` |
 
 **مسئله.** ۲۴ migration SQL افزایشی نوشته شده‌اند (migration 024 «سازگار با rollback» اثبات شد)، ولی این قاعده فقط رویه است؛ ابزاری از `DROP`، `RENAME`، `NOT NULL` بدون default یا حذف guard append-only جلوگیری نمی‌کند.
 
@@ -238,7 +238,7 @@
 | اندازه | L |
 | گیت تأیید | `offline` |
 | وابستگی | `BO-IAM-005` |
-| وضعیت | `proposed` |
+| وضعیت | `in_progress` |
 
 **مسئله.** BO-IAM-005 هنوز partial است («اجرای ProjectGrant در همهٔ لایه‌های ذخیره‌سازی»)؛ آزمون‌های فعلی نمونه‌محورند و ترکیب‌های ناخواستهٔ نقش×پروژه×مسیر را نمی‌پوشانند.
 
