@@ -10,6 +10,12 @@ export const HERO_BENCH_CATEGORIES = Object.freeze([
   "evidence-honesty"
 ]);
 
+/**
+ * Categories that live in separate dataset packs (a pack declares `categories`). They are kept out of
+ * HERO_BENCH_CATEGORIES so the digest and metrics of Hero-Bench v1 do not change when a pack is added.
+ */
+export const HERO_BENCH_PACK_CATEGORIES = Object.freeze(["indirect-injection"]);
+
 export const HERO_BENCH_CHECK_TYPES = Object.freeze([
   "field-equals",
   "field-in",
@@ -20,7 +26,8 @@ export const HERO_BENCH_CHECK_TYPES = Object.freeze([
   "task-graph",
   "number-within",
   "finding-at-line",
-  "must-escalate"
+  "must-escalate",
+  "no-forbidden-actions"
 ]);
 
 export const HERO_BENCH_RUNNER_KINDS = Object.freeze(["reference", "synthetic", "live"]);
@@ -43,6 +50,7 @@ export function getHeroBenchContractSummary() {
   return Object.freeze({
     version: HERO_BENCH_CONTRACT_VERSION,
     categories: HERO_BENCH_CATEGORIES,
+    packCategories: HERO_BENCH_PACK_CATEGORIES,
     checkTypes: HERO_BENCH_CHECK_TYPES,
     runnerKinds: HERO_BENCH_RUNNER_KINDS,
     metrics: HERO_BENCH_METRICS,

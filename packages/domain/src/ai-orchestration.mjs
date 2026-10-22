@@ -809,6 +809,7 @@ export function createAiOrchestration(options = {}) {
         documentVersion,
         recipientRole: AI_CONTEXT_RECIPIENT_ROLES[role],
         maxItems,
+        ...(input.tokenBudget === undefined ? {} : { tokenBudget: input.tokenBudget }),
         idempotencyKey: input.idempotencyKey ?? `ai-context-${contextId}`
       });
       return immutableCopy({

@@ -4,13 +4,12 @@
  * Pure function: no file system, no network. The caller passes the parsed registries.
  */
 
+import { toPersianDigits } from "../../contracts/src/persian-locale.mjs";
+
 const STEP_STATUSES = ["verified", "partial", "gated", "owner_pending", "deferred"];
 const REQUIREMENT_STATUSES = ["implemented", "partial", "missing"];
-const FA_DIGITS = "۰۱۲۳۴۵۶۷۸۹";
-
-export function toPersianDigits(value) {
-  return String(value).replace(/\d/g, digit => FA_DIGITS[Number(digit)]);
-}
+// NX-016: digit conversion lives in the shared Persian locale toolbox; it is re-exported here unchanged.
+export { toPersianDigits };
 
 function stepNumber(id) {
   const match = /^BO-(\d{3})$/.exec(id ?? "");
@@ -25,7 +24,22 @@ function rate(part, whole) {
   return whole === 0 ? 0 : Number((part / whole).toFixed(4));
 }
 
-export function computeDeliveryTruth({ audit, trace, signals = [], now = () => new Date().toISOString() } = {}) {
+const AUDIT_INTEGRITY_STATUSES = ["intact", "consistent", "broken", "unknown"];
+const AUDIT_UNKNOWN_FA = "وضعیت زنجیرهٔ Audit معلوم نیست؛ این به معنی سالم بودن نیست.";
+
+/** NX-002: only a verifier result with status `intact` reads as healthy; anything missing or odd is `unknown`. */
+function normalizeAuditIntegrity(signal) {
+  const status = AUDIT_INTEGRITY_STATUSES.includes(signal?.status) ? signal.status : "unknown";
+  return Object.freeze({
+    status,
+    healthy: status === "intact",
+    labelFa: status === "unknown" ? AUDIT_UNKNOWN_FA : typeof signal.labelFa === "string" ? signal.labelFa : AUDIT_UNKNOWN_FA,
+    failureCode: status === "broken" && typeof signal.failureCode === "string" ? signal.failureCode : null,
+    entries: Number.isInteger(signal?.entries) ? signal.entries : null
+  });
+}
+
+export function computeDeliveryTruth({ audit, trace, signals = [], auditChain = null, now = () => new Date().toISOString() } = {}) {
   const issues = [];
   if (!audit || !Array.isArray(audit.ranges)) throw new TypeError("A delivery audit with ranges is required.");
   if (!trace || !Array.isArray(trace.requirements)) throw new TypeError("A requirement trace with requirements is required.");
@@ -87,6 +101,9 @@ export function computeDeliveryTruth({ audit, trace, signals = [], now = () => n
   if (steps.byStatus.owner_pending > 0) nextActions.push({ kind: "owner-decision", textFa: `${toPersianDigits(steps.byStatus.owner_pending)} گام منتظر ثبت پذیرش مالک است و عامل نمی‌تواند آن را جایگزین کند.` });
   if (requirements.byStatus.partial + requirements.byStatus.missing > 0) nextActions.push({ kind: "engineering", textFa: `${toPersianDigits(requirements.byStatus.partial + requirements.byStatus.missing)} نیازمندی هنوز برش کامل UI، ماندگاری و شواهد اجرا ندارد.` });
 
+  const auditIntegrity = normalizeAuditIntegrity(auditChain);
+  if (auditIntegrity.status === "broken") nextActions.push({ kind: "audit-integrity", textFa: `زنجیرهٔ Audit شکسته است (${auditIntegrity.failureCode ?? "AUDIT_MALFORMED"}). تا بررسی انسانی، به شواهد آن اعتماد نکنید.` });
+
   return Object.freeze({
     schema: "hero.delivery-truth/v1",
     generatedAt: now(),
@@ -101,6 +118,7 @@ export function computeDeliveryTruth({ audit, trace, signals = [], now = () => n
     requirementGaps: Object.freeze(gaps),
     signals: Object.freeze(signals.map(signal => Object.freeze({ id: String(signal.id), label: String(signal.label), status: String(signal.status), detail: signal.detail === undefined ? undefined : String(signal.detail) }))),
     nextActions: Object.freeze(nextActions),
+    auditIntegrity,
     integrity: Object.freeze({ consistent: issues.length === 0, issues: Object.freeze(issues) })
   });
 }

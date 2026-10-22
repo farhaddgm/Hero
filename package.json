@@ -41,6 +41,8 @@
     "check:agentic-security": "node tools/check-agentic-security.mjs",
     "check:hero-bench": "node tools/check-hero-bench.mjs",
     "check:product-templates": "node tools/check-product-templates.mjs",
+    "check:migrations": "node tools/migration-lint.mjs",
+    "check:a11y-matrix": "node tools/a11y-conformance.mjs",
     "check:golden-path": "node tools/run-golden-path-rehearsal.mjs --check",
     "golden-path:rehearse": "node tools/run-golden-path-rehearsal.mjs",
     "bench": "node tools/run-hero-bench.mjs",
@@ -74,7 +76,8 @@
     "build": "node tools/build.mjs",
     "test": "node --test",
     "audit:local": "node tools/audit/run-local-audit.mjs",
+    "audit:chain": "node tools/audit-chain.mjs",
     "test:browser": "node --test tests/browser/*.browser.mjs",
-    "check": "node tools/doctor.mjs && node tools/check-governance.mjs && node tools/check-deployment-contract.mjs && node tools/check-environment-parity.mjs && node tools/check-roadmap-audit.mjs && node tools/check-next-steps.mjs && node tools/check-owner-handoff.mjs && node tools/check-notion-config.mjs && node tools/check-backoffice-baseline.mjs && node tools/check-backoffice-foundation.mjs && node tools/check-backoffice-identity.mjs && node tools/check-backoffice-workspace.mjs && node tools/check-backoffice-collaboration-command.mjs && node tools/check-backoffice-catalog-intelligence.mjs && node tools/check-backoffice-final-delivery.mjs && node tools/check-backoffice-delivery-audit.mjs && node tools/check-agentic-security.mjs && node tools/check-hero-bench.mjs && node tools/check-product-templates.mjs && node tools/run-golden-path-rehearsal.mjs --check && node tools/check-documentation.mjs && node tools/build.mjs && node --test"
+    "check": "node tools/doctor.mjs && node tools/check-governance.mjs && node tools/check-deployment-contract.mjs && node tools/check-environment-parity.mjs && node tools/check-roadmap-audit.mjs && node tools/check-next-steps.mjs && node tools/check-owner-handoff.mjs && node tools/check-notion-config.mjs && node tools/check-backoffice-baseline.mjs && node tools/check-backoffice-foundation.mjs && node tools/check-backoffice-identity.mjs && node tools/check-backoffice-workspace.mjs && node tools/check-backoffice-collaboration-command.mjs && node tools/check-backoffice-catalog-intelligence.mjs && node tools/check-backoffice-final-delivery.mjs && node tools/check-backoffice-delivery-audit.mjs && node tools/check-agentic-security.mjs && node tools/check-hero-bench.mjs && node tools/check-product-templates.mjs && node tools/migration-lint.mjs && node tools/a11y-conformance.mjs && node tools/run-golden-path-rehearsal.mjs --check && node tools/check-documentation.mjs && node tools/build.mjs && node --test"
   }
 }

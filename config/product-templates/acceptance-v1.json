@@ -1,0 +1,352 @@
+{
+  "schema": "hero.acceptance-criteria-registry/v1",
+  "version": "1.0.0",
+  "note": "ساختارمند کردن معیارهای پذیرش قالب‌ها. هر آیتم متن اصلی قالب را عیناً در sourceText نقل می‌کند؛ کامپایلر هیچ معیاری را تأیید نمی‌کند و استفاده از آن‌ها به تأیید مالک نیاز دارد.",
+  "templates": [
+    {
+      "templateId": "static-site",
+      "templateVersion": "1.0.0",
+      "items": [
+        {
+          "id": "AC-static-site-001",
+          "sourceText": "همهٔ صفحه‌ها با زبان fa و جهت rtl بارگذاری می‌شوند.",
+          "when": "یک صفحهٔ سایت بارگذاری شود",
+          "then": "صفحه با lang=fa و dir=rtl بارگذاری شود",
+          "check": {
+            "kind": "html-attributes",
+            "params": {
+              "scope": "all-pages",
+              "attributes": {
+                "lang": "fa",
+                "dir": "rtl"
+              }
+            }
+          }
+        },
+        {
+          "id": "AC-static-site-002",
+          "sourceText": "هیچ درخواست شبکه‌ای به دامنهٔ بیرونی در بارگذاری صفحه‌ها دیده نمی‌شود.",
+          "when": "یک صفحهٔ سایت بارگذاری شود",
+          "then": "هیچ درخواست شبکه‌ای به دامنهٔ بیرونی ثبت نشود",
+          "check": {
+            "kind": "no-external-request",
+            "params": {
+              "scope": "page-load"
+            }
+          }
+        },
+        {
+          "id": "AC-static-site-003",
+          "sourceText": "مسیرهای /health و /ready پاسخ سالم می‌دهند.",
+          "when": "سرویس سایت بالا آمده باشد",
+          "then": "مسیرهای /health و /ready وضعیت ۲۰۰ برگردانند",
+          "check": {
+            "kind": "http-ok",
+            "params": {
+              "paths": [
+                "/health",
+                "/ready"
+              ],
+              "expectStatus": 200
+            }
+          }
+        },
+        {
+          "id": "AC-static-site-004",
+          "sourceText": "تصویرها متن جایگزین دارند و کنتراست متن کافی است.",
+          "when": "صفحه‌ای شامل تصویر بارگذاری شود",
+          "then": "هر تصویر متن جایگزین (alt) داشته باشد",
+          "check": {
+            "kind": "html-accessibility",
+            "params": {
+              "checks": [
+                "image-alt"
+              ]
+            }
+          }
+        },
+        {
+          "id": "AC-static-site-005",
+          "sourceText": "تصویرها متن جایگزین دارند و کنتراست متن کافی است.",
+          "when": "صفحه‌ای شامل متن بارگذاری شود",
+          "then": "کنتراست متن کافی باشد",
+          "check": {
+            "kind": "html-accessibility",
+            "params": {
+              "checks": [
+                "contrast-ratio"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "templateId": "contact-form-site",
+      "templateVersion": "1.0.0",
+      "items": [
+        {
+          "id": "AC-contact-form-site-001",
+          "sourceText": "فرم ورودی را طول‌دار، پاک‌سازی‌شده و دارای محدودیت نرخ می‌پذیرد.",
+          "when": "فرم تماس داده دریافت کند",
+          "then": "ورودی طول‌دار، پاک‌سازی‌شده و دارای محدودیت نرخ پذیرفته شود",
+          "check": {
+            "kind": "input-validation",
+            "params": {
+              "constraints": [
+                "max-length",
+                "sanitized",
+                "rate-limit"
+              ]
+            }
+          }
+        },
+        {
+          "id": "AC-contact-form-site-002",
+          "sourceText": "ایمیل یا نام کاربر در لاگ‌ها دیده نمی‌شود.",
+          "when": "پیامی ارسال و پردازش شود",
+          "then": "ایمیل یا نام کاربر در لاگ‌ها دیده نشود",
+          "check": {
+            "kind": "log-absence",
+            "params": {
+              "dataClasses": [
+                "email",
+                "username"
+              ]
+            }
+          }
+        },
+        {
+          "id": "AC-contact-form-site-003",
+          "sourceText": "ارسال ایمیل به بیرون فقط پس از مجوز جداگانه فعال می‌شود.",
+          "when": "ارسال ایمیل به بیرون درخواست شود",
+          "then": "ارسال فقط پس از ثبت مجوز جداگانه انجام شود",
+          "check": {
+            "kind": "requires-authorization",
+            "params": {
+              "action": "external-email"
+            }
+          }
+        },
+        {
+          "id": "AC-contact-form-site-004",
+          "sourceText": "پیام‌ها فقط در پایگاه دادهٔ اختصاصی همین محصول ذخیره می‌شوند.",
+          "when": "پیامی ذخیره شود",
+          "then": "پیام فقط در پایگاه دادهٔ اختصاصی همین محصول نگهداری شود",
+          "check": {
+            "kind": "data-locality",
+            "params": {
+              "store": "product-database"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "templateId": "crud-admin-panel",
+      "templateVersion": "1.0.0",
+      "items": [
+        {
+          "id": "AC-crud-admin-panel-001",
+          "sourceText": "هر مسیر تغییر دهنده بدون ورود و بدون نقش مدیر رد می‌شود.",
+          "when": "مسیری تغییر دهنده بدون ورود یا بدون نقش مدیر فراخوانی شود",
+          "then": "درخواست رد شود",
+          "check": {
+            "kind": "access-denied",
+            "params": {
+              "methods": [
+                "POST",
+                "PUT",
+                "PATCH",
+                "DELETE"
+              ],
+              "actors": [
+                "anonymous",
+                "viewer"
+              ]
+            }
+          }
+        },
+        {
+          "id": "AC-crud-admin-panel-002",
+          "sourceText": "بیننده هیچ تغییری نمی‌تواند ثبت کند.",
+          "when": "کاربر با نقش بیننده مسیری تغییر دهنده را فراخوانی کند",
+          "then": "هیچ تغییری ثبت نشود و درخواست رد شود",
+          "check": {
+            "kind": "access-denied",
+            "params": {
+              "methods": [
+                "POST",
+                "PUT",
+                "PATCH",
+                "DELETE"
+              ],
+              "actors": [
+                "viewer"
+              ]
+            }
+          }
+        },
+        {
+          "id": "AC-crud-admin-panel-003",
+          "sourceText": "رکوردهای حذف‌شده قابل بازیابی یا ثبت‌شده در تاریخچه‌اند.",
+          "when": "رکوردی حذف شود",
+          "then": "رکورد قابل بازیابی باشد یا حذف آن در تاریخچه ثبت شده باشد",
+          "check": {
+            "kind": "record-retention",
+            "params": {
+              "strategy": "recoverable-or-audited"
+            }
+          }
+        },
+        {
+          "id": "AC-crud-admin-panel-004",
+          "sourceText": "مهاجرت پایگاه داده افزایشی و دارای مسیر بازگشت است.",
+          "when": "مهاجرت پایگاه داده اجرا شود",
+          "then": "مهاجرت افزایشی باشد و مسیر بازگشت داشته باشد",
+          "check": {
+            "kind": "migration-safety",
+            "params": {
+              "properties": [
+                "additive",
+                "rollback-path"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "templateId": "rest-api",
+      "templateVersion": "1.0.0",
+      "items": [
+        {
+          "id": "AC-rest-api-001",
+          "sourceText": "هر مسیر ورودی را با schema اعتبارسنجی می‌کند و خطای ساخت‌یافته می‌دهد.",
+          "when": "درخواستی به یک مسیر ورودی برسد",
+          "then": "ورودی با schema اعتبارسنجی شود و خطا به‌صورت ساخت‌یافته برگردد",
+          "check": {
+            "kind": "input-validation",
+            "params": {
+              "constraints": [
+                "schema",
+                "structured-error"
+              ]
+            }
+          }
+        },
+        {
+          "id": "AC-rest-api-002",
+          "sourceText": "تست قرارداد با مستند OpenAPI هم‌خوان است.",
+          "when": "تست قرارداد اجرا شود",
+          "then": "رفتار API با مستند OpenAPI هم‌خوان باشد",
+          "check": {
+            "kind": "contract-conformance",
+            "params": {
+              "specification": "openapi"
+            }
+          }
+        },
+        {
+          "id": "AC-rest-api-003",
+          "sourceText": "پاسخ خطا هیچ stack trace یا مسیر میزبان را نشان نمی‌دهد.",
+          "when": "درخواستی به خطا بخورد",
+          "then": "پاسخ خطا stack trace یا مسیر میزبان را نشان ندهد",
+          "check": {
+            "kind": "error-hygiene",
+            "params": {
+              "forbidden": [
+                "stack-trace",
+                "host-path"
+              ]
+            }
+          }
+        },
+        {
+          "id": "AC-rest-api-004",
+          "sourceText": "محدودیت نرخ و اندازهٔ بدنه اعمال شده است.",
+          "when": "درخواستی پرتکرار یا با بدنهٔ بزرگ برسد",
+          "then": "محدودیت نرخ و اندازهٔ بدنه اعمال شود",
+          "check": {
+            "kind": "input-validation",
+            "params": {
+              "constraints": [
+                "rate-limit",
+                "body-size"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "templateId": "mobile-reminder-app",
+      "templateVersion": "1.0.0",
+      "items": [
+        {
+          "id": "AC-mobile-reminder-app-001",
+          "sourceText": "همهٔ متن‌ها فارسی و چیدمان راست‌به‌چپ درست است.",
+          "when": "هر صفحهٔ برنامه نمایش داده شود",
+          "then": "متن‌ها فارسی و جهت چیدمان راست‌به‌چپ باشد",
+          "check": {
+            "kind": "ui-locale",
+            "params": {
+              "language": "fa",
+              "direction": "rtl",
+              "scope": "all-screens"
+            }
+          }
+        },
+        {
+          "id": "AC-mobile-reminder-app-002",
+          "sourceText": "داده فقط روی دستگاه ذخیره می‌شود و هیچ درخواست شبکه‌ای ثبت نمی‌شود.",
+          "when": "برنامه داده را ذخیره کند",
+          "then": "داده فقط روی دستگاه نگهداری شود",
+          "check": {
+            "kind": "data-locality",
+            "params": {
+              "store": "device-only"
+            }
+          }
+        },
+        {
+          "id": "AC-mobile-reminder-app-003",
+          "sourceText": "داده فقط روی دستگاه ذخیره می‌شود و هیچ درخواست شبکه‌ای ثبت نمی‌شود.",
+          "when": "برنامه در حال اجرا باشد",
+          "then": "هیچ درخواست شبکه‌ای ثبت نشود",
+          "check": {
+            "kind": "no-external-request",
+            "params": {
+              "scope": "app-run"
+            }
+          }
+        },
+        {
+          "id": "AC-mobile-reminder-app-004",
+          "sourceText": "ساخت iOS در ابر فقط پس از مجوز هزینهٔ جداگانه انجام می‌شود.",
+          "when": "ساخت iOS در ابر درخواست شود",
+          "then": "ساخت فقط پس از مجوز هزینهٔ جداگانه انجام شود",
+          "check": {
+            "kind": "requires-authorization",
+            "params": {
+              "action": "ios-cloud-build"
+            }
+          }
+        },
+        {
+          "id": "AC-mobile-reminder-app-005",
+          "sourceText": "اندازهٔ لمس هدف‌ها حداقل ۴۴ نقطه است.",
+          "when": "هدف لمسی در صفحه نمایش داده شود",
+          "then": "اندازهٔ هر هدف لمسی حداقل ۴۴ نقطه باشد",
+          "check": {
+            "kind": "ui-metric",
+            "params": {
+              "metric": "min-touch-target-points",
+              "threshold": 44
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

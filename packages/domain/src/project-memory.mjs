@@ -1,3 +1,4 @@
+import { allocateContextBudget } from "./context-budget.mjs";
 import {
   PROJECT_MEMORY_KINDS,
   PROJECT_MEMORY_RECIPIENT_ROLES,
@@ -239,7 +240,11 @@ export function createProjectMemory(options = {}) {
     const staleTask = candidates.filter(record =>
       record.scope === "task" && record.binding.taskId === input.taskId && record.binding.stepId === input.stepId && record.binding.documentVersion !== input.documentVersion
     );
-    const selected = candidates.filter(record => record.scope === "project" || exactTask.includes(record)).slice(0, input.maxItems);
+    const eligible = candidates.filter(record => record.scope === "project" || exactTask.includes(record));
+    // NX-025: with a token budget the selection is deterministic, never silently truncated, and every
+    // omitted record is reported. Without one the original item-cap behaviour is unchanged.
+    const allocation = input.tokenBudget === undefined ? null : allocateContextBudget({ records: eligible, policy: input.tokenBudget, maxItems: input.maxItems });
+    const selected = allocation ? [...allocation.selected] : eligible.slice(0, input.maxItems);
     const memoryRevision = selected.map(record => `${record.memoryId}:${record.recordVersion}`).join("|");
     const replayKey = `${input.contextId}\u0000${input.idempotencyKey}`;
     const valueFingerprint = fingerprint({ ...input, memoryRevision });
@@ -274,6 +279,7 @@ export function createProjectMemory(options = {}) {
         memoryIds: selected.map(record => record.memoryId),
         maxItems: input.maxItems,
         selectedItems: selected.length,
+        ...(allocation ? { omittedItems: allocation.omitted.length, budgetStatus: allocation.status } : {}),
         status: "ready",
         code: "CONTEXT_READY",
         assembledAt: event.occurredAt,
@@ -290,6 +296,7 @@ export function createProjectMemory(options = {}) {
           recipientRole: input.recipientRole,
           records: selected,
           minimization: { maxItems: input.maxItems, selectedItems: selected.length, latestOnly: true, roleFiltered: true },
+          ...(allocation ? { omitted: allocation.omitted, tokenUsage: allocation.usage, budgetStatus: allocation.status, budgetDigest: allocation.digest } : {}),
           artifact: { reference: `hero://artifacts/${encodeURIComponent(input.contextId)}/project-context.json`, external: false },
           boundary: { readOnly: true, providerInvocation: false, codeMutation: false, hostPathsIncluded: false, secretsIncluded: false },
           eventId: event.eventId

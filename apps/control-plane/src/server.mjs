@@ -82,6 +82,7 @@ import { AdminAuthError, createAdminAuth } from "../../../packages/domain/src/ad
 import { createHumanIdentity, HumanIdentityError, HUMAN_IDENTITY_SESSION_TTL_SECONDS } from "../../../packages/domain/src/human-identity.mjs";
 import { createMfaVault } from "../../../packages/domain/src/mfa-vault.mjs";
 import { computeDeliveryTruth } from "../../../packages/domain/src/delivery-truth.mjs";
+import { describeModelCapabilities } from "../../../packages/domain/src/model-capability-matrix.mjs";
 import { createProjectAccessMiddleware } from "../../../packages/domain/src/project-access-middleware.mjs";
 import { createProjectAccessRegistry, ProjectAccessError } from "../../../packages/domain/src/project-access.mjs";
 import { createProjectSettingsRegistry, ProjectSettingsError } from "../../../packages/domain/src/project-settings.mjs";
@@ -216,6 +217,7 @@ const PUBLIC_UI_ASSET_PATHS = new Set(["/api/ui-assets/vazirmatn.woff2"]);
 const NODE_AGENT_PATHS = new Set(["/api/node-agent/register", "/api/node-agent/heartbeat"]);
 const DELIVERY_AUDIT_PATH = fileURLToPath(new URL("../../../config/backoffice/delivery-audit-v1.0.json", import.meta.url));
 const REQUIREMENT_TRACE_PATH = fileURLToPath(new URL("../../../config/backoffice/requirement-trace-v1.0.json", import.meta.url));
+const MODEL_CAPABILITIES_PATH = fileURLToPath(new URL("../../../config/model-capabilities/model-capabilities-v1.json", import.meta.url));
 const GOLDEN_PATH_LIVE_EVIDENCE_PATH = fileURLToPath(new URL("../../../config/golden-path/live-evidence.json", import.meta.url));
 const VAZIRMATN_FONT_PATH = fileURLToPath(new URL("./assets/fonts/Vazirmatn-wght.woff2", import.meta.url));
 const VAZIRMATN_FONT = fs.readFileSync(VAZIRMATN_FONT_PATH);
@@ -3692,6 +3694,12 @@ export function createHeroServer(options = {}) {
             detail: "وضعیت فقط از وجود پرونده‌ی شواهد خوانده می‌شود؛ محتوای آن صحت‌سنجی نمی‌شود."
           }]
         }) });
+      }
+
+      // NX-030: read-only, advisory view of what has been verified about each model; unknown stays unknown.
+      if (request.method === "GET" && url.pathname === "/api/model-capabilities") {
+        const registry = options.modelCapabilityRegistry ?? JSON.parse(fs.readFileSync(MODEL_CAPABILITIES_PATH, "utf8"));
+        return json(response, 200, { service: HERO_SERVICE, modelCapabilities: describeModelCapabilities(registry, { now: (options.now ?? (() => new Date().toISOString()))() }) });
       }
 
       if (request.method === "GET" && url.pathname === "/api/dashboard") {

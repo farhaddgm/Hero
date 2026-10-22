@@ -1,0 +1,10 @@
+{
+  "schema": "hero.runner-resource-profiles/v1",
+  "version": "1.0.0",
+  "note": "سقف منابع هر کلاس تکلیف Runner. این فایل فقط داده است؛ اعمال واقعی cgroup روی میزبان گام جدا و gated است. هیچ پروفایلی نمی‌تواند از سقف‌های غیرقابل‌تضعیف قرارداد (PRODUCT_RUNTIME_DEFAULTS و سقف دیسک) بالاتر باشد.",
+  "profiles": {
+    "light": { "cpuCores": 0.25, "memoryMiB": 256, "pidsLimit": 64, "diskMiB": 512, "timeoutSeconds": 300, "maxConcurrentRuns": 1, "purpose": "تحلیل ایستا، لینت، تولید سند و تکلیف‌های بدون ساخت" },
+    "standard": { "cpuCores": 0.5, "memoryMiB": 512, "pidsLimit": 128, "diskMiB": 2048, "timeoutSeconds": 900, "maxConcurrentRuns": 1, "purpose": "ساخت و آزمون واحد برای محصول‌های معمولی" },
+    "heavy": { "cpuCores": 1, "memoryMiB": 1024, "pidsLimit": 256, "diskMiB": 4096, "timeoutSeconds": 1800, "maxConcurrentRuns": 1, "purpose": "ساخت کامل، آزمون پذیرش و تکلیف‌های سنگین" }
+  }
+}

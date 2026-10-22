@@ -75,18 +75,18 @@ test("references to AR items, requirements, ADRs and specs must exist in the rep
 });
 
 test("a step cannot claim source_complete or verified without real evidence", () => {
-  const noEvidence = codesOf(mutated(registry => { stepOf(registry, "NX-002").status = "source_complete"; }));
+  const noEvidence = codesOf(mutated(registry => { stepOf(registry, "NX-005").status = "source_complete"; }));
   assert.ok(noEvidence.has("STATUS_WITHOUT_EVIDENCE"));
 
   const missingFile = codesOf(mutated(registry => {
-    const step = stepOf(registry, "NX-002");
+    const step = stepOf(registry, "NX-005");
     step.status = "source_complete";
     step.evidence = ["tools/does-not-exist.mjs"];
   }));
   assert.ok(missingFile.has("INVALID_EVIDENCE_PATH"));
 
   const traversal = codesOf(mutated(registry => {
-    const step = stepOf(registry, "NX-002");
+    const step = stepOf(registry, "NX-005");
     step.status = "source_complete";
     step.evidence = ["../outside.md"];
   }));
@@ -121,4 +121,53 @@ test("plan status approved requires the documents to be active", () => {
   const codes = codesOf(mutated(registry => { registry.status = "approved"; }));
   assert.ok(codes.has("ROADMAP_STATUS_MISMATCH"));
   assert.ok(codes.has("TRACK_DOCUMENT_STATUS_MISMATCH"));
+});
+
+/* ---------------------------------------------------------------- authorization (AGENTS.md rule 11) */
+
+const snapshotFor = (patch = {}) => {
+  const real = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, "config", "authorizations", "nx-20261021-001.json"), "utf8"));
+  return structuredClone({ ...real, ...patch });
+};
+const withSnapshots = (...snapshots) => validateNextSteps({ authorizations: snapshots });
+
+test("every started step is covered by the committed snapshot for the exact document version", () => {
+  const registry = loadRegistry();
+  const started = registry.steps.filter(step => step.status !== "proposed" && step.status !== "dropped");
+  assert.equal(started.length, 12);
+  const snapshot = snapshotFor();
+  assert.equal(snapshot.status, "active");
+  assert.equal(snapshot.globalStop, false);
+  assert.deepEqual(snapshot.steps.map(step => step.stepId).sort(), started.map(step => step.id).sort());
+  assert.deepEqual(withSnapshots(snapshot).errors, [], "the committed snapshot authorizes exactly what has started");
+  for (const excluded of ["production-deploy", "external-spend", "secret-change", "provider-live-call", "external-message", "test-deploy"]) assert.ok(snapshot.excludedOperations.includes(excluded), excluded);
+  assert.ok(!snapshot.steps.some(step => ["NX-006", "NX-018"].includes(step.stepId)), "steps that need owner input are not authorized");
+});
+
+test("a step that has started without a snapshot is rejected", () => {
+  assert.ok(codesOf(mutated(registry => { stepOf(registry, "NX-005").status = "in_progress"; })).has("STEP_NOT_AUTHORIZED"));
+  assert.ok(codesOf(mutated(registry => { stepOf(registry, "NX-005").status = "authorized"; })).has("STEP_NOT_AUTHORIZED"));
+  assert.ok(!codesOf(mutated(registry => { stepOf(registry, "NX-005").status = "dropped"; })).has("STEP_NOT_AUTHORIZED"), "a dropped step needs none");
+  assert.ok(codesOf(withSnapshots()).has("STEP_NOT_AUTHORIZED"), "with no snapshots at all every started step fails");
+});
+
+test("a snapshot for another document version, a stopped, revoked or over-broad snapshot does not authorize", () => {
+  const wrongVersion = snapshotFor();
+  wrongVersion.steps = wrongVersion.steps.map(step => ({ ...step, documentVersion: "1.0.0" }));
+  assert.ok(codesOf(withSnapshots(wrongVersion)).has("AUTHORIZATION_VERSION_MISMATCH"), "the snapshot predates the current card version");
+  const wrongDocument = snapshotFor();
+  wrongDocument.documents = wrongDocument.documents.filter(document => document.documentId !== "HERO-SPEC-NX-TRACK-A");
+  assert.ok(codesOf(withSnapshots(wrongDocument)).has("AUTHORIZATION_VERSION_MISMATCH"), "the track document is not named by the snapshot");
+  assert.ok(codesOf(withSnapshots(snapshotFor({ globalStop: true }))).has("AUTHORIZATION_SCOPE_INVALID"));
+  assert.ok(codesOf(withSnapshots(snapshotFor({ status: "revoked" }))).has("AUTHORIZATION_SCOPE_INVALID"));
+  for (const operation of ["production-deploy", "external-spend", "secret-change"]) {
+    const broad = snapshotFor();
+    broad.operations = [...broad.operations, operation];
+    assert.ok(codesOf(withSnapshots(broad)).has("AUTHORIZATION_SCOPE_INVALID"), `${operation} enabled`);
+    const unlisted = snapshotFor();
+    unlisted.excludedOperations = unlisted.excludedOperations.filter(item => item !== operation);
+    assert.ok(codesOf(withSnapshots(unlisted)).has("AUTHORIZATION_SCOPE_INVALID"), `${operation} not excluded`);
+  }
+  const good = snapshotFor();
+  assert.ok(!codesOf(withSnapshots(wrongVersion, good)).has("AUTHORIZATION_VERSION_MISMATCH"), "a second matching snapshot is enough");
 });

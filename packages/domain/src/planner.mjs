@@ -1,3 +1,4 @@
+import { adviseTaskGraph } from "./model-capability-matrix.mjs";
 import {
   PLANNER_ROUTER_PROVIDERS,
   PLANNER_AI_ROLE_ROUTES,
@@ -461,6 +462,8 @@ export function createPlanner(options = {}) {
   const idempotency = new Map();
   const outputDecisionIdempotency = new Map();
   const teamRegistry = options.teamRegistry ?? null;
+  // NX-030: an optional, purely advisory view of what is known about model capabilities for each task.
+  const capabilityRegistry = options.modelCapabilityRegistry ?? null;
   let nextEvent = 0;
   const eventIdFactory = options.eventIdFactory ?? (() => `evt_planner_${String(++nextEvent).padStart(6, "0")}`);
 
@@ -593,6 +596,7 @@ export function createPlanner(options = {}) {
       teamReadiness: readiness,
       escalations,
       outputAdvisory,
+      ...(capabilityRegistry ? { modelCapabilityAdvice: adviseTaskGraph({ graph, registry: capabilityRegistry, now: now() }) } : {}),
       dispatch: outputAdvisory.dispatch,
       stop: { canHaltBeforeDispatch: true, nextState: "halted" },
       boundary: { providerInvocation: false, runnerCreated: false, codeMutation: false, sensitiveOperation: false },

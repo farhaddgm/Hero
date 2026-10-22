@@ -51,7 +51,7 @@ test("readiness lists every missing precondition and is never an authorization",
   assert.equal(empty.ready, false);
   assert.deepEqual(empty.blockers.map(item => item.code), ["GLOBAL_STOP_ACTIVE", "SPEND_AUTHORIZATION_MISSING", "TARGET_NOT_TEST", "BENCH_BASELINE_MISSING", "ACCEPTANCE_CRITERIA_NOT_APPROVED", "KILL_SWITCH_DRILL_MISSING"]);
   const spend = { active: true, authorizationId: "SPEND-001", stepId: "STEP-GP-001", documentVersion: "v1.0", providerId: "openai", modelIds: ["m1"], maxCostUnits: 5_000, expiresAt: "2026-12-01T00:00:00.000Z" };
-  const complete = { externalSpend: spend, credentialProviders: ["openai"], globalStopActive: false, targetEnvironment: "test", benchBaselineDigest: "a".repeat(64), ownerAcceptanceApproved: true, killSwitchDrillAt: "2026-10-08T10:00:00.000Z", estimateHighCostUnits: 4_000, expectedProviderId: "openai" };
+  const complete = { externalSpend: spend, credentialProviders: ["openai"], globalStopActive: false, targetEnvironment: "test", benchBaselineDigest: "a".repeat(64), ownerAcceptanceApproved: true, killSwitchDrillAt: "2026-10-08T10:00:00.000Z", estimateHighCostUnits: 4_000, estimatePriceReliance: { reliable: true, code: null }, expectedProviderId: "openai" };
   const ready = golden.readiness(complete);
   assert.equal(ready.ready, true);
   assert.match(ready.note, /not an authorization/);
@@ -64,6 +64,9 @@ test("readiness lists every missing precondition and is never an authorization",
   assert.deepEqual(codes({ globalStopActive: true }), ["GLOBAL_STOP_ACTIVE"]);
   assert.deepEqual(codes({ externalSpend: { ...spend, active: false } }), ["SPEND_AUTHORIZATION_MISSING"]);
   assert.deepEqual(codes({ externalSpend: { ...spend, modelIds: [] } }), ["SPEND_AUTHORIZATION_INCOMPLETE"]);
+  assert.deepEqual(codes({ estimatePriceReliance: { reliable: false, code: "PRICE_STALE" } }), ["ESTIMATE_PRICE_STALE"]);
+  assert.deepEqual(codes({ estimatePriceReliance: null }), ["ESTIMATE_PRICE_FRESHNESS_UNKNOWN"], "unknown freshness is never healthy");
+  assert.deepEqual(codes({ estimatePriceReliance: { reliable: false, code: "PRICE_FRESHNESS_UNKNOWN" } }), ["ESTIMATE_PRICE_FRESHNESS_UNKNOWN"]);
 });
 
 test("construction requires the registry and the bench dataset", () => {

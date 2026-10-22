@@ -1,0 +1,45 @@
+/**
+ * WCAG 2.2 success criteria at Level A and AA (55 criteria: 31 A + 24 AA). 4.1.1 Parsing is not in 2.2.
+ * The names are the W3C names; the Persian titles are a reading aid only.
+ */
+export const WCAG_22_CRITERIA = Object.freeze([
+  ["1.1.1", "A", "Non-text Content"], ["1.2.1", "A", "Audio-only and Video-only (Prerecorded)"], ["1.2.2", "A", "Captions (Prerecorded)"],
+  ["1.2.3", "A", "Audio Description or Media Alternative (Prerecorded)"], ["1.3.1", "A", "Info and Relationships"], ["1.3.2", "A", "Meaningful Sequence"],
+  ["1.3.3", "A", "Sensory Characteristics"], ["1.4.1", "A", "Use of Color"], ["1.4.2", "A", "Audio Control"], ["2.1.1", "A", "Keyboard"],
+  ["2.1.2", "A", "No Keyboard Trap"], ["2.1.4", "A", "Character Key Shortcuts"], ["2.2.1", "A", "Timing Adjustable"], ["2.2.2", "A", "Pause, Stop, Hide"],
+  ["2.3.1", "A", "Three Flashes or Below Threshold"], ["2.4.1", "A", "Bypass Blocks"], ["2.4.2", "A", "Page Titled"], ["2.4.3", "A", "Focus Order"],
+  ["2.4.4", "A", "Link Purpose (In Context)"], ["2.5.1", "A", "Pointer Gestures"], ["2.5.2", "A", "Pointer Cancellation"], ["2.5.3", "A", "Label in Name"],
+  ["2.5.4", "A", "Motion Actuation"], ["3.1.1", "A", "Language of Page"], ["3.2.1", "A", "On Focus"], ["3.2.2", "A", "On Input"],
+  ["3.2.6", "A", "Consistent Help"], ["3.3.1", "A", "Error Identification"], ["3.3.2", "A", "Labels or Instructions"], ["3.3.7", "A", "Redundant Entry"],
+  ["4.1.2", "A", "Name, Role, Value"],
+  ["1.2.4", "AA", "Captions (Live)"], ["1.2.5", "AA", "Audio Description (Prerecorded)"], ["1.3.4", "AA", "Orientation"], ["1.3.5", "AA", "Identify Input Purpose"],
+  ["1.4.3", "AA", "Contrast (Minimum)"], ["1.4.4", "AA", "Resize Text"], ["1.4.5", "AA", "Images of Text"], ["1.4.10", "AA", "Reflow"],
+  ["1.4.11", "AA", "Non-text Contrast"], ["1.4.12", "AA", "Text Spacing"], ["1.4.13", "AA", "Content on Hover or Focus"], ["2.4.5", "AA", "Multiple Ways"],
+  ["2.4.6", "AA", "Headings and Labels"], ["2.4.7", "AA", "Focus Visible"], ["2.4.11", "AA", "Focus Not Obscured (Minimum)"], ["2.5.7", "AA", "Dragging Movements"],
+  ["2.5.8", "AA", "Target Size (Minimum)"], ["3.1.2", "AA", "Language of Parts"], ["3.2.3", "AA", "Consistent Navigation"], ["3.2.4", "AA", "Consistent Identification"],
+  ["3.3.3", "AA", "Error Suggestion"], ["3.3.4", "AA", "Error Prevention (Legal, Financial, Data)"], ["3.3.8", "AA", "Accessible Authentication (Minimum)"],
+  ["4.1.3", "AA", "Status Messages"]
+].map(([id, level, name]) => Object.freeze({ id, level, name })));
+
+export const WCAG_22_CRITERION_IDS = Object.freeze(WCAG_22_CRITERIA.map(item => item.id));
+
+export const MATRIX_STATUSES = Object.freeze(["automated", "browser-only", "needs-human", "not-applicable"]);
+export const EVIDENCE_KINDS = Object.freeze(["static-check", "token-contrast", "design-css", "unit-test", "browser-test"]);
+export const EVIDENCE_STRENGTHS = Object.freeze(["substantial", "partial"]);
+
+export function getWcagMatrixSummary() {
+  return Object.freeze({
+    standard: "WCAG 2.2",
+    levels: Object.freeze(["A", "AA"]),
+    criteria: WCAG_22_CRITERIA.length,
+    statuses: MATRIX_STATUSES,
+    evidenceKinds: EVIDENCE_KINDS,
+    rules: Object.freeze([
+      "A criterion with no automated evidence is never reported as covered; it is needs-human.",
+      "automated means an offline check that runs in pnpm check; browser-only means evidence that needs a real browser run.",
+      "Evidence is partial unless the check can decide the criterion on its own; coverage never counts partial evidence as a conformance claim.",
+      "not-applicable needs a justification and an applicability check that fails if the premise stops being true.",
+      "This report is a coverage map, not a certificate of conformance."
+    ])
+  });
+}
