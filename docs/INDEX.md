@@ -1,7 +1,7 @@
 # فهرست مرکزی مستندات Hero
 
 - Document ID: `HERO-DOC-INDEX`
-- Version: `1.13.0`
+- Version: `1.14.0`
 - Status: `active`
 - Owner: `hero-documentation`
 - Scope: `hero`
@@ -204,6 +204,7 @@ Product ابتدا با owner و Evidence در Product registry ثبت می‌ش
 | `HERO-ROADMAP-INTAKE-ADVISOR-AND-UNKNOWN-RISK-20260921` | `active` | [تحلیل و اجرای Intake Advisor و پاسخ «نمی‌دانم» برای ریسک پروژه — ۲۰۲۶-۰۹-۲۱](roadmap/INTAKE-ADVISOR-AND-UNKNOWN-RISK-ANALYSIS-20260921.md) |
 | `HERO-ROADMAP-AGENT-READINESS-20261009` | `active` | [آمادگی عامل‌ها و مسیر طلایی — ۲۰۲۶-۱۰-۰۹](roadmap/AGENT-READINESS-GOLDEN-PATH-20261009.md) |
 | `HERO-ROADMAP-NEXT-50-STEPS-20261013` | `proposed` | [پنجاه گام جدید توسعهٔ Hero — NX-001 تا NX-050](roadmap/NEXT-50-STEPS-20261013.md) |
+| `HERO-ROADMAP-WORK-REGISTER-CONSOLIDATED-20261023` | `active` | [نقشهٔ یکپارچهٔ کارهای باز Hero — ۲۰۲۶-۱۰-۲۳](roadmap/WORK-REGISTER-CONSOLIDATED-20261023.md) |
 
 ## Templateها
 

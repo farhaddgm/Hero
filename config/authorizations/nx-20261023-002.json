@@ -1,0 +1,111 @@
+{
+  "schema": "hero.authorization-snapshot/v1",
+  "authorizationId": "BATCH-NX-20261023-002",
+  "status": "active",
+  "grantedBy": "project-owner",
+  "grantedAt": "2026-10-23",
+  "grantSource": "owner-chat-instruction-2026-10-21 (continued); supersedes BATCH-NX-20261021-001 for document version 1.2.0",
+  "ownerStatement": "هر کاری که بازه و قابل انجامه و وابسته به من نیست رو انجام بده با دقت و کامل",
+  "interpretation": "عامل این دستور را فقط برای گام‌های آفلاین NX موج ۱ تفسیر کرد که needs_owner_input=false دارند (NX-006 و NX-018 به ورودی مالک نیاز دارند و خارج‌اند). گام‌های test-runtime و gated-live، AR-02/AR-03/AR-04/AR-07/AR-10/AR-11 و هر عملیات حساس مجاز نشده‌اند.",
+  "validUntil": "owner-revocation",
+  "globalStop": false,
+  "operations": [
+    "design",
+    "develop",
+    "document",
+    "test",
+    "review"
+  ],
+  "excludedOperations": [
+    "production-deploy",
+    "secret-change",
+    "external-spend",
+    "provider-live-call",
+    "github-live-call",
+    "server-live-connection",
+    "notion-write",
+    "destructive-data-operation",
+    "external-message",
+    "irreversible-operation",
+    "pilot-execution",
+    "test-deploy"
+  ],
+  "documents": [
+    {
+      "documentId": "HERO-ROADMAP-NEXT-50-STEPS-20261013",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "documentId": "HERO-SPEC-NX-TRACK-A",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "documentId": "HERO-SPEC-NX-TRACK-B",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "documentId": "HERO-SPEC-NX-TRACK-C",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "documentId": "HERO-SPEC-NX-TRACK-D",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "documentId": "HERO-SPEC-NX-TRACK-E",
+      "documentVersion": "1.2.0"
+    }
+  ],
+  "steps": [
+    {
+      "stepId": "NX-002",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "NX-003",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "NX-007",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "NX-009",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "NX-011",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "NX-016",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "NX-021",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "NX-025",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "NX-030",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "NX-037",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "NX-043",
+      "documentVersion": "1.2.0"
+    },
+    {
+      "stepId": "NX-049",
+      "documentVersion": "1.2.0"
+    }
+  ],
+  "note": "نسخهٔ جدید رکورد مجوز برای نسخهٔ 1.2.0 اسناد (انتقال ۱۲ گام به source_complete پس از سبز شدن pnpm check). رکورد قبلی دست‌نخورده برای تاریخچه می‌ماند. دامنهٔ مجوز تغییر نکرده است.",
+  "supersedes": "BATCH-NX-20261021-001"
+}

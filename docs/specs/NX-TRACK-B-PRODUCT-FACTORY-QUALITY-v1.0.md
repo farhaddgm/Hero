@@ -6,7 +6,7 @@
 > Type: specification
 > Scope: hero
 > Status: proposed
-> Version: 1.1.0
+> Version: 1.2.0
 > Owner: hero-product
 > Review cadence: per-change
 > Supersedes: none
@@ -36,7 +36,7 @@
 | اندازه | M |
 | گیت تأیید | `offline` |
 | وابستگی | — |
-| وضعیت | `in_progress` |
+| وضعیت | `source_complete` |
 
 **مسئله.** قالب‌های محصول معیار پذیرش دارند و پیش‌نیاز پنجم Golden Path تأیید آن‌ها توسط مالک است، اما معیارها متن آزادند و مسیری آن‌ها را به بررسی ماشینی تبدیل نمی‌کند؛ «پذیرش» هنوز قضاوت دستی است.
 
@@ -164,7 +164,7 @@
 | اندازه | S |
 | گیت تأیید | `offline` |
 | وابستگی | — |
-| وضعیت | `in_progress` |
+| وضعیت | `source_complete` |
 
 **مسئله.** نمایش تاریخ در UI به رفتار ضمنی `toLocaleDateString('fa-IR')` تکیه دارد و کتابخانهٔ صریح و آزمون‌پذیری برای تقویم جلالی در مخزن نیست، پس خروجی سمت سرور (گزارش، Evidence، خروجی چاپی) به ICU محیط وابسته است. همچنین `toPersianDigits` داخل ماژول domain به نام `delivery-truth` و `normalizeHeroSearch` در `ui-copy` مستقل نوشته شده‌اند و دو نسخهٔ نرمال‌سازی می‌توانند بی‌صدا ناهمخوان شوند.
 

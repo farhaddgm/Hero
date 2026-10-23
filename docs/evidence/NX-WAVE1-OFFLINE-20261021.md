@@ -6,7 +6,7 @@
 > Type: evidence
 > Scope: hero
 > Status: active
-> Version: 1.0.0
+> Version: 1.1.0
 > Owner: hero-product
 > Review cadence: none
 > Supersedes: none
@@ -21,7 +21,7 @@
 
 ## ۲. وضعیت گام‌ها و اندازه‌گیری واقعی
 
-همهٔ ۱۲ گام `in_progress` ثبت شدند، نه `source_complete`: تعریف `source_complete` سبز بودن کل `pnpm check` همان commit را می‌خواهد و آن به‌خاطر دو شکست غیرمرتبط (بخش ۳) سبز نیست. مجموعه‌آزمون هر گام جداگانه سبز است:
+هر ۱۲ گام ابتدا `in_progress` ثبت شد (۲۰۲۶-۱۰-۲۱) و پس از سبز شدن `pnpm check` کامل روی شاخهٔ اصلی `source_complete` شد (۲۰۲۶-۱۰-۲۳). مجموعه‌آزمون هر گام جداگانه سبز است:
 
 | گام | آزمون | نتیجه | فایل‌های اصلی |
 |---|---|---|---|
@@ -40,15 +40,13 @@
 
 جمع: ۱۱۶ آزمون جدید در ۱۲ فایل و ۳ آزمون تازه برای کنترل مجوز در `tests/next-steps.test.mjs`. آزمون‌های موجود تغییرکرده: `tests/golden-path.test.mjs` (شرط تازهٔ تازگی قیمت) و `tests/ui-static-audit.test.mjs` (ممیزی به `tools/ui-static-audit.mjs` منتقل شد؛ همان ادعاها).
 
-اجرای کامل `pnpm check` روی همین working tree: ۸۴۸ آزمون، ۸۴۵ pass، ۲ fail، ۱ skip. همهٔ کنترل‌های `check:*` (از جمله `check:next-steps`، `check:hero-bench`، `check:product-templates`، `check:deployment-contract`، `check:a11y-matrix` و `check:migrations`) PASS شدند.
+اجرای کامل `pnpm check` روی شاخهٔ اصلی پس از ادغام (۲۰۲۶-۱۰-۲۳): ۸۴۸ آزمون، ۸۴۷ pass، ۰ fail، ۱ skip. همهٔ کنترل‌های `check:*` (از جمله `check:next-steps`، `check:hero-bench`، `check:product-templates`، `check:deployment-contract`، `check:a11y-matrix` و `check:migrations`) PASS شدند.
 
-## ۳. شکست‌های غیرمرتبط (روی HEAD دست‌نخورده هم رخ می‌دهند)
+## ۳. اصلاحیه — شکست‌های ظاهری (۲۰۲۶-۱۰-۲۳)
 
-دو آزمون `tests/ai-connections.test.mjs` («AI Connections lets only the Human Identity Owner store an encrypted Test credential» و «AI credential writes return a readable JSON error…») با `CATALOG_EXPIRED` می‌شکنند. علت: کاتالوگ قیمت آزمایشی داخل `apps/control-plane/src/server.mjs` (`OPENAI_TEST_ADVISOR.catalogValidUntil`) تا `2026-10-16T00:00:00.000Z` اعتبار داشت و عمداً fail-closed است. این را در یک checkout تمیز از commit `901a2b6` (پیش از همهٔ تغییرات این دسته) نیز بازتولید کردم.
+نسخهٔ نخست این سند دو شکست `tests/ai-connections.test.mjs` را «کاتالوگ قیمت منقضی‌شده» معرفی می‌کرد و نتیجه می‌گرفت ساخت Candidate و بالا آمدن سرور Test مسدود است. این نتیجه‌گیری دیگر درست نیست: در یک گفتگوی موازی، PR 24 همین کاتالوگ را (با بازبینی نرخ رسمی) تا `2026-11-20` تمدید کرده بود و شاخهٔ من پیش از ادغام آن را نداشت؛ به همین دلیل CI روی PR سبز شد و اجرای محلی من نه. پس از ادغام هر دو PR، `pnpm check` کامل سبز است: ۸۴۸ آزمون، ۸۴۷ pass، ۰ fail، ۱ skip.
 
-اثر روی ساخت: `Dockerfile` مرحلهٔ `verify` را با `node --test` اجرا می‌کند، پس تا تمدید کاتالوگ هیچ Candidate تازه‌ای (rc.46 به بعد) ساخته نمی‌شود و CI هم قرمز می‌ماند.
-
-اثر عملیاتی: هر بار بالا آمدن `createHeroServer` با Secret Store فعال Test (پیکربندی نمونهٔ Test چنین است) پس از این تاریخ با همین خطا متوقف می‌شود. تمدید فقط با بازبینی قیمت از منبع رسمی و تغییر کد ممکن است؛ آن یک گام gated جداست و در این دسته انجام نشد.
+نکتهٔ باقی‌مانده: پنجرهٔ بازبینی کاتالوگ قیمت آزمایشی (`catalogValidUntil` در `server.mjs`) دوباره در `2026-11-20` تمام می‌شود و همان خطا برمی‌گردد؛ هیچ هشدار زودهنگامی برایش وجود ندارد.
 
 ## ۴. یافته‌های جانبی (ثبت‌شده، اصلاح‌نشده)
 

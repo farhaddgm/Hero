@@ -126,7 +126,7 @@ test("plan status approved requires the documents to be active", () => {
 /* ---------------------------------------------------------------- authorization (AGENTS.md rule 11) */
 
 const snapshotFor = (patch = {}) => {
-  const real = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, "config", "authorizations", "nx-20261021-001.json"), "utf8"));
+  const real = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, "config", "authorizations", "nx-20261023-002.json"), "utf8"));
   return structuredClone({ ...real, ...patch });
 };
 const withSnapshots = (...snapshots) => validateNextSteps({ authorizations: snapshots });
