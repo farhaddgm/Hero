@@ -6,7 +6,7 @@
 > Type: specification
 > Scope: hero
 > Status: proposed
-> Version: 1.1.0
+> Version: 1.2.0
 > Owner: hero-product
 > Review cadence: per-change
 > Supersedes: none
@@ -188,7 +188,7 @@ Hero برای یک مالک تصمیم‌گیر طراحی شده است؛ پس 
 | اندازه | M |
 | گیت تأیید | `offline` |
 | وابستگی | — |
-| وضعیت | `in_progress` |
+| وضعیت | `source_complete` |
 
 **مسئله.** ممیزی ایستای RTL/a11y و `ui-browser-audit` وجود دارند، اما خروجی آن‌ها به معیارهای WCAG 2.2 AA نگاشت نشده؛ نمی‌شود گفت کدام معیار با چه شواهدی پوشش دارد و کدام فقط به بررسی انسانی نیاز دارد.
 

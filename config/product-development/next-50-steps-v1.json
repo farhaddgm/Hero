@@ -72,7 +72,7 @@
     },
     "by_status": {
       "proposed": 38,
-      "in_progress": 12
+      "source_complete": 12
     }
   },
   "steps": [
@@ -100,7 +100,7 @@
       "priority": "P1",
       "size": "S",
       "gate": "offline",
-      "status": "in_progress",
+      "status": "source_complete",
       "depends_on": [
         "ADR-0017"
       ],
@@ -120,7 +120,7 @@
       "priority": "P0",
       "size": "M",
       "gate": "offline",
-      "status": "in_progress",
+      "status": "source_complete",
       "depends_on": [
         "ADR-0017"
       ],
@@ -185,7 +185,7 @@
       "priority": "P1",
       "size": "M",
       "gate": "offline",
-      "status": "in_progress",
+      "status": "source_complete",
       "depends_on": [
         "ADR-0006"
       ],
@@ -221,7 +221,7 @@
       "priority": "P1",
       "size": "S",
       "gate": "offline",
-      "status": "in_progress",
+      "status": "source_complete",
       "depends_on": [
         "ADR-0006"
       ],
@@ -256,7 +256,7 @@
       "priority": "P0",
       "size": "M",
       "gate": "offline",
-      "status": "in_progress",
+      "status": "source_complete",
       "depends_on": [],
       "needs_owner_input": false,
       "evidence": [
@@ -335,7 +335,7 @@
       "priority": "P1",
       "size": "S",
       "gate": "offline",
-      "status": "in_progress",
+      "status": "source_complete",
       "depends_on": [],
       "needs_owner_input": false,
       "evidence": [
@@ -412,7 +412,7 @@
       "priority": "P0",
       "size": "S",
       "gate": "offline",
-      "status": "in_progress",
+      "status": "source_complete",
       "depends_on": [],
       "needs_owner_input": false,
       "evidence": [
@@ -477,7 +477,7 @@
       "priority": "P1",
       "size": "M",
       "gate": "offline",
-      "status": "in_progress",
+      "status": "source_complete",
       "depends_on": [],
       "needs_owner_input": false,
       "evidence": [
@@ -557,7 +557,7 @@
       "priority": "P2",
       "size": "S",
       "gate": "offline",
-      "status": "in_progress",
+      "status": "source_complete",
       "depends_on": [],
       "needs_owner_input": false,
       "evidence": [
@@ -670,7 +670,7 @@
       "priority": "P1",
       "size": "M",
       "gate": "offline",
-      "status": "in_progress",
+      "status": "source_complete",
       "depends_on": [],
       "needs_owner_input": false,
       "evidence": [
@@ -760,7 +760,7 @@
       "priority": "P1",
       "size": "S",
       "gate": "offline",
-      "status": "in_progress",
+      "status": "source_complete",
       "depends_on": [],
       "needs_owner_input": false,
       "evidence": [
@@ -853,7 +853,7 @@
       "priority": "P0",
       "size": "L",
       "gate": "offline",
-      "status": "in_progress",
+      "status": "source_complete",
       "depends_on": [
         "BO-IAM-005"
       ],
